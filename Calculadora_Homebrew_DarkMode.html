@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora Homebrew</title>
+<style>
+:root{
+  --bg:#f4f4f4;--card:#ffffff;--text:#222;--accent:#e67e22;--border:#ccc;
+}
+[data-theme='dark']{
+  --bg:#1f1f1f;--card:#2b2b2b;--text:#e0e0e0;--accent:#f39c12;--border:#444;
+}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;}
+h1{margin-top:0;}
+button,select,input{font-size:1rem;padding:10px;border:1px solid var(--border);border-radius:4px;box-sizing:border-box;color:var(--text);background:var(--card);}
+button{background:var(--accent);color:#fff;border:none;cursor:pointer;}
+.container{display:flex;flex-wrap:wrap;gap:20px;}
+.card{background:var(--card);padding:20px;border-radius:6px;flex:1 1 300px;min-width:280px;box-shadow:0 1px 4px rgba(0,0,0,.1);}
+label{font-weight:bold;margin-top:15px;display:block;}
+.result-line{margin:6px 0;}
+.toggle{position:fixed;top:15px;right:15px;}
+</style>
+</head>
+<body>
+
+<button class="toggle" onclick="toggleTheme()">🌙/☀️</button>
+
+<h1>Calculadora Homebrew</h1>
+<p>Preencha os campos; o resultado aparece instantaneamente.</p>
+
+<div class="container">
+  <!-- Formulário -->
+  <div class="card">
+    <label for="compound">Composto</label>
+    <select id="compound" onchange="setDensity();calculate()">
+      <option value="">-- Selecione --</option>
+      <option value="Testosterone Cypionate">Testosterone Cypionate</option>
+      <option value="Testosterone Enanthate">Testosterone Enanthate</option>
+      <option value="Boldenone Undecylenate">Boldenone Undecylenate</option>
+      <option value="Trenbolone Acetate">Trenbolone Acetate</option>
+      <option value="Masteron Propionate">Masteron Propionate</option>
+      <option value="Nandrolone Decanoate">Nandrolone Decanoate</option>
+      <option value="Primobolan">Primobolan</option>
+      <option value="Halotestin">Halotestin</option>
+      <option value="UNKNOWN">UNKNOWN</option>
+    </select>
+
+    <label>Densidade (g/mL)</label>
+    <input type="number" id="density" step="0.001" value="0.909" oninput="calculate()">
+
+    <label>Volume final (mL)</label>
+    <input type="number" id="volume" value="1000" oninput="calculate()">
+
+    <label>Dosagem desejada (mg/mL)</label>
+    <input type="number" id="dosage" placeholder="Informe a dosagem" oninput="calculate()">
+
+    <label>Pureza do composto (%)</label>
+    <input type="number" id="purity" value="100" oninput="calculate()">
+
+    <label>BA (%)</label>
+    <input type="number" id="ba" value="1" oninput="calculate()">
+
+    <label>BB (%)</label>
+    <input type="number" id="bb" value="16" oninput="calculate()">
+
+    <label>Cheeky bit (+5%)?</label>
+    <select id="cheeky" onchange="calculate()">
+      <option value="0">Não</option>
+      <option value="0.05">Sim</option>
+    </select>
+
+    <button onclick="calculate()">Calcular</button>
+  </div>
+
+  <!-- Resultados -->
+  <div class="card" id="results">
+    <h3>Resultados</h3>
+    <div id="output">
+      <p class="result-line">Preencha os campos para ver o cálculo.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// [Não verificado] Densidades aproximadas
+const densities = {
+  "Testosterone Cypionate":0.98,
+  "Testosterone Enanthate":1.06,
+  "Boldenone Undecylenate":1.05,
+  "Trenbolone Acetate":1.146,
+  "Masteron Propionate":1.07,
+  "Nandrolone Decanoate":1.04,
+  "Primobolan":1.05,
+  "Halotestin":1.22
+};
+
+function setDensity(){
+  const comp=document.getElementById('compound').value;
+  if(densities[comp]) document.getElementById('density').value=densities[comp];
+}
+
+function n(id){return parseFloat(document.getElementById(id).value)||0;}
+
+function calculate(){
+  const d=n('density'),V=n('volume'),mg=n('dosage'),pur=n('purity')/100,ba=n('ba')/100,bb=n('bb')/100,ck=parseFloat(document.getElementById('cheeky').value);
+  const out=document.getElementById('output');
+  if(!d||!V||!mg||!pur){out.innerHTML="<p class='result-line'>Preencha densidade, volume, dosagem e pureza.</p>";return;}
+  const totalMg=mg*V;
+  const totalG=(totalMg/1000)*(1+ck);
+  const compVol=totalG/d;
+  const baVol=V*ba;
+  const bbVol=V*bb;
+  const oilVol=V-(compVol+baVol+bbVol);
+  if(oilVol<0){out.innerHTML="<p class='result-line'>Erro: soma dos volumes excede volume final.</p>";return;}
+  out.innerHTML=`
+    <p class='result-line'><b>Peso do composto ajustado:</b> ${totalG.toFixed(2)} g</p>
+    <p class='result-line'><b>Volume do composto:</b> ${compVol.toFixed(2)} mL</p>
+    <p class='result-line'><b>Volume de BA:</b> ${baVol.toFixed(2)} mL</p>
+    <p class='result-line'><b>Volume de BB:</b> ${bbVol.toFixed(2)} mL</p>
+    <p class='result-line'><b>Volume de óleo:</b> ${oilVol.toFixed(2)} mL</p>
+    <p class='result-line'><b>Volume final:</b> ${V.toFixed(2)} mL</p>
+  `;
+}
+
+function toggleTheme(){
+  const root=document.documentElement;
+  root.dataset.theme = root.dataset.theme==='dark' ? 'light' : 'dark';
+}
+</script>
+
+</body>
+</html>
