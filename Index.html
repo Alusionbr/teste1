@@ -1,134 +1,390 @@
-
 <!DOCTYPE html>
-<html lang="pt-br" data-theme="light">
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calculadora Homebrew</title>
-<style>
-:root{
-  --bg:#f4f4f4;--card:#ffffff;--text:#222;--accent:#e67e22;--border:#ccc;
-}
-[data-theme='dark']{
-  --bg:#1f1f1f;--card:#2b2b2b;--text:#e0e0e0;--accent:#f39c12;--border:#444;
-}
-body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;}
-h1{margin-top:0;}
-button,select,input{font-size:1rem;padding:10px;border:1px solid var(--border);border-radius:4px;box-sizing:border-box;color:var(--text);background:var(--card);}
-button{background:var(--accent);color:#fff;border:none;cursor:pointer;}
-.container{display:flex;flex-wrap:wrap;gap:20px;}
-.card{background:var(--card);padding:20px;border-radius:6px;flex:1 1 300px;min-width:280px;box-shadow:0 1px 4px rgba(0,0,0,.1);}
-label{font-weight:bold;margin-top:15px;display:block;}
-.result-line{margin:6px 0;}
-.toggle{position:fixed;top:15px;right:15px;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp Web com Tela de Privacidade</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --card: #ffffff;
+      --text: #17212b;
+      --muted: #667085;
+      --accent: #25d366;
+      --accent-dark: #128c7e;
+      --danger: #d92d20;
+      --border: #d0d5dd;
+      --shadow: 0 20px 60px rgba(15, 23, 42, .16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37, 211, 102, .18), transparent 32rem),
+        linear-gradient(135deg, #f8fafc, var(--bg));
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem clamp(1rem, 4vw, 3rem);
+      background: rgba(255, 255, 255, .82);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    button, input, select {
+      border: 1px solid var(--border);
+      border-radius: .75rem;
+      font: inherit;
+      padding: .85rem 1rem;
+    }
+
+    button {
+      border: 0;
+      background: var(--accent-dark);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform .15s ease, filter .15s ease;
+    }
+
+    button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+    button.secondary { background: #344054; }
+    button.danger { background: var(--danger); }
+
+    main {
+      width: min(1120px, calc(100% - 2rem));
+      margin: 2rem auto;
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) 1fr;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      font-weight: 800;
+    }
+
+    .logo {
+      display: grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 1.35rem;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .45rem .7rem;
+      border-radius: 999px;
+      background: #ecfdf3;
+      color: #027a48;
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .status::before {
+      content: "";
+      width: .55rem;
+      height: .55rem;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .muted { color: var(--muted); }
+
+    .actions {
+      display: grid;
+      gap: .75rem;
+      margin: 1.2rem 0;
+    }
+
+    .settings {
+      display: grid;
+      gap: .75rem;
+      margin-top: 1rem;
+    }
+
+    label {
+      display: grid;
+      gap: .4rem;
+      font-weight: 700;
+    }
+
+    label span {
+      color: var(--muted);
+      font-size: .88rem;
+      font-weight: 400;
+    }
+
+    .web-frame {
+      min-height: 620px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background:
+        linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.92)),
+        repeating-linear-gradient(135deg, #d1fadf 0 12px, #f0fdf4 12px 24px);
+    }
+
+    .phone-preview {
+      width: min(360px, 100%);
+      border-radius: 2rem;
+      padding: 1rem;
+      background: #101828;
+      box-shadow: 0 18px 50px rgba(16, 24, 40, .28);
+      color: white;
+    }
+
+    .chat-line {
+      margin: .7rem 0;
+      padding: .7rem .9rem;
+      border-radius: 1rem;
+      background: #1f2937;
+      text-align: left;
+    }
+
+    .chat-line.me {
+      margin-left: 3rem;
+      background: #075e54;
+    }
+
+    .lock-screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background:
+        linear-gradient(135deg, rgba(14, 23, 42, .92), rgba(52, 64, 84, .88)),
+        radial-gradient(circle at top, rgba(37, 211, 102, .3), transparent 34rem);
+      z-index: 1000;
+    }
+
+    .lock-screen.is-active { display: flex; }
+
+    .lock-card {
+      width: min(440px, 100%);
+      padding: 2rem;
+      border-radius: 1.5rem;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+    }
+
+    .fake-workspace {
+      position: fixed;
+      inset: 0;
+      padding: 2rem;
+      color: #344054;
+      background: #f9fafb;
+      overflow: hidden;
+    }
+
+    .fake-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      opacity: .55;
+      filter: blur(.2px);
+    }
+
+    .fake-box {
+      height: 8rem;
+      border: 1px solid #eaecf0;
+      border-radius: 1rem;
+      background: white;
+    }
+
+    .lock-card form { display: grid; gap: .8rem; }
+    .error { min-height: 1.2rem; color: var(--danger); font-weight: 700; }
+    .small { font-size: .88rem; }
+
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+      .web-frame { min-height: 480px; }
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <div class="brand">
+      <div class="logo">☏</div>
+      <div>
+        <div>WhatsApp Web seguro</div>
+        <small class="muted">Atalho com bloqueio local de privacidade</small>
+      </div>
+    </div>
+    <span class="status" id="lockStatus">Desbloqueado</span>
+  </header>
 
-<button class="toggle" onclick="toggleTheme()">🌙/☀️</button>
+  <main aria-live="polite">
+    <section class="card">
+      <h1>Conectar ao WhatsApp Web</h1>
+      <p class="muted">Use os botões abaixo para abrir o WhatsApp Web em uma nova aba. Por segurança, a tela é disfarçada e bloqueada quando você clicar em bloquear, trocar de aba ou ficar inativo.</p>
 
-<h1>Calculadora Homebrew</h1>
-<p>Preencha os campos; o resultado aparece instantaneamente.</p>
+      <div class="actions">
+        <button type="button" id="openWhats">Abrir WhatsApp Web</button>
+        <button type="button" class="secondary" id="lockNow">Disfarçar e bloquear agora</button>
+      </div>
 
-<div class="container">
-  <!-- Formulário -->
-  <div class="card">
-    <label for="compound">Composto</label>
-    <select id="compound" onchange="setDensity();calculate()">
-      <option value="">-- Selecione --</option>
-      <option value="Testosterone Cypionate">Testosterone Cypionate</option>
-      <option value="Testosterone Enanthate">Testosterone Enanthate</option>
-      <option value="Boldenone Undecylenate">Boldenone Undecylenate</option>
-      <option value="Trenbolone Acetate">Trenbolone Acetate</option>
-      <option value="Masteron Propionate">Masteron Propionate</option>
-      <option value="Nandrolone Decanoate">Nandrolone Decanoate</option>
-      <option value="Primobolan">Primobolan</option>
-      <option value="Halotestin">Halotestin</option>
-      <option value="UNKNOWN">UNKNOWN</option>
-    </select>
+      <div class="settings">
+        <label>
+          Senha local
+          <input type="password" id="newPassword" autocomplete="new-password" placeholder="Crie ou troque sua senha">
+          <span>A senha fica somente neste navegador. Ela não é enviada para nenhum servidor.</span>
+        </label>
+        <button type="button" id="savePassword">Salvar senha</button>
 
-    <label>Densidade (g/mL)</label>
-    <input type="number" id="density" step="0.001" value="0.909" oninput="calculate()">
+        <label>
+          Bloquear após inatividade
+          <select id="idleTime">
+            <option value="30">30 segundos</option>
+            <option value="60" selected>1 minuto</option>
+            <option value="180">3 minutos</option>
+            <option value="300">5 minutos</option>
+          </select>
+        </label>
+      </div>
+    </section>
 
-    <label>Volume final (mL)</label>
-    <input type="number" id="volume" value="1000" oninput="calculate()">
+    <section class="card web-frame" aria-label="Prévia de privacidade">
+      <div>
+        <div class="phone-preview" aria-hidden="true">
+          <div class="chat-line">WhatsApp Web abre em uma nova aba oficial.</div>
+          <div class="chat-line me">Esta página só controla o bloqueio visual local.</div>
+          <div class="chat-line">Clique em “Disfarçar e bloquear agora” para proteger a tela.</div>
+        </div>
+        <p class="muted small" style="margin-top:1rem">Observação: o WhatsApp Web não permite ser carregado dentro de iframe em páginas externas.</p>
+      </div>
+    </section>
+  </main>
 
-    <label>Dosagem desejada (mg/mL)</label>
-    <input type="number" id="dosage" placeholder="Informe a dosagem" oninput="calculate()">
+  <div class="lock-screen" id="lockScreen" role="dialog" aria-modal="true" aria-labelledby="lockTitle">
+    <div class="fake-workspace" aria-hidden="true">
+      <h2>Relatório mensal</h2>
+      <p>Carregando indicadores e tarefas...</p>
+      <div class="fake-grid">
+        <div class="fake-box"></div><div class="fake-box"></div><div class="fake-box"></div>
+        <div class="fake-box"></div><div class="fake-box"></div><div class="fake-box"></div>
+      </div>
+    </div>
 
-    <label>Pureza do composto (%)</label>
-    <input type="number" id="purity" value="100" oninput="calculate()">
-
-    <label>BA (%)</label>
-    <input type="number" id="ba" value="1" oninput="calculate()">
-
-    <label>BB (%)</label>
-    <input type="number" id="bb" value="16" oninput="calculate()">
-
-    <label>Cheeky bit (+5%)?</label>
-    <select id="cheeky" onchange="calculate()">
-      <option value="0">Não</option>
-      <option value="0.05">Sim</option>
-    </select>
-
-    <button onclick="calculate()">Calcular</button>
-  </div>
-
-  <!-- Resultados -->
-  <div class="card" id="results">
-    <h3>Resultados</h3>
-    <div id="output">
-      <p class="result-line">Preencha os campos para ver o cálculo.</p>
+    <div class="lock-card">
+      <h2 id="lockTitle">Tela protegida</h2>
+      <p class="muted">Digite sua senha local para voltar à página.</p>
+      <form id="unlockForm">
+        <label>
+          Senha
+          <input type="password" id="passwordInput" autocomplete="current-password" autofocus>
+        </label>
+        <button type="submit">Desbloquear</button>
+        <p class="error" id="errorMessage"></p>
+      </form>
+      <p class="muted small">Se você esqueceu a senha, limpe os dados locais deste site no navegador e cadastre uma nova.</p>
     </div>
   </div>
-</div>
 
-<script>
-// [Não verificado] Densidades aproximadas
-const densities = {
-  "Testosterone Cypionate":0.98,
-  "Testosterone Enanthate":1.06,
-  "Boldenone Undecylenate":1.05,
-  "Trenbolone Acetate":1.146,
-  "Masteron Propionate":1.07,
-  "Nandrolone Decanoate":1.04,
-  "Primobolan":1.05,
-  "Halotestin":1.22
-};
+  <script>
+    const PASSWORD_KEY = 'privacy-lock-password';
+    const DEFAULT_PASSWORD = '1234';
+    const lockScreen = document.getElementById('lockScreen');
+    const lockStatus = document.getElementById('lockStatus');
+    const passwordInput = document.getElementById('passwordInput');
+    const errorMessage = document.getElementById('errorMessage');
+    const idleTime = document.getElementById('idleTime');
+    let idleTimer;
 
-function setDensity(){
-  const comp=document.getElementById('compound').value;
-  if(densities[comp]) document.getElementById('density').value=densities[comp];
-}
+    function getPassword() {
+      return localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD;
+    }
 
-function n(id){return parseFloat(document.getElementById(id).value)||0;}
+    function setLocked(isLocked) {
+      lockScreen.classList.toggle('is-active', isLocked);
+      lockStatus.textContent = isLocked ? 'Bloqueado' : 'Desbloqueado';
+      if (isLocked) {
+        errorMessage.textContent = '';
+        passwordInput.value = '';
+        setTimeout(() => passwordInput.focus(), 50);
+      }
+    }
 
-function calculate(){
-  const d=n('density'),V=n('volume'),mg=n('dosage'),pur=n('purity')/100,ba=n('ba')/100,bb=n('bb')/100,ck=parseFloat(document.getElementById('cheeky').value);
-  const out=document.getElementById('output');
-  if(!d||!V||!mg||!pur){out.innerHTML="<p class='result-line'>Preencha densidade, volume, dosagem e pureza.</p>";return;}
-  const totalMg=mg*V;
-  const totalG=(totalMg/1000)*(1+ck);
-  const compVol=totalG/d;
-  const baVol=V*ba;
-  const bbVol=V*bb;
-  const oilVol=V-(compVol+baVol+bbVol);
-  if(oilVol<0){out.innerHTML="<p class='result-line'>Erro: soma dos volumes excede volume final.</p>";return;}
-  out.innerHTML=`
-    <p class='result-line'><b>Peso do composto ajustado:</b> ${totalG.toFixed(2)} g</p>
-    <p class='result-line'><b>Volume do composto:</b> ${compVol.toFixed(2)} mL</p>
-    <p class='result-line'><b>Volume de BA:</b> ${baVol.toFixed(2)} mL</p>
-    <p class='result-line'><b>Volume de BB:</b> ${bbVol.toFixed(2)} mL</p>
-    <p class='result-line'><b>Volume de óleo:</b> ${oilVol.toFixed(2)} mL</p>
-    <p class='result-line'><b>Volume final:</b> ${V.toFixed(2)} mL</p>
-  `;
-}
+    function lockPage() {
+      setLocked(true);
+    }
 
-function toggleTheme(){
-  const root=document.documentElement;
-  root.dataset.theme = root.dataset.theme==='dark' ? 'light' : 'dark';
-}
-</script>
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(lockPage, Number(idleTime.value) * 1000);
+    }
 
+    document.getElementById('openWhats').addEventListener('click', () => {
+      window.open('https://web.whatsapp.com/', '_blank', 'noopener,noreferrer');
+    });
+
+    document.getElementById('lockNow').addEventListener('click', lockPage);
+
+    document.getElementById('savePassword').addEventListener('click', () => {
+      const newPassword = document.getElementById('newPassword').value.trim();
+      if (newPassword.length < 4) {
+        alert('Use uma senha com pelo menos 4 caracteres.');
+        return;
+      }
+      localStorage.setItem(PASSWORD_KEY, newPassword);
+      document.getElementById('newPassword').value = '';
+      alert('Senha local salva.');
+    });
+
+    document.getElementById('unlockForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (passwordInput.value === getPassword()) {
+        setLocked(false);
+        resetIdleTimer();
+      } else {
+        errorMessage.textContent = 'Senha incorreta.';
+        passwordInput.select();
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) lockPage();
+    });
+
+    ['click', 'mousemove', 'keydown', 'touchstart', 'scroll'].forEach((eventName) => {
+      document.addEventListener(eventName, resetIdleTimer, { passive: true });
+    });
+
+    idleTime.addEventListener('change', resetIdleTimer);
+    resetIdleTimer();
+  </script>
 </body>
 </html>
