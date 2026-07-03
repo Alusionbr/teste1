@@ -3,388 +3,616 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WhatsApp Web com Tela de Privacidade</title>
+  <title>Laboratório de Componentes Web</title>
   <style>
     :root {
-      --bg: #eef2f7;
-      --card: #ffffff;
-      --text: #17212b;
-      --muted: #667085;
-      --accent: #25d366;
-      --accent-dark: #128c7e;
-      --danger: #d92d20;
-      --border: #d0d5dd;
-      --shadow: 0 20px 60px rgba(15, 23, 42, .16);
+      --bg: #0f172a;
+      --surface: #111827;
+      --card: rgba(255, 255, 255, .94);
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #7c3aed;
+      --primary-dark: #5b21b6;
+      --accent: #06b6d4;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --danger: #dc2626;
+      --border: #dbe4ef;
+      --shadow: 0 24px 70px rgba(15, 23, 42, .28);
     }
 
     * { box-sizing: border-box; }
 
+    html { scroll-behavior: smooth; }
+
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(37, 211, 102, .18), transparent 32rem),
-        linear-gradient(135deg, #f8fafc, var(--bg));
+        radial-gradient(circle at 12% 12%, rgba(124, 58, 237, .38), transparent 28rem),
+        radial-gradient(circle at 88% 5%, rgba(6, 182, 212, .35), transparent 24rem),
+        linear-gradient(135deg, #020617, var(--bg));
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button, .chip, .nav-link, .tool-item {
+      -webkit-tap-highlight-color: transparent;
     }
 
     header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
       padding: 1rem clamp(1rem, 4vw, 3rem);
-      background: rgba(255, 255, 255, .82);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      background: rgba(15, 23, 42, .78);
+      border-bottom: 1px solid rgba(255, 255, 255, .14);
+      color: white;
+      backdrop-filter: blur(18px);
     }
 
     h1, h2, h3, p { margin-top: 0; }
 
-    button, input, select {
-      border: 1px solid var(--border);
-      border-radius: .75rem;
-      font: inherit;
-      padding: .85rem 1rem;
+    h1 {
+      max-width: 820px;
+      margin-bottom: 1rem;
+      font-size: clamp(2.3rem, 7vw, 5.25rem);
+      line-height: .96;
+      letter-spacing: -.06em;
     }
 
-    button {
-      border: 0;
-      background: var(--accent-dark);
-      color: #fff;
-      cursor: pointer;
-      font-weight: 700;
-      transition: transform .15s ease, filter .15s ease;
-    }
+    h2 { font-size: clamp(1.65rem, 3vw, 2.35rem); }
 
-    button:hover { filter: brightness(1.05); transform: translateY(-1px); }
-    button.secondary { background: #344054; }
-    button.danger { background: var(--danger); }
-
-    main {
-      width: min(1120px, calc(100% - 2rem));
-      margin: 2rem auto;
-      display: grid;
-      grid-template-columns: minmax(280px, 380px) 1fr;
-      gap: 1.25rem;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 1.25rem;
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-    }
-
-    .brand {
+    .brand, .nav, .row, .toolbar, .tabs, .switch, .rating, .toast {
       display: flex;
       align-items: center;
-      gap: .75rem;
-      font-weight: 800;
     }
+
+    .brand { gap: .75rem; font-weight: 900; letter-spacing: -.03em; }
 
     .logo {
       display: grid;
       place-items: center;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
-      font-size: 1.35rem;
-    }
-
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: .5rem;
-      padding: .45rem .7rem;
-      border-radius: 999px;
-      background: #ecfdf3;
-      color: #027a48;
-      font-size: .9rem;
-      font-weight: 700;
-    }
-
-    .status::before {
-      content: "";
-      width: .55rem;
-      height: .55rem;
-      border-radius: 999px;
-      background: currentColor;
-    }
-
-    .muted { color: var(--muted); }
-
-    .actions {
-      display: grid;
-      gap: .75rem;
-      margin: 1.2rem 0;
-    }
-
-    .settings {
-      display: grid;
-      gap: .75rem;
-      margin-top: 1rem;
-    }
-
-    label {
-      display: grid;
-      gap: .4rem;
-      font-weight: 700;
-    }
-
-    label span {
-      color: var(--muted);
-      font-size: .88rem;
-      font-weight: 400;
-    }
-
-    .web-frame {
-      min-height: 620px;
-      display: grid;
-      place-items: center;
-      text-align: center;
-      background:
-        linear-gradient(rgba(255,255,255,.92), rgba(255,255,255,.92)),
-        repeating-linear-gradient(135deg, #d1fadf 0 12px, #f0fdf4 12px 24px);
-    }
-
-    .phone-preview {
-      width: min(360px, 100%);
-      border-radius: 2rem;
-      padding: 1rem;
-      background: #101828;
-      box-shadow: 0 18px 50px rgba(16, 24, 40, .28);
-      color: white;
-    }
-
-    .chat-line {
-      margin: .7rem 0;
-      padding: .7rem .9rem;
+      width: 2.65rem;
+      height: 2.65rem;
       border-radius: 1rem;
-      background: #1f2937;
-      text-align: left;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      box-shadow: 0 10px 30px rgba(124, 58, 237, .42);
     }
 
-    .chat-line.me {
-      margin-left: 3rem;
-      background: #075e54;
+    .nav { gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+
+    .nav-link {
+      color: rgba(255,255,255,.82);
+      text-decoration: none;
+      padding: .65rem .85rem;
+      border-radius: 999px;
+      transition: background .2s ease, color .2s ease, transform .2s ease;
     }
 
-    .lock-screen {
-      position: fixed;
-      inset: 0;
-      display: none;
+    .nav-link:hover { background: rgba(255,255,255,.12); color: white; transform: translateY(-1px); }
+
+    main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; }
+
+    .hero {
+      min-height: 68vh;
+      display: grid;
       align-items: center;
-      justify-content: center;
-      padding: 1rem;
-      background:
-        linear-gradient(135deg, rgba(14, 23, 42, .92), rgba(52, 64, 84, .88)),
-        radial-gradient(circle at top, rgba(37, 211, 102, .3), transparent 34rem);
-      z-index: 1000;
+      padding: 5rem 0 3rem;
+      color: white;
     }
 
-    .lock-screen.is-active { display: flex; }
+    .hero p { max-width: 720px; color: #cbd5e1; font-size: 1.2rem; line-height: 1.7; }
 
-    .lock-card {
-      width: min(440px, 100%);
-      padding: 2rem;
-      border-radius: 1.5rem;
-      background: #ffffff;
+    .hero-actions { display: flex; gap: .85rem; flex-wrap: wrap; margin-top: 1.75rem; }
+
+    .section { padding: 2rem 0; }
+
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+
+    .card {
+      grid-column: span 4;
+      min-height: 100%;
+      padding: 1.35rem;
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: 1.45rem;
+      background: var(--card);
       box-shadow: var(--shadow);
     }
 
-    .fake-workspace {
-      position: fixed;
-      inset: 0;
-      padding: 2rem;
-      color: #344054;
-      background: #f9fafb;
-      overflow: hidden;
+    .wide { grid-column: span 8; }
+    .full { grid-column: 1 / -1; }
+
+    .muted { color: var(--muted); line-height: 1.6; }
+
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: .9rem 1.12rem;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 12px 24px rgba(91, 33, 182, .24);
+      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
     }
 
-    .fake-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      opacity: .55;
-      filter: blur(.2px);
+    .btn:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 18px 34px rgba(91, 33, 182, .3); }
+    .btn:active { transform: translateY(1px) scale(.98); }
+    .btn.secondary { background: #1f2937; }
+    .btn.ghost { background: white; color: var(--primary-dark); border: 1px solid var(--border); box-shadow: none; }
+    .btn.success { background: linear-gradient(135deg, #22c55e, var(--success)); }
+    .btn.warning { background: linear-gradient(135deg, #fbbf24, var(--warning)); color: #3b2500; }
+    .btn.danger { background: linear-gradient(135deg, #ef4444, var(--danger)); }
+
+    .row { gap: .7rem; flex-wrap: wrap; }
+
+    .pulse { animation: pulse 1.7s infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,.35); } 50% { box-shadow: 0 0 0 16px rgba(124,58,237,0); } }
+
+    .counter {
+      display: inline-grid;
+      place-items: center;
+      min-width: 3rem;
+      height: 3rem;
+      border-radius: 1rem;
+      background: #ede9fe;
+      color: var(--primary-dark);
+      font-weight: 900;
+      font-size: 1.25rem;
     }
 
-    .fake-box {
-      height: 8rem;
-      border: 1px solid #eaecf0;
+    .menu-demo { position: relative; display: inline-block; }
+
+    .dropdown {
+      position: absolute;
+      top: calc(100% + .7rem);
+      left: 0;
+      min-width: 240px;
+      padding: .5rem;
+      border: 1px solid var(--border);
       border-radius: 1rem;
       background: white;
+      box-shadow: var(--shadow);
+      transform: translateY(-8px) scale(.98);
+      opacity: 0;
+      pointer-events: none;
+      transition: .18s ease;
+      z-index: 20;
     }
 
-    .lock-card form { display: grid; gap: .8rem; }
-    .error { min-height: 1.2rem; color: var(--danger); font-weight: 700; }
-    .small { font-size: .88rem; }
+    .dropdown.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 
-    @media (max-width: 800px) {
-      main { grid-template-columns: 1fr; }
+    .dropdown button, .tool-item {
+      width: 100%;
+      border: 0;
+      border-radius: .75rem;
+      padding: .8rem;
+      text-align: left;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .dropdown button:hover, .tool-item:hover { background: #f1f5f9; }
+
+    .tabs { gap: .4rem; padding: .35rem; border-radius: 999px; background: #f1f5f9; width: fit-content; }
+
+    .tab {
+      border: 0;
+      border-radius: 999px;
+      padding: .72rem 1rem;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .tab.active { background: white; color: var(--primary-dark); box-shadow: 0 8px 24px rgba(15,23,42,.1); }
+
+    .tab-panel { display: none; margin-top: 1rem; padding: 1rem; border-radius: 1rem; background: #f8fafc; }
+    .tab-panel.active { display: block; }
+
+    .accordion-item { border-bottom: 1px solid var(--border); }
+    .accordion-title { width: 100%; border: 0; background: transparent; padding: 1rem 0; cursor: pointer; display: flex; justify-content: space-between; font-weight: 900; color: var(--text); }
+    .accordion-content { display: none; padding-bottom: 1rem; color: var(--muted); }
+    .accordion-item.open .accordion-content { display: block; }
+
+    .switch { gap: .7rem; cursor: pointer; user-select: none; }
+    .switch input { display: none; }
+    .slider { width: 3.4rem; height: 1.8rem; padding: .2rem; border-radius: 999px; background: #cbd5e1; transition: .2s ease; }
+    .slider::before { content: ""; display: block; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: white; transition: .2s ease; box-shadow: 0 2px 8px rgba(15,23,42,.25); }
+    .switch input:checked + .slider { background: var(--success); }
+    .switch input:checked + .slider::before { transform: translateX(1.6rem); }
+
+    .progress { height: .9rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+    .progress span { display: block; width: 35%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--primary)); transition: width .3s ease; }
+
+    .range { width: 100%; accent-color: var(--primary); }
+
+    .form-grid { display: grid; gap: .85rem; }
+    label { display: grid; gap: .38rem; font-weight: 800; }
+    input, select, textarea { width: 100%; border: 1px solid var(--border); border-radius: .85rem; padding: .85rem 1rem; background: white; color: var(--text); }
+    input:focus, select:focus, textarea:focus { outline: 3px solid rgba(124,58,237,.18); border-color: var(--primary); }
+
+    .rating { gap: .2rem; }
+    .star { border: 0; background: transparent; color: #cbd5e1; cursor: pointer; font-size: 1.8rem; padding: .1rem; }
+    .star.active, .star:hover { color: #f59e0b; }
+
+    .tooltip-wrap { position: relative; display: inline-block; }
+    .tooltip {
+      position: absolute;
+      bottom: calc(100% + .65rem);
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      width: max-content;
+      max-width: 240px;
+      padding: .65rem .8rem;
+      border-radius: .75rem;
+      color: white;
+      background: #111827;
+      opacity: 0;
+      pointer-events: none;
+      transition: .18s ease;
+      font-size: .9rem;
+    }
+    .tooltip-wrap:hover .tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(2, 6, 23, .68);
+      backdrop-filter: blur(8px);
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(520px, 100%); padding: 1.4rem; border-radius: 1.4rem; background: white; box-shadow: var(--shadow); animation: pop .2s ease; }
+    @keyframes pop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 110;
+      width: min(390px, 92vw);
+      height: 100vh;
+      padding: 1.2rem;
+      background: white;
+      box-shadow: var(--shadow);
+      transform: translateX(105%);
+      transition: transform .24s ease;
+    }
+    .drawer.open { transform: translateX(0); }
+
+    .toast-stack { position: fixed; right: 1rem; bottom: 1rem; z-index: 150; display: grid; gap: .65rem; }
+    .toast { gap: .75rem; width: min(360px, calc(100vw - 2rem)); padding: .9rem 1rem; border-radius: 1rem; color: white; background: #111827; box-shadow: var(--shadow); animation: slideIn .2s ease; }
+    @keyframes slideIn { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .toolbox { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; }
+    .tool-list { display: grid; gap: .45rem; align-content: start; }
+    .preview {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed #cbd5e1;
+      border-radius: 1.1rem;
+      background: linear-gradient(135deg, #f8fafc, #eef2ff);
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .kbd { padding: .18rem .42rem; border: 1px solid #cbd5e1; border-bottom-width: 3px; border-radius: .45rem; background: white; font-weight: 900; }
+
+    footer { padding: 3rem 0 4rem; color: #cbd5e1; text-align: center; }
+
+    @media (max-width: 900px) {
       header { align-items: flex-start; flex-direction: column; }
-      .web-frame { min-height: 480px; }
+      .card, .wide { grid-column: 1 / -1; }
+      .toolbox { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="brand">
-      <div class="logo">☏</div>
-      <div>
-        <div>WhatsApp Web seguro</div>
-        <small class="muted">Atalho com bloqueio local de privacidade</small>
-      </div>
-    </div>
-    <span class="status" id="lockStatus">Desbloqueado</span>
+    <div class="brand"><span class="logo">✦</span><span>Lab UI Interativo</span></div>
+    <nav class="nav" aria-label="Menu principal">
+      <a class="nav-link" href="#botoes">Botões</a>
+      <a class="nav-link" href="#menus">Menus</a>
+      <a class="nav-link" href="#dialogos">Diálogos</a>
+      <a class="nav-link" href="#ferramentas">Ferramentas</a>
+    </nav>
   </header>
 
-  <main aria-live="polite">
-    <section class="card">
-      <h1>Conectar ao WhatsApp Web</h1>
-      <p class="muted">Use os botões abaixo para abrir o WhatsApp Web em uma nova aba. Por segurança, a tela é disfarçada e bloqueada quando você clicar em bloquear, trocar de aba ou ficar inativo.</p>
-
-      <div class="actions">
-        <button type="button" id="openWhats">Abrir WhatsApp Web</button>
-        <button type="button" class="secondary" id="lockNow">Disfarçar e bloquear agora</button>
-      </div>
-
-      <div class="settings">
-        <label>
-          Senha local
-          <input type="password" id="newPassword" autocomplete="new-password" placeholder="Crie ou troque sua senha">
-          <span>A senha fica somente neste navegador. Ela não é enviada para nenhum servidor.</span>
-        </label>
-        <button type="button" id="savePassword">Salvar senha</button>
-
-        <label>
-          Bloquear após inatividade
-          <select id="idleTime">
-            <option value="30">30 segundos</option>
-            <option value="60" selected>1 minuto</option>
-            <option value="180">3 minutos</option>
-            <option value="300">5 minutos</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <section class="card web-frame" aria-label="Prévia de privacidade">
+  <main>
+    <section class="hero">
       <div>
-        <div class="phone-preview" aria-hidden="true">
-          <div class="chat-line">WhatsApp Web abre em uma nova aba oficial.</div>
-          <div class="chat-line me">Esta página só controla o bloqueio visual local.</div>
-          <div class="chat-line">Clique em “Disfarçar e bloquear agora” para proteger a tela.</div>
+        <p class="muted">Playground para estudos de interfaces</p>
+        <h1>Teste menus, botões, caixas de diálogo e acessórios para sites.</h1>
+        <p>Explore efeitos de clique, estados visuais, formulários, abas, acordeões, toasts, modal, drawer lateral e pequenas ferramentas interativas em uma única página HTML.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#botoes">Começar testes</a>
+          <button class="btn ghost" type="button" id="themeButton">Alternar destaque</button>
         </div>
-        <p class="muted small" style="margin-top:1rem">Observação: o WhatsApp Web não permite ser carregado dentro de iframe em páginas externas.</p>
       </div>
     </section>
+
+    <section class="section" id="botoes">
+      <div class="grid">
+        <article class="card wide">
+          <h2>Botões e efeitos de clique</h2>
+          <p class="muted">Clique nos botões para ver contadores, notificações e respostas visuais.</p>
+          <div class="row">
+            <button class="btn pulse" type="button" id="clickButton">Clique animado</button>
+            <button class="btn success" type="button" data-toast="Ação confirmada com sucesso!">Sucesso</button>
+            <button class="btn warning" type="button" data-toast="Atenção: este é um aviso de teste.">Aviso</button>
+            <button class="btn danger" type="button" data-toast="Exemplo de ação perigosa.">Perigo</button>
+            <span class="counter" id="clickCounter">0</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Tooltip</h2>
+          <p class="muted">Passe o mouse ou toque e segure para estudar uma dica flutuante.</p>
+          <span class="tooltip-wrap">
+            <button class="btn secondary" type="button">Ver dica</button>
+            <span class="tooltip">Tooltips ajudam a explicar controles sem ocupar espaço fixo.</span>
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="menus">
+      <div class="grid">
+        <article class="card">
+          <h2>Menu dropdown</h2>
+          <p class="muted">Abra o menu e escolha uma opção para atualizar a prévia.</p>
+          <div class="menu-demo">
+            <button class="btn" type="button" id="menuButton" aria-expanded="false">Abrir menu ▾</button>
+            <div class="dropdown" id="dropdownMenu">
+              <button type="button" data-menu-choice="Perfil selecionado">👤 Perfil</button>
+              <button type="button" data-menu-choice="Configurações selecionadas">⚙️ Configurações</button>
+              <button type="button" data-menu-choice="Ajuda selecionada">❔ Ajuda</button>
+            </div>
+          </div>
+          <p class="muted" id="menuResult" style="margin-top:1rem">Nenhuma opção escolhida.</p>
+        </article>
+
+        <article class="card wide">
+          <h2>Abas e acordeão</h2>
+          <div class="tabs" role="tablist">
+            <button class="tab active" type="button" data-tab="design">Design</button>
+            <button class="tab" type="button" data-tab="codigo">Código</button>
+            <button class="tab" type="button" data-tab="acesso">Acesso</button>
+          </div>
+          <div class="tab-panel active" id="design">Use cores, espaçamento e movimento para criar hierarquia visual.</div>
+          <div class="tab-panel" id="codigo">Separe estrutura, estilo e comportamento para facilitar estudos.</div>
+          <div class="tab-panel" id="acesso">Inclua foco visível, contraste e textos claros para acessibilidade.</div>
+
+          <div class="accordion" style="margin-top:1rem">
+            <div class="accordion-item open">
+              <button class="accordion-title" type="button">Como estudar componentes? <span>+</span></button>
+              <div class="accordion-content">Clique, altere o código, observe os estados e tente recriar cada componente em outro arquivo.</div>
+            </div>
+            <div class="accordion-item">
+              <button class="accordion-title" type="button">O que observar nos menus? <span>+</span></button>
+              <div class="accordion-content">Observe abertura, fechamento, foco, espaçamento, feedback visual e comportamento em telas pequenas.</div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="dialogos">
+      <div class="grid">
+        <article class="card">
+          <h2>Caixas de diálogo</h2>
+          <p class="muted">Teste modal central, drawer lateral e alertas rápidos.</p>
+          <div class="row">
+            <button class="btn" type="button" id="openModal">Abrir modal</button>
+            <button class="btn secondary" type="button" id="openDrawer">Abrir drawer</button>
+            <button class="btn ghost" type="button" id="nativeDialog">Alert nativo</button>
+          </div>
+        </article>
+
+        <article class="card wide">
+          <h2>Formulário interativo</h2>
+          <form class="form-grid" id="studyForm">
+            <label>Nome do componente <input required id="componentName" placeholder="Ex.: Card de produto"></label>
+            <label>Tipo de efeito
+              <select id="effectType">
+                <option>Hover</option>
+                <option>Clique</option>
+                <option>Transição</option>
+                <option>Validação</option>
+              </select>
+            </label>
+            <label>Anotações <textarea id="notes" rows="3" placeholder="Escreva o que você observou..."></textarea></label>
+            <button class="btn success" type="submit">Salvar estudo</button>
+          </form>
+          <p class="muted" id="formResult" style="margin-top:1rem">Preencha o formulário para ver um resumo.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="ferramentas">
+      <div class="grid">
+        <article class="card full">
+          <h2>Ferramentas para estudos</h2>
+          <p class="muted">Ajuste controles e observe mudanças em tempo real. Use <span class="kbd">Tab</span> para testar navegação por teclado.</p>
+          <div class="toolbox">
+            <div class="tool-list">
+              <button class="tool-item" type="button" data-tool="card">Cartão de destaque</button>
+              <button class="tool-item" type="button" data-tool="badge">Badge de status</button>
+              <button class="tool-item" type="button" data-tool="loading">Indicador de carregamento</button>
+              <label class="switch"><input type="checkbox" id="switchDemo"><span class="slider"></span><strong>Modo aprovado</strong></label>
+              <label>Progresso <input class="range" type="range" id="progressRange" min="5" max="100" value="35"></label>
+              <div class="progress"><span id="progressBar"></span></div>
+              <div class="rating" aria-label="Avaliação">
+                <button class="star" type="button">★</button><button class="star" type="button">★</button><button class="star" type="button">★</button><button class="star" type="button">★</button><button class="star" type="button">★</button>
+              </div>
+            </div>
+            <div class="preview" id="previewBox">
+              <div>
+                <h3>Prévia interativa</h3>
+                <p class="muted">Escolha uma ferramenta para alterar este espaço.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer>Feito para praticar HTML, CSS e JavaScript sem bibliotecas externas.</footer>
   </main>
 
-  <div class="lock-screen" id="lockScreen" role="dialog" aria-modal="true" aria-labelledby="lockTitle">
-    <div class="fake-workspace" aria-hidden="true">
-      <h2>Relatório mensal</h2>
-      <p>Carregando indicadores e tarefas...</p>
-      <div class="fake-grid">
-        <div class="fake-box"></div><div class="fake-box"></div><div class="fake-box"></div>
-        <div class="fake-box"></div><div class="fake-box"></div><div class="fake-box"></div>
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <h2 id="modalTitle">Modal de confirmação</h2>
+      <p class="muted">Esta caixa demonstra uma janela central com fundo escurecido, animação e botão de fechamento.</p>
+      <div class="row">
+        <button class="btn success" type="button" data-close-modal>Confirmar</button>
+        <button class="btn ghost" type="button" data-close-modal>Cancelar</button>
       </div>
-    </div>
-
-    <div class="lock-card">
-      <h2 id="lockTitle">Tela protegida</h2>
-      <p class="muted">Digite sua senha local para voltar à página.</p>
-      <form id="unlockForm">
-        <label>
-          Senha
-          <input type="password" id="passwordInput" autocomplete="current-password" autofocus>
-        </label>
-        <button type="submit">Desbloquear</button>
-        <p class="error" id="errorMessage"></p>
-      </form>
-      <p class="muted small">Se você esqueceu a senha, limpe os dados locais deste site no navegador e cadastre uma nova.</p>
     </div>
   </div>
 
+  <aside class="drawer" id="drawer" aria-label="Painel lateral">
+    <h2>Drawer lateral</h2>
+    <p class="muted">Use drawers para carrinhos, filtros, menus mobile ou painéis de detalhes.</p>
+    <button class="btn" type="button" id="closeDrawer">Fechar painel</button>
+  </aside>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
   <script>
-    const PASSWORD_KEY = 'privacy-lock-password';
-    const DEFAULT_PASSWORD = '1234';
-    const lockScreen = document.getElementById('lockScreen');
-    const lockStatus = document.getElementById('lockStatus');
-    const passwordInput = document.getElementById('passwordInput');
-    const errorMessage = document.getElementById('errorMessage');
-    const idleTime = document.getElementById('idleTime');
-    let idleTimer;
+    const clickButton = document.getElementById('clickButton');
+    const clickCounter = document.getElementById('clickCounter');
+    const menuButton = document.getElementById('menuButton');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    const menuResult = document.getElementById('menuResult');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const drawer = document.getElementById('drawer');
+    const toastStack = document.getElementById('toastStack');
+    let clicks = 0;
 
-    function getPassword() {
-      return localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD;
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      toastStack.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
     }
 
-    function setLocked(isLocked) {
-      lockScreen.classList.toggle('is-active', isLocked);
-      lockStatus.textContent = isLocked ? 'Bloqueado' : 'Desbloqueado';
-      if (isLocked) {
-        errorMessage.textContent = '';
-        passwordInput.value = '';
-        setTimeout(() => passwordInput.focus(), 50);
-      }
-    }
-
-    function lockPage() {
-      setLocked(true);
-    }
-
-    function resetIdleTimer() {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(lockPage, Number(idleTime.value) * 1000);
-    }
-
-    document.getElementById('openWhats').addEventListener('click', () => {
-      window.open('https://web.whatsapp.com/', '_blank', 'noopener,noreferrer');
+    clickButton.addEventListener('click', () => {
+      clicks += 1;
+      clickCounter.textContent = clicks;
+      showToast(`Você clicou ${clicks} vez(es).`);
     });
 
-    document.getElementById('lockNow').addEventListener('click', lockPage);
-
-    document.getElementById('savePassword').addEventListener('click', () => {
-      const newPassword = document.getElementById('newPassword').value.trim();
-      if (newPassword.length < 4) {
-        alert('Use uma senha com pelo menos 4 caracteres.');
-        return;
-      }
-      localStorage.setItem(PASSWORD_KEY, newPassword);
-      document.getElementById('newPassword').value = '';
-      alert('Senha local salva.');
+    document.querySelectorAll('[data-toast]').forEach((button) => {
+      button.addEventListener('click', () => showToast(button.dataset.toast));
     });
 
-    document.getElementById('unlockForm').addEventListener('submit', (event) => {
+    menuButton.addEventListener('click', () => {
+      const isOpen = dropdownMenu.classList.toggle('open');
+      menuButton.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    dropdownMenu.querySelectorAll('button').forEach((item) => {
+      item.addEventListener('click', () => {
+        menuResult.textContent = item.dataset.menuChoice;
+        dropdownMenu.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.menu-demo')) {
+        dropdownMenu.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab, .tab-panel').forEach((item) => item.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.accordion-title').forEach((title) => {
+      title.addEventListener('click', () => title.parentElement.classList.toggle('open'));
+    });
+
+    document.getElementById('openModal').addEventListener('click', () => modalBackdrop.classList.add('open'));
+    document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => modalBackdrop.classList.remove('open')));
+    modalBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalBackdrop) modalBackdrop.classList.remove('open');
+    });
+
+    document.getElementById('openDrawer').addEventListener('click', () => drawer.classList.add('open'));
+    document.getElementById('closeDrawer').addEventListener('click', () => drawer.classList.remove('open'));
+    document.getElementById('nativeDialog').addEventListener('click', () => alert('Este é um alert nativo do navegador.'));
+
+    document.getElementById('studyForm').addEventListener('submit', (event) => {
       event.preventDefault();
-      if (passwordInput.value === getPassword()) {
-        setLocked(false);
-        resetIdleTimer();
-      } else {
-        errorMessage.textContent = 'Senha incorreta.';
-        passwordInput.select();
+      const name = document.getElementById('componentName').value;
+      const effect = document.getElementById('effectType').value;
+      const notes = document.getElementById('notes').value || 'sem anotações';
+      document.getElementById('formResult').textContent = `Estudo salvo: ${name} com efeito ${effect} (${notes}).`;
+      showToast('Resumo do estudo atualizado.');
+    });
+
+    document.querySelectorAll('.tool-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const examples = {
+          card: '<div><h3>Card premium</h3><p class="muted">Cartões agrupam conteúdo relacionado.</p><button class="btn">Ação</button></div>',
+          badge: '<div><h3>Status <span style="padding:.3rem .55rem;border-radius:999px;background:#dcfce7;color:#166534;font-size:.85rem">Online</span></h3><p class="muted">Badges destacam estados e categorias.</p></div>',
+          loading: '<div><h3>Carregando...</h3><p class="muted">Use indicadores para esperas curtas.</p><div class="progress"><span style="width:72%"></span></div></div>'
+        };
+        document.getElementById('previewBox').innerHTML = examples[item.dataset.tool];
+      });
+    });
+
+    document.getElementById('switchDemo').addEventListener('change', (event) => {
+      showToast(event.target.checked ? 'Modo aprovado ligado.' : 'Modo aprovado desligado.');
+    });
+
+    document.getElementById('progressRange').addEventListener('input', (event) => {
+      document.getElementById('progressBar').style.width = `${event.target.value}%`;
+    });
+
+    document.querySelectorAll('.star').forEach((star, index, stars) => {
+      star.addEventListener('click', () => {
+        stars.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex <= index));
+        showToast(`Avaliação: ${index + 1} estrela(s).`);
+      });
+    });
+
+    document.getElementById('themeButton').addEventListener('click', () => {
+      document.documentElement.style.setProperty('--primary', `hsl(${Math.floor(Math.random() * 360)}, 78%, 55%)`);
+      showToast('Cor de destaque alterada.');
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        modalBackdrop.classList.remove('open');
+        drawer.classList.remove('open');
+        dropdownMenu.classList.remove('open');
       }
     });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) lockPage();
-    });
-
-    ['click', 'mousemove', 'keydown', 'touchstart', 'scroll'].forEach((eventName) => {
-      document.addEventListener(eventName, resetIdleTimer, { passive: true });
-    });
-
-    idleTime.addEventListener('change', resetIdleTimer);
-    resetIdleTimer();
   </script>
 </body>
 </html>
