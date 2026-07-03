@@ -1,13 +1,20 @@
-# teste1
+# Laboratório de Componentes Web
 
-Página HTML simples para abrir o WhatsApp Web oficial em uma nova aba e proteger a tela local com um bloqueio visual de privacidade.
+Site HTML estático com exemplos interativos de menus, botões, caixas de diálogo e acessórios para estudos de interfaces.
 
 ## Como usar
 
 1. Abra `Index.html` no navegador.
-2. Clique em **Abrir WhatsApp Web** para acessar `https://web.whatsapp.com/`.
-3. Cadastre uma senha local com pelo menos 4 caracteres.
-4. Use **Disfarçar e bloquear agora** ou aguarde a inatividade configurada.
+2. Clique nos botões, menus, abas, acordeões e ferramentas para testar os efeitos.
+3. Edite o HTML, CSS e JavaScript no próprio arquivo para praticar variações.
 
-> A senha é salva somente no `localStorage` do navegador e não é enviada para servidores.
-> O WhatsApp Web não permite ser carregado dentro de `iframe` em páginas externas, então a página abre o site oficial em uma nova aba.
+## Componentes incluídos
+
+- Botões com hover, clique, contador e notificações toast.
+- Menu dropdown com seleção de opções.
+- Abas e acordeão interativos.
+- Modal central, drawer lateral e alerta nativo.
+- Formulário com resumo dinâmico.
+- Switch, barra de progresso, rating por estrelas e prévias de acessórios.
+
+O projeto não usa bibliotecas externas, então funciona localmente em qualquer navegador moderno.
