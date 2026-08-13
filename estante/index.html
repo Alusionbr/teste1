@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Estante: letras e cifras para palco, repertório offline, rolagem automática, sincronia e transposição.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Estante — letras e cifras no palco</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
+
+    <form class="search" id="searchForm">
+      <input id="searchInput" type="search" placeholder="Artista e música" autocomplete="off" aria-label="Buscar música">
+      <button>Buscar</button>
+    </form>
+
+    <div class="sources" role="group" aria-label="Fonte da busca">
+      <button class="chip active" data-source="vagalume">Brasil</button>
+      <button class="chip" data-source="lrclib">Sincronizada</button>
+      <button class="chip" data-source="excerpt">Por trecho</button>
+    </div>
+
+    <div id="notice" aria-live="polite"></div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="results">Resultados</button>
+      <button class="tab" data-tab="setlist">Repertório <b id="setlistCount">0</b></button>
+    </nav>
+    <div id="list" class="list"></div>
+
+    <footer class="sidebarFooter">
+      <button id="pasteBtn">Colar letra</button>
+      <button id="sourcesBtn">Fontes</button>
+      <button id="exportBtn">Exportar</button>
+      <button id="importBtn">Importar</button>
+      <button id="installBtn" hidden>Instalar</button>
+      <button id="helpBtn">Ajuda</button>
+    </footer>
+  </aside>
+
+  <main class="stage" id="stage">
+    <header class="songHeader">
+      <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
+      <div class="songMeta">
+        <h1 id="songTitle">Nenhuma música aberta</h1>
+        <p id="songArtist">Busque uma música ou cole sua própria letra</p>
+      </div>
+      <div class="headerActions">
+        <button id="saveBtn">+ Repertório</button>
+        <button id="stageBtn">Modo palco</button>
+        <button id="fullscreenBtn">Tela cheia</button>
+      </div>
+    </header>
+
+    <section class="paperViewport" id="paperViewport">
+      <article class="paper" id="paper">
+        <div class="emptyPaper">Abra uma música para começar.</div>
+      </article>
+      <footer class="credits" id="credits"></footer>
+    </section>
+
+    <footer class="transport">
+      <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
+      <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
+      <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button></div>
+      <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
+      <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
+      <div class="spacer"></div>
+      <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹</button>
+      <button class="pedal small" id="nextBtn" aria-label="Próxima música">›</button>
+      <button class="pedal small" id="topBtn" aria-label="Voltar ao topo">↑</button>
+    </footer>
+  </main>
+</div>
+
+<dialog id="pasteDialog">
+  <form method="dialog" class="modal" id="pasteForm">
+    <header><h2>Colar letra ou cifra</h2><button value="cancel">×</button></header>
+    <label>Música<input id="pasteTitle" placeholder="Ex.: Ainda Bem"></label>
+    <label>Artista<input id="pasteArtist" placeholder="Ex.: Marisa Monte"></label>
+    <label>Letra, cifra ou .LRC<textarea id="pasteText" placeholder="Cole a letra aqui. Linhas só com acordes viram cifras; [Refrão] vira seção; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" id="pasteOpen" value="default">Abrir</button></footer>
+  </form>
+</dialog>
+
+<dialog id="sourcesDialog">
+  <form method="dialog" class="modal" id="sourcesForm">
+    <header><h2>Fontes</h2><button value="cancel">×</button></header>
+    <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
+    <p>A busca do Vagalume funciona sem chave. Para exibir a letra no app, cadastre a chave gratuita em <a href="https://auth.vagalume.com.br/settings/api/" target="_blank" rel="noopener">Vagalume API</a>. Ela fica somente neste aparelho.</p>
+    <p><b>Sincronizada</b> usa LRCLIB e pode ativar a linha da música conforme o tempo. O repertório salvo continua disponível offline.</p>
+    <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="helpDialog">
+  <form method="dialog" class="modal">
+    <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
+    <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
+    <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
+    <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p>
+    <p><b>Offline:</b> depois da primeira abertura, o aplicativo carrega sem internet e mantém as músicas já salvas no aparelho.</p>
+    <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
+    <footer><button class="accent" value="default">Entendi</button></footer>
+  </form>
+</dialog>
+<input id="importFile" type="file" accept="application/json,.json" hidden>
+<script src="./app.js" defer></script>
+</body>
+</html>
