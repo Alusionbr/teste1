@@ -8,7 +8,8 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 
 | Recurso | Como funciona |
 |---|---|
-| **Busca inteligente** | Consulta LRCLIB, Vagalume e o catálogo da Apple em paralelo, junta versões repetidas e ordena por relevância. Os outros modos priorizam uma fonte só (Brasil, Sincro) ou procuram por um trecho da letra. |
+| **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer e o catálogo da Apple em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
+| **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
 | **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas e a duração estimada. |
 | **Ajustes por música** | Tom, capotraste, velocidade de rolagem e anotações ficam salvos em cada música do repertório. O tamanho da letra é global. |
 | **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio e você pode tocar numa linha para reposicionar. |
