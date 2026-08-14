@@ -1,6 +1,6 @@
 "use strict";
 const $=id=>document.getElementById(id);
-const state={results:[],setlist:[],tab:"results",source:"vagalume",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,font:26,key:0,stage:false,keyVag:""};
+const state={results:[],setlist:[],tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,font:26,key:0,stage:false,keyVag:""};
 const KEYS={setlist:"estante:v2:setlist",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
