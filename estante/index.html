@@ -1,40 +1,119 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
-<meta name="description" content="Estante: letras e cifras para palco, repertório, rolagem automática, sincronia e transposição.">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>Estante — letras e cifras no palco</title>
-<link rel="stylesheet" href="./styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Estante: letras e cifras para palco, repertório salvo no aparelho, rolagem automática, sincronia e transposição.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Estante — letras e cifras no palco</title>
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <div class="app">
-<aside class="sidebar" id="sidebar">
-<header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
-<form class="search" id="searchForm"><input id="searchInput" type="search" placeholder="Música ou artista" autocomplete="off" aria-label="Buscar música"><button>Buscar</button></form>
-<div class="sources"><button class="chip active" type="button">Catálogo sincronizado</button></div>
-<div id="notice" aria-live="polite"></div>
-<nav class="tabs"><button class="tab active" data-tab="results">Resultados</button><button class="tab" data-tab="setlist">Repertório <b id="setlistCount">0</b></button></nav>
-<div id="list" class="list"></div>
-<footer class="sidebarFooter"><button id="pasteBtn">Colar letra</button><button id="exportBtn">Exportar</button><button id="importBtn">Importar</button><button id="helpBtn">Ajuda</button></footer>
-</aside>
-<main class="stage" id="stage">
-<header class="songHeader"><button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button><div class="songMeta"><h1 id="songTitle">Nenhuma música aberta</h1><p id="songArtist">Busque uma música ou cole sua própria letra</p></div><div class="headerActions"><button id="saveBtn">+ Repertório</button><button id="stageBtn">Modo palco</button><button id="fullscreenBtn">Tela cheia</button></div></header>
-<section class="paperViewport" id="paperViewport"><article class="paper" id="paper"><div class="emptyPaper">Abra uma música para começar.</div></article><footer class="credits" id="credits"></footer></section>
-<footer class="transport"><button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button><button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button><div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button></div><div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div><div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div><div class="spacer"></div><button class="pedal small" id="prevBtn">‹</button><button class="pedal small" id="nextBtn">›</button><button class="pedal small" id="topBtn">↑</button></footer>
-</main>
+  <aside class="sidebar" id="sidebar">
+    <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
+
+    <form class="search" id="searchForm">
+      <input id="searchInput" type="search" placeholder="Artista e música" autocomplete="off" aria-label="Buscar música">
+      <button>Buscar</button>
+    </form>
+
+    <div class="sources" role="group" aria-label="Fonte da busca">
+      <button class="chip active" data-source="vagalume">Brasil</button>
+      <button class="chip" data-source="lrclib">Sincronizada</button>
+      <button class="chip" data-source="excerpt">Por trecho</button>
+    </div>
+
+    <div id="notice" aria-live="polite"></div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="results">Resultados</button>
+      <button class="tab" data-tab="setlist">Repertório <b id="setlistCount">0</b></button>
+    </nav>
+    <div id="list" class="list"></div>
+
+    <footer class="sidebarFooter">
+      <button id="pasteBtn">Colar letra</button>
+      <button id="sourcesBtn">Fontes</button>
+      <button id="exportBtn">Exportar</button>
+      <button id="importBtn">Importar</button>
+      <button id="helpBtn">Ajuda</button>
+    </footer>
+  </aside>
+
+  <main class="stage" id="stage">
+    <header class="songHeader">
+      <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
+      <div class="songMeta">
+        <h1 id="songTitle">Nenhuma música aberta</h1>
+        <p id="songArtist">Busque uma música ou cole sua própria letra</p>
+      </div>
+      <div class="headerActions">
+        <button id="saveBtn">+ Repertório</button>
+        <button id="stageBtn">Modo palco</button>
+        <button id="fullscreenBtn">Tela cheia</button>
+      </div>
+    </header>
+
+    <section class="paperViewport" id="paperViewport">
+      <article class="paper" id="paper">
+        <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>Busque uma música, cole sua cifra ou abra o repertório. Depois, use rolagem automática, modo palco e tela cheia.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
+      </article>
+      <footer class="credits" id="credits"></footer>
+    </section>
+
+    <footer class="transport">
+      <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
+      <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
+      <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button></div>
+      <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
+      <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
+      <div class="spacer"></div>
+      <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹</button>
+      <button class="pedal small" id="nextBtn" aria-label="Próxima música">›</button>
+      <button class="pedal small" id="topBtn" aria-label="Voltar ao topo">↑</button>
+    </footer>
+  </main>
 </div>
-<dialog id="pasteDialog"><form method="dialog" class="modal" id="pasteForm"><header><h2>Colar letra ou cifra</h2><button value="cancel">×</button></header><label>Música<input id="pasteTitle" placeholder="Nome da música"></label><label>Artista<input id="pasteArtist" placeholder="Artista"></label><label>Letra, cifra ou LRC<textarea id="pasteText" placeholder="Cole aqui. Marcas como [00:12.30] ativam o modo Sincro."></textarea></label><footer><button value="cancel">Cancelar</button><button class="accent" value="default">Abrir</button></footer></form></dialog>
-<dialog id="helpDialog"><form method="dialog" class="modal"><header><h2>Uso no palco</h2><button value="cancel">×</button></header><p><b>Rolar:</b> desce a letra automaticamente e permite ajustar a velocidade.</p><p><b>Sincro:</b> acompanha letras temporizadas. Toque numa linha para reposicionar.</p><p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p><p><b>Cifras:</b> quando o app detecta acordes, o controle de Tom aparece.</p><footer><button class="accent" value="default">Entendi</button></footer></form></dialog>
+
+<dialog id="pasteDialog">
+  <form method="dialog" class="modal" id="pasteForm">
+    <header><h2>Colar letra ou cifra</h2><button value="cancel">×</button></header>
+    <label>Música<input id="pasteTitle" placeholder="Ex.: Ainda Bem"></label>
+    <label>Artista<input id="pasteArtist" placeholder="Ex.: Marisa Monte"></label>
+    <label>Letra, cifra ou .LRC<textarea id="pasteText" placeholder="Cole a letra aqui. Linhas só com acordes viram cifras; [Refrão] vira seção; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" id="pasteOpen" value="default">Abrir</button></footer>
+  </form>
+</dialog>
+
+<dialog id="sourcesDialog">
+  <form method="dialog" class="modal" id="sourcesForm">
+    <header><h2>Fontes</h2><button value="cancel">×</button></header>
+    <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
+    <p>A busca do Vagalume funciona sem chave. Para exibir a letra no app, cadastre a chave gratuita em <a href="https://auth.vagalume.com.br/settings/api/" target="_blank" rel="noopener">Vagalume API</a>. Ela fica somente neste aparelho.</p>
+    <p><b>Sincronizada</b> usa LRCLIB e pode ativar a linha da música conforme o tempo. O repertório salvo continua disponível offline.</p>
+    <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="helpDialog">
+  <form method="dialog" class="modal">
+    <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
+    <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
+    <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
+    <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p>
+    <p><b>Offline:</b> depois da primeira abertura, o aplicativo carrega sem internet e mantém as músicas já salvas no aparelho.</p>
+    <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
+    <footer><button class="accent" value="default">Entendi</button></footer>
+  </form>
+</dialog>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js"></script><script src="./library-view.js"></script><script src="./setlist.js"></script><script src="./music-tools.js"></script><script src="./viewer-basic.js"></script><script src="./scroll-controls.js"></script><script src="./storage-tools.js"></script>
-<script>
-state.source="lrclib";const prefs=load(KEYS.prefs,{}),saved=load(KEYS.setlist,[]);state.setlist=Array.isArray(saved)?saved.map(normalizeSong):[];state.speed=prefs.speed||18;state.font=prefs.font||26;state.stage=!!prefs.stage;updateControls();updateNetwork();renderList();updateSaveButton();window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
-searchForm.addEventListener("submit",async e=>{e.preventDefault();const q=searchInput.value.trim();if(!q)return;notify("Procurando…",true);try{state.results=await searchMusic(q);state.tab="results";renderList();notify(state.results.length?"":"Nada encontrado. Tente música e artista juntos.")}catch(err){state.results=[];renderList();notify("Falha na busca: "+err.message)}});document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{state.tab=b.dataset.tab;renderList()}));menuBtn.onclick=()=>sidebar.classList.toggle("open");saveBtn.onclick=addSong;prevBtn.onclick=()=>jumpSong(-1);nextBtn.onclick=()=>jumpSong(1);topBtn.onclick=()=>paperViewport.scrollTo({top:0,behavior:"smooth"});scrollBtn.onclick=toggleScroll;syncBtn.onclick=toggleSync;
-document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>{state.speed=Math.max(4,Math.min(140,state.speed+Number(b.dataset.speed)));updateControls();updatePrefs()});document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();updatePrefs()});document.querySelectorAll("[data-key]").forEach(b=>b.onclick=()=>{state.key=Math.max(-11,Math.min(11,state.key+Number(b.dataset.key)));updateControls();paper.querySelectorAll(".chord").forEach(n=>n.textContent=transposeLine(state.lines[Number(n.dataset.i)].text,state.key))});stageBtn.onclick=()=>{state.stage=!state.stage;updateControls();updatePrefs()};fullscreenBtn.onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}};
-pasteBtn.onclick=()=>pasteDialog.showModal();helpBtn.onclick=()=>helpDialog.showModal();pasteForm.addEventListener("submit",e=>{if(e.submitter&&e.submitter.value==="cancel")return;const text=pasteText.value;if(!text.trim()){e.preventDefault();return}const sync=hasLRC(text);openSong({title:pasteTitle.value.trim()||"Letra colada",artist:pasteArtist.value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"conteúdo local"});pasteDialog.close();e.preventDefault()});exportBtn.onclick=exportSetlist;importBtn.onclick=()=>importFile.click();importFile.onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};document.addEventListener("keydown",e=>{if(e.target.matches("input,textarea"))return;if(e.key===" "){e.preventDefault();toggleScroll()}if(e.key==="ArrowLeft")jumpSong(-1);if(e.key==="ArrowRight")jumpSong(1);if(e.key==="Escape")stopAll()});searchInput.focus();
-</script>
-</body></html>
+<script src="./core.js" defer></script>
+<script src="./library.js" defer></script>
+<script src="./player.js" defer></script>
+<script src="./ui.js" defer></script>
+</body>
+</html>
