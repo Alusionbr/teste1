@@ -7,7 +7,14 @@ function renderList(){
   data.forEach((m,i)=>{
     const row=document.createElement("div");row.className="listRow";
     const b=document.createElement("button");b.className="songItem";if(state.tab==="setlist"&&i===state.currentIndex)b.classList.add("current");
-    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
+    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);
+    // Nos resultados, dizer de cara o que já tem letra evita clicar num beco
+    // sem saída: faixa achada só no catálogo (Apple/Deezer) pode não ter texto.
+    if(state.tab==="results"){
+      if(m.local)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · seu repertório":"no seu repertório"}</span>`);
+      else if(m.acervo)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · acervo":"acervo do site"}</span>`);
+      else if(m.lyrics&&!m.synced)tags.push('<span class="tag">com letra</span>');
+    }if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     b.onclick=()=>{if(state.tab==="setlist")state.currentIndex=i;else state.currentIndex=-1;openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
     if(state.tab==="setlist"){const a=document.createElement("div");a.className="rowActions";a.append(rowButton("↑",i===0,()=>moveSong(i,-1)),rowButton("↓",i===data.length-1,()=>moveSong(i,1)),rowButton("×",false,()=>removeSong(i),"remove"));row.appendChild(a)}

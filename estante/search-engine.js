@@ -22,10 +22,62 @@ async function searchVagalumeAdvanced(q,route="search.artmus"){const key=state.k
 function jsonp(src,callbackParam,timeout=8500){return new Promise(resolve=>{const cb=`estanteJsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;const s=document.createElement("script");let done=false;const finish=data=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch{}s.remove();resolve(data)};window[cb]=finish;s.onerror=()=>finish(null);s.src=`${src}${src.includes("?")?"&":"?"}${callbackParam}=${cb}`;document.head.appendChild(s);const timer=setTimeout(()=>finish(null),timeout)})}
 function searchItunes(q){return jsonp(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&country=BR&media=music&entity=song&limit=25`,"callback").then(data=>{markSource("itunes",!!data);return((data&&data.results)||[]).filter(x=>x.wrapperType==="track"&&x.kind==="song").map(x=>({title:x.trackName||"",artist:x.artistName||"",album:x.collectionName||"",duration:x.trackTimeMillis?Math.round(x.trackTimeMillis/1000):0,lyrics:"",synced:"",source:"Apple",sources:["Apple"],catalogUrl:x.trackViewUrl||"",appleId:x.trackId||0}))})}
 function searchDeezer(q){return jsonp(`https://api.deezer.com/search?q=${encodeURIComponent(q)}&limit=25&output=jsonp`,"callback").then(data=>{markSource("deezer",!!data&&!data.error);return((data&&data.data)||[]).map(x=>({title:x.title||"",artist:(x.artist&&x.artist.name)||"",album:(x.album&&x.album.title)||"",duration:x.duration||0,lyrics:"",synced:"",source:"Deezer",sources:["Deezer"],catalogUrl:x.link||"",deezerId:x.id||0}))})}
+/*
+ * Busca no que já está salvo neste aparelho: título, artista e o texto da letra.
+ *
+ * É a única busca que funciona sem internet, e a única que acha por trecho sem
+ * depender do Vagalume — LRCLIB, Deezer e Apple só comparam título, artista e
+ * álbum, nunca o conteúdo da letra. Como as músicas do repertório guardam a
+ * letra inteira (inclusive as que você corrigiu na mão), procurar nelas por um
+ * verso funciona sempre.
+ */
+function searchLocal(q){
+  const alvo=searchFold(q);if(!alvo)return[];
+  const achados=[],vistos=new Set();
+  (state.setlists||[]).forEach(set=>{(set.songs||[]).forEach(song=>{
+    const cabeca=searchFold(`${song.title} ${song.artist}`);
+    const corpo=searchFold(`${song.lyrics||""} ${song.synced||""}`);
+    const noTitulo=cabeca.includes(alvo),naLetra=corpo.includes(alvo);
+    if(!noTitulo&&!naLetra)return;
+    const k=songIdentity(song);if(vistos.has(k))return;vistos.add(k);
+    achados.push({...song,source:"Repertório",sources:["Repertório"],local:true,localSetlist:set.name,matchedLyrics:!noTitulo&&naLetra});
+  })});
+  return achados;
+}
+// O que já está no aparelho vem primeiro: tem a letra baixada, as correções que
+// você fez e o tom que você deixou marcado. O mesmo resultado vindo da rede é
+// descartado para não aparecer duas vezes.
+function withLocalFirst(locais,remotos){
+  const vistos=new Set(locais.map(songIdentity));
+  return[...locais,...(remotos||[]).filter(m=>!vistos.has(songIdentity(m)))];
+}
 async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const first=await Promise.allSettled([searchLrclib(q),searchVagalumeAdvanced(q),searchItunes(q),searchDeezer(q)]);first.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});let merged=mergeSongs(rows,q);if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
 searchMusic=async function(q){if(state.source==="smart")return smartSearchMusic(q);return legacySearchMusic(q)};
 fetchLrclibSong=async function(song){
   if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song}}catch{}}
-  try{return await legacyFetchLrclibSong(song)}catch(first){if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}throw first}
+  try{return await legacyFetchLrclibSong(song)}catch(first){
+    if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
+    // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)
+    // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
+    // não havia mais nada a tentar.
+    // O acervo do site vem primeiro: é conteúdo próprio, conferido, e responde
+    // sem rede. Depois a lyrics.ovh, que não pede chave e tem CORS aberto.
+    try{const daCasa=await fetchFromAcervo(song);if(daCasa)return daCasa}catch{}
+    try{const achou=await fetchLyricsOvh(song);if(achou)return achou}catch{}
+    throw first;
+  }
 };
+// Só letra simples: nada de cifra nem de marcação de tempo. Serve para não
+// deixar a música sem texto nenhum quando as outras fontes falham.
+async function fetchLyricsOvh(song){
+  if(!song.artist||!song.title)return null;
+  const url=`https://api.lyrics.ovh/v1/${encodeURIComponent(song.artist)}/${encodeURIComponent(song.title)}`;
+  const r=await fetchSafe(url,{headers:{Accept:"application/json"}},15000);
+  if(!r.ok){markSource("lyricsovh",false,r.status);return null}
+  const d=await r.json(),texto=String(d&&d.lyrics||"").trim();
+  markSource("lyricsovh",!!texto);
+  if(!texto)return null;
+  song.lyrics=texto.replace(/\r\n/g,"\n");song.synced="";song.source="lyrics.ovh";
+  return song;
+}

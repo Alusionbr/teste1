@@ -25,10 +25,30 @@
     notify(`${esc(err.message)} <button type="button" id="trySmartBtn">Tentar na Inteligente</button>`);
     const btn=$("trySmartBtn");if(btn)btn.onclick=()=>{state.source="smart";syncSourceUI();updatePrefs();$("searchInput").value=q;$("searchForm").requestSubmit()};
   }
+  const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
   $("searchForm").onsubmit=async e=>{e.preventDefault();const q=$("searchInput").value.trim();if(!q)return;
-    // Sem rede a busca só teria como falhar depois do tempo limite de cada fonte:
-    // avisa na hora para não parecer travado no meio do show.
-    if(!navigator.onLine){state.results=[];state.tab="results";renderList();return notify("Você está offline. A busca precisa de internet; o repertório salvo continua funcionando.")}
-    const button=$("searchForm").querySelector("button");button.disabled=true;button.textContent="Buscando…";notify(state.source==="smart"?"Busca inteligente: consultando várias fontes e variações…":"Procurando…",true);try{state.results=await searchMusic(q);state.tab="results";renderList();if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes";notify(`${state.results.length} resultado${state.results.length===1?"":"s"} · ${src}. Os melhores aparecem primeiro.`,true)}else notify("")}catch(err){state.results=[];renderList();notifySourceError(err,q)}finally{button.disabled=false;button.textContent="Buscar";syncSourceUI()}};
+    // O que já está no aparelho é procurado sempre, antes de qualquer rede:
+    // responde na hora, funciona offline e é a única busca que acha por trecho
+    // sem depender do Vagalume.
+    // Repertório salvo + acervo do site: os dois vivem no aparelho, respondem na
+    // hora e funcionam sem rede.
+    const locais=withLocalFirst(searchLocal(q),await searchAcervo(q));
+    if(!navigator.onLine){
+      state.results=locais;state.tab="results";renderList();
+      return notify(locais.length
+        ?`Sem internet: ${plural(locais.length,"música encontrada","músicas encontradas")} no seu repertório e no acervo do site. Buscar fontes novas precisa de rede.`
+        :"Você está offline e nada no seu repertório ou no acervo bate com essa busca. O repertório salvo continua funcionando.");
+    }
+    const button=$("searchForm").querySelector("button");button.disabled=true;button.textContent="Buscando…";notify(state.source==="smart"?"Busca inteligente: consultando várias fontes e variações…":"Procurando…",true);
+    try{
+      state.results=withLocalFirst(locais,await searchMusic(q));state.tab="results";renderList();
+      if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}
+      const doRepertorio=locais.length?`${locais.length} já no aparelho · `:"";
+      if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes";notify(`${plural(state.results.length,"resultado","resultados")} · ${doRepertorio}${src}. Os melhores aparecem primeiro.`,true)}
+      else notify(locais.length?`${doRepertorio}mais ${state.results.length-locais.length} da busca.`:"",true);
+    }catch(err){
+      // A rede falhou, mas o que está salvo continua valendo: mostra o que dá.
+      state.results=locais;renderList();notifySourceError(err,q);
+    }finally{button.disabled=false;button.textContent="Buscar";syncSourceUI()}};
   syncSourceUI();renderList();
 })();

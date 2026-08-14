@@ -468,7 +468,9 @@ estante/
 ├── index.html         # estrutura da tela e diálogos
 ├── styles.css         # visual, modo palco e folha de impressão
 ├── core.js            # estado, armazenamento, APP_VERSION e fontes de letra
-├── search-engine.js   # busca inteligente: várias fontes, variações e ranking
+├── search-engine.js   # busca inteligente: várias fontes, variações, ranking e busca local
+├── acervo.js          # acervo do site: letras que moram no repositório
+├── acervo.json        # conteúdo do acervo (vem vazio; ver estante/acervo.md)
 ├── library.js         # lista, ordem do repertório, LRC, cifras, transposição, seções
 ├── setlists.js        # vários repertórios: criar, trocar, migrar e persistir
 ├── song-prefs.js      # tom, capotraste, velocidade e anotações por música
@@ -533,6 +535,18 @@ O Vagalume fica fora do ar de vez em quando (erro 502/503/504 do próprio servi�
 - quando um modo específico falha por causa da fonte, a busca oferece um atalho de um toque para repetir na Inteligente (`search-ui.js`).
 
 Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp()` em `search-engine.js`) em vez de `fetch()` — a mesma técnica para as duas, sem biblioteca externa.
+
+### 9. O que está no aparelho é procurado antes da rede
+
+`searchLocal()` (repertório salvo) e `searchAcervo()` (`acervo.js`) rodam em toda busca, antes de qualquer fonte externa. Os dois procuram **dentro do texto da letra**, não só em título e artista — é a única busca por trecho que não depende do Vagalume, e a única que funciona offline. `withLocalFirst()` põe esses resultados na frente e descarta o duplicado que vier da rede: a versão do aparelho tem a letra corrigida e o tom marcado pelo usuário.
+
+Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB → Vagalume (se houver chave) → acervo do site → `lyrics.ovh`. O acervo vem antes da rede por ser conteúdo próprio e não precisar de conexão.
+
+### 10. O acervo do site é publicação, não cache
+
+`acervo.json` é servido pelo GitHub Pages: o que entra ali fica publicado na internet. Letra de terceiros é obra protegida — exibir o que uma API devolve é diferente de redistribuir um acervo. Por isso o arquivo **vem vazio** e `estante/acervo.md` explica o que convém colocar (autoral, domínio público, tradicional, transcrições próprias). Não encher o acervo automaticamente com o que as APIs devolverem.
+
+Como está no `SHELL` do `sw.js`, alterar `acervo.json` exige bump de versão — senão os aparelhos seguem com a cópia antiga.
 
 ## Modelo de dados
 
