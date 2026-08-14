@@ -8,8 +8,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Estante — letras e cifras no palco</title>
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -32,30 +30,11 @@
 <dialog id="pasteDialog"><form method="dialog" class="modal" id="pasteForm"><header><h2>Colar letra ou cifra</h2><button value="cancel">×</button></header><label>Música<input id="pasteTitle" placeholder="Nome da música"></label><label>Artista<input id="pasteArtist" placeholder="Artista"></label><label>Letra, cifra ou LRC<textarea id="pasteText" placeholder="Cole aqui. Marcas como [00:12.30] ativam o modo Sincro."></textarea></label><footer><button value="cancel">Cancelar</button><button class="accent" value="default">Abrir</button></footer></form></dialog>
 <dialog id="helpDialog"><form method="dialog" class="modal"><header><h2>Uso no palco</h2><button value="cancel">×</button></header><p><b>Rolar:</b> desce a letra automaticamente e permite ajustar a velocidade.</p><p><b>Sincro:</b> acompanha letras temporizadas. Toque numa linha para reposicionar.</p><p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p><p><b>Cifras:</b> quando o app detecta acordes, o controle de Tom aparece.</p><footer><button class="accent" value="default">Entendi</button></footer></form></dialog>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js"></script>
-<script src="./library-view.js"></script>
-<script src="./setlist.js"></script>
-<script src="./music-tools.js"></script>
-<script src="./viewer-basic.js"></script>
-<script src="./scroll-controls.js"></script>
-<script src="./storage-tools.js"></script>
+<script src="./core.js"></script><script src="./library-view.js"></script><script src="./setlist.js"></script><script src="./music-tools.js"></script><script src="./viewer-basic.js"></script><script src="./scroll-controls.js"></script><script src="./storage-tools.js"></script>
 <script>
-state.source="lrclib";
-const prefs=load(KEYS.prefs,{});const saved=load(KEYS.setlist,[]);state.setlist=Array.isArray(saved)?saved.map(normalizeSong):[];state.speed=prefs.speed||18;state.font=prefs.font||26;state.stage=!!prefs.stage;
-updateControls();updateNetwork();renderList();updateSaveButton();
-window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
-searchForm.addEventListener("submit",async e=>{e.preventDefault();const q=searchInput.value.trim();if(!q)return;notify("Procurando…",true);try{state.results=await searchMusic(q);state.tab="results";renderList();notify(state.results.length?"":"Nada encontrado. Tente música e artista juntos.")}catch(err){state.results=[];renderList();notify("Falha na busca: "+err.message)}});
-document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{state.tab=b.dataset.tab;renderList()}));
-menuBtn.onclick=()=>sidebar.classList.toggle("open");saveBtn.onclick=addSong;prevBtn.onclick=()=>jumpSong(-1);nextBtn.onclick=()=>jumpSong(1);topBtn.onclick=()=>paperViewport.scrollTo({top:0,behavior:"smooth"});scrollBtn.onclick=toggleScroll;syncBtn.onclick=toggleSync;
-document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>{state.speed=Math.max(4,Math.min(140,state.speed+Number(b.dataset.speed)));updateControls();updatePrefs()});
-document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();updatePrefs()});
-document.querySelectorAll("[data-key]").forEach(b=>b.onclick=()=>{state.key=Math.max(-11,Math.min(11,state.key+Number(b.dataset.key)));updateControls();paper.querySelectorAll(".chord").forEach(n=>n.textContent=transposeLine(state.lines[Number(n.dataset.i)].text,state.key))});
-stageBtn.onclick=()=>{state.stage=!state.stage;updateControls();updatePrefs()};fullscreenBtn.onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}};
-pasteBtn.onclick=()=>pasteDialog.showModal();helpBtn.onclick=()=>helpDialog.showModal();
-pasteForm.addEventListener("submit",e=>{if(e.submitter&&e.submitter.value==="cancel")return;const text=pasteText.value;if(!text.trim()){e.preventDefault();return}const sync=hasLRC(text);openSong({title:pasteTitle.value.trim()||"Letra colada",artist:pasteArtist.value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"conteúdo local"});pasteDialog.close();e.preventDefault()});
-exportBtn.onclick=exportSetlist;importBtn.onclick=()=>importFile.click();importFile.onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
-document.addEventListener("keydown",e=>{if(e.target.matches("input,textarea"))return;if(e.key===" "){e.preventDefault();toggleScroll()}if(e.key==="ArrowLeft")jumpSong(-1);if(e.key==="ArrowRight")jumpSong(1);if(e.key==="Escape")stopAll()});
-searchInput.focus();
+state.source="lrclib";const prefs=load(KEYS.prefs,{}),saved=load(KEYS.setlist,[]);state.setlist=Array.isArray(saved)?saved.map(normalizeSong):[];state.speed=prefs.speed||18;state.font=prefs.font||26;state.stage=!!prefs.stage;updateControls();updateNetwork();renderList();updateSaveButton();window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
+searchForm.addEventListener("submit",async e=>{e.preventDefault();const q=searchInput.value.trim();if(!q)return;notify("Procurando…",true);try{state.results=await searchMusic(q);state.tab="results";renderList();notify(state.results.length?"":"Nada encontrado. Tente música e artista juntos.")}catch(err){state.results=[];renderList();notify("Falha na busca: "+err.message)}});document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{state.tab=b.dataset.tab;renderList()}));menuBtn.onclick=()=>sidebar.classList.toggle("open");saveBtn.onclick=addSong;prevBtn.onclick=()=>jumpSong(-1);nextBtn.onclick=()=>jumpSong(1);topBtn.onclick=()=>paperViewport.scrollTo({top:0,behavior:"smooth"});scrollBtn.onclick=toggleScroll;syncBtn.onclick=toggleSync;
+document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>{state.speed=Math.max(4,Math.min(140,state.speed+Number(b.dataset.speed)));updateControls();updatePrefs()});document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();updatePrefs()});document.querySelectorAll("[data-key]").forEach(b=>b.onclick=()=>{state.key=Math.max(-11,Math.min(11,state.key+Number(b.dataset.key)));updateControls();paper.querySelectorAll(".chord").forEach(n=>n.textContent=transposeLine(state.lines[Number(n.dataset.i)].text,state.key))});stageBtn.onclick=()=>{state.stage=!state.stage;updateControls();updatePrefs()};fullscreenBtn.onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}};
+pasteBtn.onclick=()=>pasteDialog.showModal();helpBtn.onclick=()=>helpDialog.showModal();pasteForm.addEventListener("submit",e=>{if(e.submitter&&e.submitter.value==="cancel")return;const text=pasteText.value;if(!text.trim()){e.preventDefault();return}const sync=hasLRC(text);openSong({title:pasteTitle.value.trim()||"Letra colada",artist:pasteArtist.value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"conteúdo local"});pasteDialog.close();e.preventDefault()});exportBtn.onclick=exportSetlist;importBtn.onclick=()=>importFile.click();importFile.onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};document.addEventListener("keydown",e=>{if(e.target.matches("input,textarea"))return;if(e.key===" "){e.preventDefault();toggleScroll()}if(e.key==="ArrowLeft")jumpSong(-1);if(e.key==="ArrowRight")jumpSong(1);if(e.key==="Escape")stopAll()});searchInput.focus();
 </script>
-</body>
-</html>
+</body></html>
