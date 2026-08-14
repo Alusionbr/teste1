@@ -19,6 +19,9 @@ function activeSetlist(){return state.setlists.find(s=>s.id===state.activeSetlis
 // Religa state.setlist ao array de músicas do repertório ativo (mesma referência).
 function bindActiveSetlist(){const s=activeSetlist();state.setlist=s?s.songs:[]}
 function saveSetlists(){return save(KEYS.setlists,{version:3,activeId:state.activeSetlistId,setlists:state.setlists})}
+// Versão adiada, para ajuste que se repete (tom, capo, velocidade digitados na
+// pedaleira). Ver o comentário de saveSoon() em core.js.
+function saveSetlistsSoon(){saveSoon("setlists",saveSetlists)}
 
 // Substitui as músicas do repertório ativo mantendo a referência viva.
 function setActiveSongs(list){const s=activeSetlist();if(!s)return;s.songs=list.map(storedSong);bindActiveSetlist();saveSetlists()}

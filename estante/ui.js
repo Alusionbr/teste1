@@ -4,9 +4,17 @@
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderList()});
 $("menuBtn").onclick=()=>$("sidebar").classList.toggle("open");$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
 document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>changeSpeed(Number(b.dataset.speed)));
-document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();updatePrefs()});
+// Mudar o tamanho da letra muda a altura do texto: o automático recalcula.
+document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();applyAutoSpeed();updatePrefsSoon()});
+$("autoBtn").onclick=toggleAuto;
 document.querySelectorAll("[data-key]").forEach(b=>b.onclick=()=>changeKey(Number(b.dataset.key)));
 document.querySelectorAll("[data-capo]").forEach(b=>b.onclick=()=>changeCapo(Number(b.dataset.capo)));
+$("editBtn").onclick=openSongEditor;
+$("editForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();saveSongEdit()});
+$("durationForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();saveDuration($("durationInput").value);$("durationDialog").close()});
+$("importCloseBtn").onclick=()=>{$("importDialog").close();incomingImport=null};
+$("importAddBtn").onclick=()=>finishImport("add");
+$("importReplaceBtn").onclick=()=>finishImport("replace");
 $("notesBtn").onclick=()=>{if(!state.current)return;$("notesText").value=state.current.notes||"";$("notesDialog").showModal()};
 $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;saveSongNotes($("notesText").value.trim());$("notesDialog").close();e.preventDefault()});
 $("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("helpBtn").onclick=()=>$("helpDialog").showModal();
@@ -79,7 +87,10 @@ function finishSharedImport(mode){
 }
 $("shareBtn").onclick=shareSetlist;$("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);incomingSetlist=null;incomingName=""};$("sharedAddBtn").onclick=()=>finishSharedImport("add");$("sharedNewBtn").onclick=()=>finishSharedImport("new");
 
-window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&(state.stage||state.scrolling||state.syncing))keepAwake()});
+window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
+// Gravação adiada não pode morrer com a aba: fecha a conta ao sair ou esconder.
+window.addEventListener("pagehide",flushSaves);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(state.stage||state.scrolling||state.syncing)keepAwake()}else flushSaves()});
 document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
 $("paperViewport").addEventListener("pointerdown",()=>{if(state.scrolling)toggleScroll()});
 

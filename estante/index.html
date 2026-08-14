@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.3.0">
+  <link rel="stylesheet" href="./styles.css?v=3.4.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -71,6 +71,7 @@
       </div>
       <div class="headerActions">
         <button id="saveBtn">+ Repertório</button>
+        <button id="editBtn" disabled>Editar letra</button>
         <button id="notesBtn" disabled>Anotações</button>
         <button id="stageBtn">Modo palco</button>
         <button id="fullscreenBtn">Tela cheia</button>
@@ -78,6 +79,7 @@
     </header>
 
     <div class="songNotes" id="songNotes" hidden></div>
+    <div class="sectionBar" id="sectionBar" hidden aria-label="Seções da música"></div>
 
     <section class="paperViewport" id="paperViewport">
       <article class="paper" id="paper">
@@ -89,7 +91,7 @@
     <footer class="transport">
       <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
-      <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button></div>
+      <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button><button id="autoBtn" class="auto" title="Calcular a velocidade pela duração da música">auto</button></div>
       <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
       <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
       <div class="control" id="capoControl" hidden><span>Capo</span><button data-capo="-1">−</button><output id="capoOut">0</output><button data-capo="1">+</button></div>
@@ -135,13 +137,15 @@
   <form method="dialog" class="modal">
     <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
     <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância.</p>
-    <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
+    <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira ou toque em <b>auto</b>: o Estante calcula a velocidade pela duração da música para a letra terminar junto. Mexer no −/+ volta para o manual.</p>
+    <p><b>Editar letra:</b> conserta o que a fonte trouxe errado e guarda o arranjo da banda. Escreva <b>[Refrão]</b>, <b>[Solo]</b> ou <b>[Final]</b> numa linha e essas seções viram atalhos acima da letra.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
     <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover. Na barra do repertório dá para ter uma lista por show: criar, renomear, duplicar, apagar e imprimir.</p>
     <p><b>Tom, capo, velocidade e anotações</b> ficam salvos em cada música do repertório: ao voltar nela no próximo show, tudo volta como você deixou.</p>
     <p><b>Imprimir:</b> gera a ordem do show em papel ou PDF, só a lista ou com as letras.</p>
     <p><b>Sem internet:</b> depois da primeira abertura o app funciona offline e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não.</p>
     <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
+    <p><b>Importar:</b> mostra o que vem no arquivo antes de mexer em qualquer coisa. <b>Adicionar</b> mantém o que já está no aparelho; <b>Substituir</b> troca tudo.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
@@ -152,6 +156,36 @@
     <label>O que lembrar no palco<textarea id="notesText" placeholder="Ex.: entra em Ré, 2ª voz no refrão, corta o solo, final repetido"></textarea></label>
     <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar</button></footer>
   </form>
+</dialog>
+
+<dialog id="editDialog">
+  <form method="dialog" class="modal" id="editForm">
+    <header><h2>Editar letra</h2><button value="cancel">×</button></header>
+    <p>Corrija o que a fonte trouxe errado e escreva o arranjo da banda. Tom, capotraste, velocidade e anotações não mudam.</p>
+    <label>Música<input id="editTitle"></label>
+    <label>Artista<input id="editArtist"></label>
+    <label>Letra ou cifra<textarea id="editText" placeholder="Linhas só com acordes viram cifras; [Refrão] vira seção e ganha atalho; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
+  </form>
+</dialog>
+
+<dialog id="durationDialog">
+  <form method="dialog" class="modal" id="durationForm">
+    <header><h2>Duração da música</h2><button value="cancel">×</button></header>
+    <p>Para calcular a velocidade sozinho, o Estante precisa saber quanto tempo a música dura. Esta versão não trouxe a duração.</p>
+    <label>Quanto tempo dura<input id="durationInput" inputmode="numeric" placeholder="3:45"></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Ligar automático</button></footer>
+  </form>
+</dialog>
+
+<dialog id="importDialog">
+  <div class="modal">
+    <header><h2>Importar repertório</h2><button id="importCloseBtn" type="button">×</button></header>
+    <p id="importSummary"></p>
+    <p id="importWarning" class="warn"></p>
+    <p><b>Adicionar</b> mantém o que já está aqui e acrescenta os do arquivo. <b>Substituir</b> troca tudo.</p>
+    <footer><button id="importReplaceBtn" type="button" class="remove">Substituir</button><button class="accent" id="importAddBtn" type="button">Adicionar</button></footer>
+  </div>
 </dialog>
 
 <dialog id="setlistDialog">
@@ -172,15 +206,17 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.3.0" defer></script>
-<script src="./search-engine.js?v=3.3.0" defer></script>
-<script src="./library.js?v=3.3.0" defer></script>
-<script src="./setlists.js?v=3.3.0" defer></script>
-<script src="./song-prefs.js?v=3.3.0" defer></script>
-<script src="./player.js?v=3.3.0" defer></script>
-<script src="./print.js?v=3.3.0" defer></script>
-<script src="./ui.js?v=3.3.0" defer></script>
-<script src="./search-ui.js?v=3.3.0" defer></script>
-<script src="./offline.js?v=3.3.0" defer></script>
+<script src="./core.js?v=3.4.0" defer></script>
+<script src="./search-engine.js?v=3.4.0" defer></script>
+<script src="./library.js?v=3.4.0" defer></script>
+<script src="./setlists.js?v=3.4.0" defer></script>
+<script src="./song-prefs.js?v=3.4.0" defer></script>
+<script src="./autoscroll.js?v=3.4.0" defer></script>
+<script src="./player.js?v=3.4.0" defer></script>
+<script src="./song-edit.js?v=3.4.0" defer></script>
+<script src="./print.js?v=3.4.0" defer></script>
+<script src="./ui.js?v=3.4.0" defer></script>
+<script src="./search-ui.js?v=3.4.0" defer></script>
+<script src="./offline.js?v=3.4.0" defer></script>
 </body>
 </html>

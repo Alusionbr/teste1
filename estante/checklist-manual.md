@@ -30,6 +30,30 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Recarregar a página mantém tudo (só vale para músicas do repertório).
 - [ ] A lista do repertório mostra as etiquetas de tom e capo.
 
+## 4b. Velocidade automática
+
+- [ ] Numa música com duração conhecida, **auto** acende e a velocidade muda sozinha.
+- [ ] Rolando até o fim, a letra termina por volta do tempo da música.
+- [ ] Mudar o tamanho da letra com o **auto** ligado recalcula a velocidade.
+- [ ] Tocar em −/+ desliga o **auto** e volta ao manual.
+- [ ] Numa letra colada sem duração, **auto** pergunta a duração; digitar `3:45` liga o automático.
+- [ ] A etiqueta `auto` aparece na lista do repertório.
+
+## 4c. Editar a letra
+
+- [ ] **Editar letra** abre com o texto atual; salvar redesenha a letra na hora.
+- [ ] Tom, capotraste, velocidade e anotações continuam iguais depois de salvar.
+- [ ] Trocar o título pela edição não cria uma segunda cópia no repertório.
+- [ ] Colar um `.lrc` pela edição reativa o botão **Sincro**.
+- [ ] Escrever `[Refrão]` e `[Solo]` faz aparecer a tira de atalhos; tocar num deles rola até a seção.
+- [ ] A tira some quando a música tem menos de duas seções.
+
+## 4d. Gravação sem travar
+
+- [ ] Segurar o `+` da velocidade durante a rolagem não engasga a letra.
+- [ ] O valor ajustado continua lá depois de recarregar a página.
+- [ ] Ajustar a velocidade de uma música do repertório não muda a velocidade das outras.
+
 ## 5. Repertórios
 
 - [ ] Criar um segundo repertório: o novo abre vazio e o anterior continua intacto.
@@ -49,7 +73,11 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 ## 7. Arquivos e compartilhamento
 
 - [ ] **Exportar** baixa um JSON com todos os repertórios.
-- [ ] **Importar** aceita esse arquivo e também um export antigo (lista única).
+- [ ] **Importar** mostra o diálogo antes de mexer em qualquer coisa, dizendo o que vem no arquivo e o que seria apagado.
+- [ ] **Adicionar** mantém os repertórios do aparelho e acrescenta os do arquivo.
+- [ ] **Substituir** troca tudo — e só depois de confirmar.
+- [ ] Fechar o diálogo no × não importa nada.
+- [ ] Importar um export antigo (lista única) também passa pelo diálogo.
 - [ ] **Compartilhar** copia/compartilha o link; abrir o link em outra janela oferece "Adicionar" e "Criar novo".
 - [ ] **Imprimir** mostra a ordem do show com tom, capo, duração e anotações; a opção "Com as letras" traz uma música por página.
 
@@ -59,6 +87,17 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] A busca offline avisa que não há internet, sem quebrar a tela.
 - [ ] O navegador oferece instalar o app (ícone aparece corretamente).
 - [ ] Ao publicar uma versão nova, aparece o aviso "Nova versão disponível" com o botão de atualizar.
+
+## 8b. No celular e no tablet
+
+Teste em 360–390 px de largura e num tablet, ou nas ferramentas de dispositivo do navegador.
+
+- [ ] O nome da música aparece no cabeçalho (não pode ficar espremido a zero).
+- [ ] O cabeçalho ocupa uma linha só; os botões que não cabem são alcançados arrastando a fileira de lado.
+- [ ] **Rolar**, **‹** e **›** aparecem na pedaleira sem precisar arrastar.
+- [ ] Os rótulos Vel., Letra, Tom e Capo estão visíveis, dá para saber qual controle é qual.
+- [ ] A página não rola de lado em nenhuma tela.
+- [ ] Os diálogos (editar letra, colar letra) cabem na tela e rolam por dentro.
 
 ## 9. Migração
 
