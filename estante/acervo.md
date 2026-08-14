@@ -10,14 +10,23 @@ Letra é obra protegida, dos autores e das editoras. Exibir o que uma API públi
 
 O que costuma ser tranquilo aqui:
 
-- composições suas;
-- domínio público e tradicionais (o prazo varia por país — no Brasil, 70 anos após a morte do autor);
-- letras com licença que permita redistribuição;
-- suas próprias anotações de arranjo, roteiro, cifra e estrutura.
+- **composições suas** — você é o autor;
+- **domínio público** — no Brasil, 70 anos contados de 1º de janeiro do ano seguinte à morte do autor (art. 41). Em obra com mais de um autor, o prazo corre da morte do **último sobrevivente** (art. 42). Letra e música quase sempre têm autores diferentes: confira os dois antes de concluir;
+- **tradicional de autoria desconhecida** (art. 45, II) — mas um arranjo ou harmonização assinada por alguém é obra derivada e continua protegida;
+- **letras com licença que permita redistribuição** (Creative Commons compatível, autorização escrita da editora).
 
-Se a intenção for só ter as suas correções à mão sem publicar nada, o caminho é outro e já existe: salve a música no repertório, use **Editar letra** e **Exportar**. Isso fica no seu aparelho, não no site.
+O que **não** entra aqui, por mais tentador que pareça:
 
-Por esse motivo o acervo vem vazio: o que entra é decisão de quem publica.
+- letra de música comercial de terceiro, mesmo com crédito ao autor — crédito não substitui autorização;
+- **sua própria transcrição de uma música de terceiro**. Transcrever de ouvido não cria direito seu sobre a letra: a obra continua sendo do autor e a transcrição é derivada. Vale o mesmo para a cifra que você tirou.
+
+Suas anotações de palco (roteiro, quem entra onde, tom, estrutura) são suas — desde que não venham acompanhadas do texto da letra alheia.
+
+### Se a intenção é só ter as suas correções à mão
+
+Aí o caminho é outro e já existe, sem publicar nada: salve a música no repertório, use **Editar letra** e **Exportar**. Fica no seu aparelho, e o arquivo exportado é seu. Uso pessoal e privado não é publicação.
+
+Por esse motivo o acervo vem vazio: o que entra é decisão — e responsabilidade — de quem publica.
 
 ## Formato
 
