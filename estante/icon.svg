@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Estante">
+  <rect width="512" height="512" fill="#0d1117"/>
+  <g fill="#ffc15e">
+    <rect x="102" y="123" width="56" height="235" rx="6"/>
+    <rect x="174" y="92" width="56" height="266" rx="6"/>
+    <rect x="246" y="143" width="56" height="215" rx="6"/>
+    <rect x="318" y="113" width="56" height="245" rx="6"/>
+    <rect x="82" y="374" width="312" height="36" rx="8"/>
+  </g>
+</svg>

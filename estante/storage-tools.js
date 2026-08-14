@@ -1,3 +1,0 @@
-"use strict";
-function exportSetlist(){const a=document.createElement("a"),blob=new Blob([JSON.stringify({version:2,setlist:state.setlist},null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
-function importSetlist(file){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result),raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw Error();state.setlist=raw.map(normalizeSong);save(KEYS.setlist,state.setlist);state.tab="setlist";renderList();notify("Repertório importado: "+state.setlist.length+" músicas.",true)}catch{notify("Arquivo de repertório inválido.")}};r.readAsText(file)}

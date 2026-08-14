@@ -1,7 +1,0 @@
-"use strict";
-function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;updateControls()}
-function toggleScroll(){state.syncing=false;state.scrolling=!state.scrolling;if(state.scrolling){lastFrame=performance.now();tick()}else if(raf){cancelAnimationFrame(raf);raf=null}updateControls()}
-function toggleSync(){if(!state.lrc.length)return;state.scrolling=false;state.syncing=!state.syncing;if(state.syncing){syncStart=performance.now()-syncOffset*1000;lastFrame=performance.now();tick()}else if(raf){cancelAnimationFrame(raf);raf=null}updateControls()}
-function seekSync(i){if(!state.lrc[i])return;syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
-function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;Array.from(nodes).forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTop=Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38)}
-function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=(now-lastFrame)/1000;lastFrame=now;if(state.scrolling)$("paperViewport").scrollTop+=state.speed*dt;if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}}
