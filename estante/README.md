@@ -10,6 +10,9 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 |---|---|
 | **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer e o catálogo da Apple em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
 | **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
+| **Busca no aparelho** | Toda busca procura antes no repertório salvo e no acervo do site — inclusive **dentro do texto da letra**. Responde na hora, funciona offline e é a única busca por trecho que não depende do Vagalume. O que já está no aparelho vem primeiro, com a sua letra e os seus ajustes. |
+| **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
+| **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) não abre mais vazia: o app tenta o acervo do site e depois a `lyrics.ovh`, que não pede chave. |
 | **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas e a duração estimada. |
 | **Ajustes por música** | Tom, capotraste, velocidade de rolagem e anotações ficam salvos em cada música do repertório. O tamanho da letra é global. |
 | **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio e você pode tocar numa linha para reposicionar. |
@@ -41,7 +44,9 @@ Funcionam também com pedaleiras Bluetooth que enviam essas teclas.
 index.html         estrutura da tela e diálogos
 styles.css         visual, modo palco e folha de impressão
 core.js            estado, armazenamento, versão do app e fontes de letra
-search-engine.js   busca inteligente: várias fontes, variações e ranqueamento
+search-engine.js   busca inteligente: várias fontes, variações, ranqueamento e busca no repertório
+acervo.js          acervo do site: letras que moram no repositório
+acervo.json        conteúdo do acervo (vem vazio; ver acervo.md)
 library.js         lista, ordenação do repertório, LRC, cifras, transposição e seções
 setlists.js        vários repertórios: criar, trocar, migrar e persistir
 song-prefs.js      tom, capotraste, velocidade e anotações por música

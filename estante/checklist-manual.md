@@ -17,6 +17,15 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Com o Vagalume fora do ar (simule bloqueando `api.vagalume.com.br` nas ferramentas de rede do navegador): os chips **Brasil** e **Trecho** ganham um ponto vermelho; buscar neles mostra a mensagem certa com o botão **Tentar na Inteligente**, e clicar nele repete a busca no modo Inteligente.
 - [ ] Ainda com o Vagalume fora do ar, o modo **Inteligente** continua trazendo resultados (via LRCLIB/Deezer/Apple).
 
+## 2b. Busca no que já está no aparelho
+
+- [ ] Com uma música salva no repertório, buscar pelo título traz ela **no topo**, com a etiqueta "no seu repertório".
+- [ ] Buscar por um **verso** dessa música também acha, com a etiqueta "na letra · seu repertório".
+- [ ] A mesma música vinda da rede não aparece duplicada, e a letra mostrada é a que você salvou/corrigiu.
+- [ ] Offline, buscar ainda encontra o que está no repertório e no acervo; a mensagem diz que é do aparelho, sem parecer erro.
+- [ ] Com o acervo preenchido (`acervo.json`), buscar por título ou por trecho acha a música com a etiqueta "acervo do site", e ela abre com a letra mesmo sem rede.
+- [ ] Abrir um resultado que veio só do catálogo (Apple/Deezer) agora carrega letra pela reserva (acervo ou `lyrics.ovh`); se nenhuma tiver, a mensagem de sempre aparece.
+
 ## 3. Letra colada e cifras
 
 - [ ] "Colar letra" abre o texto colado; linhas só com acordes viram cifras.
