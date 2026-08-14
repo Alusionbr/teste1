@@ -37,7 +37,20 @@
       <button class="tab active" data-tab="results">Resultados</button>
       <button class="tab" data-tab="setlist">Repertório <b id="setlistCount">0</b></button>
     </nav>
+
+    <div class="setlistBar" id="setlistBar" hidden>
+      <select id="setlistSelect" aria-label="Repertório ativo"></select>
+      <div class="setlistActions">
+        <button id="setlistNew" type="button" title="Novo repertório" aria-label="Novo repertório">+</button>
+        <button id="setlistRename" type="button" title="Renomear repertório" aria-label="Renomear repertório">✎</button>
+        <button id="setlistCopy" type="button" title="Duplicar repertório" aria-label="Duplicar repertório">⧉</button>
+        <button id="printBtn" type="button" title="Imprimir repertório" aria-label="Imprimir repertório">⎙</button>
+        <button id="setlistDelete" type="button" class="remove" title="Apagar repertório" aria-label="Apagar repertório">×</button>
+      </div>
+    </div>
+
     <div id="list" class="list"></div>
+    <div id="setlistSummary" class="setlistSummary" aria-live="polite" hidden></div>
 
     <footer class="sidebarFooter">
       <button id="pasteBtn">Colar letra</button>
@@ -109,8 +122,8 @@
   <div class="modal">
     <header><h2>Repertório recebido</h2><button id="sharedCloseBtn" type="button">×</button></header>
     <p id="sharedSummary">Você recebeu um repertório compartilhado.</p>
-    <p>Escolha <b>Adicionar</b> para manter suas músicas atuais ou <b>Usar repertório</b> para trocar pela ordem recebida.</p>
-    <footer><button id="sharedAddBtn" type="button">Adicionar</button><button class="accent" id="sharedReplaceBtn" type="button">Usar repertório</button></footer>
+    <p>Escolha <b>Adicionar</b> para juntar ao repertório aberto agora ou <b>Criar novo</b> para guardar em um repertório separado.</p>
+    <footer><button id="sharedAddBtn" type="button">Adicionar</button><button class="accent" id="sharedNewBtn" type="button">Criar novo</button></footer>
   </div>
 </dialog>
 
@@ -126,11 +139,30 @@
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
 </dialog>
+<dialog id="setlistDialog">
+  <form method="dialog" class="modal" id="setlistForm">
+    <header><h2 id="setlistDialogTitle">Novo repertório</h2><button value="cancel">×</button></header>
+    <label>Nome<input id="setlistName" maxlength="60" placeholder="Ex.: Bar do Zé · sábado"></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="printDialog">
+  <div class="modal">
+    <header><h2>Imprimir repertório</h2><button id="printCloseBtn" type="button">×</button></header>
+    <p>A lista sai na ordem do show, com tom, capotraste, duração e anotações. Na janela de impressão você também pode salvar em PDF.</p>
+    <footer><button id="printListBtn" type="button">Só a lista</button><button class="accent" id="printFullBtn" type="button">Com as letras</button></footer>
+  </div>
+</dialog>
+
+<div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
 <script src="./core.js?v=3.3.0" defer></script>
 <script src="./search-engine.js?v=3.3.0" defer></script>
 <script src="./library.js?v=3.3.0" defer></script>
+<script src="./setlists.js?v=3.3.0" defer></script>
 <script src="./player.js?v=3.3.0" defer></script>
+<script src="./print.js?v=3.3.0" defer></script>
 <script src="./ui.js?v=3.3.0" defer></script>
 <script src="./search-ui.js?v=3.3.0" defer></script>
 <script src="./offline.js?v=3.3.0" defer></script>

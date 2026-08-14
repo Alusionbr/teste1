@@ -2,11 +2,12 @@
 function renderList(){
   const data=state.tab==="results"?state.results:state.setlist;$("list").innerHTML="";$("setlistCount").textContent=state.setlist.length;
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===state.tab));
+  renderSetlistBar();
   if(!data.length){$("list").innerHTML=`<div class="empty">${state.tab==="results"?"Busque por artista e música. Use Por trecho quando lembrar apenas uma parte da letra.":"Seu repertório está vazio. Abra uma música e toque em + Repertório."}</div>`;return}
   data.forEach((m,i)=>{
     const row=document.createElement("div");row.className="listRow";
     const b=document.createElement("button");b.className="songItem";if(state.tab==="setlist"&&i===state.currentIndex)b.classList.add("current");
-    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
+    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     b.onclick=()=>{if(state.tab==="setlist")state.currentIndex=i;else state.currentIndex=-1;openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
     if(state.tab==="setlist"){const a=document.createElement("div");a.className="rowActions";a.append(rowButton("↑",i===0,()=>moveSong(i,-1)),rowButton("↓",i===data.length-1,()=>moveSong(i,1)),rowButton("×",false,()=>removeSong(i),"remove"));row.appendChild(a)}
@@ -16,9 +17,9 @@ function renderList(){
 function rowButton(text,disabled,fn,cls=""){const b=document.createElement("button");b.textContent=text;b.disabled=disabled;b.className=cls;b.onclick=e=>{e.stopPropagation();fn()};return b}
 function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??""}}
 function storedSong(m){return normalizeSong(m)}
-function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));save(KEYS.setlist,state.setlist);state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
-function removeSong(i){state.setlist.splice(i,1);if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;save(KEYS.setlist,state.setlist);renderList();updateSaveButton()}
-function moveSong(i,d){const j=Math.max(0,Math.min(state.setlist.length-1,i+d));if(i===j)return;const[x]=state.setlist.splice(i,1);state.setlist.splice(j,0,x);if(state.currentIndex===i)state.currentIndex=j;else if(i<state.currentIndex&&j>=state.currentIndex)state.currentIndex--;else if(i>state.currentIndex&&j<=state.currentIndex)state.currentIndex++;save(KEYS.setlist,state.setlist);renderList()}
+function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));saveSetlists();state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
+function removeSong(i){state.setlist.splice(i,1);if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;saveSetlists();renderList();updateSaveButton()}
+function moveSong(i,d){const j=Math.max(0,Math.min(state.setlist.length-1,i+d));if(i===j)return;const[x]=state.setlist.splice(i,1);state.setlist.splice(j,0,x);if(state.currentIndex===i)state.currentIndex=j;else if(i<state.currentIndex&&j>=state.currentIndex)state.currentIndex--;else if(i>state.currentIndex&&j<=state.currentIndex)state.currentIndex++;saveSetlists();renderList()}
 function jumpSong(d){if(!state.setlist.length)return;let i=state.currentIndex<0?(d>0?0:state.setlist.length-1):state.currentIndex+d;i=Math.max(0,Math.min(state.setlist.length-1,i));state.currentIndex=i;state.tab="setlist";openSong(state.setlist[i]);renderList()}
 
 function parseLRC(text){const out=[];text.split(/\r?\n/).forEach(line=>{const marks=[...line.matchAll(/\[(\d+):(\d+(?:[.:]\d+)?)\]/g)];const body=line.replace(/\[[^\]]*\]/g,"").trim();marks.forEach(m=>out.push({t:+m[1]*60+parseFloat(m[2].replace(":",".")),text:body}))});return out.sort((a,b)=>a.t-b.t)}

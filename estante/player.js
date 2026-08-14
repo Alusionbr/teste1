@@ -28,8 +28,25 @@ function seekSync(i){if(!state.lrc[i])return;syncOffset=state.lrc[i].t;syncStart
 function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
 function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=(now-lastFrame)/1000;lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if($("paperViewport").scrollTop+$("paperViewport").clientHeight>=$("paperViewport").scrollHeight-2)toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}}
 
-function exportSetlist(){const a=document.createElement("a"),blob=new Blob([JSON.stringify({version:2,setlist:state.setlist},null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
-function importSetlist(file){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result),raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw 0;const list=raw.map(normalizeSong);state.setlist=list;save(KEYS.setlist,list);state.tab="setlist";renderList();notify(`Repertório importado: ${list.length} músicas.`,true)}catch{notify("Arquivo de repertório inválido.")}};r.readAsText(file)}
+// Exporta todos os repertórios (versão 3). A chave "setlist" continua saindo
+// com o repertório ativo para que arquivos novos ainda abram em versões antigas.
+function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,setlists:state.setlists,setlist:state.setlist};const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+// Aceita o formato novo (vários repertórios) e os antigos (um repertório só
+// ou um array puro de músicas).
+function importSetlist(file){const r=new FileReader();r.onload=()=>{try{
+  const d=JSON.parse(r.result);
+  if(d&&Array.isArray(d.setlists)&&d.setlists.length){
+    state.setlists=d.setlists.map(normalizeSetlist);
+    state.activeSetlistId=state.setlists.some(x=>x.id===d.activeId)?d.activeId:state.setlists[0].id;
+    state.currentIndex=-1;bindActiveSetlist();saveSetlists();
+    state.tab="setlist";renderList();updateSaveButton();
+    notify(`Importados ${state.setlists.length} repertório${state.setlists.length===1?"":"s"}.`,true);return;
+  }
+  const raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw 0;
+  const list=raw.map(normalizeSong);setActiveSongs(list);
+  state.currentIndex=-1;state.tab="setlist";renderList();updateSaveButton();
+  notify(`Repertório importado: ${list.length} músicas.`,true);
+}catch{notify("Arquivo de repertório inválido.")}};r.readAsText(file)}
 async function fullscreen(){
   try{
     if(document.documentElement.requestFullscreen){

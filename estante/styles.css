@@ -13,3 +13,33 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 .emptyPaper{max-width:620px}.emptyPaper b{display:block;font:700 clamp(24px,3vw,36px)/1.15 Georgia,serif;color:var(--ink);margin-bottom:10px}.emptyPaper small{display:block;font:15px/1.6 system-ui,sans-serif;color:var(--weak);max-width:560px}.emptyPaper.welcome{padding-top:clamp(25px,8vh,90px)}.welcomeSteps{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}.welcomeSteps span{font:700 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;border:1px solid #0002;border-radius:999px;padding:8px 10px;color:var(--weak);background:#fff3}.stageMode .welcomeSteps span{border-color:#fff2;background:#fff1}
 @media(max-width:900px){.transport{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.transport::-webkit-scrollbar{display:none}.transport>*{flex:0 0 auto}.paperViewport{scrollbar-width:thin}.headerActions button{min-height:38px}.menu{min-width:42px;min-height:42px}.sidebarFooter button{min-height:38px}.rowActions button{min-width:34px;min-height:34px}}
 @media(max-width:560px){.songHeader{align-items:center}.songMeta p{display:none}.headerActions #fullscreenBtn{display:none}.paper{padding-left:16px;padding-right:16px}.transport{padding-top:7px}.pedal{height:50px}.control{height:50px}.brand{padding-left:14px}.search{padding-left:10px;padding-right:10px}.sources{padding-left:10px;padding-right:10px}}
+
+/* Barra de repertórios (aba Repertório) */
+.setlistBar{display:flex;gap:6px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line)}
+.setlistBar select{min-width:0;flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 9px;outline:none}
+.setlistBar select:focus{border-color:var(--accent)}
+.setlistActions{display:flex;gap:4px}
+.setlistActions button{min-width:32px;min-height:34px;background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted);font-size:14px}
+.setlistActions button:hover{color:var(--accent);border-color:var(--accent)}
+.setlistActions .remove:hover{color:#f3aaaa;border-color:#6b3131}
+.setlistSummary{padding:8px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.tag.key{color:var(--accent);background:#342b18}
+.songNotes{max-width:900px;margin:0 auto;padding:9px clamp(20px,5vw,60px);background:#241d10;border-bottom:1px solid #5a4726;color:#ffe0a8;font-size:13px;line-height:1.5;white-space:pre-wrap}
+
+/* Impressão: some com o app e imprime só o repertório */
+#printArea{display:none}
+@media print{
+  @page{margin:16mm}
+  .app,#printDialog,dialog{display:none!important}
+  #printArea{display:block;color:#000;background:#fff;font:12pt/1.45 Georgia,serif}
+  #printArea h1{margin:0 0 4px;font-size:20pt}
+  #printArea header p{margin:0 0 18px;font:10pt system-ui,sans-serif;color:#444}
+  #printArea ol{margin:0;padding-left:26px}
+  #printArea li{margin-bottom:12px;break-inside:avoid}
+  #printArea li:has(.printLyrics){break-inside:auto;break-after:page}
+  .printSong strong{font-size:13pt}
+  .printSong span{margin-left:8px;font:10pt system-ui,sans-serif;color:#444}
+  .printMarks{display:block;margin-left:0!important;font-weight:700;color:#000!important}
+  .printNotes{margin:3px 0 0;font:10pt system-ui,sans-serif;font-style:italic;color:#333}
+  .printLyrics{margin:8px 0 0;font:10.5pt/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap}
+}
