@@ -18,6 +18,7 @@ function applySongPrefs(song){
   state.key=Number(song&&song.key)||0;
   state.capo=Number(song&&song.capo)||0;
   state.speed=Number(song&&song.speed)||state.speedGlobal||18;
+  state.auto=!!(song&&song.auto);
   renderSongNotes(song);
 }
 
@@ -26,9 +27,12 @@ function applySongPrefs(song){
 function rememberSongPref(field,value){
   if(!state.current)return;
   state.current[field]=value;
-  persistCurrent();
+  persistCurrent([field]);
   if(state.tab==="setlist")renderList();
 }
+// Uma música do repertório guarda os próprios ajustes; uma música só aberta
+// (resultado de busca, letra colada) não tem onde guardar.
+function currentIsSaved(){return !!state.current&&state.setlist.some(x=>sameSong(x,state.current))}
 
 function refreshChords(){
   const n=chordShift();
@@ -44,21 +48,24 @@ function changeCapo(delta){
   updateControls();refreshChords();rememberSongPref("capo",state.capo);
 }
 function changeSpeed(delta){
+  // Mexer na velocidade na mão desliga o cálculo automático: quem manda é você.
+  if(state.auto)setAuto(false);
   state.speed=Math.max(4,Math.min(140,state.speed+delta));
-  // A última velocidade usada também vira o padrão das próximas músicas.
-  state.speedGlobal=state.speed;updatePrefs();
+  // Só vira o padrão das próximas quando a música não tem onde guardar o
+  // próprio valor — senão ajustar uma música mudaria a velocidade de todas.
+  if(!currentIsSaved()){state.speedGlobal=state.speed;updatePrefsSoon()}
   updateControls();rememberSongPref("speed",state.speed);
 }
 
 function renderSongNotes(song){
   const bar=$("songNotes"),texto=(song&&song.notes)||"";
   bar.textContent=texto;bar.hidden=!texto;
-  $("notesBtn").disabled=!state.current;
+  $("notesBtn").disabled=!state.current;$("editBtn").disabled=!state.current;
 }
 function saveSongNotes(texto){
   if(!state.current)return;
   state.current.notes=texto;
   renderSongNotes(state.current);
-  persistCurrent();
+  persistCurrent(["notes"]);
   if(state.tab==="setlist")renderList();
 }

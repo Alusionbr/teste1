@@ -7,15 +7,36 @@ function renderList(){
   data.forEach((m,i)=>{
     const row=document.createElement("div");row.className="listRow";
     const b=document.createElement("button");b.className="songItem";if(state.tab==="setlist"&&i===state.currentIndex)b.classList.add("current");
-    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
+    const tags=[];if(state.tab==="setlist")tags.push(`<span class="tag">${i+1}/${data.length}</span>`);if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     b.onclick=()=>{if(state.tab==="setlist")state.currentIndex=i;else state.currentIndex=-1;openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
     if(state.tab==="setlist"){const a=document.createElement("div");a.className="rowActions";a.append(rowButton("↑",i===0,()=>moveSong(i,-1)),rowButton("↓",i===data.length-1,()=>moveSong(i,1)),rowButton("×",false,()=>removeSong(i),"remove"));row.appendChild(a)}
     $("list").appendChild(row);
   });
 }
+/*
+ * Tira de atalhos para as seções da música.
+ *
+ * classify() já reconhece [Refrão], [Solo], [Ponte] e marca a linha como
+ * "section" — até aqui isso só mudava a aparência. No palco, procurar o refrão
+ * rolando com o dedo é o que mais atrasa a virada; com a tira é um toque.
+ * Aparece só quando há pelo menos duas seções: uma sozinha não é navegação.
+ */
+function renderSectionBar(){
+  const bar=$("sectionBar");bar.textContent="";
+  const marcas=state.lines.map((l,i)=>({l,i})).filter(x=>x.l.type==="section");
+  bar.hidden=marcas.length<2;
+  if(bar.hidden)return;
+  marcas.forEach(({l,i})=>{
+    const b=document.createElement("button");
+    b.type="button";b.textContent=l.text;
+    b.onclick=()=>scrollToLine(i);
+    bar.appendChild(b);
+  });
+}
+function scrollToLine(i){const n=$("paper").children[i];if(!n)return;$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-16),behavior:"smooth"})}
 function rowButton(text,disabled,fn,cls=""){const b=document.createElement("button");b.textContent=text;b.disabled=disabled;b.className=cls;b.onclick=e=>{e.stopPropagation();fn()};return b}
-function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,notes:String(m.notes||"")}}
+function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||"")}}
 function storedSong(m){return normalizeSong(m)}
 function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));saveSetlists();state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
 function removeSong(i){state.setlist.splice(i,1);if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;saveSetlists();renderList();updateSaveButton()}

@@ -469,10 +469,12 @@ estante/
 ├── styles.css         # visual, modo palco e folha de impressão
 ├── core.js            # estado, armazenamento, APP_VERSION e fontes de letra
 ├── search-engine.js   # busca inteligente: várias fontes, variações e ranking
-├── library.js         # lista, ordem do repertório, LRC, cifras e transposição
+├── library.js         # lista, ordem do repertório, LRC, cifras, transposição, seções
 ├── setlists.js        # vários repertórios: criar, trocar, migrar e persistir
 ├── song-prefs.js      # tom, capotraste, velocidade e anotações por música
+├── autoscroll.js      # velocidade de rolagem calculada pela duração
 ├── player.js          # abrir música, desenhar letra, rolagem, sincronia, arquivos
+├── song-edit.js       # editar a letra de uma música já aberta
 ├── print.js           # impressão da ordem do show
 ├── ui.js              # eventos da interface, atalhos e compartilhamento
 ├── search-ui.js       # formulário de busca e modos de fonte
@@ -504,7 +506,20 @@ O casco do app fica em cache; as fontes de letra (LRCLIB, Vagalume, Apple) nunca
 
 Tom, capotraste, velocidade e anotações são por música. Preferências do aparelho (tamanho da letra, modo palco, fonte de busca, chave do Vagalume) são globais, em `KEYS.prefs`.
 
-### 5. `state.setlist` é o repertório ativo
+### 5. Gravar é caro: ajuste fino não grava a cada clique
+
+`saveSetlists()` serializa **todos** os repertórios, com letra e tudo. Chamar isso a cada toque na pedaleira travava a rolagem no meio da música. Por isso:
+
+- ajuste que se repete (tom, capotraste, velocidade) usa `saveSetlistsSoon()` / `updatePrefsSoon()`, que adiam a escrita por `saveSoon()` em `core.js`;
+- `flushSaves()` fecha a conta em `pagehide` e ao esconder a aba;
+- o que não pode se perder (adicionar, remover, mover, trocar de repertório, editar letra) continua gravando na hora;
+- `persistCurrent(["campo"])` só atualiza os campos citados; sem argumento regrava a música inteira.
+
+### 6. Importar nunca substitui sem perguntar
+
+`importSetlist()` lê o arquivo, resume na tela (o que vem e o que seria apagado) e espera o usuário escolher **Adicionar** ou **Substituir**. Não voltar a escrever direto: uma importação por engano apaga o show inteiro.
+
+### 7. `state.setlist` é o repertório ativo
 
 `state.setlist` aponta para o array `songs` do repertório ativo — é a mesma referência, não uma cópia. Mexa nele com `push`/`splice`; para **substituir** a lista inteira use `setActiveSongs()`, senão a ligação com o repertório se perde e nada mais é salvo.
 
@@ -519,6 +534,7 @@ Tom, capotraste, velocidade e anotações são por música. Preferências do apa
   key,    // transposição em semitons
   capo,   // casa do capotraste (só afeta a exibição)
   speed,  // velocidade de rolagem desta música
+  auto,   // true = velocidade calculada pela duração, ignorando speed
   notes } // anotação de palco
 ```
 
@@ -526,9 +542,11 @@ Outras chaves: `estante:v2:prefs` (preferências do aparelho) e `estante:v2:setl
 
 Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
+Velocidade automática = `(altura da letra − altura da tela) / (duration − LEAD_IN)`, em `autoscroll.js`.
+
 ## Regras para próximas alterações
 
-1. Cálculo de cifra, LRC e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; persistência de repertório em `setlists.js`. Não empilhe lógica nova em `ui.js`.
+1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
 2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
 3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
 4. Teste servindo por HTTP; service worker não roda em `file://`.
@@ -546,14 +564,14 @@ Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
 Prioridade alta:
 
-1. Metrônomo com tap tempo e BPM por música.
-2. Velocidade de rolagem calculada pela duração da música.
-3. Editar a letra de uma música já salva.
-4. Reordenar o repertório arrastando.
+1. Metrônomo com tap tempo e BPM por música (`AudioContext` com oscilador, sem arquivo de áudio, para não quebrar o offline).
+2. Reordenar o repertório arrastando.
+3. Mostrar o tom pelo nome da nota (`Sol → Lá`) em vez de `+2`, deduzindo o tom original das cifras.
 
 Prioridade média:
 
 1. Data e local no repertório, com agenda de shows.
-2. Mapeamento configurável de pedaleira Bluetooth.
-3. Duas colunas para letras longas em tablet.
+2. Mapeamento configurável de pedaleira Bluetooth (modo "aprender a tecla").
+3. Duas colunas para letras longas em tablet, ou encaixar a música inteira na tela.
 4. Conversão para IndexedDB quando o repertório crescer.
+5. Lembrete de backup: hoje o repertório vive só no `localStorage`.

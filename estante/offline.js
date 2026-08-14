@@ -26,9 +26,14 @@
     }
   });
 
+  // Na primeira visita o service worker assume o controle e dispara
+  // controllerchange na hora. Recarregar nesse momento só faz a tela piscar e
+  // joga fora o que estava aberto. Só é troca de versão quando já existia um
+  // controller antes.
+  const jaControlado = !!navigator.serviceWorker.controller;
   let reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloading) return;
+    if (reloading || !jaControlado) return;
     reloading = true;
     location.reload();
   });
