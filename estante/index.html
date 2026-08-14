@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d1117">
-  <meta name="description" content="Estante: letras e cifras para palco, repertório salvo no aparelho, rolagem automática, sincronia e transposição.">
+  <meta name="description" content="Estante: letras e cifras para palco, repertório salvo no aparelho, busca inteligente, rolagem automática, sincronia e transposição.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.1.0">
+  <link rel="stylesheet" href="./styles.css?v=3.2.0">
 </head>
 <body>
 <div class="app">
@@ -17,14 +17,15 @@
     <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
 
     <form class="search" id="searchForm">
-      <input id="searchInput" type="search" placeholder="Artista e música" autocomplete="off" aria-label="Buscar música">
+      <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
       <button>Buscar</button>
     </form>
 
-    <div class="sources" role="group" aria-label="Fonte da busca">
-      <button class="chip active" data-source="vagalume">Brasil</button>
-      <button class="chip" data-source="lrclib">Sincronizada</button>
-      <button class="chip" data-source="excerpt">Por trecho</button>
+    <div class="sources" role="group" aria-label="Modo da busca">
+      <button class="chip active" data-source="smart">Inteligente</button>
+      <button class="chip" data-source="vagalume">Brasil</button>
+      <button class="chip" data-source="lrclib">Sincro</button>
+      <button class="chip" data-source="excerpt">Trecho</button>
     </div>
 
     <div id="notice" aria-live="polite"></div>
@@ -61,7 +62,7 @@
 
     <section class="paperViewport" id="paperViewport">
       <article class="paper" id="paper">
-        <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>Busque uma música, cole sua cifra ou abra o repertório. Depois, use rolagem automática, modo palco e tela cheia.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
+        <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>A busca inteligente consulta várias fontes, combina versões e coloca os resultados mais prováveis primeiro.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
       </article>
       <footer class="credits" id="credits"></footer>
     </section>
@@ -94,8 +95,9 @@
   <form method="dialog" class="modal" id="sourcesForm">
     <header><h2>Fontes</h2><button value="cancel">×</button></header>
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
-    <p>A busca do Vagalume funciona sem chave. Para exibir a letra no app, cadastre a chave gratuita em <a href="https://auth.vagalume.com.br/settings/api/" target="_blank" rel="noopener">Vagalume API</a>. Ela fica somente neste aparelho.</p>
-    <p><b>Sincronizada</b> usa LRCLIB e pode ativar a linha da música conforme o tempo. O repertório salvo continua disponível offline.</p>
+    <p><b>Inteligente</b> consulta LRCLIB, Vagalume e o catálogo de música da Apple em paralelo, elimina duplicatas e tenta versões alternativas automaticamente.</p>
+    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> prioriza Vagalume. <b>Trecho</b> procura usando parte da letra.</p>
+    <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
   </form>
 </dialog>
@@ -105,16 +107,14 @@
     <header><h2>Repertório recebido</h2><button id="sharedCloseBtn" type="button">×</button></header>
     <p id="sharedSummary">Você recebeu um repertório compartilhado.</p>
     <p>Escolha <b>Adicionar</b> para manter suas músicas atuais ou <b>Usar repertório</b> para trocar pela ordem recebida.</p>
-    <footer>
-      <button id="sharedAddBtn" type="button">Adicionar</button>
-      <button class="accent" id="sharedReplaceBtn" type="button">Usar repertório</button>
-    </footer>
+    <footer><button id="sharedAddBtn" type="button">Adicionar</button><button class="accent" id="sharedReplaceBtn" type="button">Usar repertório</button></footer>
   </div>
 </dialog>
 
 <dialog id="helpDialog">
   <form method="dialog" class="modal">
     <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
+    <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância.</p>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
     <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p>
@@ -124,9 +124,11 @@
   </form>
 </dialog>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.1.0" defer></script>
-<script src="./library.js?v=3.1.0" defer></script>
-<script src="./player.js?v=3.1.0" defer></script>
-<script src="./ui.js?v=3.1.0" defer></script>
+<script src="./core.js?v=3.2.0" defer></script>
+<script src="./search-engine.js?v=3.2.0" defer></script>
+<script src="./library.js?v=3.2.0" defer></script>
+<script src="./player.js?v=3.2.0" defer></script>
+<script src="./ui.js?v=3.2.0" defer></script>
+<script src="./search-ui.js?v=3.2.0" defer></script>
 </body>
 </html>
