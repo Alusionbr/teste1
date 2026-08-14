@@ -1,10 +1,17 @@
 "use strict";
+function renderMissingLyrics(song,message){
+  const catalogOnly=(song.sources||[]).includes("Apple")||song.source==="Apple";
+  const title=catalogOnly?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
+  const detail=catalogOnly?"A faixa foi identificada no catálogo, porém nenhuma das fontes de letras devolveu conteúdo para esta versão. Tente outra versão, a busca por trecho ou cole a letra.":message;
+  $("paper").innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail||"")}</small></div>`;
+  const links=[];if(song.vagUrl)links.push(`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(song.catalogUrl)links.push(`<a href="${esc(song.catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
+}
 async function openSong(song){
   stopAll();state.current=song;state.key=0;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("keyOut").textContent="0";$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;updateSaveButton();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
-      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{$("paper").innerHTML=`<div class="emptyPaper"><b>Não consegui abrir esta letra.</b><small>${esc(first.message)}</small></div>`;$("credits").innerHTML=song.vagUrl?`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Abrir no Vagalume</a>`:"";return}}else{$("paper").innerHTML=`<div class="emptyPaper"><b>Não consegui abrir esta letra.</b><small>${esc(first.message)}</small></div>`;$("credits").innerHTML=song.vagUrl?`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Abrir no Vagalume</a>`:"";return}
+      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
     }
     persistCurrent();
   }
