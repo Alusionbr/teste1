@@ -494,7 +494,7 @@ Os scripts são carregados em ordem no `index.html`, sem módulos: cada arquivo 
 
 ### 2. Offline é requisito, não enfeite
 
-O casco do app fica em cache; as fontes de letra (LRCLIB, Vagalume, Apple) nunca são cacheadas. Nenhum recurso externo (fonte, CDN, biblioteca) pode entrar na página: quebraria o uso sem internet.
+O casco do app fica em cache; as fontes de letra e catálogo (LRCLIB, Vagalume, Deezer, Apple) nunca são cacheadas. Nenhum recurso externo (fonte, CDN, biblioteca) pode entrar na página: quebraria o uso sem internet.
 
 ### 3. O repertório é o dado sagrado
 
@@ -522,6 +522,17 @@ Tom, capotraste, velocidade e anotações são por música. Preferências do apa
 ### 7. `state.setlist` é o repertório ativo
 
 `state.setlist` aponta para o array `songs` do repertório ativo — é a mesma referência, não uma cópia. Mexa nele com `push`/`splice`; para **substituir** a lista inteira use `setActiveSongs()`, senão a ligação com o repertório se perde e nada mais é salvo.
+
+### 8. Uma fonte cair não pode travar a busca
+
+O Vagalume fica fora do ar de vez em quando (erro 502/503/504 do próprio serviço, não do Estante). Por isso:
+
+- toda chamada ao Vagalume passa por `fetchRetrying()` (`core.js`), que repete uma vez em erro passageiro do servidor — nunca em 429, que significa "espere", não "tente de novo";
+- `markSource()`/`sourceDown()` registram a saúde de cada fonte nesta sessão; os chips **Brasil** e **Trecho** (que dependem só do Vagalume) mostram um sinal quando ele caiu;
+- a busca **Inteligente** é a mais resistente: combina LRCLIB, Vagalume, Deezer e Apple, então uma fonte fora do ar não a derruba;
+- quando um modo específico falha por causa da fonte, a busca oferece um atalho de um toque para repetir na Inteligente (`search-ui.js`).
+
+Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp()` em `search-engine.js`) em vez de `fetch()` — a mesma técnica para as duas, sem biblioteca externa.
 
 ## Modelo de dados
 

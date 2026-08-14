@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.4.0">
+  <link rel="stylesheet" href="./styles.css?v=3.5.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -117,8 +117,8 @@
   <form method="dialog" class="modal" id="sourcesForm">
     <header><h2>Fontes</h2><button value="cancel">×</button></header>
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
-    <p><b>Inteligente</b> consulta LRCLIB, Vagalume e o catálogo de música da Apple em paralelo, elimina duplicatas e tenta versões alternativas automaticamente.</p>
-    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> prioriza Vagalume. <b>Trecho</b> procura usando parte da letra.</p>
+    <p><b>Inteligente</b> consulta LRCLIB, Vagalume, Deezer e o catálogo de música da Apple em paralelo, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
+    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho e a busca oferece um atalho para tentar na Inteligente.</p>
     <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
   </form>
@@ -136,7 +136,7 @@
 <dialog id="helpDialog">
   <form method="dialog" class="modal">
     <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
-    <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância.</p>
+    <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância. É o modo mais confiável quando alguma fonte está fora do ar.</p>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira ou toque em <b>auto</b>: o Estante calcula a velocidade pela duração da música para a letra terminar junto. Mexer no −/+ volta para o manual.</p>
     <p><b>Editar letra:</b> conserta o que a fonte trouxe errado e guarda o arranjo da banda. Escreva <b>[Refrão]</b>, <b>[Solo]</b> ou <b>[Final]</b> numa linha e essas seções viram atalhos acima da letra.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
@@ -206,17 +206,17 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.4.0" defer></script>
-<script src="./search-engine.js?v=3.4.0" defer></script>
-<script src="./library.js?v=3.4.0" defer></script>
-<script src="./setlists.js?v=3.4.0" defer></script>
-<script src="./song-prefs.js?v=3.4.0" defer></script>
-<script src="./autoscroll.js?v=3.4.0" defer></script>
-<script src="./player.js?v=3.4.0" defer></script>
-<script src="./song-edit.js?v=3.4.0" defer></script>
-<script src="./print.js?v=3.4.0" defer></script>
-<script src="./ui.js?v=3.4.0" defer></script>
-<script src="./search-ui.js?v=3.4.0" defer></script>
-<script src="./offline.js?v=3.4.0" defer></script>
+<script src="./core.js?v=3.5.0" defer></script>
+<script src="./search-engine.js?v=3.5.0" defer></script>
+<script src="./library.js?v=3.5.0" defer></script>
+<script src="./setlists.js?v=3.5.0" defer></script>
+<script src="./song-prefs.js?v=3.5.0" defer></script>
+<script src="./autoscroll.js?v=3.5.0" defer></script>
+<script src="./player.js?v=3.5.0" defer></script>
+<script src="./song-edit.js?v=3.5.0" defer></script>
+<script src="./print.js?v=3.5.0" defer></script>
+<script src="./ui.js?v=3.5.0" defer></script>
+<script src="./search-ui.js?v=3.5.0" defer></script>
+<script src="./offline.js?v=3.5.0" defer></script>
 </body>
 </html>

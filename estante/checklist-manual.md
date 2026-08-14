@@ -10,10 +10,12 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 ## 2. Busca
 
-- [ ] Buscar por artista e música no modo **Inteligente** traz resultados e o aviso diz quais fontes responderam.
+- [ ] Buscar por artista e música no modo **Inteligente** traz resultados e o aviso diz quais fontes responderam (LRCLIB, Vagalume, Deezer e/ou Apple).
 - [ ] Abrir um resultado carrega a letra; o rodapé mostra o crédito da fonte.
 - [ ] Quando a fonte não devolve letra, aparece a mensagem explicando e os links da faixa.
-- [ ] Modo **Trecho** encontra a música por um pedaço da letra.
+- [ ] Modo **Trecho** encontra a música por um pedaço da letra (depende só do Vagalume — sem ele disponível, não há como buscar por trecho).
+- [ ] Com o Vagalume fora do ar (simule bloqueando `api.vagalume.com.br` nas ferramentas de rede do navegador): os chips **Brasil** e **Trecho** ganham um ponto vermelho; buscar neles mostra a mensagem certa com o botão **Tentar na Inteligente**, e clicar nele repete a busca no modo Inteligente.
+- [ ] Ainda com o Vagalume fora do ar, o modo **Inteligente** continua trazendo resultados (via LRCLIB/Deezer/Apple).
 
 ## 3. Letra colada e cifras
 
