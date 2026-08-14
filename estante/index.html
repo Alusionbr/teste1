@@ -71,10 +71,13 @@
       </div>
       <div class="headerActions">
         <button id="saveBtn">+ Repertório</button>
+        <button id="notesBtn" disabled>Anotações</button>
         <button id="stageBtn">Modo palco</button>
         <button id="fullscreenBtn">Tela cheia</button>
       </div>
     </header>
+
+    <div class="songNotes" id="songNotes" hidden></div>
 
     <section class="paperViewport" id="paperViewport">
       <article class="paper" id="paper">
@@ -89,6 +92,7 @@
       <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button></div>
       <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
       <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
+      <div class="control" id="capoControl" hidden><span>Capo</span><button data-capo="-1">−</button><output id="capoOut">0</output><button data-capo="1">+</button></div>
       <div class="spacer"></div>
       <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹</button>
       <button class="pedal small" id="nextBtn" aria-label="Próxima música">›</button>
@@ -133,12 +137,23 @@
     <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância.</p>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
-    <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p>
+    <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover. Na barra do repertório dá para ter uma lista por show: criar, renomear, duplicar, apagar e imprimir.</p>
+    <p><b>Tom, capo, velocidade e anotações</b> ficam salvos em cada música do repertório: ao voltar nela no próximo show, tudo volta como você deixou.</p>
+    <p><b>Imprimir:</b> gera a ordem do show em papel ou PDF, só a lista ou com as letras.</p>
+    <p><b>Sem internet:</b> depois da primeira abertura o app funciona offline e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não.</p>
     <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
 </dialog>
+<dialog id="notesDialog">
+  <form method="dialog" class="modal" id="notesForm">
+    <header><h2>Anotações da música</h2><button value="cancel">×</button></header>
+    <label>O que lembrar no palco<textarea id="notesText" placeholder="Ex.: entra em Ré, 2ª voz no refrão, corta o solo, final repetido"></textarea></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
 <dialog id="setlistDialog">
   <form method="dialog" class="modal" id="setlistForm">
     <header><h2 id="setlistDialogTitle">Novo repertório</h2><button value="cancel">×</button></header>
@@ -161,6 +176,7 @@
 <script src="./search-engine.js?v=3.3.0" defer></script>
 <script src="./library.js?v=3.3.0" defer></script>
 <script src="./setlists.js?v=3.3.0" defer></script>
+<script src="./song-prefs.js?v=3.3.0" defer></script>
 <script src="./player.js?v=3.3.0" defer></script>
 <script src="./print.js?v=3.3.0" defer></script>
 <script src="./ui.js?v=3.3.0" defer></script>

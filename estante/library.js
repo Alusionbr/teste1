@@ -15,7 +15,7 @@ function renderList(){
   });
 }
 function rowButton(text,disabled,fn,cls=""){const b=document.createElement("button");b.textContent=text;b.disabled=disabled;b.className=cls;b.onclick=e=>{e.stopPropagation();fn()};return b}
-function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??""}}
+function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,notes:String(m.notes||"")}}
 function storedSong(m){return normalizeSong(m)}
 function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));saveSetlists();state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
 function removeSong(i){state.setlist.splice(i,1);if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;saveSetlists();renderList();updateSaveButton()}

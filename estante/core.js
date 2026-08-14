@@ -4,7 +4,7 @@
 const APP_VERSION="3.3.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,font:26,key:0,capo:0,stage:false,keyVag:""};
+const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,stage:false,keyVag:""};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
@@ -25,8 +25,8 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function notify(msg,ok=false){$("notice").innerHTML=msg?`<div class="notice ${ok?"ok":""}">${msg}</div>`:""}
 function fmt(sec){if(!sec)return"";const m=Math.floor(sec/60),s=Math.floor(sec%60);return `${m}:${String(s).padStart(2,"0")}`}
 function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=on?"online":"offline";n.className=on?"online":"offline";n.title=on?"Busca online disponível":"Sem internet: repertório salvo continua disponível"}
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speed,font:state.font,stage:state.stage,keyVag:state.keyVag})}
-function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("syncBtn").classList.toggle("on",state.syncing);$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage)}
+function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag})}
+function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("syncBtn").classList.toggle("on",state.syncing);$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage)}
 
 async function searchMusic(q){
   if(state.source==="lrclib"){
@@ -57,5 +57,5 @@ async function fetchLrclibSong(song){
 }
 // Grava no repertório a versão aberta agora (letra carregada, tom, capo,
 // velocidade e anotações) quando a música já faz parte do repertório ativo.
-function persistCurrent(){if(!state.current)return;const i=state.setlist.findIndex(x=>sameSong(x,state.current));if(i>=0){state.setlist[i]=storedSong(state.current);save(KEYS.setlist,state.setlist)}}
+function persistCurrent(){if(!state.current)return;const i=state.setlist.findIndex(x=>sameSong(x,state.current));if(i>=0){state.setlist[i]=storedSong(state.current);saveSetlists()}}
 function updateSaveButton(){if(!state.current){$("saveBtn").disabled=true;$("saveBtn").textContent="+ Repertório";return}const exists=state.setlist.some(x=>sameSong(x,state.current));$("saveBtn").disabled=exists;$("saveBtn").textContent=exists?"✓ Repertório":"+ Repertório"}

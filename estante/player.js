@@ -7,7 +7,7 @@ function renderMissingLyrics(song,message){
   const links=[];if(song.vagUrl)links.push(`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(song.catalogUrl)links.push(`<a href="${esc(song.catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
 }
 async function openSong(song){
-  stopAll();state.current=song;state.key=0;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("keyOut").textContent="0";$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;updateSaveButton();
+  stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
@@ -16,10 +16,10 @@ async function openSong(song){
     persistCurrent();
   }
   state.lrc=song.synced?parseLRC(song.synced):[];state.lines=state.lrc.length?state.lrc.map(x=>({text:x.text,type:x.text?"lyric":"blank"})):(song.lyrics||"").split(/\r?\n/).map(classify);renderPaper();
-  $("syncBtn").disabled=!state.lrc.length;$("keyControl").hidden=!state.lines.some(x=>x.type==="chord");updateSaveButton();
+  $("syncBtn").disabled=!state.lrc.length;const temCifra=state.lines.some(x=>x.type==="chord");$("keyControl").hidden=!temCifra;$("capoControl").hidden=!temCifra;updateSaveButton();
   if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.vagUrl&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
 }
-function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?" synced":"");p.innerHTML="";if(!state.lines.length){p.innerHTML='<div class="emptyPaper">Sem letra disponível para esta versão.</div>';return}state.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="lineLyric "+(l.type==="chord"?"chord":l.type==="section"?"section":l.type==="blank"?"blank":"");d.dataset.i=i;d.textContent=l.type==="chord"?transposeLine(l.text,state.key):l.text;if(state.lrc.length)d.onclick=()=>seekSync(i);p.appendChild(d)})}
+function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?" synced":"");p.innerHTML="";if(!state.lines.length){p.innerHTML='<div class="emptyPaper">Sem letra disponível para esta versão.</div>';return}state.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="lineLyric "+(l.type==="chord"?"chord":l.type==="section"?"section":l.type==="blank"?"blank":"");d.dataset.i=i;d.textContent=l.type==="chord"?transposeLine(l.text,chordShift()):l.text;if(state.lrc.length)d.onclick=()=>seekSync(i);p.appendChild(d)})}
 
 function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls()}
 function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();lastFrame=performance.now();tick()}else if(raf){cancelAnimationFrame(raf);raf=null}updateControls()}
