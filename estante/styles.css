@@ -30,6 +30,7 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 #printArea{display:none}
 @media print{
   @page{margin:16mm}
+  html,body{background:#fff!important}
   .app,#printDialog,dialog{display:none!important}
   #printArea{display:block;color:#000;background:#fff;font:12pt/1.45 Georgia,serif}
   #printArea h1{margin:0 0 4px;font-size:20pt}
