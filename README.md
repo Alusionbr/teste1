@@ -1,86 +1,42 @@
-# Controle360 Multi
+# Ferramentas
 
-MVP local para controle de estoque, CMV, produção, vendas, pedidos, tarefas e consignados.
+Repositório de ferramentas que rodam direto no navegador: sem servidor, sem login e sem banco de dados externo. Cada pasta é um aplicativo independente e a primeira página (`index.html`) é o índice que leva a todos.
 
-## Como testar
+Publicado pelo GitHub Pages a partir da raiz: <https://alusionbr.github.io/teste1/>
 
-1. Extraia o ZIP.
-2. Abra `index.html` no navegador.
-3. Crie primeiro um negócio em **Negócios**.
-4. Cadastre produtos, clientes e fornecedores.
-5. Use compras, fichas, produção, vendas, pedidos e consignado conforme necessário.
+## Ferramentas
 
-O sistema inicia sem produtos, clientes ou exemplos preenchidos.
+| Ferramenta | Pasta | Para que serve |
+|---|---|---|
+| **Estante** | [`estante/`](estante/) | Letras e cifras no palco: busca em várias fontes, repertórios offline, rolagem automática, sincronia, transposição e impressão da ordem do show. Instalável no celular. |
+| **Controle360 Multi** | [`controle360/`](controle360/) | Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios. |
 
-## Para que serve
+Cada ferramenta tem o seu próprio README com detalhes de uso.
 
-O projeto foi desenhado para ser configurável para vários tipos de operação:
+## Como abrir
 
-- essências aromáticas;
-- marmitas/alimentos;
-- revenda de mercadorias;
-- consignados;
-- serviços que consomem materiais;
-- kits e composições.
+- **Publicado:** abra o endereço acima e escolha a ferramenta.
+- **Local:** clone o repositório e sirva a pasta por HTTP, por exemplo `python3 -m http.server`, depois abra `http://localhost:8000`.
 
-## Exemplo de uso para essência aromática
-
-Cadastre como produtos:
-
-- essência/base/fragrância como `Matéria-prima`;
-- vidro como `Embalagem`;
-- rótulo como `Embalagem`;
-- caixa como `Embalagem`;
-- tampa/válvula/lacre como `Embalagem`;
-- produto final como `Produto final produzido`.
-
-Depois monte a ficha técnica do produto final adicionando as quantidades de cada item por unidade produzida.
-
-O sistema calcula:
-
-- custo de materiais;
-- mão de obra por unidade;
-- custo fixo rateado;
-- perda técnica;
-- custo final por unidade;
-- preço sugerido por margem desejada e taxas;
-- CMV na venda.
+Abrir os arquivos direto pelo `file://` funciona para o Controle360, mas o Estante perde o modo offline: o navegador só aceita service worker em `http`/`https`.
 
 ## Estrutura
 
 ```txt
-src/utils.js           helpers gerais
-src/state.js           persistência e estado local
-src/calculations.js    cálculos críticos
-src/ui.js              componentes HTML simples
-src/app.js             telas e fluxos
+index.html          página de ferramentas (a primeira página)
+hub/styles.css      visual da página de ferramentas
+hub/tools.js        lista das ferramentas (HUB_TOOLS)
+estante/            aplicativo de letras e cifras
+controle360/        aplicativo de estoque e custos
+tools/make-icons.js gerador dos ícones PNG do Estante (Node puro)
 ```
 
-## Persistência
+## Publicar uma ferramenta nova
 
-Nesta versão, os dados ficam no LocalStorage do navegador.
+1. Crie uma pasta na raiz com o `index.html` da ferramenta.
+2. Acrescente um objeto em `HUB_TOOLS`, dentro de `hub/tools.js`.
+3. Faça commit na branch `main`: o GitHub Actions publica a raiz automaticamente.
 
-Use **Exportar backup** com frequência.
+## Dados e backup
 
-## Limitações do MVP
-
-- Não tem login.
-- Não sincroniza entre aparelhos.
-- Não edita todos os registros ainda.
-- Venda/pedido ainda é de um item por lançamento.
-- Não controla lote/validade ainda.
-- Não tem contas a pagar/receber completo.
-
-Essas limitações estão documentadas no roadmap.
-
-## Backup, exportação e importação
-
-A aba **Dados** (ou o botão "Baixar Excel" no topo) concentra três formatos:
-
-- **Excel (.xlsx)** — backup completo com uma aba por módulo (Produtos, Vendas, Compras, Consignado, etc.), em português. Pode ser aberto e editado no Excel ou Google Sheets e reimportado. A aba `Backup_NAO_EDITAR` guarda as configurações para restaurar tudo; não a apague.
-- **JSON** — cópia técnica fiel de todo o estado, incluindo configurações. Use como backup de segurança.
-- **CSV por módulo** — uma tabela por vez, do negócio ativo (ou todos, no caso de Negócios).
-
-Importar (Excel ou JSON) **substitui** os dados locais atuais. Faça um backup antes.
-
-O motor de Excel é escrito em JavaScript puro (`src/xlsx-lite.js`), sem bibliotecas externas, e funciona offline. A importação de planilhas compactadas usa a API nativa do navegador; navegadores muito antigos podem não suportá-la — nesse caso, use o backup JSON.
+Cada ferramenta guarda os dados no armazenamento local do próprio navegador. Limpar os dados do navegador apaga tudo — use as opções de exportação de cada uma para manter backup.

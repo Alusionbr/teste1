@@ -1,9 +1,9 @@
 "use strict";
 const legacySearchMusic=searchMusic;
 const legacyFetchLrclibSong=fetchLrclibSong;
-const SEARCH_HEADERS={Accept:"application/json","Lrclib-Client":"Estante/3.2 (https://alusionbr.github.io/teste1/estante/)"};
+const SEARCH_HEADERS=LRCLIB_HEADERS;
 const EDITION_WORDS=/\b(ao vivo|live|remaster(?:ed)?|remix|acoustic|acustic[oa]|karaoke|instrumental|official(?: audio| video)?|audio|video|lyrics?|letra|vers[aã]o|version|deluxe|edit|radio edit|bonus track)\b/gi;
-function searchFold(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," e ").replace(/[^a-z0-9]+/g," ").trim()}
+const searchFold=fold; // mesma normaliza\u00e7\u00e3o usada para identificar m\u00fasicas (core.js)
 function cleanEdition(s){return String(s||"").replace(/[\[(][^\])]*(?:ao vivo|live|remaster|remix|acoustic|acústic|official|video|audio|version|versão)[^\])]*[\])]/gi," ").replace(EDITION_WORDS," ").replace(/\s+/g," ").trim()}
 function searchTokens(s){return new Set(searchFold(s).split(" ").filter(x=>x.length>1))}
 function overlapScore(a,b){const A=searchTokens(a),B=searchTokens(b);if(!A.size||!B.size)return 0;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/Math.max(A.size,B.size)}

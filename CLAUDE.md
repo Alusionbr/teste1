@@ -1,4 +1,31 @@
-# CLAUDE.md — Controle360 Multi
+# CLAUDE.md — repositório de ferramentas
+
+## Estrutura do repositório
+
+Este repositório é um conjunto de ferramentas independentes que rodam no navegador. A raiz é a página de índice; cada ferramenta mora na própria pasta.
+
+```txt
+index.html            página de ferramentas (a primeira página)
+hub/styles.css        visual da página de ferramentas
+hub/tools.js          lista das ferramentas: array HUB_TOOLS
+estante/              aplicativo de letras e cifras para palco (PWA)
+controle360/          aplicativo de estoque, custos, vendas e consignado
+tools/make-icons.js   gera os ícones PNG do Estante com a zlib do Node
+.github/workflows/    publica a raiz no GitHub Pages a cada push na main
+```
+
+Regras gerais:
+
+- Uma ferramenta = uma pasta autossuficiente na raiz. Não misture arquivos de ferramentas diferentes.
+- Publicar ferramenta nova = criar a pasta e acrescentar um objeto em `HUB_TOOLS` (`hub/tools.js`).
+- Nada de servidor, login, banco externo ou biblioteca de terceiros: JavaScript puro, offline.
+- Cada ferramenta guarda os dados no armazenamento local do navegador e oferece exportação.
+
+As duas seções abaixo detalham cada ferramenta: primeiro o **Controle360 Multi**, depois o **Estante**.
+
+---
+
+# Controle360 Multi (`controle360/`)
 
 ## Finalidade
 
@@ -87,10 +114,11 @@ A venda só acontece quando o cliente informa venda. O pagamento é outro evento
 ## Estrutura de arquivos
 
 ```txt
-controle-estoque-cmv-consignado/
+controle360/
 ├── index.html
 ├── README.md
-├── CLAUDE.md
+├── build-mobile.js
+├── controle360-mobile.html
 ├── src/
 │   ├── utils.js           # helpers puros: moeda, número, data, id, HTML escape
 │   ├── state.js           # estado local, persistência e acesso aos dados
@@ -212,14 +240,14 @@ margem = lucro_bruto / receita_liquida
 
 Antes de alterar código:
 
-1. Leia `docs/regras-negocio.md`.
+1. Leia `controle360/docs/regras-negocio.md`.
 2. Confira se a alteração afeta estoque, CMV, produção ou consignado.
-3. Se afetar cálculo, altere primeiro `src/calculations.js`.
-4. Se afetar estrutura de dados, atualize `docs/modelo-dados.md`.
-5. Se criar novo fluxo, atualize `docs/fluxos-operacionais.md`.
-6. Rode o checklist manual em `tests/checklist-manual.md`.
+3. Se afetar cálculo, altere primeiro `controle360/src/calculations.js`.
+4. Se afetar estrutura de dados, atualize `controle360/docs/modelo-dados.md`.
+5. Se criar novo fluxo, atualize `controle360/docs/fluxos-operacionais.md`.
+6. Rode o checklist manual em `controle360/tests/checklist-manual.md`.
 
-Não implemente recursos novos diretamente em `app.js` sem avaliar se a lógica pertence a `calculations.js` ou `state.js`.
+Não implemente recursos novos diretamente em `controle360/src/app.js` sem avaliar se a lógica pertence a `calculations.js` ou `state.js`.
 
 ---
 
@@ -266,7 +294,7 @@ Prioridade futura:
 
 ## Estado atual do MVP
 
-Funciona localmente abrindo `index.html` no navegador.
+Funciona localmente abrindo `controle360/index.html` no navegador.
 
 Persistência atual: LocalStorage.
 
@@ -294,14 +322,14 @@ Inclui:
 ### Novos arquivos
 
 ```txt
-src/xlsx-lite.js     # motor .xlsx em JS puro (escreve ZIP "stored", lê com a API nativa de descompressão)
-src/exportImport.js  # camada de domínio: Excel completo, CSV por módulo e JSON (exportar/importar)
+controle360/src/xlsx-lite.js     # motor .xlsx em JS puro (escreve ZIP "stored", lê com a API nativa de descompressão)
+controle360/src/exportImport.js  # camada de domínio: Excel completo, CSV por módulo e JSON (exportar/importar)
 ```
 
 ### Regras
 
-- `src/xlsx-lite.js` é genérico e sem regra de negócio: só converte `[{name, rows}]` em `.xlsx` e de volta. Não colocar lógica de negócio aqui.
-- `src/exportImport.js` define o mapa `COLLECTIONS` (coleção → aba → ordem de colunas) e os rótulos em português. Ao adicionar um campo novo a uma coleção, inclua a chave em `fields` e, se for número, em `NUMERIC_KEYS`; se for data, em `DATE_KEYS`.
+- `controle360/src/xlsx-lite.js` é genérico e sem regra de negócio: só converte `[{name, rows}]` em `.xlsx` e de volta. Não colocar lógica de negócio aqui.
+- `controle360/src/exportImport.js` define o mapa `COLLECTIONS` (coleção → aba → ordem de colunas) e os rótulos em português. Ao adicionar um campo novo a uma coleção, inclua a chave em `fields` e, se for número, em `NUMERIC_KEYS`; se for data, em `DATE_KEYS`.
 - Excel é backup **completo e reversível**: a aba `Backup_NAO_EDITAR` carrega `settings`, `meta` e `activeBusinessId`. As abas de dados são a fonte de verdade dos registros.
 - Importação (Excel ou JSON) passa por `state.replaceState`, que normaliza o estado. Sempre pedir confirmação antes de substituir.
 - Não adicionar biblioteca externa para Excel: o motor próprio mantém o projeto offline e revisável.
@@ -321,21 +349,21 @@ Fornecer explicações simples e em linguagem acessível ("para leigos") sobre t
 
 ### Implementação
 
-**CSS** (`styles/main.css`):
+**CSS** (`controle360/styles/main.css`):
 
 - `.help[data-tip]`: ícone circular verde com letra "i", 16×16px, cursor `help`.
 - `.help-tip`: balão fixo (position: fixed) com fundo escuro, max-width 280px, texto branco pequeno, transição de opacidade/visibilidade.
 - Viewport clamping: tooltip responde automaticamente se não couber acima (aparece abaixo), com margem de 10px da borda.
 - Responsivo em mobile: max-width ajustado para `min(280px, calc(100vw - 24px))`.
 
-**JavaScript** (`src/app.js`):
+**JavaScript** (`controle360/src/app.js`):
 
 - `ensureTip()`: cria ou retorna singleton `<div class="help-tip">`.
 - `showTip(target)`: lê `data-tip` do elemento, posiciona tooltip acima (ou abaixo se sem espaço), torna visível.
 - `hideTip()`: remove classe `.show` (animação de saída).
 - `bindHelpTips()`: escuta `mouseover`, `mouseout`, `focusin`, `focusout`, `click`, `scroll`, `resize`.
 
-**Texto de ajuda** (`src/ui.js`):
+**Texto de ajuda** (`controle360/src/ui.js`):
 
 - Dicionário `HELP` com ~22 chaves em português.
 - Chaves: `valorEstoque`, `alertasEstoque`, `receitaLiquida`, `lucroBruto`, `consignadoAberto`, `pedidosPendentes`, `margemDesejada`, `taxasPadrao`, `tipoProduto`, `estoqueInicial`, `custoMedioInicial`, `precoVendaManual`, `estoqueMinimo`, `maoDeObra`, `custoFixo`, `perdaTecnica`, `margemDesejadaProduto`, `taxasProduto`, `valorTotalCompra`, `fichaTecnica`, `qtdPorUnidade`, `precoSugerido`, `qtdProduzida`, `canal`, `descontoTotal`, `taxaFixaTotal`, `taxaPercentual`, `cmv`, `precoCombinado`, `statusInicial`, `consignado`, `qtdEnviada`, `precoCombinadoConsig`.
@@ -367,7 +395,7 @@ UI.section('Vendas', 'Registre vendas e calcule CMV', content, 'cmv')
 
 **Adicionar uma nova chave de ajuda:**
 
-1. Edite `HELP` em `src/ui.js`.
+1. Edite `HELP` em `controle360/src/ui.js`.
 2. Use a chave em qualquer `help(keyOrText)`, `fieldLabel`, `metric`, ou `section`.
 3. Pronto: não precisa recompilar ou regenerar o arquivo mobile (veja abaixo).
 
@@ -384,19 +412,19 @@ UI.section('Vendas', 'Registre vendas e calcule CMV', content, 'cmv')
 ### Arquivo de build
 
 ```txt
-build-mobile.js    # Node.js script que inline CSS e todos os .js em um único HTML
+controle360/build-mobile.js    # Node.js script que inline CSS e todos os .js em um único HTML
 ```
 
 ### Como usar
 
 ```bash
-node build-mobile.js [caminho/de/saida/controle360-mobile.html]
-# Padrão: ./controle360-mobile.html
+node controle360/build-mobile.js [caminho/de/saida/controle360-mobile.html]
+# Padrão: controle360/controle360-mobile.html
 ```
 
 ### O que faz
 
-1. Lê `index.html`, `styles/main.css` e todos os `src/*.js`.
+1. Lê `controle360/index.html`, `controle360/styles/main.css` e todos os `controle360/src/*.js`.
 2. Substitui `<link href="styles/main.css">` por `<style>...</style>` com conteúdo inline.
 3. Substitui cada `<script src="src/X.js">` por `<script>...</script>` com conteúdo inline.
 4. Verifica se nenhuma referência externa restou (error se encontrar).
@@ -406,19 +434,126 @@ node build-mobile.js [caminho/de/saida/controle360-mobile.html]
 
 **Sempre que alterar:**
 
-- `styles/main.css`
-- Qualquer arquivo em `src/` (utils, state, calculations, ui, app, exportImport, etc.)
+- `controle360/styles/main.css`
+- Qualquer arquivo em `controle360/src/` (utils, state, calculations, ui, app, exportImport, etc.)
 
 **Depois rode:**
 
 ```bash
-node build-mobile.js
+node controle360/build-mobile.js
 ```
 
-Isso regenera `controle360-mobile.html` com as mudanças. Ambas as versões (desktop = index.html + arquivos, mobile = arquivo único) ficam sincronizadas.
+Isso regenera `controle360/controle360-mobile.html` com as mudanças. Ambas as versões (desktop = index.html + arquivos, mobile = arquivo único) ficam sincronizadas.
 
 ### Verificação
 
-- ✅ Desktop: abrir `index.html` (carrega CSS e JS de arquivo).
-- ✅ Mobile: abrir `controle360-mobile.html` (carrega tudo inline, funciona offline 100%).
+- ✅ Desktop: abrir `controle360/index.html` (carrega CSS e JS de arquivo).
+- ✅ Mobile: abrir `controle360/controle360-mobile.html` (carrega tudo inline, funciona offline 100%).
 - ✅ Console: nenhuma referência externa, nenhum erro 404.
+
+---
+
+# Estante (`estante/`)
+
+## Finalidade
+
+Leitor de letras e cifras para uso **no palco**. As decisões de projeto seguem essa prioridade: abrir rápido, funcionar sem internet, ser legível a um metro de distância e não exigir digitação durante o show.
+
+Documentação de uso: `estante/README.md`. Roteiro de teste: `estante/checklist-manual.md`.
+
+## Arquivos
+
+```txt
+estante/
+├── index.html         # estrutura da tela e diálogos
+├── styles.css         # visual, modo palco e folha de impressão
+├── core.js            # estado, armazenamento, APP_VERSION e fontes de letra
+├── search-engine.js   # busca inteligente: várias fontes, variações e ranking
+├── library.js         # lista, ordem do repertório, LRC, cifras e transposição
+├── setlists.js        # vários repertórios: criar, trocar, migrar e persistir
+├── song-prefs.js      # tom, capotraste, velocidade e anotações por música
+├── player.js          # abrir música, desenhar letra, rolagem, sincronia, arquivos
+├── print.js           # impressão da ordem do show
+├── ui.js              # eventos da interface, atalhos e compartilhamento
+├── search-ui.js       # formulário de busca e modos de fonte
+├── offline.js         # registra o service worker e avisa de versão nova
+├── sw.js              # cache do casco do app
+├── manifest.webmanifest
+└── icon.svg / icon-192.png / icon-512.png
+```
+
+Os scripts são carregados em ordem no `index.html`, sem módulos: cada arquivo declara funções globais. Ao criar um arquivo novo, inclua-o no `index.html` **e** na lista `SHELL` de `sw.js`.
+
+## Princípios obrigatórios
+
+### 1. Versão única
+
+`APP_VERSION` em `core.js`, `VERSION` em `sw.js` e o `?v=` das tags do `index.html` precisam andar juntos. **Alterou qualquer arquivo do Estante, bumpe a versão nos três lugares** — senão o service worker continua servindo a versão antiga e a correção não chega ao aparelho.
+
+### 2. Offline é requisito, não enfeite
+
+O casco do app fica em cache; as fontes de letra (LRCLIB, Vagalume, Apple) nunca são cacheadas. Nenhum recurso externo (fonte, CDN, biblioteca) pode entrar na página: quebraria o uso sem internet.
+
+### 3. O repertório é o dado sagrado
+
+- Migração nunca apaga a chave antiga: grava a nova e deixa a velha como backup.
+- `save()` avisa na tela quando o armazenamento enche; não engula o erro.
+- Toda mudança de formato precisa continuar lendo os arquivos exportados anteriores.
+
+### 4. Ajuste que pertence à música fica na música
+
+Tom, capotraste, velocidade e anotações são por música. Preferências do aparelho (tamanho da letra, modo palco, fonte de busca, chave do Vagalume) são globais, em `KEYS.prefs`.
+
+### 5. `state.setlist` é o repertório ativo
+
+`state.setlist` aponta para o array `songs` do repertório ativo — é a mesma referência, não uma cópia. Mexa nele com `push`/`splice`; para **substituir** a lista inteira use `setActiveSongs()`, senão a ligação com o repertório se perde e nada mais é salvo.
+
+## Modelo de dados
+
+```js
+// localStorage["estante:v3:setlists"]
+{ version:3, activeId, setlists:[ {id, name, date, songs:[música]} ] }
+
+// cada música
+{ title, artist, album, duration, lyrics, synced, instrumental, source, vagUrl,
+  key,    // transposição em semitons
+  capo,   // casa do capotraste (só afeta a exibição)
+  speed,  // velocidade de rolagem desta música
+  notes } // anotação de palco
+```
+
+Outras chaves: `estante:v2:prefs` (preferências do aparelho) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
+
+Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
+
+## Regras para próximas alterações
+
+1. Cálculo de cifra, LRC e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; persistência de repertório em `setlists.js`. Não empilhe lógica nova em `ui.js`.
+2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
+3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
+4. Teste servindo por HTTP; service worker não roda em `file://`.
+5. Rode `estante/checklist-manual.md` antes de publicar.
+
+## Não fazer
+
+- Não adicionar biblioteca externa, CDN ou fonte remota.
+- Não cachear resposta das APIs de letra.
+- Não guardar a chave do Vagalume fora do aparelho nem enviá-la a outro serviço.
+- Não apagar repertório do usuário em migração ou importação sem confirmação.
+- Não transformar preferência do aparelho em ajuste por música (nem o contrário).
+
+## Ideias para evolução
+
+Prioridade alta:
+
+1. Metrônomo com tap tempo e BPM por música.
+2. Velocidade de rolagem calculada pela duração da música.
+3. Editar a letra de uma música já salva.
+4. Reordenar o repertório arrastando.
+
+Prioridade média:
+
+1. Data e local no repertório, com agenda de shows.
+2. Mapeamento configurável de pedaleira Bluetooth.
+3. Duas colunas para letras longas em tablet.
+4. Conversão para IndexedDB quando o repertório crescer.
