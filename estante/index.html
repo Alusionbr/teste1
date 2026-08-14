@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.0.1">
+  <link rel="stylesheet" href="./styles.css?v=3.1.0">
 </head>
 <body>
 <div class="app">
@@ -38,6 +38,7 @@
     <footer class="sidebarFooter">
       <button id="pasteBtn">Colar letra</button>
       <button id="sourcesBtn">Fontes</button>
+      <button id="shareBtn">Compartilhar</button>
       <button id="exportBtn">Exportar</button>
       <button id="importBtn">Importar</button>
       <button id="helpBtn">Ajuda</button>
@@ -99,21 +100,33 @@
   </form>
 </dialog>
 
+<dialog id="sharedDialog">
+  <div class="modal">
+    <header><h2>Repertório recebido</h2><button id="sharedCloseBtn" type="button">×</button></header>
+    <p id="sharedSummary">Você recebeu um repertório compartilhado.</p>
+    <p>Escolha <b>Adicionar</b> para manter suas músicas atuais ou <b>Usar repertório</b> para trocar pela ordem recebida.</p>
+    <footer>
+      <button id="sharedAddBtn" type="button">Adicionar</button>
+      <button class="accent" id="sharedReplaceBtn" type="button">Usar repertório</button>
+    </footer>
+  </div>
+</dialog>
+
 <dialog id="helpDialog">
   <form method="dialog" class="modal">
     <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Você pode tocar numa linha para reposicionar o relógio.</p>
     <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover.</p>
-    <p><b>Offline:</b> depois da primeira abertura, o aplicativo carrega sem internet e mantém as músicas já salvas no aparelho.</p>
+    <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
 </dialog>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.0.1" defer></script>
-<script src="./library.js?v=3.0.1" defer></script>
-<script src="./player.js?v=3.0.1" defer></script>
-<script src="./ui.js?v=3.0.1" defer></script>
+<script src="./core.js?v=3.1.0" defer></script>
+<script src="./library.js?v=3.1.0" defer></script>
+<script src="./player.js?v=3.1.0" defer></script>
+<script src="./ui.js?v=3.1.0" defer></script>
 </body>
 </html>
