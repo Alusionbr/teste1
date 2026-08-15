@@ -571,7 +571,11 @@ Outras chaves: `estante:v2:prefs` (preferências do aparelho) e `estante:v2:setl
 
 Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
-Velocidade automática = `(altura da letra − altura da tela) / (duration − LEAD_IN)`, em `autoscroll.js`.
+Velocidade automática = `(fim da última linha − altura da tela) / (duration − LEAD_IN)`, em `autoscroll.js`. Medir pelo `scrollHeight` inclui os 55vh de preenchimento do papel e os créditos — deixava a velocidade 21% rápida demais. `atScrollEnd()` (`player.js`) usa a mesma medida, para a rolagem parar na última linha em vez de continuar para dentro do vazio.
+
+O quadro da rolagem tem teto (`MAX_DT`, em `player.js`): `requestAnimationFrame` congela com a aba escondida e, sem limite, o primeiro quadro na volta cobrava todo o tempo ausente — 40 s viravam um salto de 720 px que costumava desligar a rolagem.
+
+Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até a aba fechar.
 
 ## Regras para próximas alterações
 

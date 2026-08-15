@@ -17,7 +17,7 @@ $("importAddBtn").onclick=()=>finishImport("add");
 $("importReplaceBtn").onclick=()=>finishImport("replace");
 $("notesBtn").onclick=()=>{if(!state.current)return;$("notesText").value=state.current.notes||"";$("notesDialog").showModal()};
 $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;saveSongNotes($("notesText").value.trim());$("notesDialog").close();e.preventDefault()});
-$("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("helpBtn").onclick=()=>$("helpDialog").showModal();
+$("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();else releaseAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("helpBtn").onclick=()=>$("helpDialog").showModal();
 $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;const text=$("pasteText").value;if(!text.trim()){e.preventDefault();return $("pasteText").focus()}const sync=hasLRC(text);openSong({title:$("pasteTitle").value.trim()||"Letra colada",artist:$("pasteArtist").value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"colado"});$("pasteDialog").close();e.preventDefault()});
 $("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
 $("exportBtn").onclick=exportSetlist;$("importBtn").onclick=()=>$("importFile").click();$("importFile").onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
@@ -90,7 +90,16 @@ $("shareBtn").onclick=shareSetlist;$("sharedCloseBtn").onclick=()=>{$("sharedDia
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
 // Gravação adiada não pode morrer com a aba: fecha a conta ao sair ou esconder.
 window.addEventListener("pagehide",flushSaves);
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(state.stage||state.scrolling||state.syncing)keepAwake()}else flushSaves()});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"){
+    // O relógio da rolagem recomeça agora: sem isso o primeiro quadro na volta
+    // cobraria todo o tempo em que a aba esteve escondida. (A sincronia com
+    // .lrc não é reiniciada de propósito — lá o relógio é o da música, que
+    // seguiu tocando enquanto você olhava outra coisa.)
+    lastFrame=performance.now();
+    if(state.stage||state.scrolling||state.syncing)keepAwake();
+  }else flushSaves();
+});
 document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
 $("paperViewport").addEventListener("pointerdown",()=>{if(state.scrolling)toggleScroll()});
 

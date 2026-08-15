@@ -67,6 +67,19 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] O valor ajustado continua lá depois de recarregar a página.
 - [ ] Ajustar a velocidade de uma música do repertório não muda a velocidade das outras.
 
+## 4e. Rolagem confiável no palco
+
+- [ ] Com a rolagem ligada, sair do app por ~30 s e voltar: a letra continua de onde estava, **sem salto** e sem parar sozinha.
+- [ ] Com **auto** ligado, rolar até o fim: a última linha chega ao rodapé junto com o fim da música, e a rolagem para **ali** — não continua subindo para dentro do espaço em branco.
+- [ ] Numa letra curta que cabe na tela, **auto** avisa que não precisa rolar.
+- [ ] Depois de parar a rolagem e sair do modo palco, a tela volta a apagar sozinha (wake lock liberado).
+
+## 4f. Navegação entre músicas
+
+- [ ] Tocando a música 2 de 3, buscar e abrir pelos resultados a **mesma** música: apertar › vai para a **3**, não para a 1.
+- [ ] Na última música do repertório, apertar › não faz nada — não reabre a música nem volta a letra para o topo.
+- [ ] Salvar uma música nova com **+ Repertório**: apertar › vai para a seguinte a ela.
+
 ## 5. Repertórios
 
 - [ ] Criar um segundo repertório: o novo abre vazio e o anterior continua intacto.

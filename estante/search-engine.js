@@ -83,7 +83,17 @@ async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
 searchMusic=async function(q){if(state.source==="smart")return smartSearchMusic(q);return legacySearchMusic(q)};
 fetchLrclibSong=async function(song){
-  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song}}catch{}}
+  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();
+    // Só aceitar se veio texto de verdade. O LRCLIB responde 200 com
+    // plainLyrics e syncedLyrics nulos em vários registros que não são
+    // instrumentais; aceitar isso como sucesso abria a música EM BRANCO e
+    // ainda impedia as reservas (Vagalume, acervo, lyrics.ovh) de rodarem,
+    // porque a função retornava sem erro.
+    if(x&&(x.plainLyrics||x.syncedLyrics||x.instrumental)){
+      Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});
+      return song;
+    }
+  }}catch{}}
   try{return await legacyFetchLrclibSong(song)}catch(first){
     if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
     // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)

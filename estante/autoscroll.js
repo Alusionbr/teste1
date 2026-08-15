@@ -16,7 +16,25 @@
 // primeiro verso, e ninguém começa a ler no primeiro estalo.
 const LEAD_IN = 4;
 
-function scrollDistance(){const v=$("paperViewport");return Math.max(0,v.scrollHeight-v.clientHeight)}
+/*
+ * Distância que a letra precisa percorrer até a última linha aparecer.
+ *
+ * Não dá para usar scrollHeight-clientHeight: o `.paper` tem padding-bottom de
+ * 55vh (para a última linha não ficar colada na borda) e o rodapé de créditos
+ * mora dentro do mesmo viewport. Isso é mais de meia tela de vazio que entrava
+ * na conta e fazia a velocidade sair 21% rápida demais — medido: 2494 px de
+ * distância "cheia" contra 2061 px reais. A letra terminava bem antes da
+ * música, e o erro crescia quanto mais curta a letra.
+ *
+ * Medindo até o fim da última linha o cálculo passa a corresponder ao que o
+ * olho espera: a última linha chega ao rodapé junto com o fim da música.
+ */
+function scrollDistance(){
+  const v=$("paperViewport"),linhas=$("paper").children;
+  const ultima=linhas[linhas.length-1];
+  if(!ultima)return 0;
+  return Math.max(0,ultima.offsetTop+ultima.offsetHeight-v.clientHeight);
+}
 
 // Devolve px/s, ou 0 quando não dá para calcular (sem duração, sem letra, ou
 // letra tão curta que cabe na tela e não precisa rolar).

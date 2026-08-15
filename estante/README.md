@@ -81,7 +81,13 @@ Campos de cada música:
 
 Cifras exibidas = `transposeLine(linha, key - capo)`.
 
-Velocidade automática = `(altura da letra − altura da tela) / (duration − 4s de entrada)`.
+Velocidade automática = `(fim da última linha − altura da tela) / (duration − 4s de entrada)`.
+
+A distância é medida até a **última linha real**, não até o `scrollHeight`: o
+papel tem 55vh de preenchimento embaixo e os créditos dentro do mesmo viewport.
+Contar esse vazio deixava a velocidade 21% rápida demais e a letra terminava bem
+antes da música. A rolagem também para nesse ponto — depois da última linha só
+há espaço em branco, e continuar subindo esconderia justamente o verso final.
 
 ## Gravação
 
