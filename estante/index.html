@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.6.0">
+  <link rel="stylesheet" href="./styles.css?v=3.7.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -117,8 +117,9 @@
   <form method="dialog" class="modal" id="sourcesForm">
     <header><h2>Fontes</h2><button value="cancel">×</button></header>
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
-    <p><b>Inteligente</b> consulta LRCLIB, Vagalume, Deezer e o catálogo de música da Apple em paralelo, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
-    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho e a busca oferece um atalho para tentar na Inteligente.</p>
+    <p><b>Inteligente</b> consulta em paralelo o LRCLIB, o Vagalume, o Deezer, o catálogo da Apple e o MusicBrainz, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
+    <p>Letra vem do LRCLIB (a única com sincronia), do Vagalume, do acervo deste site e, como reserva, da lyrics.ovh. Deezer, Apple e MusicBrainz não têm letra: servem para identificar a faixa e descobrir álbum e duração — é o que permite às outras acharem a letra certa.</p>
+    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho. Procurar por um pedaço da letra depende dele: as outras fontes comparam título, artista e álbum, nunca o texto. Nesse caso o app ainda procura no seu repertório e no acervo, que guardam a letra inteira.</p>
     <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
   </form>
@@ -207,18 +208,18 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.6.0" defer></script>
-<script src="./search-engine.js?v=3.6.0" defer></script>
-<script src="./library.js?v=3.6.0" defer></script>
-<script src="./acervo.js?v=3.6.0" defer></script>
-<script src="./setlists.js?v=3.6.0" defer></script>
-<script src="./song-prefs.js?v=3.6.0" defer></script>
-<script src="./autoscroll.js?v=3.6.0" defer></script>
-<script src="./player.js?v=3.6.0" defer></script>
-<script src="./song-edit.js?v=3.6.0" defer></script>
-<script src="./print.js?v=3.6.0" defer></script>
-<script src="./ui.js?v=3.6.0" defer></script>
-<script src="./search-ui.js?v=3.6.0" defer></script>
-<script src="./offline.js?v=3.6.0" defer></script>
+<script src="./core.js?v=3.7.0" defer></script>
+<script src="./search-engine.js?v=3.7.0" defer></script>
+<script src="./library.js?v=3.7.0" defer></script>
+<script src="./acervo.js?v=3.7.0" defer></script>
+<script src="./setlists.js?v=3.7.0" defer></script>
+<script src="./song-prefs.js?v=3.7.0" defer></script>
+<script src="./autoscroll.js?v=3.7.0" defer></script>
+<script src="./player.js?v=3.7.0" defer></script>
+<script src="./song-edit.js?v=3.7.0" defer></script>
+<script src="./print.js?v=3.7.0" defer></script>
+<script src="./ui.js?v=3.7.0" defer></script>
+<script src="./search-ui.js?v=3.7.0" defer></script>
+<script src="./offline.js?v=3.7.0" defer></script>
 </body>
 </html>

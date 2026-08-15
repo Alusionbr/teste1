@@ -15,7 +15,9 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Quando a fonte não devolve letra, aparece a mensagem explicando e os links da faixa.
 - [ ] Modo **Trecho** encontra a música por um pedaço da letra (depende só do Vagalume — sem ele disponível, não há como buscar por trecho).
 - [ ] Com o Vagalume fora do ar (simule bloqueando `api.vagalume.com.br` nas ferramentas de rede do navegador): os chips **Brasil** e **Trecho** ganham um ponto vermelho; buscar neles mostra a mensagem certa com o botão **Tentar na Inteligente**, e clicar nele repete a busca no modo Inteligente.
-- [ ] Ainda com o Vagalume fora do ar, o modo **Inteligente** continua trazendo resultados (via LRCLIB/Deezer/Apple).
+- [ ] Ainda com o Vagalume fora do ar, o modo **Inteligente** continua trazendo resultados (via LRCLIB/Deezer/Apple/MusicBrainz).
+- [ ] No modo **Trecho** com o Vagalume fora, a mensagem explica que procurar por pedaço da letra depende só dele e **não** oferece o atalho para a Inteligente (que também não faz busca por texto).
+- [ ] Buscar por um artista brasileiro pouco conhecido traz resultado do **MusicBrainz** com duração preenchida.
 
 ## 2b. Busca no que já está no aparelho
 
