@@ -22,6 +22,60 @@ $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")re
 $("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
 $("exportBtn").onclick=exportSetlist;$("importBtn").onclick=()=>$("importFile").click();$("importFile").onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
 
+// --- Karaokê ---
+// O pedal faz três coisas por si, sem menu: sem vídeo, abre o diálogo para
+// colar um; com vídeo e fora do modo, entra e tenta tocar; já dentro do modo,
+// alterna tocar/pausar — a mesma ideia do botão Rolar, que também liga e
+// controla com o mesmo toque.
+function onKaraokeBtn(){
+  if(!state.current)return notify("Abra uma música antes.");
+  if(state.karaoke)return karaokePlayPause();
+  if(!songVideoId(state.current))return openKaraokeDialog();
+  enterKaraoke();
+}
+function updateKaraokeDialogFields(){
+  const id=songVideoId(state.current);
+  $("karaokeCurrentVideo").textContent=id?`Vídeo desta música: ${id}`:"Nenhum vídeo escolhido para esta música ainda.";
+  $("karaokeOffsetOut").textContent=(Number(state.current&&state.current.videoOffset)||0).toFixed(1)+"s";
+  $("karaokeDelayOut").textContent=(Number(state.audioDelay)||0)+" ms";
+  $("karaokeLinkInput").value="";
+  $("karaokeSearchLink").href=youtubeSearchUrl(state.current);
+  $("karaokeRemoveBtn").hidden=!id;
+}
+function openKaraokeDialog(){
+  if(!state.current)return notify("Abra uma música antes.");
+  updateKaraokeDialogFields();
+  $("karaokeDialog").showModal();
+}
+$("karaokeBtn").onclick=onKaraokeBtn;
+$("karaokeSettingsBtn").onclick=openKaraokeDialog;
+$("karaokeForm").addEventListener("submit",e=>{
+  if(e.submitter?.value==="cancel")return;
+  e.preventDefault();
+  const raw=$("karaokeLinkInput").value.trim();
+  if(!raw){$("karaokeDialog").close();return}
+  const id=parseVideoId(raw);
+  if(!id)return notify("Não reconheci esse link do YouTube. Cole o link completo ou o id do vídeo.");
+  state.current.videoId=id;state.current.videoOffset=0;
+  rememberSongPref("videoId",id);rememberSongPref("videoOffset",0);
+  $("karaokeDialog").close();
+  notify("Vídeo salvo nesta música.",true);
+  // Confirmação do título é só cortesia, e não bloqueia o resto: o oEmbed pode
+  // falhar (vídeo particular, removido) sem que o vídeo salvo deixe de tocar.
+  fetchVideoTitle(id).then(info=>notify(`Vídeo confirmado: ${esc(info.title)}${info.author?" · "+esc(info.author):""}`,true)).catch(err=>notify(err.message||"Não consegui confirmar este vídeo — confira se o link está certo."));
+  if(state.karaoke)karaokeOnSongChange();
+});
+$("karaokeRemoveBtn").onclick=()=>{
+  if(!state.current)return;
+  state.current.videoId="";state.current.videoOffset=0;
+  rememberSongPref("videoId","");rememberSongPref("videoOffset",0);
+  if(state.karaoke)exitKaraoke();
+  updateKaraokeDialogFields();
+  notify("Vídeo removido desta música.",true);
+};
+document.querySelectorAll("[data-video-offset]").forEach(b=>b.onclick=()=>karaokeNudgeOffset(Number(b.dataset.videoOffset)));
+document.querySelectorAll("[data-audio-delay]").forEach(b=>b.onclick=()=>karaokeNudgeDelay(Number(b.dataset.audioDelay)));
+
 // --- Repertórios (criar, renomear, duplicar, apagar, trocar) ---
 // O mesmo diálogo serve para nomear em qualquer um desses casos.
 let setlistAction="new";
@@ -189,15 +243,40 @@ document.addEventListener("visibilitychange",()=>{
     // .lrc não é reiniciada de propósito — lá o relógio é o da música, que
     // seguiu tocando enquanto você olhava outra coisa.)
     lastFrame=performance.now();
-    if(state.stage||state.scrolling||state.syncing)keepAwake();
+    if(state.stage||state.scrolling||state.syncing||state.karaoke)keepAwake();
   }else flushSaves();
 });
-document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
+/*
+ * No karaokê, Espaço/Enter/↑↓ mudam de sentido: velocidade de rolagem não
+ * significa nada com o vídeo mandando o relógio, e ↑↓ passam a ajustar a
+ * sincronia desta música em vez disso. Enter pega `preventDefault` mesmo sem
+ * ação própria fora do karaokê porque, com o pedal recém-clicado ainda em
+ * foco, o Enter da pedaleira dispararia o clique padrão do botão JUNTO com
+ * a nossa própria ação — dois efeitos por um toque, ou seja, nenhum efeito
+ * (liga e desliga na mesma tecla).
+ */
+document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;
+  if(state.karaoke){
+    switch(e.key){
+      case" ":case"Enter":e.preventDefault();karaokePlayPause();return;
+      case"ArrowUp":e.preventDefault();karaokeNudgeOffset(-0.5);return;
+      case"ArrowDown":e.preventDefault();karaokeNudgeOffset(0.5);return;
+      case"ArrowLeft":jumpSong(-1);return;
+      case"ArrowRight":jumpSong(1);return;
+      case"Escape":if(state.videoPlaying)karaokePlayPause();else exitKaraoke();return;
+    }
+  }
+  switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
 // Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
 // antes seguia correndo enquanto o toque reposicionava a música sem avisar.
 $("paperViewport").addEventListener("pointerdown",()=>{
   if(state.scrolling){toggleScroll();pausouNoToque=true}
   else if(state.syncing){toggleSync();pausouNoToque=true}
+  // Sem .lrc, a letra rola sozinha pela posição do vídeo (karaokeScrollPosition,
+  // em karaoke.js). Um toque abre uma janela de rolagem manual — senão o dedo
+  // que tenta adiantar a letra é imediatamente puxado de volta no quadro
+  // seguinte, e dá para rolar na tela do vídeo em vez de por cima da letra.
+  else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
 
 (function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();

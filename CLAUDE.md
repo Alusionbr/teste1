@@ -571,6 +571,33 @@ Pular para uma seção (`scrollToLine`, `library.js`) tem dois casos por causa d
 
 O link usa `CompressionStream("deflate-raw")` quando o navegador tem (marca `#setlistz=`); sem isso, cai para JSON puro (`#setlist=`, igual ao formato antigo `v:1`, que continua sendo lido). É API nativa do navegador, não biblioteca externa — não adicionar uma para isso. Acima de `LINK_LONGO` (8000 caracteres) o diálogo avisa que aplicativos de mensagem costumam cortar o link ao colar, e sugere Exportar como alternativa.
 
+### 14. Karaokê: o `<iframe>` é uma exceção com limites, não uma porta aberta
+
+`karaoke.js` toca vídeo do YouTube com a letra por cima, para festa — modo à parte de Rolar/Sincro/Palco, nunca dois ligados juntos (`toggleScroll`/`toggleSync` recusam ligar com `state.karaoke` ativo; os três escreveriam no mesmo `scrollTop` ou no mesmo relógio).
+
+Um `<iframe>` de outra origem **não** viola "nada de biblioteca externa nem CDN": é um documento à parte, com o JavaScript dele rodando no contexto dele, invisível para `sw.js` (que devolve toda origem estranha direto pra rede, sem cachear — princípio já existente). Mas a exceção tem uma borda exata:
+
+- **O iframe só é criado por JS depois de um gesto do usuário** (`ensureFrame()`, chamado de `enterKaraoke()`), nunca como `<iframe src>` estático no `index.html` — isso acrescentaria rede ao primeiro carregamento e furaria o casco offline.
+- **Nunca carregar `https://www.youtube.com/iframe_api`** nem qualquer script do Google na página. O protocolo `postMessage` é falado na mão — conferido lendo o `www-widgetapi.js` do próprio Google nesta sessão, não documentado oficialmente, mas estável na prática. Se um bug de sincronia parecer pedir a API oficial, a resposta certa é revisar `karaokeTime()`/`aplicarInfo()`, não adicionar o script.
+- **A ausência do karaokê nunca pode degradar o resto do app.** Sem internet, sem vídeo escolhido, ou vídeo que recusa embutir: o app cai para Rolar/Sincro normal em um toque — nunca trava a música que já estava tocando.
+- `postMessage` sempre com `targetOrigin` explícito (`https://www.youtube-nocookie.com`), nunca `"*"`; `ytOnMessage` confere origem **e** `e.source === iframe.contentWindow` antes de aceitar qualquer coisa.
+
+**Um iframe só, para a sessão inteira**, reaproveitado por `loadVideoById` — não um por música. No iOS o gesto do usuário não atravessa iframe de outra origem: um elemento de mídia novo a cada troca exigiria toque a cada música, e encadear a fila ficaria impossível. `autoplayComprovado` registra, nesta sessão, se o navegador já deixou tocar por programa; só aí `aoTerminarMusica()` avança sozinho — sem essa prova, mostra "toque em › para a próxima" em vez de deixar a festa olhando uma tela muda.
+
+**O relógio não é o `performance.now()` do app.** `infoDelivery` chega a cada ~250ms, não a cada quadro; `karaokeTime()` extrapola entre entregas com o mesmo teto de 1s que o próprio `getCurrentTime` do Google usa (conferido no código-fonte) — sem o teto, um iframe travado faria a letra disparar sozinha. `avaliarAnuncio()` compara a duração relatada com a duração real da música: durante um anúncio a duração bate diferente, e a letra congela em vez de correr durante o comercial.
+
+```txt
+tempoDaLetra = tempoDoVídeoExtrapolado − videoOffset − audioDelay
+```
+
+`videoOffset` (por música, salvo com `rememberSongPref`) corrige a introdução do upload do YouTube; `audioDelay` (do aparelho, em `estante:v2:prefs`) corrige o atraso da caixa Bluetooth. Os dois **subtraem** — os botões usam sinal, mas a mensagem sempre descreve o efeito ("letra atrasada/adiantada"): não dá pra exigir que alguém raciocine sobre convenção de sinal no meio da festa.
+
+Sem `.lrc` (a maioria das músicas), `karaokeScrollPosition()` não destaca linha: rola pelo `scrollTop = progresso × scrollDistance()`, onde `progresso` vem da fração já tocada, não de velocidade — por ser posição, não acumula erro, e um salto no vídeo reposiciona a letra na hora. Um toque na tela abre uma janela de rolagem manual (`manualAte`) para o dedo não ser puxado de volta no quadro seguinte.
+
+`stopAll()` (chamado por `openSong`, Escape, edição de letra) **pausa** o vídeo sem sair do modo karaokê — sair a cada troca de música apagaria o karaokê a cada música da fila. `openSong()` troca o vídeo **antes** do `await` da busca de letra (que pode esperar até 12s de rede): se ficasse atrás, o áudio da música anterior continuaria saindo da caixa com a tela já mostrando o título da próxima.
+
+`state.karaoke` (modo) e `state.videoPlaying` (relógio andando) são campos separados de propósito: `videoPlaying` é espelho do que o player informa — nunca chute nosso — porque anúncio, buffer ou um toque dentro do próprio vídeo mudam o estado sem passar pelo app. Nenhum dos dois é persistido: modo de festa não deve voltar sozinho no dia seguinte.
+
 ## Modelo de dados
 
 ```js
@@ -583,10 +610,12 @@ O link usa `CompressionStream("deflate-raw")` quando o navegador tem (marca `#se
   capo,   // casa do capotraste (só afeta a exibição)
   speed,  // velocidade de rolagem desta música
   auto,   // true = velocidade calculada pela duração, ignorando speed
-  notes } // anotação de palco
+  notes,  // anotação de palco
+  videoId,      // id do vídeo do YouTube usado no karaokê desta música
+  videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)
 ```
 
-Outras chaves: `estante:v2:prefs` (preferências do aparelho) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
+Outras chaves: `estante:v2:prefs` (preferências do aparelho — inclui `audioDelay`, o atraso da caixa Bluetooth, e `keyYT`, guardada só no aparelho como a do Vagalume) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
 
 Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
@@ -594,11 +623,13 @@ Velocidade automática = `(fim da última linha − altura da tela) / (duration 
 
 O quadro da rolagem tem teto (`MAX_DT`, em `player.js`): `requestAnimationFrame` congela com a aba escondida e, sem limite, o primeiro quadro na volta cobrava todo o tempo ausente — 40 s viravam um salto de 720 px que costumava desligar a rolagem.
 
-Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até a aba fechar.
+Rolagem, sincronia e karaokê dividem **um `requestAnimationFrame` só** (`raf`, em `core.js`) através de `startTick()`/`stopTickIfIdle()` (`player.js`): ninguém desliga o laço sem conferir se sobrou algum dos três precisando dele, e ninguém liga um segundo laço por cima de um que já roda. Antes do karaokê, rolagem e sincronia eram dois modos que nunca coexistiam e cada um podia cancelar o laço na saída sem checar nada; um terceiro interessado quebraria isso.
+
+Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até a aba fechar. A guarda de quando liberar (`player.js`) e quando pedir de volta ao voltar à aba (`ui.js`, `visibilitychange`) é a mesma em três lugares: `state.stage||state.scrolling||state.syncing||state.karaoke`. Esquecer o karaokê em um dos três apaga a tela no meio da música ou deixa acesa a noite toda.
 
 ## Regras para próximas alterações
 
-1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
+1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`; iframe, protocolo e relógio do karaokê em `karaoke.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
 2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
 3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
 4. Teste servindo por HTTP; service worker não roda em `file://`.
@@ -608,9 +639,10 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 
 - Não adicionar biblioteca externa, CDN ou fonte remota.
 - Não cachear resposta das APIs de letra.
-- Não guardar a chave do Vagalume fora do aparelho nem enviá-la a outro serviço.
+- Não guardar a chave do Vagalume nem a do YouTube fora do aparelho, nem enviá-las a outro serviço.
 - Não apagar repertório do usuário em migração ou importação sem confirmação.
-- Não transformar preferência do aparelho em ajuste por música (nem o contrário).
+- Não transformar preferência do aparelho em ajuste por música (nem o contrário) — `audioDelay` é do aparelho, `videoOffset` é da música, e não é o mesmo engano ao contrário: um não deve nunca escrever no outro.
+- Não carregar `iframe_api` do YouTube nem qualquer script de terceiro na página — o karaokê fala o protocolo `postMessage` na mão (princípio 14). Um bug de sincronia não é motivo para adicionar o script.
 
 ## Ideias para evolução
 
@@ -627,3 +659,4 @@ Prioridade média:
 3. Duas colunas para letras longas em tablet, ou encaixar a música inteira na tela.
 4. Conversão para IndexedDB quando o repertório crescer.
 5. Lembrete de backup: hoje o repertório vive só no `localStorage`.
+6. Busca de vídeo do YouTube **dentro do app**, com chave da API do YouTube (100 buscas/dia grátis, mesmo modelo de chave só-no-aparelho do Vagalume) — hoje o karaokê só aceita link colado ou o atalho que abre a busca numa aba do YouTube.

@@ -23,6 +23,7 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
 | **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. |
 | **Offline** | Depois da primeira abertura o app funciona sem internet e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não. |
+| **Karaokê** | Modo à parte, para festa: vídeo do YouTube atrás da letra, som saindo por Bluetooth. Cole o link do vídeo em ⚙, calibre o atraso da caixa uma vez e ajuste a introdução por música. Sem `.lrc` a letra rola pela posição do vídeo; com `.lrc`, destaca a linha certa. Ver detalhes abaixo. |
 
 ### Atalhos de teclado
 
@@ -38,6 +39,81 @@ Funcionam também com pedaleiras Bluetooth que enviam essas teclas.
 | F | tela cheia |
 | Esc | para tudo |
 
+Dentro do **karaokê** as mesmas teclas mudam de sentido — ver a seção abaixo.
+
+## Karaokê
+
+Modo separado dos outros três (Rolar, Sincro, Palco) — não dá para ligar dois
+ao mesmo tempo, os pedais ficam apagados enquanto ele está ativo. Pensado para
+festa: caixa de som Bluetooth (com microfone Bluetooth ligado nela, não no
+celular — ver aviso abaixo), projetor espelhando a tela.
+
+### Como ligar
+
+1. Abra a música e toque no pedal **⚙** ao lado de Karaokê.
+2. Cole o link do vídeo (aceita link comum, `youtu.be`, `/embed/`, YouTube
+   Music, ou só o id de 11 caracteres) e confirme em **Usar este vídeo**. Sem
+   chave de API nesta versão: o botão **Procurar no YouTube ↗** abre a busca
+   pronta numa aba nova, para copiar o link de lá.
+3. Toque no pedal **Karaokê**. Se o navegador recusar tocar sozinho (comum no
+   iPhone na primeira vez), toque diretamente no vídeo — depois disso o app
+   consegue trocar de música sozinho pelo resto da sessão.
+
+O vídeo fica salvo na música, junto com tom e capo — monte o repertório uma
+vez, com internet, e na festa é só tocar.
+
+### Os dois ajustes
+
+| Ajuste | Vale para | Corrige |
+|---|---|---|
+| Sincronia desta música | só a música aberta | a introdução do vídeo do YouTube, que quase nunca bate com a gravação que o `.lrc` mede |
+| Atraso da caixa Bluetooth | o aparelho inteiro | o atraso de 100–300ms comum em caixas Bluetooth — calibre uma vez ouvindo, vale para toda música depois |
+
+### Letra sem sincronia (a maioria)
+
+Poucas músicas têm `.lrc`. Sem ele, a letra **rola pela posição do vídeo** —
+fração já tocada, não velocidade — em vez de destacar linha. Adiantar, atrasar
+ou pausar o vídeo reposiciona a letra na hora, como um scrubber; não acumula
+erro do jeito que uma rolagem por velocidade acumularia.
+
+### O que muda com o karaokê ligado
+
+- **Teclas**: Espaço/Enter tocam e pausam o vídeo; ↑↓ ajustam a sincronia
+  desta música em vez da velocidade; Esc pausa uma vez, sai do modo na
+  segunda; ←→ continuam trocando de música.
+- **Anúncio**: o app percebe pela duração diferente e congela a letra até a
+  música voltar — sem isso a letra correria durante o comercial.
+- **Fim da música**: só avança sozinha para a próxima depois que o navegador
+  já provou que deixa tocar por programa nesta sessão (normal em Android;
+  no iPhone geralmente pede um toque a cada mudança de página, não a cada
+  música). Sem isso, mostra "toque em › para a próxima" em vez de travar.
+- **Offline**: precisa de internet enquanto está ligado. Sem rede, o pedal
+  avisa e sugere continuar no Rolar/Sincro normal.
+
+### Aviso de Bluetooth
+
+Um telefone só mantém **uma** saída de áudio Bluetooth por vez. Se o
+microfone parear direto no celular, o app costuma forçar tudo — inclusive a
+música — para o canal de voz (baixa qualidade). Pareie o microfone **na
+caixa de som**, e o celular só com a caixa.
+
+### Por que um `<iframe>` não quebra a regra de nada externo
+
+O vídeo é um documento à parte, com o JavaScript dele rodando no contexto
+dele — nenhum script de terceiro entra nesta página, o service worker ignora
+tudo que é de outra origem e o casco do app continua cacheado e abrindo sem
+internet. O que fica fora dos limites é carregar o `iframe_api`
+do próprio YouTube: aí sim seria script externo dentro do app. O protocolo é
+falado na mão — conferido no código-fonte público do `www-widgetapi.js` do
+Google — nunca com `targetOrigin:"*"`.
+
+### Fica de fora desta versão
+
+Busca de vídeo **dentro do app** com chave da API do YouTube (existe API
+gratuita, 100 buscas/dia, mesmo modelo de chave-só-no-aparelho do Vagalume) —
+colar link e o atalho de busca externa já cobrem o essencial sem exigir
+cadastro no Google. Fica anotado para uma versão futura.
+
 ## Arquivos
 
 ```txt
@@ -52,6 +128,7 @@ setlists.js        vários repertórios: criar, trocar, migrar e persistir
 song-prefs.js      tom, capotraste, velocidade e anotações por música
 autoscroll.js      velocidade de rolagem calculada pela duração
 player.js          abrir música, desenhar a letra, rolagem, sincronia e arquivos
+karaoke.js         modo karaokê: iframe do YouTube, protocolo, relógio extrapolado
 song-edit.js       editar a letra de uma música já aberta
 print.js           impressão da ordem do show
 ui.js              eventos da interface, atalhos e compartilhamento
@@ -65,7 +142,7 @@ sw.js              cache do app para funcionar offline
 | Chave | Conteúdo |
 |---|---|
 | `estante:v3:setlists` | `{version:3, activeId, setlists:[{id, name, date, songs}]}` |
-| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco e chave do Vagalume |
+| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
 | `estante:v2:setlist` | formato antigo (um repertório só); migrado automaticamente e mantido como backup |
 
 Campos de cada música:
@@ -76,7 +153,9 @@ Campos de cada música:
   capo,   // casa do capotraste (só muda a exibição das cifras)
   speed,  // velocidade de rolagem desta música
   auto,   // true = velocidade calculada pela duração, ignorando speed
-  notes } // anotação de palco
+  notes,  // anotação de palco
+  videoId,      // id do vídeo do YouTube usado no karaokê desta música
+  videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)
 ```
 
 Cifras exibidas = `transposeLine(linha, key - capo)`.
@@ -93,6 +172,23 @@ papel tem 55vh de preenchimento embaixo e os créditos dentro do mesmo viewport.
 Contar esse vazio deixava a velocidade 21% rápida demais e a letra terminava bem
 antes da música. A rolagem também para nesse ponto — depois da última linha só
 há espaço em branco, e continuar subindo esconderia justamente o verso final.
+
+No karaokê o relógio não é o `performance.now()` do app: é o tempo do vídeo,
+extrapolado entre as entregas do player (chegam a cada ~250ms, não a cada
+quadro) com o mesmo teto de 1s que o próprio YouTube usa para o seu
+`getCurrentTime`.
+
+```txt
+tempoDaLetra = tempoDoVídeoExtrapolado − videoOffset − audioDelay
+```
+
+Os dois se subtraem porque os dois atrasam a letra em relação ao vídeo cru:
+`videoOffset` porque o vídeo começa antes da letra (introdução do upload),
+`audioDelay` porque o som que sai da caixa Bluetooth chega depois do que o
+vídeo mostra. Sem `.lrc`, esse `tempoDaLetra` vira posição de rolagem —
+`scrollTop = ((tempoDaLetra − 4s) / (duração − 4s)) × distância` — em vez de
+destacar linha; é fração tocada, não velocidade, então não acumula erro: um
+salto no vídeo reposiciona a letra na hora.
 
 ## Compartilhamento
 
