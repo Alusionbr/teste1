@@ -62,7 +62,19 @@ function scrollToLine(i){
   $("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-16),behavior:state.scrolling?"auto":"smooth"});
 }
 function rowButton(text,disabled,fn,cls=""){const b=document.createElement("button");b.textContent=text;b.disabled=disabled;b.className=cls;b.onclick=e=>{e.stopPropagation();fn()};return b}
-function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||"")}}
+/*
+ * A forma canônica de uma música — e uma LISTA BRANCA: campo que não estiver
+ * aqui é apagado no primeiro salvamento, porque a função monta um objeto novo
+ * em vez de completar o que veio.
+ *
+ * Era assim que o `vagId` se perdia: a busca do Vagalume o produz e o
+ * openSong() o lê para abrir a letra pelo caminho rápido (`musid`), mas ele
+ * nunca esteve nesta lista. Bastava salvar a música e recarregar o app para o
+ * campo sumir — daí em diante toda música salva caía no caminho lento, por
+ * artista e título. `catalogUrl` sumia do mesmo jeito, e com ele o link "ver
+ * referência da faixa" das músicas que só o catálogo achou.
+ */
+function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",vagId:String(m.vagId||""),catalogUrl:String(m.catalogUrl||""),key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||""),videoId:String(m.videoId||"").slice(0,24),videoOffset:Number(m.videoOffset)||0}}
 function storedSong(m){return normalizeSong(m)}
 // Ao salvar, a música aberta passa a ser a atual do show: sem isso "próxima"
 // continuaria mandando para a primeira do repertório.

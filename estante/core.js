@@ -4,7 +4,19 @@
 const APP_VERSION="3.9.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:""};
+/*
+ * `karaoke` e `videoPlaying` são duas coisas separadas de propósito:
+ *
+ * - `karaoke` é o MODO — vídeo acoplado, letra por cima, pedaleira remapeada.
+ *   Sobrevive à troca de música, que é justamente o que uma fila de festa é.
+ * - `videoPlaying` é o relógio andando, e é espelho do que o player do YouTube
+ *   informa, nunca chute nosso. Anúncio, buffer ou um toque dentro do próprio
+ *   vídeo mudam o estado sem passar por nós; ler do player é o que impede o
+ *   LED e a letra de discordarem do que está tocando.
+ *
+ * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
+ */
+const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
@@ -57,7 +69,10 @@ function fmt(sec){if(!sec)return"";const m=Math.floor(sec/60),s=Math.floor(sec%6
 // Lê "3:45", "3.45" ou "225" e devolve segundos. 0 quando não dá para entender.
 function parseClock(text){const t=String(text||"").trim();if(!t)return 0;const m=t.match(/^(\d+)\s*[:.']\s*(\d{1,2})$/);if(m)return +m[1]*60+Math.min(59,+m[2]);const n=t.match(/^\d+$/);return n?+t:0}
 function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=on?"online":"offline";n.className=on?"online":"offline";n.title=on?"Busca online disponível":"Sem internet: repertório salvo continua disponível"}
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag})}
+// `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
+// daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
+// link compartilhado, nunca enviada a outro serviço.
+function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("syncBtn").classList.toggle("on",state.syncing);$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage)}
 
