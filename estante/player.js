@@ -8,6 +8,10 @@ function renderMissingLyrics(song,message){
 }
 async function openSong(song){
   stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
+  // Troca o vídeo já aqui, antes da busca de letra que pode esperar até 12s de
+  // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
+  // da caixa enquanto a tela já mostrava o título da próxima.
+  karaokeOnSongChange();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
@@ -29,7 +33,7 @@ function renderCurrentLyrics(){
   // capotraste e atalhos de seção só por ser temporizada.
   state.lines=state.lrc.length?state.lrc.map(x=>classify(x.text)):(song.lyrics||"").split(/\r?\n/).map(classify);
   renderPaper();
-  $("syncBtn").disabled=!state.lrc.length;
+  $("syncBtn").disabled=state.karaoke||!state.lrc.length;
   const temCifra=state.lines.some(x=>x.type==="chord");
   $("keyControl").hidden=!temCifra;$("capoControl").hidden=!temCifra;
   renderSectionBar();
@@ -80,10 +84,20 @@ function tapSyncLine(i){
 function startTick(){if(raf)return;lastFrame=performance.now();tick()}
 function stopTickIfIdle(){if(state.scrolling||state.syncing||state.karaoke)return;if(raf)cancelAnimationFrame(raf);raf=null}
 
-function stopAll(){state.scrolling=false;state.syncing=false;stopTickIfIdle();lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake()}
-function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
-function toggleSync(){if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
-function seekSync(i){if(!state.lrc[i])return;syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
+// karaokeStop() só pausa o vídeo — não apaga state.karaoke. stopAll() roda a
+// cada troca de música (openSong chama primeiro que tudo); se derrubasse o
+// modo, o karaokê se desligaria sozinho a cada música da fila.
+function stopAll(){state.scrolling=false;state.syncing=false;stopTickIfIdle();lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake();karaokeStop()}
+// Nenhum dos dois liga durante o karaokê: os três escreveriam no mesmo
+// scrollTop (ou no mesmo relógio) ao mesmo tempo — Rolar por velocidade,
+// Sincro pelo relógio interno, karaokê pelo relógio do vídeo.
+function toggleScroll(){if(state.karaoke)return;if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+function toggleSync(){if(state.karaoke)return;if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+// No karaokê o relógio é o do vídeo, não o interno (syncStart): reposicionar
+// tem de mandar o comando pro player, senão os dois relógios divergem — a
+// letra volta para onde a sincronia interna estava, o vídeo continua de onde já
+// estava.
+function seekSync(i){if(!state.lrc[i])return;if(state.karaoke){karaokeSeek(state.lrc[i].t);highlight(i);return}syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
 function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
 /*
  * Um quadro nunca vale mais que MAX_DT.
@@ -95,7 +109,12 @@ function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper
  * a letra no fim, parada, é falha de palco.
  */
 const MAX_DT=0.1;
-function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=Math.min((now-lastFrame)/1000,MAX_DT);lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if(atScrollEnd())toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}}
+function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=Math.min((now-lastFrame)/1000,MAX_DT);lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if(atScrollEnd())toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}
+  // O relógio aqui não é o nosso (now-syncStart): é o do vídeo, extrapolado em
+  // karaoke.js entre as entregas do player. Com .lrc, a varredura linear que
+  // acha a linha é a MESMA de cima — só a origem do tempo muda. Sem .lrc (a
+  // maioria das músicas), quem decide a posição é karaokeScrollPosition().
+  if(state.karaoke){karaokeWatchdog();const kt=karaokeLyricTime();if(state.lrc.length){let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=kt)i=k;else break}if(i>=0)highlight(i)}else karaokeScrollPosition(kt)}}
 /*
  * Fim da rolagem = a última linha chegou ao rodapé da tela.
  *
@@ -184,7 +203,7 @@ async function keepAwake(){
   try{
     const lock=await navigator.wakeLock.request("screen");
     // Enquanto esperávamos, o motivo de manter acesa pode ter acabado.
-    if(!state.stage&&!state.scrolling&&!state.syncing){await lock.release().catch(()=>{});return}
+    if(!state.stage&&!state.scrolling&&!state.syncing&&!state.karaoke){await lock.release().catch(()=>{});return}
     wakeLock=lock;wakeLock.addEventListener("release",()=>wakeLock=null);
   }catch{}
   finally{pedindoWakeLock=false}
@@ -192,7 +211,7 @@ async function keepAwake(){
 // Não havia release() em lugar nenhum: a tela seguia acesa até fechar a aba,
 // queimando bateria muito depois do show acabar.
 function releaseAwake(){
-  if(!wakeLock||state.stage||state.scrolling||state.syncing)return;
+  if(!wakeLock||state.stage||state.scrolling||state.syncing||state.karaoke)return;
   const lock=wakeLock;wakeLock=null;
   try{lock.release()}catch{}
 }

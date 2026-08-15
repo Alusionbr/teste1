@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.9.1">
+  <link rel="stylesheet" href="./styles.css?v=3.10.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -63,6 +63,7 @@
   </aside>
 
   <main class="stage" id="stage">
+    <div id="karaokeFrame" aria-hidden="true"></div>
     <header class="songHeader">
       <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
       <div class="songMeta">
@@ -91,6 +92,8 @@
     <footer class="transport">
       <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
+      <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Karaokê</b></button>
+      <button class="pedal small" id="karaokeSettingsBtn" aria-label="Configurar karaokê" title="Configurar karaokê">⚙</button>
       <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button><button id="autoBtn" class="auto" title="Calcular a velocidade pela duração da música">auto</button></div>
       <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
       <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
@@ -209,6 +212,19 @@
   </form>
 </dialog>
 
+<dialog id="karaokeDialog">
+  <form method="dialog" class="modal" id="karaokeForm">
+    <header><h2>Karaokê</h2><button value="cancel">×</button></header>
+    <p id="karaokeCurrentVideo"></p>
+    <label>Link do vídeo no YouTube<input id="karaokeLinkInput" placeholder="Cole o link ou o id do vídeo" autocomplete="off"></label>
+    <p><a id="karaokeSearchLink" href="#" target="_blank" rel="noopener">Procurar no YouTube ↗</a></p>
+    <div class="control karaokeControl"><span>Atraso da caixa Bluetooth</span><button type="button" data-audio-delay="-20">−</button><output id="karaokeDelayOut">0 ms</output><button type="button" data-audio-delay="20">+</button></div>
+    <div class="control karaokeControl"><span>Sincronia desta música</span><button type="button" data-video-offset="-0.5">−</button><output id="karaokeOffsetOut">0.0s</output><button type="button" data-video-offset="0.5">+</button></div>
+    <p class="karaokeHelp">O atraso da caixa vale para todas as músicas; a sincronia é só desta.</p>
+    <footer><button type="button" class="remove" id="karaokeRemoveBtn" hidden>Remover vídeo</button><button value="cancel">Fechar</button><button class="accent" id="karaokeAttachBtn" value="default">Usar este vídeo</button></footer>
+  </form>
+</dialog>
+
 <dialog id="printDialog">
   <div class="modal">
     <header><h2>Imprimir repertório</h2><button id="printCloseBtn" type="button">×</button></header>
@@ -219,18 +235,19 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.9.1" defer></script>
-<script src="./search-engine.js?v=3.9.1" defer></script>
-<script src="./library.js?v=3.9.1" defer></script>
-<script src="./acervo.js?v=3.9.1" defer></script>
-<script src="./setlists.js?v=3.9.1" defer></script>
-<script src="./song-prefs.js?v=3.9.1" defer></script>
-<script src="./autoscroll.js?v=3.9.1" defer></script>
-<script src="./player.js?v=3.9.1" defer></script>
-<script src="./song-edit.js?v=3.9.1" defer></script>
-<script src="./print.js?v=3.9.1" defer></script>
-<script src="./ui.js?v=3.9.1" defer></script>
-<script src="./search-ui.js?v=3.9.1" defer></script>
-<script src="./offline.js?v=3.9.1" defer></script>
+<script src="./core.js?v=3.10.0" defer></script>
+<script src="./search-engine.js?v=3.10.0" defer></script>
+<script src="./library.js?v=3.10.0" defer></script>
+<script src="./acervo.js?v=3.10.0" defer></script>
+<script src="./setlists.js?v=3.10.0" defer></script>
+<script src="./song-prefs.js?v=3.10.0" defer></script>
+<script src="./autoscroll.js?v=3.10.0" defer></script>
+<script src="./player.js?v=3.10.0" defer></script>
+<script src="./karaoke.js?v=3.10.0" defer></script>
+<script src="./song-edit.js?v=3.10.0" defer></script>
+<script src="./print.js?v=3.10.0" defer></script>
+<script src="./ui.js?v=3.10.0" defer></script>
+<script src="./search-ui.js?v=3.10.0" defer></script>
+<script src="./offline.js?v=3.10.0" defer></script>
 </body>
 </html>

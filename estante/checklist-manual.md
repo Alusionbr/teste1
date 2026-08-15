@@ -103,6 +103,32 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] **Modo palco** escurece o papel; a tela não apaga sozinha.
 - [ ] ← → trocam de música dentro do repertório.
 
+## 6b. Karaokê
+
+**No navegador (lógica, sem depender de rede real — automatizado em `karaoke-test.js`):**
+
+- [ ] Colar link comum, `youtu.be`, `/embed/`, YouTube Music e id puro extraem o mesmo id; texto sem link ou de outro site não vira id.
+- [ ] O envelope do `postMessage` bate com o protocolo do `www-widgetapi.js` do Google (`event`, `func`, `args`, `id`, `channel:"widget"`), sempre para a origem do `youtube-nocookie.com`, nunca `"*"`.
+- [ ] Mensagem de origem errada, remetente errado, dado que não é string ou JSON quebrado são rejeitados sem quebrar a página.
+- [ ] O relógio extrapola entre entregas e tem teto de 1s; durante um "anúncio" (duração muito diferente da música) a letra congela e volta a andar sozinha quando a duração real reaparece.
+- [ ] `videoOffset` e `audioDelay` deslocam a letra na direção certa e não vazam entre músicas ou sessões (offset é por música; delay é do aparelho).
+- [ ] Letra sem `.lrc` rola pela fração tocada, não por velocidade; tocar na tela abre uma janela de rolagem manual que a posição automática não briga.
+- [ ] `stopAll()` pausa o vídeo sem sair do modo karaokê; trocar de música troca o vídeo **antes** de esperar a busca de letra; trocar para uma música sem vídeo não dispara avanço automático sozinho.
+- [ ] Rolar e Sincro ficam desabilitados (não mudos) enquanto o karaokê está ligado.
+- [ ] Toque duplo numa linha durante o karaokê comanda o vídeo, não o relógio interno do Sincro.
+- [ ] Enter com um botão focado dispara a ação uma vez só (não duas).
+
+**No aparelho, antes da festa (só dá para confirmar tocando de verdade):**
+
+- [ ] Colar o link de um vídeo comum e de um vídeo com karaokê no título; os dois tocam.
+- [ ] Um vídeo que **proíbe** embutir mostra erro claro, com jeito de abrir no YouTube.
+- [ ] Primeira música do dia: o navegador toca sozinho, ou pede um toque no próprio vídeo — e depois desse toque, dá para trocar de música sem tocar de novo.
+- [ ] Caixa de som Bluetooth ligada: calibrar o **atraso** até a letra bater com o que sai da caixa.
+- [ ] Microfone Bluetooth pareado **na caixa**, não no celular: música e voz não caem para qualidade de telefone.
+- [ ] Projetor espelhando a tela: letra legível de longe, cores batendo com o vídeo por trás.
+- [ ] Deixar uma música até o fim: avança sozinha para a próxima (depois da primeira vez tocada manualmente) ou mostra "toque em › para a próxima".
+- [ ] Modo avião: o pedal Karaokê avisa que precisa de internet, sem travar o resto do app.
+
 ## 7. Arquivos e compartilhamento
 
 - [ ] **Exportar** baixa um JSON com todos os repertórios.
@@ -113,7 +139,7 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Importar um export antigo (lista única) também passa pelo diálogo.
 - [ ] **Compartilhar** abre o diálogo com o tamanho dos dois links antes de mandar qualquer coisa.
 - [ ] **Com as letras**: abrir o link em outra janela oferece "Adicionar" e "Criar novo", o aviso diz que as letras vieram junto, e as músicas recebidas abrem **em modo avião**.
-- [ ] **Só a ordem**: o link fica curto, o aviso do outro lado diz que cada letra precisa ser buscada, e o tom/capo de cada música chega mesmo assim.
+- [ ] **Só a ordem**: o link fica curto, o aviso do outro lado diz que cada letra precisa ser buscada, e o tom/capo/vídeo de cada música chega mesmo assim.
 - [ ] Com um repertório grande (~30 músicas com letra), o diálogo mostra o aviso de link longo.
 - [ ] **Imprimir** mostra a ordem do show com tom, capo, duração e anotações; a opção "Com as letras" traz uma música por página.
 

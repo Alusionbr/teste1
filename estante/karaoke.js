@@ -116,7 +116,7 @@ function avaliarAnuncio(dur){
 
 function aoMudarEstado(estado){
   state.videoPlaying=(estado===YT_TOCANDO);
-  if(state.videoPlaying)keepAwake();else releaseAwake();
+  if(state.videoPlaying){keepAwake();document.body.classList.remove("karaokeToqueNoVideo")}else releaseAwake();
   if(state.karaoke)startTick();
   updateControls();
   // rel=0 não tira mais a tela final do YouTube: ela vira uma grade de
@@ -130,7 +130,10 @@ function aoMudarEstado(estado){
  * uma tela muda sem entender.
  */
 function aoTerminarMusica(){
-  if(!state.karaoke)return;
+  // stopVideo() por uma música SEM vídeo (karaokeOnSongChange) também dispara
+  // "encerrado" — sem essa guarda, trocar para uma música sem vídeo durante o
+  // karaokê avançaria sozinho para a seguinte, no meio da própria troca.
+  if(!state.karaoke||!songVideoId(state.current))return;
   const temProxima=state.currentIndex>=0&&state.currentIndex<state.setlist.length-1;
   if(!temProxima)return notify("Fim do repertório.",true);
   if(!autoplayComprovado)return notify("Música encerrada. Toque em › para a próxima.",true);
@@ -155,6 +158,44 @@ function karaokeLyricTime(){
   const off=Number(state.current&&state.current.videoOffset)||0;
   return karaokeTime()-off-(Number(state.audioDelay)||0)/1000;
 }
+/*
+ * Música sem `.lrc` (a maioria): em vez de destacar linha, a letra rola pela
+ * FRAÇÃO já tocada, não por velocidade. É posição, não taxa — por isso não
+ * acumula erro: pausar, adiantar ou voltar no vídeo reposiciona a letra na
+ * hora, exatamente como um scrubber. `duration` aqui é a da MÚSICA (a mesma
+ * que autoscroll.js usa), não a do vídeo — o vídeo pode ter vinheta ou
+ * introdução que o `videoOffset` já descontou dentro de `t`.
+ */
+function karaokeScrollPosition(t){
+  if(performance.now()<manualAte)return;
+  const dur=Number(state.current&&state.current.duration)||0;
+  if(dur<=LEAD_IN)return;
+  const dist=scrollDistance();
+  if(dist<=0)return;
+  const progresso=Math.max(0,Math.min(1,(t-LEAD_IN)/(dur-LEAD_IN)));
+  $("paperViewport").scrollTop=progresso*dist;
+}
+
+// Os dois ajustes não têm o mesmo escopo: o da música corrige a introdução do
+// UPLOAD do YouTube; o do aparelho corrige o atraso da CAIXA. Os botões usam
+// sinal, mas a mensagem sempre descreve o efeito — ninguém deveria ter de
+// decorar a convenção no meio da festa.
+function karaokeNudgeOffset(delta){
+  if(!state.current)return;
+  const v=Math.round(((Number(state.current.videoOffset)||0)+delta)*10)/10;
+  state.current.videoOffset=v;
+  rememberSongPref("videoOffset",v);
+  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
+  notify(v===0?"Sincronia desta música no zero.":`Letra ${v>0?"atrasada":"adiantada"} ${Math.abs(v).toFixed(1)}s em relação ao vídeo.`,true);
+}
+function karaokeNudgeDelay(deltaMs){
+  const v=Math.max(0,Math.min(500,Math.round((Number(state.audioDelay)||0)+deltaMs)));
+  state.audioDelay=v;
+  updatePrefsSoon();
+  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
+  notify(`Atraso da caixa Bluetooth: ${v} ms.`,true);
+}
+
 // Vigia: mensagens pararam de chegar enquanto o player dizia estar tocando.
 function karaokeWatchdog(){
   if(!state.karaoke||ytEstado!==YT_TOCANDO)return;
@@ -205,19 +246,19 @@ function enterKaraoke(){
   if(!navigator.onLine)return notify("O karaokê precisa de internet. O repertório e a rolagem continuam funcionando.");
   stopAll();
   state.karaoke=true;
-  document.body.classList.add("karaokeMode");
   karaokeLoad(songVideoId(state.current));
   keepAwake();startTick();updateControls();
   // O #paper muda de cor, não de caixa — mas a folha e o viewport mudam de
   // tamanho aparente, e o observador de autoscroll só olha o #paper.
   applyAutoSpeed();
-  notify("Karaokê ligado. Toque no vídeo para começar.",true);
+  karaokePlayPause();
+  notify("Karaokê ligado.",true);
 }
 function exitKaraoke(){
   if(!state.karaoke)return;
   state.karaoke=false;state.videoPlaying=false;
   ytCommand("stopVideo");
-  document.body.classList.remove("karaokeMode");
+  document.body.classList.remove("karaokeToqueNoVideo");
   stopTickIfIdle();releaseAwake();updateControls();applyAutoSpeed();
 }
 function toggleKaraoke(){state.karaoke?exitKaraoke():enterKaraoke()}

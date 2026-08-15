@@ -3,6 +3,35 @@
 .stage{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;overflow:hidden}.stage:before{content:"";position:absolute;left:50%;top:-180px;transform:translateX(-50%);width:min(100%,900px);height:420px;background:radial-gradient(ellipse at bottom,rgba(255,193,94,var(--glow)),transparent 70%);pointer-events:none}.songHeader{position:relative;z-index:1;display:flex;align-items:flex-end;gap:12px;padding:13px 18px 10px;border-bottom:1px solid var(--line)}.menu{display:none}.songMeta{min-width:0;flex:1}.songMeta h1{font:600 21px Georgia,serif;margin:0;color:#f2f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.songMeta p{margin:4px 0 0;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.headerActions{display:flex;gap:5px;flex-wrap:wrap}.paperViewport{position:relative;z-index:1;flex:1;overflow:auto;-webkit-overflow-scrolling:touch}.paper{max-width:900px;min-height:100%;margin:auto;background:var(--paper);color:var(--ink);padding:40px clamp(20px,5vw,60px) 55vh;box-shadow:0 0 80px #0009}.emptyPaper{font:22px Georgia,serif;color:var(--weak)}.lineLyric{font:var(--font)/1.58 Georgia,serif;white-space:pre-wrap;word-break:break-word;padding:1px 9px;margin:0 -9px;border-radius:4px}.lineLyric.blank{min-height:.78em}.lineLyric.chord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:calc(var(--font)*.8);font-weight:700;color:var(--chord);line-height:1.35;white-space:pre;overflow-x:auto;padding-top:5px}.lineLyric.section{margin-top:1.4em;font:700 calc(var(--font)*.55)/1.4 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.16em;color:var(--weak);border-bottom:1px solid #0002}.paper.synced .lineLyric{color:var(--weak);cursor:pointer}.paper.synced .lineLyric.active{color:var(--ink);background:#ffc15e55;font-weight:600}.paper.synced .lineLyric.past{opacity:.52}.credits{max-width:900px;margin:auto;padding:0 clamp(20px,5vw,60px) 24px;color:var(--weak);font-size:11px;background:var(--paper)}
 .transport{position:relative;z-index:2;display:flex;align-items:center;gap:7px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:9px 12px calc(9px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}.transport::-webkit-scrollbar{display:none}.transport>*{flex:0 0 auto}.pedal{height:54px;min-width:70px;border:1px solid #313c47;border-radius:8px;background:linear-gradient(#232c35,#171e25);color:var(--text);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;box-shadow:0 2px 0 #080c10}.pedal.primary{min-width:86px}.pedal.small{min-width:48px;font-size:22px}.led{display:block;width:7px;height:7px;border-radius:50%;background:#3b4650;margin:0 auto 4px}.pedal.on{color:var(--accent);border-color:#5a4726}.pedal.on .led{background:var(--accent);box-shadow:0 0 8px var(--accent)}.pedal:disabled{opacity:.3}.control{height:54px;display:flex;align-items:center;gap:2px;background:#10161c;border:1px solid var(--line);border-radius:8px;padding:0 5px}.control span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}.control button{width:30px;height:36px;border:1px solid var(--line);border-radius:5px;background:#1d242c}.control output{min-width:36px;text-align:center;font:12px ui-monospace,monospace;color:#ffe0a8}.spacer{flex:1}
 body.stageMode{--paper:#0f141a;--ink:#eee6d6;--weak:#8c8578;--chord:#ffc15e;--glow:.08}.stageMode .paper,.stageMode .credits{background:var(--paper)}.stageMode .lineLyric.section{border-color:#fff2}
+/*
+ * Modo karaokê: o vídeo mora atrás da letra, não ao lado dela.
+ *
+ * #karaokeFrame é o primeiro filho de .stage (z-index 0); .songHeader e
+ * .paperViewport já eram z-index 1, .transport já era z-index 2 — a pedaleira
+ * continua alcançável por cima do vídeo. Aqui só apagamos o que pintaria por
+ * cima da imagem (o fundo cor de papel, a sombra, o brilho ambar do topo) e
+ * damos contraste à letra para ler de longe, pensando em projetor.
+ *
+ * Nada disso toca no TAMANHO da caixa do #paper — só cor e sombra. Trocar
+ * largura/altura ali dispararia o ResizeObserver do autoscroll.js sem
+ * necessidade (ele observa #paper, não #paperViewport).
+ */
+#karaokeFrame{position:absolute;inset:0;z-index:0;background:#000}
+#karaokeFrame iframe{width:100%;height:100%;border:0;display:block}
+body.karaokeMode .stage:before{display:none}
+body.karaokeMode .paper{background:transparent;box-shadow:none}
+body.karaokeMode .credits{background:transparent}
+body.karaokeMode .lineLyric{color:#fff;text-shadow:0 1px 3px #000,0 0 14px #000c}
+body.karaokeMode .lineLyric.chord{color:#ffd98a;text-shadow:0 1px 3px #000,0 0 14px #000c}
+body.karaokeMode .paper.synced .lineLyric{color:#ffffffb0}
+body.karaokeMode .paper.synced .lineLyric.active{color:#1c1407;background:var(--accent);text-shadow:none;border-radius:4px}
+body.karaokeMode .paper.synced .lineLyric.past{opacity:.6}
+body.karaokeMode .lineLyric.section{color:#fff9;border-color:#fff3}
+/* Enquanto o navegador não deixa tocar por programa, o toque precisa passar
+   direto para o próprio player do YouTube — é o único play confiável no iOS. */
+body.karaokeToqueNoVideo #paperViewport{pointer-events:none}
+.karaokeControl{margin:0 18px 14px}
+.karaokeHelp{margin-top:-6px;font-size:11px}
 dialog{width:min(620px,94vw);max-height:88dvh;overflow:auto;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}dialog::backdrop{background:#05080bcc}.modal{padding:0}.modal>header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}.modal h2{margin:0;font-size:16px;text-transform:uppercase;letter-spacing:.12em}.modal>header button{border:0;background:transparent;color:var(--muted);font-size:22px}.modal label{display:block;margin:14px 18px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.modal input,.modal textarea{display:block;width:100%;margin-top:5px;padding:10px 11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;outline:none}.modal input:focus,.modal textarea:focus{border-color:var(--accent)}.modal textarea{min-height:220px;resize:vertical;font:13px/1.5 ui-monospace,monospace}.modal p{margin:14px 18px;color:var(--muted);font-size:13px;line-height:1.55}.modal footer{display:flex;justify-content:flex-end;gap:7px;padding:12px 18px;border-top:1px solid var(--line)}.modal footer button{padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:transparent}.modal footer .accent{background:var(--accent);border-color:var(--accent)}
 @media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{position:fixed;inset:0 auto 0 0;width:min(92vw,380px);z-index:20;transform:translateX(-101%);transition:transform .2s}.sidebar.open{transform:none;box-shadow:0 0 60px #000c}.menu{display:block}.songHeader{padding:10px 12px;align-items:center;gap:8px}.songMeta h1{font-size:18px}
 /* Sem a barra lateral o cabeçalho fica apertado: os botões empurravam o título
@@ -16,7 +45,7 @@ dialog{width:min(620px,94vw);max-height:88dvh;overflow:auto;padding:0;border:1px
 /* A pedaleira não cabe inteira num celular: ela rola de lado. Por isso o que se
    usa com a música tocando — rolar e trocar de faixa — vem primeiro e fica
    sempre à vista; os ajustes finos ficam a um arraste de distância. */
-#scrollBtn{order:1}#prevBtn{order:2}#nextBtn{order:3}#syncBtn{order:4}.control{order:5}#topBtn{order:6}}
+#scrollBtn{order:1}#prevBtn{order:2}#nextBtn{order:3}#syncBtn{order:4}#karaokeBtn{order:5}.control{order:6}#karaokeSettingsBtn{order:7}#topBtn{order:8}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 /* acabamento de produção */
