@@ -64,9 +64,25 @@ function tapSyncLine(i){
   notify("Toque duas vezes na linha para tocar a partir dela.",true);
 }
 
-function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake()}
-function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();lastFrame=performance.now();tick()}else{if(raf){cancelAnimationFrame(raf);raf=null}releaseAwake()}updateControls()}
-function toggleSync(){if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;lastFrame=performance.now();tick()}else{if(raf){cancelAnimationFrame(raf);raf=null}releaseAwake()}updateControls()}
+/*
+ * O laço de animação tem vários interessados e uma variável só.
+ *
+ * `raf` guarda um handle só, e rolagem e sincronia sempre puderam cancelá-lo na
+ * saída porque eram dois modos que nunca rodavam juntos — cada um chamava
+ * stopAll() no outro. Com o karaokê são três, e aí cancelar direto quebra:
+ * ligar e desligar a rolagem durante o karaokê matava o laço do karaokê e a
+ * letra congelava com o vídeo tocando.
+ *
+ * Agora ninguém desliga o laço sem antes conferir se sobrou alguém precisando
+ * dele, e ninguém liga um segundo laço por cima de um que já roda (dois laços
+ * fariam a rolagem andar no dobro da velocidade).
+ */
+function startTick(){if(raf)return;lastFrame=performance.now();tick()}
+function stopTickIfIdle(){if(state.scrolling||state.syncing||state.karaoke)return;if(raf)cancelAnimationFrame(raf);raf=null}
+
+function stopAll(){state.scrolling=false;state.syncing=false;stopTickIfIdle();lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake()}
+function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+function toggleSync(){if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
 function seekSync(i){if(!state.lrc[i])return;syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
 function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
 /*

@@ -74,7 +74,10 @@ function b64urlToBytes(text){let s=text.replace(/-/g,"+").replace(/_/g,"/");whil
  */
 function sharedSongs(comLetras){
   return state.setlist.map(s=>{
-    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0};
+    // videoId/videoOffset vão nas duas formas pelo mesmo motivo de tom e capo:
+    // são 11 caracteres e um número, e o repertório recebido deve chegar pronto
+    // para tocar. A chave da API nunca vai — ela é do aparelho.
+    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0,videoId:s.videoId||"",videoOffset:s.videoOffset||0};
     if(!comLetras)return base;
     return Object.assign(base,{lyrics:s.lyrics||"",synced:s.synced||"",instrumental:!!s.instrumental,source:s.source||"",notes:s.notes||""});
   });
@@ -197,4 +200,4 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   else if(state.syncing){toggleSync();pausouNoToque=true}
 });
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
