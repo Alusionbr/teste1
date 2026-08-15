@@ -552,6 +552,25 @@ Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB → Vagalume (se h
 
 Como está no `SHELL` do `sw.js`, alterar `acervo.json` exige bump de versão — senão os aparelhos seguem com a cópia antiga.
 
+### 11. Toque na letra sincronizada nunca reposiciona sozinho
+
+Cada linha de uma letra `.lrc` é clicável. Um toque só **pausa** — igual à rolagem automática. Reposicionar o relógio exige **toque duplo** na mesma linha, dentro de `DOUBLE_TAP_MS` (`player.js`, `tapSyncLine`). Existe porque apoiar o dedo na tela para segurar o tablet é gesto comum no palco: sem essa trava, o toque sozinho saltava o tempo da música e ligava a sincronia por conta própria, no meio da apresentação.
+
+### 12. Letra sincronizada tem cifra, transposição e seções como letra comum
+
+`.lrc` passa pelo mesmo `classify()` da letra colada (`player.js`, `renderCurrentLyrics`): cifra, tom, capotraste e atalhos de seção funcionam igual, sincronizada ou não. `parseLRC` (`library.js`) remove só a marca de tempo e os cabeçalhos do formato (`[ar:]`, `[ti:]`, `[offset:]`, via `LRC_META`) — nunca apague tudo entre colchetes: isso levava junto o `[Refrão]` escrito na letra.
+
+Pular para uma seção (`scrollToLine`, `library.js`) tem dois casos por causa da rolagem:
+
+- com a sincronia ligada, mover o relógio (`seekSync`) em vez de só rolar a tela — senão a letra volta sozinha para onde a sincronia estava;
+- com a rolagem automática ligada, saltar sem animação (`behavior:"auto"`) — o `"smooth"` briga com o `scrollTop` que o `tick()` escreve a cada quadro e o salto não acontece.
+
+### 13. O link de compartilhamento pode levar a letra
+
+`makeShareUrl()` (`ui.js`) é assíncrono e tem duas opções: **com as letras** (`comLetras:true`, campo `v:2`) leva `lyrics`, `synced`, `instrumental`, `source` e `notes` de cada música — o repertório recebido abre sem internet. **Só a ordem** manda título, artista, álbum, duração, tom e capotraste; quem recebe precisa buscar cada letra depois. Tom e capotraste vão nas duas formas — são dois números, e a banda precisa deles mesmo sem a letra.
+
+O link usa `CompressionStream("deflate-raw")` quando o navegador tem (marca `#setlistz=`); sem isso, cai para JSON puro (`#setlist=`, igual ao formato antigo `v:1`, que continua sendo lido). É API nativa do navegador, não biblioteca externa — não adicionar uma para isso. Acima de `LINK_LONGO` (8000 caracteres) o diálogo avisa que aplicativos de mensagem costumam cortar o link ao colar, e sugere Exportar como alternativa.
+
 ## Modelo de dados
 
 ```js

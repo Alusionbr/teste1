@@ -24,7 +24,10 @@ async function openSong(song){
 function renderCurrentLyrics(){
   const song=state.current;if(!song)return;
   state.lrc=song.synced?parseLRC(song.synced):[];
-  state.lines=state.lrc.length?state.lrc.map(x=>({text:x.text,type:x.text?"lyric":"blank"})):(song.lyrics||"").split(/\r?\n/).map(classify);
+  // Letra sincronizada passa pelo mesmo classify() da letra comum: sem isso,
+  // toda linha do .lrc virava "lyric" e a música perdia cifra, transposição,
+  // capotraste e atalhos de seção só por ser temporizada.
+  state.lines=state.lrc.length?state.lrc.map(x=>classify(x.text)):(song.lyrics||"").split(/\r?\n/).map(classify);
   renderPaper();
   $("syncBtn").disabled=!state.lrc.length;
   const temCifra=state.lines.some(x=>x.type==="chord");
@@ -32,7 +35,34 @@ function renderCurrentLyrics(){
   renderSectionBar();
   applyAutoSpeed();
 }
-function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?" synced":"");p.innerHTML="";if(!state.lines.length){p.innerHTML='<div class="emptyPaper">Sem letra disponível para esta versão.</div>';return}state.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="lineLyric "+(l.type==="chord"?"chord":l.type==="section"?"section":l.type==="blank"?"blank":"");d.dataset.i=i;d.textContent=l.type==="chord"?transposeLine(l.text,chordShift()):l.text;if(state.lrc.length)d.onclick=()=>seekSync(i);p.appendChild(d)})}
+function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?" synced":"");p.innerHTML="";if(!state.lines.length){p.innerHTML='<div class="emptyPaper">Sem letra disponível para esta versão.</div>';return}state.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="lineLyric "+(l.type==="chord"?"chord":l.type==="section"?"section":l.type==="blank"?"blank":"");d.dataset.i=i;d.textContent=l.type==="chord"?transposeLine(l.text,chordShift()):l.text;if(state.lrc.length)d.onclick=()=>tapSyncLine(i);p.appendChild(d)})}
+
+/*
+ * Toque na letra sincronizada.
+ *
+ * Cada linha era um botão de reposicionar sem confirmação: apoiar o dedo para
+ * segurar o tablet saltava o tempo da música e, com a sincronia desligada,
+ * ligava ela sozinha. Perder o lugar por encostar na tela é falha de palco.
+ *
+ * Agora o toque simples só pausa — a mesma reação que a rolagem já tinha, e
+ * quem encostou sem querer só precisa apertar Sincro de novo. Reposicionar
+ * exige toque duplo, que é deliberado e não sai por acidente.
+ *
+ * O pointerdown do viewport (ui.js) é quem pausa, e chega antes deste clique;
+ * pausouNoToque conta isso aqui para a dica não aparecer por cima da pausa.
+ */
+const DOUBLE_TAP_MS=400;
+let pausouNoToque=false,ultimaLinhaTocada=-1,ultimoToqueEm=0,ultimaDicaEm=-Infinity;
+function tapSyncLine(i){
+  const agora=performance.now();
+  const duplo=i===ultimaLinhaTocada&&(agora-ultimoToqueEm)<DOUBLE_TAP_MS;
+  ultimaLinhaTocada=i;ultimoToqueEm=agora;
+  if(duplo){ultimaLinhaTocada=-1;seekSync(i);return}
+  if(pausouNoToque){pausouNoToque=false;return}
+  if(agora-ultimaDicaEm<4000)return;
+  ultimaDicaEm=agora;
+  notify("Toque duas vezes na linha para tocar a partir dela.",true);
+}
 
 function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake()}
 function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();lastFrame=performance.now();tick()}else{if(raf){cancelAnimationFrame(raf);raf=null}releaseAwake()}updateControls()}

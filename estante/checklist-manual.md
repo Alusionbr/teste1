@@ -32,6 +32,8 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 - [ ] "Colar letra" abre o texto colado; linhas só com acordes viram cifras.
 - [ ] Colar um `.lrc` (com marcas `[00:12.30]`) habilita o botão **Sincro**.
+- [ ] Um `.lrc` com linha de acordes mostra as cifras e faz aparecer **Tom** e **Capo**; transpor funciona igual à letra comum.
+- [ ] Um `.lrc` com `[Refrão]` e `[Solo]` faz aparecer a tira de seções; os cabeçalhos `[ar:]`/`[ti:]`/`[offset:]` não viram linha na letra.
 - [ ] Os controles **Tom** e **Capo** só aparecem quando a música tem cifras.
 
 ## 4. Ajustes por música
@@ -92,7 +94,12 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 - [ ] **Rolar** desce a letra; a velocidade responde aos botões e às setas ↑ ↓.
 - [ ] Tocar na letra durante a rolagem pausa.
-- [ ] **Sincro** acompanha a letra temporizada; tocar numa linha reposiciona.
+- [ ] **Sincro** acompanha a letra temporizada.
+- [ ] Com o **Sincro** rodando, encostar na letra **pausa** e não muda o ponto da música.
+- [ ] Com o **Sincro** desligado, um toque na linha não liga a sincronia — só aparece a dica do toque duplo.
+- [ ] **Toque duplo** numa linha começa a tocar dali (liga o Sincro se estiver desligado); dois toques lentos não contam.
+- [ ] Com o **Sincro** rodando, tocar num atalho de seção leva o relógio junto — a letra não volta sozinha para a linha de antes.
+- [ ] Com a **rolagem** ligada, tocar num atalho de seção salta na hora.
 - [ ] **Modo palco** escurece o papel; a tela não apaga sozinha.
 - [ ] ← → trocam de música dentro do repertório.
 
@@ -104,7 +111,10 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] **Substituir** troca tudo — e só depois de confirmar.
 - [ ] Fechar o diálogo no × não importa nada.
 - [ ] Importar um export antigo (lista única) também passa pelo diálogo.
-- [ ] **Compartilhar** copia/compartilha o link; abrir o link em outra janela oferece "Adicionar" e "Criar novo".
+- [ ] **Compartilhar** abre o diálogo com o tamanho dos dois links antes de mandar qualquer coisa.
+- [ ] **Com as letras**: abrir o link em outra janela oferece "Adicionar" e "Criar novo", o aviso diz que as letras vieram junto, e as músicas recebidas abrem **em modo avião**.
+- [ ] **Só a ordem**: o link fica curto, o aviso do outro lado diz que cada letra precisa ser buscada, e o tom/capo de cada música chega mesmo assim.
+- [ ] Com um repertório grande (~30 músicas com letra), o diálogo mostra o aviso de link longo.
 - [ ] **Imprimir** mostra a ordem do show com tom, capo, duração e anotações; a opção "Com as letras" traz uma música por página.
 
 ## 8. Offline e instalação

@@ -15,13 +15,13 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) não abre mais vazia: o app tenta o acervo do site e depois a `lyrics.ovh`, que não pede chave. |
 | **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas e a duração estimada. |
 | **Ajustes por música** | Tom, capotraste, velocidade de rolagem e anotações ficam salvos em cada música do repertório. O tamanho da letra é global. |
-| **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio e você pode tocar numa linha para reposicionar. |
+| **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio. Encostar na letra **pausa**; para começar de outro ponto, **toque duas vezes** na linha. |
 | **Velocidade automática** | O botão **auto** calcula a velocidade pela duração da música, para a letra terminar junto com ela. Recalcula sozinho ao mudar o tamanho da letra ou girar a tela; mexer no −/+ volta ao manual. Se a versão não tiver duração, o app pergunta. |
 | **Editar letra** | Corrige verso errado, apaga lixo da fonte e guarda o arranjo da banda, sem perder tom, capotraste, velocidade nem anotações. |
-| **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` escritos na letra viram botões acima do texto: um toque e a letra rola até lá. |
+| **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` escritos na letra viram botões acima do texto: um toque e a letra rola até lá. Funciona também em letra sincronizada, e com a rolagem ligada o salto é imediato — com a sincronia, o relógio vai junto. |
 | **Modo palco** | Fundo escuro de alto contraste e tela sempre acesa (wake lock). |
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
-| **Compartilhar** | Gera um link com a ordem do repertório; quem recebe escolhe juntar ao repertório aberto ou criar um novo. |
+| **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. |
 | **Offline** | Depois da primeira abertura o app funciona sem internet e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não. |
 
 ### Atalhos de teclado
@@ -81,6 +81,11 @@ Campos de cada música:
 
 Cifras exibidas = `transposeLine(linha, key - capo)`.
 
+Letra sincronizada passa pelo mesmo `classify()` da letra comum: `.lrc` também
+tem cifra, transposição, capotraste e atalhos de seção. O `parseLRC` remove só
+as marcas de tempo e os cabeçalhos do formato (`[ar:]`, `[ti:]`, `[offset:]`) —
+apagar tudo entre colchetes levava junto o `[Refrão]` escrito na letra.
+
 Velocidade automática = `(fim da última linha − altura da tela) / (duration − 4s de entrada)`.
 
 A distância é medida até a **última linha real**, não até o `scrollHeight`: o
@@ -88,6 +93,20 @@ papel tem 55vh de preenchimento embaixo e os créditos dentro do mesmo viewport.
 Contar esse vazio deixava a velocidade 21% rápida demais e a letra terminava bem
 antes da música. A rolagem também para nesse ponto — depois da última linha só
 há espaço em branco, e continuar subindo esconderia justamente o verso final.
+
+## Compartilhamento
+
+O link carrega o repertório inteiro no `#` da URL. Duas marcas:
+
+| Marca | Conteúdo |
+|---|---|
+| `#setlistz=` | JSON compactado com `deflate-raw` (`CompressionStream`, do próprio navegador — não é biblioteca) |
+| `#setlist=` | JSON sem compactar, para navegador sem `CompressionStream` |
+
+O formato `v:2` leva `lyrics`, `synced`, `instrumental`, `source` e `notes` além
+de título, artista, álbum, duração, tom e capotraste. A opção "só a ordem" omite
+letra e anotações, mas **mantém tom e capotraste**: são dois números e a banda
+precisa deles. Links `v:1` (versões anteriores, sem letra) continuam abrindo.
 
 ## Gravação
 

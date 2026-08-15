@@ -45,7 +45,22 @@ function renderSectionBar(){
     bar.appendChild(b);
   });
 }
-function scrollToLine(i){const n=$("paper").children[i];if(!n)return;$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-16),behavior:"smooth"})}
+/*
+ * Ir até uma seção.
+ *
+ * Dois cuidados que faltavam, os dois com a rolagem ligada — que é exatamente
+ * quando a tira serve para alguma coisa:
+ *
+ * - com a sincronia rodando, o relógio traz a letra de volta na linha seguinte;
+ *   pular de seção só funciona movendo o relógio junto;
+ * - com a rolagem automática, o "smooth" briga com o scrollTop que o tick()
+ *   escreve a cada quadro e o salto simplesmente não acontece. Aí vai direto.
+ */
+function scrollToLine(i){
+  if(state.syncing&&state.lrc[i])return seekSync(i);
+  const n=$("paper").children[i];if(!n)return;
+  $("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-16),behavior:state.scrolling?"auto":"smooth"});
+}
 function rowButton(text,disabled,fn,cls=""){const b=document.createElement("button");b.textContent=text;b.disabled=disabled;b.className=cls;b.onclick=e=>{e.stopPropagation();fn()};return b}
 function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||"")}}
 function storedSong(m){return normalizeSong(m)}
@@ -69,7 +84,26 @@ function jumpSong(d){
   state.currentIndex=i;state.tab="setlist";openSong(state.setlist[i]);renderList();
 }
 
-function parseLRC(text){const out=[];text.split(/\r?\n/).forEach(line=>{const marks=[...line.matchAll(/\[(\d+):(\d+(?:[.:]\d+)?)\]/g)];const body=line.replace(/\[[^\]]*\]/g,"").trim();marks.forEach(m=>out.push({t:+m[1]*60+parseFloat(m[2].replace(":",".")),text:body}))});return out.sort((a,b)=>a.t-b.t)}
+/*
+ * LRC: tira só as marcas de tempo e os cabeçalhos do formato.
+ *
+ * Antes apagava TUDO entre colchetes, e junto ia o [Refrão] escrito na letra:
+ * em música sincronizada a tira de atalhos de seção nunca aparecia. Cabeçalho
+ * ([ar:], [ti:], [offset:]) vem em linha sem marca de tempo e já é descartado
+ * inteiro; LRC_META existe para quando ele vem grudado numa linha temporizada.
+ */
+const LRC_TIME=/\[(\d+):(\d+(?:[.:]\d+)?)\]/g;
+const LRC_META=/\[[a-z]{2,10}:[^\]]*\]/gi;
+function parseLRC(text){
+  const out=[];
+  text.split(/\r?\n/).forEach(line=>{
+    const marks=[...line.matchAll(LRC_TIME)];
+    if(!marks.length)return;
+    const body=line.replace(LRC_TIME,"").replace(LRC_META,"").trim();
+    marks.forEach(m=>out.push({t:+m[1]*60+parseFloat(m[2].replace(":",".")),text:body}));
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
 function hasLRC(t){return /\[\d+:\d+/.test(t)}
 function classify(line){if(!line.trim())return{text:"",type:"blank"};if(/^\s*[\[(].{1,28}[\])]\s*$/.test(line))return{text:line.trim().replace(/^[\[(]|[\])]$/g,""),type:"section"};const parts=line.trim().split(/\s+/);if(parts.length<=14&&parts.every(x=>CHORD.test(x)))return{text:line.replace(/\s+$/,"") ,type:"chord"};return{text:line,type:"lyric"}}
 function moveNote(note,n,flat){let i=SHARP.indexOf(note);if(i<0)i=FLAT.indexOf(note);if(i<0)return note;return(flat?FLAT:SHARP)[((i+n)%12+12)%12]}

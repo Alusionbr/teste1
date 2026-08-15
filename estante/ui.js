@@ -56,23 +56,111 @@ $("printCloseBtn").onclick=()=>$("printDialog").close();
 $("printListBtn").onclick=()=>printSetlist(false);
 $("printFullBtn").onclick=()=>printSetlist(true);
 
-function b64urlEncode(obj){const bytes=new TextEncoder().encode(JSON.stringify(obj));let bin="";bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}
-function b64urlDecode(text){let s=text.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const bin=atob(s),bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));return JSON.parse(new TextDecoder().decode(bytes))}
-function sharedSongs(){return state.setlist.map(s=>({title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0}))}
-function makeShareUrl(){const set=activeSetlist();const payload={v:1,name:set?set.name:"",songs:sharedSongs()};return location.origin+location.pathname+"#setlist="+b64urlEncode(payload)}
+function b64urlFromBytes(bytes){let bin="";bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}
+function b64urlToBytes(text){let s=text.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+/*
+ * O link leva a letra junto.
+ *
+ * Antes ia só título, artista, álbum e duração: quem recebia abria o
+ * repertório certo, na ordem certa, e cada música tinha de ser buscada de
+ * novo. Chegando no local sem sinal — que é o caso comum — NENHUMA abria.
+ * Compartilhar o repertório sem a letra é compartilhar uma lista de nomes.
+ *
+ * O preço é o tamanho: por isso o botão pergunta antes, mostra quanto ficou e
+ * avisa quando o link passa do que os aplicativos costumam aguentar.
+ *
+ * Tom e capotraste vão nas duas formas (são dois números e a banda precisa
+ * deles); letra, sincronia e anotações só na versão completa.
+ */
+function sharedSongs(comLetras){
+  return state.setlist.map(s=>{
+    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0};
+    if(!comLetras)return base;
+    return Object.assign(base,{lyrics:s.lyrics||"",synced:s.synced||"",instrumental:!!s.instrumental,source:s.source||"",notes:s.notes||""});
+  });
+}
+/*
+ * Compactação: `deflate-raw` é do próprio navegador (CompressionStream), não é
+ * biblioteca — encolhe a letra em ~70% e não quebra o uso offline. Onde não
+ * existir, o link sai sem compactar e continua funcionando; por isso são duas
+ * marcas de hash diferentes, e a leitura aceita as duas.
+ */
+const SHARE_ZIP="#setlistz=",SHARE_PLAIN="#setlist=";
+async function packShare(payload){
+  const bytes=new TextEncoder().encode(JSON.stringify(payload));
+  if(typeof CompressionStream==="function"){
+    try{
+      const buf=await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer();
+      return SHARE_ZIP+b64urlFromBytes(new Uint8Array(buf));
+    }catch{}
+  }
+  return SHARE_PLAIN+b64urlFromBytes(bytes);
+}
+async function unpackShare(hash){
+  if(hash.startsWith(SHARE_ZIP)){
+    if(typeof DecompressionStream!=="function")throw Error("Este link foi compactado e o navegador não sabe abrir. Peça o arquivo de exportação.");
+    const buf=await new Response(new Blob([b64urlToBytes(hash.slice(SHARE_ZIP.length))]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+    return JSON.parse(new TextDecoder().decode(new Uint8Array(buf)));
+  }
+  return JSON.parse(new TextDecoder().decode(b64urlToBytes(hash.slice(SHARE_PLAIN.length))));
+}
+async function makeShareUrl(comLetras){
+  const set=activeSetlist();
+  return location.origin+location.pathname+await packShare({v:2,name:set?set.name:"",comLetras:!!comLetras,songs:sharedSongs(comLetras)});
+}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return true}catch{}const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch{}ta.remove();return ok}
-async function shareSetlist(){
+// Acima disso vários aplicativos de mensagem cortam o link ao colar. Não é um
+// limite do navegador: é o ponto em que passa a valer mais mandar o arquivo.
+const LINK_LONGO=8000;
+// "0 mil caracteres" para um link de 430 não informa nada: só arredondar depois
+// que o número passa a ser grande o bastante para importar.
+function tamanhoLink(url){return url.length<2000?`${url.length} caracteres`:`${(url.length/1000).toFixed(1)} mil caracteres`}
+async function openShareDialog(){
   if(!state.setlist.length)return notify("Adicione músicas ao repertório antes de compartilhar.");
-  const url=makeShareUrl(),title=`Repertório Estante · ${state.setlist.length} músicas`,text=`Repertório pronto com ${state.setlist.length} músicas na ordem do show.`;
+  $("shareSummary").textContent="Calculando o tamanho do link…";
+  $("shareWarn").hidden=true;$("shareFullBtn").disabled=true;
+  $("shareDialog").showModal();
+  const [completo,simples]=await Promise.all([makeShareUrl(true),makeShareUrl(false)]);
+  linkCompleto=completo;linkSimples=simples;
+  const comLetra=state.setlist.filter(s=>s.lyrics||s.synced).length;
+  $("shareSummary").textContent=`${state.setlist.length} música${state.setlist.length===1?"":"s"}, ${comLetra} com letra guardada. Com as letras o link fica com ${tamanhoLink(completo)} e abre sem internet; só a ordem fica com ${tamanhoLink(simples)} e quem receber precisa buscar cada letra.`;
+  $("shareFullBtn").disabled=false;
+  if(completo.length>LINK_LONGO){
+    $("shareWarn").hidden=false;
+    $("shareWarn").textContent="Link longo: alguns aplicativos cortam links desse tamanho ao colar. Se chegar quebrado do outro lado, use Exportar e mande o arquivo.";
+  }
+}
+let linkCompleto="",linkSimples="";
+async function shareSetlist(comLetras){
+  $("shareDialog").close();
+  const url=comLetras?linkCompleto:linkSimples;if(!url)return;
+  const title=`Repertório Estante · ${state.setlist.length} músicas`,text=comLetras?`Repertório com ${state.setlist.length} músicas e as letras — abre sem internet.`:`Repertório com ${state.setlist.length} músicas na ordem do show.`;
   if(navigator.share){try{await navigator.share({title,text,url});notify("Repertório compartilhado.",true);return}catch(e){if(e?.name==="AbortError")return}}
   const ok=await copyText(url);notify(ok?"Link do repertório copiado. Cole no WhatsApp ou onde quiser.":"Não consegui copiar automaticamente. Use Exportar como alternativa.",ok)
 }
-function readSharedLink(){
-  const mark="#setlist=";if(!location.hash.startsWith(mark))return null;
-  try{const data=b64urlDecode(location.hash.slice(mark.length));if(data?.v!==1||!Array.isArray(data.songs)||!data.songs.length)throw 0;incomingName=String(data.name||"").slice(0,60);return data.songs.map(normalizeSong).slice(0,150)}catch{return null}
+async function readSharedLink(){
+  const hash=location.hash;
+  if(!hash.startsWith(SHARE_PLAIN)&&!hash.startsWith(SHARE_ZIP))return null;
+  try{
+    const data=await unpackShare(hash);
+    if(!(data?.v===1||data?.v===2)||!Array.isArray(data.songs)||!data.songs.length)throw Error("Este link de repertório não está num formato que eu conheça.");
+    incomingName=String(data.name||"").slice(0,60);
+    return data.songs.map(normalizeSong).slice(0,150);
+  }catch(e){notify(e.message||"Não consegui ler este link de repertório.");return null}
 }
 let incomingSetlist=null,incomingName="";
-function showIncomingSetlist(list){incomingSetlist=list;const names=list.slice(0,4).map(x=>x.title).join(", ");$("sharedSummary").textContent=`Você recebeu ${list.length} música${list.length===1?"":"s"}${names?`: ${names}${list.length>4?"…":""}`:""}.`;$("sharedDialog").showModal()}
+function showIncomingSetlist(list){
+  incomingSetlist=list;
+  const names=list.slice(0,4).map(x=>x.title).join(", ");
+  const comLetra=list.filter(x=>x.lyrics||x.synced).length;
+  $("sharedSummary").textContent=`Você recebeu ${list.length} música${list.length===1?"":"s"}${names?`: ${names}${list.length>4?"…":""}`:""}.`;
+  // Dizer isso agora evita a descoberta ruim: chegar no local sem sinal e
+  // encontrar o repertório certo com todas as músicas em branco.
+  $("sharedDetail").textContent=comLetra===list.length?"As letras vieram junto: abrem sem internet."
+    :comLetra?`${comLetra} vieram com a letra; as outras precisam de internet para abrir.`
+    :"O link trouxe só a ordem do show — cada letra precisa ser buscada com internet.";
+  $("sharedDialog").showModal();
+}
 function finishSharedImport(mode){
   if(!incomingSetlist)return;
   if(mode==="new")createSetlist(incomingName||"Repertório recebido",incomingSetlist);
@@ -85,7 +173,8 @@ function finishSharedImport(mode){
   notify(`Repertório ${mode==="new"?"recebido em uma lista nova":"adicionado"}: ${state.setlist.length} músicas.`,true);
   incomingSetlist=null;incomingName=""
 }
-$("shareBtn").onclick=shareSetlist;$("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);incomingSetlist=null;incomingName=""};$("sharedAddBtn").onclick=()=>finishSharedImport("add");$("sharedNewBtn").onclick=()=>finishSharedImport("new");
+$("shareBtn").onclick=openShareDialog;$("shareCloseBtn").onclick=()=>$("shareDialog").close();$("shareFullBtn").onclick=()=>shareSetlist(true);$("shareListOnlyBtn").onclick=()=>shareSetlist(false);
+$("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);incomingSetlist=null;incomingName=""};$("sharedAddBtn").onclick=()=>finishSharedImport("add");$("sharedNewBtn").onclick=()=>finishSharedImport("new");
 
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
 // Gravação adiada não pode morrer com a aba: fecha a conta ao sair ou esconder.
@@ -101,6 +190,11 @@ document.addEventListener("visibilitychange",()=>{
   }else flushSaves();
 });
 document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
-$("paperViewport").addEventListener("pointerdown",()=>{if(state.scrolling)toggleScroll()});
+// Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
+// antes seguia correndo enquanto o toque reposicionava a música sem avisar.
+$("paperViewport").addEventListener("pointerdown",()=>{
+  if(state.scrolling){toggleScroll();pausouNoToque=true}
+  else if(state.syncing){toggleSync();pausouNoToque=true}
+});
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();const incoming=readSharedLink();if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})();
+(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
