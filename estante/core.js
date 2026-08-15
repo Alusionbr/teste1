@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.7.0";
+const APP_VERSION="3.8.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:""};
@@ -100,7 +100,11 @@ async function fetchLrclibSong(song){
   const r=await fetchSafe(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS});
   if(r.status===429)throw Error("LRCLIB limitou temporariamente as buscas. Tente novamente em instantes.");if(!r.ok)throw Error(`LRCLIB respondeu ${r.status}`);
   markSource("lrclib",true);
-  const rows=await r.json(),x=rows.find(v=>v.syncedLyrics||v.plainLyrics)||rows[0];if(!x)throw Error("Não encontrei uma letra alternativa para esta música.");
+  // Pega a primeira linha COM texto. Cair no rows[0] quando nenhuma tem letra
+  // devolvia a música em branco como se fosse sucesso, e as fontes de reserva
+  // nunca chegavam a ser tentadas.
+  const rows=await r.json(),x=rows.find(v=>v.syncedLyrics||v.plainLyrics||v.instrumental);
+  if(!x)throw Error("Não encontrei uma letra alternativa para esta música.");
   Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song;
 }
 // Grava no repertório a versão aberta agora (letra carregada, tom, capo,

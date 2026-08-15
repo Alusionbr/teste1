@@ -34,12 +34,34 @@ function renderCurrentLyrics(){
 }
 function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?" synced":"");p.innerHTML="";if(!state.lines.length){p.innerHTML='<div class="emptyPaper">Sem letra disponível para esta versão.</div>';return}state.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="lineLyric "+(l.type==="chord"?"chord":l.type==="section"?"section":l.type==="blank"?"blank":"");d.dataset.i=i;d.textContent=l.type==="chord"?transposeLine(l.text,chordShift()):l.text;if(state.lrc.length)d.onclick=()=>seekSync(i);p.appendChild(d)})}
 
-function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls()}
-function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();lastFrame=performance.now();tick()}else if(raf){cancelAnimationFrame(raf);raf=null}updateControls()}
-function toggleSync(){if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;lastFrame=performance.now();tick()}else if(raf){cancelAnimationFrame(raf);raf=null}updateControls()}
+function stopAll(){state.scrolling=false;state.syncing=false;if(raf)cancelAnimationFrame(raf);raf=null;lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake()}
+function toggleScroll(){if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();lastFrame=performance.now();tick()}else{if(raf){cancelAnimationFrame(raf);raf=null}releaseAwake()}updateControls()}
+function toggleSync(){if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;lastFrame=performance.now();tick()}else{if(raf){cancelAnimationFrame(raf);raf=null}releaseAwake()}updateControls()}
 function seekSync(i){if(!state.lrc[i])return;syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
 function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
-function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=(now-lastFrame)/1000;lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if($("paperViewport").scrollTop+$("paperViewport").clientHeight>=$("paperViewport").scrollHeight-2)toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}}
+/*
+ * Um quadro nunca vale mais que MAX_DT.
+ *
+ * requestAnimationFrame congela quando a aba some. Sem teto, o primeiro quadro
+ * na volta trazia todo o tempo ausente de uma vez: 40 segundos olhando uma
+ * notificação viravam um salto de 720 px, que muitas vezes batia no fim da
+ * letra e desligava a rolagem sozinha. Voltar ao app no meio da música e achar
+ * a letra no fim, parada, é falha de palco.
+ */
+const MAX_DT=0.1;
+function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=Math.min((now-lastFrame)/1000,MAX_DT);lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if(atScrollEnd())toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}}
+/*
+ * Fim da rolagem = a última linha chegou ao rodapé da tela.
+ *
+ * Usa a mesma medida de scrollDistance() (autoscroll.js), e não o scrollHeight:
+ * abaixo da última linha só existe o preenchimento de 55vh e os créditos. Parar
+ * no scrollHeight faria a letra continuar subindo depois do último verso, até
+ * sumir por cima — justamente no fim da música, quando você quer vê-la.
+ *
+ * A folga é de 4px: com 2px, zoom fracionário ou devicePixelRatio quebrado
+ * faziam o alvo nunca ser alcançado e a rolagem ficava presa rodando no fim.
+ */
+function atScrollEnd(){return $("paperViewport").scrollTop>=scrollDistance()-4}
 
 // Exporta todos os repertórios (versão 3). A chave "setlist" continua saindo
 // com o repertório ativo para que arquivos novos ainda abram em versões antigas.
@@ -101,4 +123,30 @@ async function fullscreen(){
   if(on){delete document.body.dataset.wide;sidebar.style.display="";app.style.gridTemplateColumns="";$("fullscreenBtn").textContent="Tela cheia"}
   else{document.body.dataset.wide="on";sidebar.style.display="none";app.style.gridTemplateColumns="1fr";$("fullscreenBtn").textContent="Sair tela"}
 }
-async function keepAwake(){try{if("wakeLock"in navigator&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>wakeLock=null)}}catch{}}
+/*
+ * Manter a tela acesa enquanto a música está em uso.
+ *
+ * A guarda `!wakeLock` sozinha não bastava: ela é conferida ANTES do await, e
+ * duas chamadas próximas (voltar para a aba + apertar Rolar) pediam dois locks
+ * — o primeiro ficava órfão, sem referência para liberar. Por isso a trava
+ * `pedindoWakeLock`, marcada antes de esperar.
+ */
+let pedindoWakeLock=false;
+async function keepAwake(){
+  if(!("wakeLock"in navigator)||wakeLock||pedindoWakeLock)return;
+  pedindoWakeLock=true;
+  try{
+    const lock=await navigator.wakeLock.request("screen");
+    // Enquanto esperávamos, o motivo de manter acesa pode ter acabado.
+    if(!state.stage&&!state.scrolling&&!state.syncing){await lock.release().catch(()=>{});return}
+    wakeLock=lock;wakeLock.addEventListener("release",()=>wakeLock=null);
+  }catch{}
+  finally{pedindoWakeLock=false}
+}
+// Não havia release() em lugar nenhum: a tela seguia acesa até fechar a aba,
+// queimando bateria muito depois do show acabar.
+function releaseAwake(){
+  if(!wakeLock||state.stage||state.scrolling||state.syncing)return;
+  const lock=wakeLock;wakeLock=null;
+  try{lock.release()}catch{}
+}
