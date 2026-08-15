@@ -531,10 +531,14 @@ O Vagalume fica fora do ar de vez em quando (erro 502/503/504 do próprio servi�
 
 - toda chamada ao Vagalume passa por `fetchRetrying()` (`core.js`), que repete uma vez em erro passageiro do servidor — nunca em 429, que significa "espere", não "tente de novo";
 - `markSource()`/`sourceDown()` registram a saúde de cada fonte nesta sessão; os chips **Brasil** e **Trecho** (que dependem só do Vagalume) mostram um sinal quando ele caiu;
-- a busca **Inteligente** é a mais resistente: combina LRCLIB, Vagalume, Deezer e Apple, então uma fonte fora do ar não a derruba;
+- a busca **Inteligente** é a mais resistente: combina LRCLIB, Vagalume, Deezer, Apple e MusicBrainz, então uma fonte fora do ar não a derruba;
 - quando um modo específico falha por causa da fonte, a busca oferece um atalho de um toque para repetir na Inteligente (`search-ui.js`).
 
-Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp()` em `search-engine.js`) em vez de `fetch()` — a mesma técnica para as duas, sem biblioteca externa.
+Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp()` em `search-engine.js`) em vez de `fetch()` — a mesma técnica para as duas, sem biblioteca externa. LRCLIB, lyrics.ovh e MusicBrainz devolvem `access-control-allow-origin: *` e são chamadas por `fetch()` direto.
+
+**Catálogo sem letra não é ganho automático.** Deezer, Apple e MusicBrainz não têm letra: acrescentá-los cria resultado que abre vazio. Eles valem porque devolvem álbum e duração exatos, o que faz o LRCLIB casar no `/api/get` e a lyrics.ovh acertar a grafia. Ao avaliar uma fonte nova, pergunte primeiro se ela traz letra ou se melhora a identificação — se não fizer nem uma coisa nem outra, não entra. O MusicBrainz aceita ~1 consulta por segundo: chamar só uma vez por busca, nunca dentro do laço de variações.
+
+Antes de adicionar uma API, confira com `curl -D-` se ela devolve cabeçalho CORS. Já avaliadas e **descartadas**: ChartLyrics (fora do ar), Musixmatch e Genius (sem CORS e com chave obrigatória), TheAudioDB (campo de letra sempre vazio), lyrics.ovh/suggest (é o Deezer por baixo, redundante).
 
 ### 9. O que está no aparelho é procurado antes da rede
 

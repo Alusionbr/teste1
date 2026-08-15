@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.6.0";
+const APP_VERSION="3.7.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:""};
@@ -72,8 +72,11 @@ async function searchMusic(q){
     return (await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"}));
   }
   const route=state.source==="excerpt"?"search.excerpt":"search.artmus";
-  let r;try{r=await fetchRetrying(`https://api.vagalume.com.br/${route}?q=${encodeURIComponent(q)}&limit=10`)}catch(e){markSource("vagalume",false,e.message);throw sourceError("vagalume","O Vagalume não respondeu a tempo. Tente de novo ou use a busca Inteligente.")}
-  if(!r.ok){markSource("vagalume",false,r.status);throw sourceError("vagalume",`O Vagalume está fora do ar agora (erro ${r.status}). Tente de novo em instantes ou use a busca Inteligente, que combina outras fontes.`)}
+  // A mensagem diz só o fato. Quem sugere o que fazer é search-ui.js, que sabe
+  // em qual modo o usuário está: no Brasil vale tentar a Inteligente, no Trecho
+  // não — nenhuma outra fonte procura dentro da letra.
+  let r;try{r=await fetchRetrying(`https://api.vagalume.com.br/${route}?q=${encodeURIComponent(q)}&limit=10`)}catch(e){markSource("vagalume",false,e.message);throw sourceError("vagalume","O Vagalume não respondeu a tempo.")}
+  if(!r.ok){markSource("vagalume",false,r.status);throw sourceError("vagalume",`O Vagalume está fora do ar agora (erro ${r.status}).`)}
   markSource("vagalume",true);const d=await r.json();
   return ((d.response&&d.response.docs)||[]).filter(x=>x.title).map(x=>({title:x.title,artist:x.band||"",album:"",duration:0,lyrics:"",synced:"",source:"Vagalume",vagId:x.id||"",vagUrl:x.url?"https://www.vagalume.com.br"+x.url:""}));
 }

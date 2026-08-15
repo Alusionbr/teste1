@@ -8,7 +8,7 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 
 | Recurso | Como funciona |
 |---|---|
-| **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer e o catálogo da Apple em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
+| **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer, Apple e MusicBrainz em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
 | **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
 | **Busca no aparelho** | Toda busca procura antes no repertório salvo e no acervo do site — inclusive **dentro do texto da letra**. Responde na hora, funciona offline e é a única busca por trecho que não depende do Vagalume. O que já está no aparelho vem primeiro, com a sua letra e os seus ajustes. |
 | **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
@@ -99,6 +99,22 @@ na hora.
 3. Sirva por HTTP para testar (`python3 -m http.server`): service worker não funciona em `file://`.
 4. Rode o roteiro de `checklist-manual.md`.
 
-## Fontes de letra
+## Fontes
+
+Todas gratuitas e sem cadastro, exceto onde indicado. Nenhuma biblioteca externa: as que não liberam CORS para o navegador são consultadas por JSONP.
+
+| Fonte | Traz | Chave | Como é chamada |
+|---|---|---|---|
+| **LRCLIB** | letra e **letra sincronizada** (`.lrc`) | não | `fetch` (CORS aberto) |
+| **Vagalume** | letra e busca **por trecho** | opcional, só para abrir a letra | `fetch`, com repetição em erro passageiro |
+| **Acervo do site** | letra própria, offline | não | arquivo local |
+| **lyrics.ovh** | letra simples, como reserva | não | `fetch` (CORS aberto) |
+| **Deezer** | catálogo: título, artista, duração | não | JSONP |
+| **Apple (iTunes)** | catálogo: título, artista, duração | não | JSONP |
+| **MusicBrainz** | catálogo: **álbum e duração exatos** | não | `fetch` (CORS aberto), 1 consulta por busca |
+
+Deezer, Apple e MusicBrainz **não têm letra**. Entram para identificar a faixa: com o álbum e a duração certos, o LRCLIB casa no `/api/get` e a lyrics.ovh acerta a grafia do artista. Ajudam menos a "achar mais" e mais a achar a letra **certa**.
+
+Busca **por trecho da letra** só existe no Vagalume. LRCLIB, Deezer, Apple e MusicBrainz comparam título, artista e álbum — nunca o texto. Quando o Vagalume está fora do ar, a busca por trecho fica limitada ao repertório salvo e ao acervo, que guardam a letra inteira. Testei ChartLyrics (fora do ar), Musixmatch e Genius (sem CORS, exigem chave) — nenhuma serve para uso direto no navegador.
 
 Letras e cifras pertencem aos autores e editoras. O app apenas exibe o que as fontes públicas devolvem e mostra o crédito da fonte no rodapé de cada música. A chave da API do Vagalume, quando cadastrada, fica somente no aparelho.
