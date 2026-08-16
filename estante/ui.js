@@ -36,7 +36,10 @@ function onKaraokeBtn(){
 function updateKaraokeDialogFields(){
   const id=songVideoId(state.current);
   $("karaokeCurrentVideo").textContent=id?`Vídeo desta música: ${id}`:"Nenhum vídeo escolhido para esta música ainda.";
-  $("karaokeOffsetOut").textContent=(Number(state.current&&state.current.videoOffset)||0).toFixed(1)+"s";
+  // .karaokeOffsetOutput é compartilhada pelo <output> do diálogo E pelo
+  // controle rápido da barra de transporte — os dois mostram sempre o mesmo
+  // valor, sem duplicar a lógica de leitura.
+  document.querySelectorAll(".karaokeOffsetOutput").forEach(o=>o.textContent=(Number(state.current&&state.current.videoOffset)||0).toFixed(1)+"s");
   $("karaokeDelayOut").textContent=(Number(state.audioDelay)||0)+" ms";
   $("karaokeLinkInput").value="";
   $("karaokeSearchLink").href=youtubeSearchUrl(state.current);
@@ -49,6 +52,11 @@ function openKaraokeDialog(){
 }
 $("karaokeBtn").onclick=onKaraokeBtn;
 $("karaokeSettingsBtn").onclick=openKaraokeDialog;
+// Sair não apaga o vídeo salvo da música — só o botão "Remover vídeo" do
+// diálogo faz isso. Tocar/pausar perto do vídeo é o mesmo comando de sempre,
+// só um alvo de toque a mais, mais perto do polegar.
+$("karaokeExitBtn").onclick=exitKaraoke;
+$("karaokePlayBtn").onclick=karaokePlayPause;
 $("karaokeForm").addEventListener("submit",e=>{
   if(e.submitter?.value==="cancel")return;
   e.preventDefault();
@@ -278,5 +286,11 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   // seguinte, e dá para rolar na tela do vídeo em vez de por cima da letra.
   else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
+// A janela acima só se renovava no toque inicial: um arraste ainda em
+// andamento passados os 4s levava um puxão de volta no meio do gesto. Aqui
+// ela se renova a cada evento de rolagem, não só no primeiro toque.
+$("paperViewport").addEventListener("scroll",()=>{
+  if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
+},{passive:true});
 
 (function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();

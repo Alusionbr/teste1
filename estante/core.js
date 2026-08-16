@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.10.0";
+const APP_VERSION="3.11.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -78,7 +78,7 @@ function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do
 // karaokê é o único jeito de voltar a usá-los — evita o usuário apertar um pedal
 // e nada acontecer, sem entender por quê.
-function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("scrollBtn").disabled=state.karaoke;$("syncBtn").classList.toggle("on",state.syncing);$("syncBtn").disabled=state.karaoke||!state.lrc.length;$("karaokeBtn").classList.toggle("on",state.karaoke&&state.videoPlaying);$("karaokeBtn").querySelector("b").textContent=state.karaoke?(state.videoPlaying?"Pausar":"Tocar"):"Karaokê";$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage);document.body.classList.toggle("karaokeMode",state.karaoke)}
+function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("scrollBtn").disabled=state.karaoke;$("syncBtn").classList.toggle("on",state.syncing);$("syncBtn").disabled=state.karaoke||!state.lrc.length;$("karaokeBtn").classList.toggle("on",state.karaoke&&state.videoPlaying);$("karaokeBtn").querySelector("b").textContent=state.karaoke?(state.videoPlaying?"Pausar":"Tocar"):"Karaokê";$("karaokeExitBtn").hidden=!state.karaoke;$("karaokePlayBtn").hidden=!state.karaoke;$("karaokePlayBtn").textContent=state.videoPlaying?"⏸":"▶";$("karaokePlayBtn").setAttribute("aria-label",state.videoPlaying?"Pausar vídeo":"Tocar vídeo");$("karaokeOffsetQuick").hidden=!state.karaoke;$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage);document.body.classList.toggle("karaokeMode",state.karaoke)}
 
 // Erro com um rótulo de fonte anexado, para a interface poder oferecer "tentar
 // na Inteligente" só quando faz sentido (fonte fora do ar), não em qualquer erro.

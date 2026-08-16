@@ -117,8 +117,18 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Rolar e Sincro ficam desabilitados (não mudos) enquanto o karaokê está ligado.
 - [ ] Toque duplo numa linha durante o karaokê comanda o vídeo, não o relógio interno do Sincro.
 - [ ] Enter com um botão focado dispara a ação uma vez só (não duas).
+- [ ] `.control[hidden]` esconde de verdade (Tom/Capo somem sem música com cifra) — automatizado em `karaoke-mobile-test.js`.
+- [ ] **✕**, **▶/⏸** flutuante e o ajuste rápido de Sincro na barra ficam escondidos fora do karaokê e aparecem ao entrar, já com o valor certo (sem esperar o primeiro toque no − / +).
+- [ ] **✕** desliga o modo sem apagar o `videoId`/`videoOffset` salvos na música.
+- [ ] O nudge de sincronia pela barra e pelo diálogo mostram sempre o mesmo valor, o toque em qualquer um dos dois atualiza o outro.
+- [ ] A janela de rolagem manual (letra sem `.lrc`) se renova a cada evento de `scroll`, não só no toque inicial — um arraste longo não leva um puxão de volta no meio do gesto.
+- [ ] No celular, com o karaokê ligado, Karaokê → ajuste rápido de Sincro → **⚙** ficam em sequência na pedaleira (sem Vel./Letra/Tom/Capo no meio).
 
 **No aparelho, antes da festa (só dá para confirmar tocando de verdade):**
+
+- [ ] Segurando o celular com uma mão só, dá para sair do karaokê, tocar/pausar e ajustar a sincronia sem soltar o aparelho nem usar a outra mão.
+- [ ] Durante a espera do "toque no vídeo" (autoplay bloqueado), o play flutuante some e o aviso central aparece no lugar — tocar na tela do vídeo (não no botão, que sumiu) libera o som.
+- [ ] Girar o celular para paisagem com o karaokê ligado: o cabeçalho da música some e a pedaleira encolhe, sobrando mais tela para o vídeo.
 
 - [ ] Colar o link de um vídeo comum e de um vídeo com karaokê no título; os dois tocam.
 - [ ] Um vídeo que **proíbe** embutir mostra erro claro, com jeito de abrir no YouTube.

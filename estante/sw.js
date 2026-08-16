@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "3.10.0";
+const VERSION = "3.11.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",

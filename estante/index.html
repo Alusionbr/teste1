@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.10.0">
+  <link rel="stylesheet" href="./styles.css?v=3.11.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -64,6 +64,7 @@
 
   <main class="stage" id="stage">
     <div id="karaokeFrame" aria-hidden="true"></div>
+    <div id="karaokeToqueHint" aria-hidden="true">Toque na tela do vídeo para liberar o som.</div>
     <header class="songHeader">
       <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
       <div class="songMeta">
@@ -83,10 +84,12 @@
     <div class="sectionBar" id="sectionBar" hidden aria-label="Seções da música"></div>
 
     <section class="paperViewport" id="paperViewport">
+      <div class="karaokeStickyTop"><button type="button" class="karaokeOverlayBtn" id="karaokeExitBtn" aria-label="Sair do karaokê" title="Sair do karaokê" hidden>✕</button></div>
       <article class="paper" id="paper">
         <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>A busca inteligente consulta várias fontes, combina versões e coloca os resultados mais prováveis primeiro.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
       </article>
       <footer class="credits" id="credits"></footer>
+      <div class="karaokeStickyBottom"><button type="button" class="karaokeOverlayBtn karaokeFab" id="karaokePlayBtn" aria-label="Tocar vídeo" hidden>▶</button></div>
     </section>
 
     <footer class="transport">
@@ -94,6 +97,7 @@
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
       <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Karaokê</b></button>
       <button class="pedal small" id="karaokeSettingsBtn" aria-label="Configurar karaokê" title="Configurar karaokê">⚙</button>
+      <div class="control karaokeQuick" id="karaokeOffsetQuick" hidden><span>Sincro</span><button type="button" data-video-offset="-0.5" aria-label="Adiantar sincronia da letra">−</button><output id="karaokeOffsetOutQuick" class="karaokeOffsetOutput">0.0s</output><button type="button" data-video-offset="0.5" aria-label="Atrasar sincronia da letra">+</button></div>
       <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button><button id="autoBtn" class="auto" title="Calcular a velocidade pela duração da música">auto</button></div>
       <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
       <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
@@ -219,7 +223,7 @@
     <label>Link do vídeo no YouTube<input id="karaokeLinkInput" placeholder="Cole o link ou o id do vídeo" autocomplete="off"></label>
     <p><a id="karaokeSearchLink" href="#" target="_blank" rel="noopener">Procurar no YouTube ↗</a></p>
     <div class="control karaokeControl"><span>Atraso da caixa Bluetooth</span><button type="button" data-audio-delay="-20">−</button><output id="karaokeDelayOut">0 ms</output><button type="button" data-audio-delay="20">+</button></div>
-    <div class="control karaokeControl"><span>Sincronia desta música</span><button type="button" data-video-offset="-0.5">−</button><output id="karaokeOffsetOut">0.0s</output><button type="button" data-video-offset="0.5">+</button></div>
+    <div class="control karaokeControl"><span>Sincronia desta música</span><button type="button" data-video-offset="-0.5">−</button><output id="karaokeOffsetOut" class="karaokeOffsetOutput">0.0s</output><button type="button" data-video-offset="0.5">+</button></div>
     <p class="karaokeHelp">O atraso da caixa vale para todas as músicas; a sincronia é só desta.</p>
     <footer><button type="button" class="remove" id="karaokeRemoveBtn" hidden>Remover vídeo</button><button value="cancel">Fechar</button><button class="accent" id="karaokeAttachBtn" value="default">Usar este vídeo</button></footer>
   </form>
@@ -235,19 +239,19 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.10.0" defer></script>
-<script src="./search-engine.js?v=3.10.0" defer></script>
-<script src="./library.js?v=3.10.0" defer></script>
-<script src="./acervo.js?v=3.10.0" defer></script>
-<script src="./setlists.js?v=3.10.0" defer></script>
-<script src="./song-prefs.js?v=3.10.0" defer></script>
-<script src="./autoscroll.js?v=3.10.0" defer></script>
-<script src="./player.js?v=3.10.0" defer></script>
-<script src="./karaoke.js?v=3.10.0" defer></script>
-<script src="./song-edit.js?v=3.10.0" defer></script>
-<script src="./print.js?v=3.10.0" defer></script>
-<script src="./ui.js?v=3.10.0" defer></script>
-<script src="./search-ui.js?v=3.10.0" defer></script>
-<script src="./offline.js?v=3.10.0" defer></script>
+<script src="./core.js?v=3.11.0" defer></script>
+<script src="./search-engine.js?v=3.11.0" defer></script>
+<script src="./library.js?v=3.11.0" defer></script>
+<script src="./acervo.js?v=3.11.0" defer></script>
+<script src="./setlists.js?v=3.11.0" defer></script>
+<script src="./song-prefs.js?v=3.11.0" defer></script>
+<script src="./autoscroll.js?v=3.11.0" defer></script>
+<script src="./player.js?v=3.11.0" defer></script>
+<script src="./karaoke.js?v=3.11.0" defer></script>
+<script src="./song-edit.js?v=3.11.0" defer></script>
+<script src="./print.js?v=3.11.0" defer></script>
+<script src="./ui.js?v=3.11.0" defer></script>
+<script src="./search-ui.js?v=3.11.0" defer></script>
+<script src="./offline.js?v=3.11.0" defer></script>
 </body>
 </html>
