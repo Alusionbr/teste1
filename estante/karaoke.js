@@ -252,6 +252,9 @@ function enterKaraoke(){
   // tamanho aparente, e o observador de autoscroll só olha o #paper.
   applyAutoSpeed();
   karaokePlayPause();
+  // Os controles rápidos de sincronia (barra e diálogo) precisam mostrar o
+  // valor certo assim que o karaokê liga, não só depois do primeiro toque no − / +.
+  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
   notify("Karaokê ligado.",true);
 }
 function exitKaraoke(){
@@ -309,6 +312,7 @@ function karaokeOnSongChange(){
   }
   karaokeLoad(id);
   if(autoplayComprovado)ytCommand("playVideo");
+  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
 }
 
 /* -------------------------------------------------------- achar o vídeo */

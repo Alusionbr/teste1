@@ -62,6 +62,28 @@ celular — ver aviso abaixo), projetor espelhando a tela.
 O vídeo fica salvo na música, junto com tom e capo — monte o repertório uma
 vez, com internet, e na festa é só tocar.
 
+### Tudo por toque, sem teclado nem pedaleira
+
+Karaokê é festa, não palco: celular na mão, muitas vezes uma mão só. Três
+alvos de toque cobrem o essencial sem abrir diálogo nenhum:
+
+- **✕** no canto superior direito da letra — sai do karaokê. Não apaga o
+  vídeo salvo da música (isso só o botão **Remover vídeo** do diálogo faz);
+  entrar de novo volta exatamente de onde parou.
+- **▶/⏸** flutuante no canto inferior direito, perto do polegar de quem
+  segura o celular com a mão direita — toca e pausa o vídeo. Some sozinho
+  enquanto o navegador está esperando aquele primeiro toque direto na tela do
+  vídeo para liberar o som (ver abaixo); nessa hora um aviso central substitui
+  o botão.
+- **Sincro − / +** na barra de transporte, ao lado da Karaokê — o mesmo
+  ajuste fino de sempre, sem precisar abrir o **⚙**. O atraso da caixa
+  Bluetooth continua só no diálogo: se calibra uma vez por festa, não precisa
+  de atalho rápido.
+
+Espaço/Enter, ↑↓, ←→ e Esc continuam funcionando exatamente como antes para
+quem usa teclado ou pedaleira Bluetooth — os botões de toque são um caminho
+a mais, não uma troca.
+
 ### Os dois ajustes
 
 | Ajuste | Vale para | Corrige |

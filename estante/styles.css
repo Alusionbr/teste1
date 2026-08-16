@@ -2,6 +2,11 @@
 *{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overscroll-behavior:none}button,input,textarea{font:inherit;color:inherit}button{cursor:pointer}a{color:var(--accent)}.app{height:100dvh;display:grid;grid-template-columns:344px 1fr}.sidebar{background:var(--panel);border-right:1px solid var(--line);min-height:0;display:flex;flex-direction:column}.brand{height:66px;padding:15px 18px;display:flex;align-items:baseline;gap:9px;border-bottom:1px solid var(--line)}.brand strong{font-size:25px;letter-spacing:.18em;color:#eef3f8}.brand span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.brand i{margin-left:auto;font-style:normal;font-size:10px;text-transform:uppercase;padding:3px 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}.brand i.online{color:#9ed8b0;border-color:#315f40}.brand i.offline{color:var(--accent);border-color:#5a4726}.search{display:flex;gap:8px;padding:14px 14px 10px}.search input{min-width:0;flex:1;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:11px 12px;outline:none}.search input:focus{border-color:var(--accent)}.search button,.accent{border:0;border-radius:7px;background:var(--accent);color:#1c1407;font-weight:800;padding:0 14px}.sources{display:flex;gap:6px;padding:0 14px 12px}.chip{flex:1;background:transparent;border:1px solid var(--line);border-radius:6px;padding:7px 4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.chip.active{color:var(--accent);border-color:#5a4726;background:#2a2418}.chip.down{position:relative}.chip.down:after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#e07a5f;box-shadow:0 0 0 2px var(--panel)}.notice{margin:0 14px 10px;padding:9px 10px;border:1px solid #4a2626;border-radius:6px;background:#251819;color:#efb6b6;font-size:13px;line-height:1.4}.notice.ok{border-color:#5a4726;background:#272215;color:#ffe0a8}.notice button{margin-left:8px;background:transparent;border:1px solid currentColor;border-radius:5px;color:inherit;padding:3px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.tabs{display:flex;padding:0 12px;border-bottom:1px solid var(--line)}.tab{border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);padding:9px 10px;text-transform:uppercase;letter-spacing:.1em;font-size:12px}.tab.active{color:var(--accent);border-color:var(--accent)}.tab b{font-size:10px;background:#252e37;padding:1px 5px;border-radius:99px}.list{min-height:0;flex:1;overflow:auto;padding:8px}.empty{padding:24px 14px;color:var(--muted);font-size:14px;line-height:1.55}.listRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.songItem{width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:7px;padding:10px 11px}.songItem:hover,.songItem.current{background:var(--panel2);border-color:var(--line)}.songItem.current{border-color:var(--accent)}.songItem strong{display:block;color:#edf2f6;font-family:Georgia,serif;font-size:16px}.songItem small{display:block;margin-top:2px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.tag{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:#222c35;border-radius:3px;padding:2px 5px}.tag.sync{color:var(--accent);background:#342b18}.tag.local{color:#9ed8b0;background:#1d2f24}.rowActions{display:flex;flex-direction:column;gap:3px}.rowActions button{width:31px;min-height:27px;background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted)}.rowActions button:hover{color:var(--accent);border-color:var(--accent)}.rowActions button:disabled{opacity:.25;pointer-events:none}.rowActions .remove:hover{color:#f3aaaa;border-color:#6b3131}.sidebarFooter{border-top:1px solid var(--line);padding:9px 12px;display:flex;gap:5px;flex-wrap:wrap}.sidebarFooter button,.headerActions button,.menu{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted);padding:6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.sidebarFooter button:hover,.headerActions button:hover,.menu:hover{color:var(--accent);border-color:var(--accent)}
 .stage{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;overflow:hidden}.stage:before{content:"";position:absolute;left:50%;top:-180px;transform:translateX(-50%);width:min(100%,900px);height:420px;background:radial-gradient(ellipse at bottom,rgba(255,193,94,var(--glow)),transparent 70%);pointer-events:none}.songHeader{position:relative;z-index:1;display:flex;align-items:flex-end;gap:12px;padding:13px 18px 10px;border-bottom:1px solid var(--line)}.menu{display:none}.songMeta{min-width:0;flex:1}.songMeta h1{font:600 21px Georgia,serif;margin:0;color:#f2f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.songMeta p{margin:4px 0 0;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.headerActions{display:flex;gap:5px;flex-wrap:wrap}.paperViewport{position:relative;z-index:1;flex:1;overflow:auto;-webkit-overflow-scrolling:touch}.paper{max-width:900px;min-height:100%;margin:auto;background:var(--paper);color:var(--ink);padding:40px clamp(20px,5vw,60px) 55vh;box-shadow:0 0 80px #0009}.emptyPaper{font:22px Georgia,serif;color:var(--weak)}.lineLyric{font:var(--font)/1.58 Georgia,serif;white-space:pre-wrap;word-break:break-word;padding:1px 9px;margin:0 -9px;border-radius:4px}.lineLyric.blank{min-height:.78em}.lineLyric.chord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:calc(var(--font)*.8);font-weight:700;color:var(--chord);line-height:1.35;white-space:pre;overflow-x:auto;padding-top:5px}.lineLyric.section{margin-top:1.4em;font:700 calc(var(--font)*.55)/1.4 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.16em;color:var(--weak);border-bottom:1px solid #0002}.paper.synced .lineLyric{color:var(--weak);cursor:pointer}.paper.synced .lineLyric.active{color:var(--ink);background:#ffc15e55;font-weight:600}.paper.synced .lineLyric.past{opacity:.52}.credits{max-width:900px;margin:auto;padding:0 clamp(20px,5vw,60px) 24px;color:var(--weak);font-size:11px;background:var(--paper)}
 .transport{position:relative;z-index:2;display:flex;align-items:center;gap:7px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:9px 12px calc(9px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}.transport::-webkit-scrollbar{display:none}.transport>*{flex:0 0 auto}.pedal{height:54px;min-width:70px;border:1px solid #313c47;border-radius:8px;background:linear-gradient(#232c35,#171e25);color:var(--text);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;box-shadow:0 2px 0 #080c10}.pedal.primary{min-width:86px}.pedal.small{min-width:48px;font-size:22px}.led{display:block;width:7px;height:7px;border-radius:50%;background:#3b4650;margin:0 auto 4px}.pedal.on{color:var(--accent);border-color:#5a4726}.pedal.on .led{background:var(--accent);box-shadow:0 0 8px var(--accent)}.pedal:disabled{opacity:.3}.control{height:54px;display:flex;align-items:center;gap:2px;background:#10161c;border:1px solid var(--line);border-radius:8px;padding:0 5px}.control span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}.control button{width:30px;height:36px;border:1px solid var(--line);border-radius:5px;background:#1d242c}.control output{min-width:36px;text-align:center;font:12px ui-monospace,monospace;color:#ffe0a8}.spacer{flex:1}
+/* [hidden] e a regra de autor .control{display:flex} empatam em especificidade
+   (0,1,0 cada); no empate o autor vence e o atributo hidden é ignorado. Sem
+   isto, Tom/Capo (e agora os controles rápidos do karaokê) aparecem mesmo
+   escondidos. */
+.control[hidden]{display:none}
 body.stageMode{--paper:#0f141a;--ink:#eee6d6;--weak:#8c8578;--chord:#ffc15e;--glow:.08}.stageMode .paper,.stageMode .credits{background:var(--paper)}.stageMode .lineLyric.section{border-color:#fff2}
 /*
  * Modo karaokê: o vídeo mora atrás da letra, não ao lado dela.
@@ -30,8 +35,30 @@ body.karaokeMode .lineLyric.section{color:#fff9;border-color:#fff3}
 /* Enquanto o navegador não deixa tocar por programa, o toque precisa passar
    direto para o próprio player do YouTube — é o único play confiável no iOS. */
 body.karaokeToqueNoVideo #paperViewport{pointer-events:none}
+#karaokeToqueHint{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;pointer-events:none;max-width:80vw;text-align:center;font:600 15px/1.4 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 14px #000c;background:#00000080;padding:10px 16px;border-radius:8px}
+body.karaokeToqueNoVideo #karaokeToqueHint{display:block}
+/*
+ * Sair e tocar/pausar por toque, sem depender de teclado ou pedaleira física.
+ * Ficam DENTRO de #paperViewport, em wrappers "sticky" de altura zero — presos
+ * ao topo/rodapé da parte VISÍVEL da rolagem, sem contar como altura de
+ * verdade (scrollDistance() mede #paper, não #paperViewport, mas o
+ * clientHeight usado ali é o do viewport — um wrapper de altura zero não
+ * mexe nele). position:sticky também estabelece bloco de contenção para o
+ * filho absoluto, do mesmo jeito que position:relative estabeleceria.
+ */
+.karaokeStickyTop,.karaokeStickyBottom{position:sticky;height:0;overflow:visible;pointer-events:none;z-index:3}
+.karaokeStickyTop{top:0}
+.karaokeStickyBottom{bottom:0}
+.karaokeOverlayBtn{position:absolute;right:12px;width:44px;height:44px;border-radius:50%;border:1px solid #ffffff40;background:#12161bb0;backdrop-filter:blur(2px);color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;pointer-events:auto;box-shadow:0 2px 10px #0008}
+.karaokeStickyTop .karaokeOverlayBtn{top:12px}
+.karaokeStickyBottom .karaokeOverlayBtn{bottom:12px;width:56px;height:56px;font-size:22px;background:#ffc15ee6;color:#1c1407;border-color:#5a4726}
+/* Durante a espera do toque no vídeo, o play flutuante só falharia calado —
+   postMessage não conta como gesto do usuário através do iframe no iOS. Some
+   e dá lugar ao aviso central; sair continua funcionando, não depende do
+   vídeo. */
+body.karaokeToqueNoVideo .karaokeFab{display:none}
 .karaokeControl{margin:0 18px 14px}
-.karaokeHelp{margin-top:-6px;font-size:11px}
+.karaokeHelp{margin-top:-6px;font-size:12px}
 dialog{width:min(620px,94vw);max-height:88dvh;overflow:auto;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}dialog::backdrop{background:#05080bcc}.modal{padding:0}.modal>header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}.modal h2{margin:0;font-size:16px;text-transform:uppercase;letter-spacing:.12em}.modal>header button{border:0;background:transparent;color:var(--muted);font-size:22px}.modal label{display:block;margin:14px 18px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.modal input,.modal textarea{display:block;width:100%;margin-top:5px;padding:10px 11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;outline:none}.modal input:focus,.modal textarea:focus{border-color:var(--accent)}.modal textarea{min-height:220px;resize:vertical;font:13px/1.5 ui-monospace,monospace}.modal p{margin:14px 18px;color:var(--muted);font-size:13px;line-height:1.55}.modal footer{display:flex;justify-content:flex-end;gap:7px;padding:12px 18px;border-top:1px solid var(--line)}.modal footer button{padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:transparent}.modal footer .accent{background:var(--accent);border-color:var(--accent)}
 @media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{position:fixed;inset:0 auto 0 0;width:min(92vw,380px);z-index:20;transform:translateX(-101%);transition:transform .2s}.sidebar.open{transform:none;box-shadow:0 0 60px #000c}.menu{display:block}.songHeader{padding:10px 12px;align-items:center;gap:8px}.songMeta h1{font-size:18px}
 /* Sem a barra lateral o cabeçalho fica apertado: os botões empurravam o título
@@ -52,7 +79,36 @@ dialog{width:min(620px,94vw);max-height:88dvh;overflow:auto;padding:0;border:1px
 button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;color:#9da7b0;border-color:#34404a}
 .emptyPaper{max-width:620px}.emptyPaper b{display:block;font:700 clamp(24px,3vw,36px)/1.15 Georgia,serif;color:var(--ink);margin-bottom:10px}.emptyPaper small{display:block;font:15px/1.6 system-ui,sans-serif;color:var(--weak);max-width:560px}.emptyPaper.welcome{padding-top:clamp(25px,8vh,90px)}.welcomeSteps{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}.welcomeSteps span{font:700 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;border:1px solid #0002;border-radius:999px;padding:8px 10px;color:var(--weak);background:#fff3}.stageMode .welcomeSteps span{border-color:#fff2;background:#fff1}
-@media(max-width:900px){.transport{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.transport::-webkit-scrollbar{display:none}.transport>*{flex:0 0 auto}.paperViewport{scrollbar-width:thin}.headerActions button{min-height:38px}.menu{min-width:42px;min-height:42px}.sidebarFooter button{min-height:38px}.rowActions button{min-width:34px;min-height:34px}}
+@media(max-width:900px){.transport{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.transport::-webkit-scrollbar{display:none}.transport>*{flex:0 0 auto}.paperViewport{scrollbar-width:thin}.headerActions button{min-height:38px}.menu{min-width:42px;min-height:42px}.sidebarFooter button{min-height:38px}.rowActions button{min-width:34px;min-height:34px}
+/* .control button vale tanto para os ajustes da barra (Vel./Letra/Tom/Capo)
+   quanto para os do diálogo do karaokê (.karaokeControl reaproveita .control):
+   um só lugar resolve os dois toques abaixo do tamanho mínimo confortável. */
+.control button{min-width:42px;min-height:42px}.control{gap:5px}}
+/* No celular, com o karaokê ligado, o botão Karaokê e o ajuste rápido de
+   sincronia ficam lado a lado, e o ⚙ logo depois — sem a fileira de
+   velocidade/letra/tom/capo no meio, que é o que os separava fora do
+   karaokê. Rolar/Sincro não somem (o usuário não deve apertar um pedal e não
+   entender por que nada aconteceu) — só vão para trás, desabilitados. */
+@media(max-width:900px){
+  body.karaokeMode #karaokeBtn{order:1}
+  body.karaokeMode #karaokeOffsetQuick{order:2}
+  body.karaokeMode #karaokeSettingsBtn{order:3}
+  body.karaokeMode #prevBtn{order:4}
+  body.karaokeMode #nextBtn{order:5}
+  body.karaokeMode #scrollBtn{order:6}
+  body.karaokeMode #syncBtn{order:7}
+  body.karaokeMode .control:not(.karaokeQuick){order:8}
+  body.karaokeMode #topBtn{order:9}
+}
+/* O vídeo é conteúdo de paisagem, quase sempre visto num celular na vertical;
+   quando alguém gira mesmo assim, a altura sobra pouca. Só o essencial:
+   cabeçalho da música some (o título não faz falta com o vídeo tocando) e a
+   pedaleira encolhe. Fora do karaokê, paisagem continua igual a hoje. */
+@media(max-width:900px) and (orientation:landscape){
+  body.karaokeMode .songHeader{display:none}
+  body.karaokeMode .transport{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+  body.karaokeMode .pedal,body.karaokeMode .control{height:42px}
+}
 @media(max-width:560px){.songMeta p{display:none}.headerActions #fullscreenBtn{display:none}.paper{padding-left:16px;padding-right:16px}.transport{padding-top:7px}.pedal{height:50px}.control{height:50px}.brand{padding-left:14px}.search{padding-left:10px;padding-right:10px}.sources{padding-left:10px;padding-right:10px}
 /* No celular os botões ficam ainda mais compactos para sobrar tela para a letra. */
 .songHeader{padding:8px 12px}
