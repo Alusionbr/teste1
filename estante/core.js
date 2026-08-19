@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.10.0";
+const APP_VERSION="3.11.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
  *
  * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
  */
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0};
+const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,theme:"neon-palco",keyVag:"",keyYT:"",audioDelay:0};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
@@ -72,12 +72,13 @@ function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=
 // `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
 // daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
 // link compartilhado, nunca enviada a outro serviço.
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
+function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,theme:state.theme,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // Rolar e Sincro ficam desabilitados durante o karaokê: os três escreveriam no
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do
 // karaokê é o único jeito de voltar a usá-los — evita o usuário apertar um pedal
 // e nada acontecer, sem entender por quê.
+function applyTheme(theme){state.theme=theme;document.documentElement.dataset.theme=theme;updatePrefsSoon();document.querySelectorAll("#themeDialog .chip").forEach(b=>b.classList.toggle("active",b.dataset.theme===theme))}
 function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("scrollBtn").disabled=state.karaoke;$("syncBtn").classList.toggle("on",state.syncing);$("syncBtn").disabled=state.karaoke||!state.lrc.length;$("karaokeBtn").classList.toggle("on",state.karaoke&&state.videoPlaying);$("karaokeBtn").querySelector("b").textContent=state.karaoke?(state.videoPlaying?"Pausar":"Tocar"):"Karaokê";$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage);document.body.classList.toggle("karaokeMode",state.karaoke)}
 
 // Erro com um rótulo de fonte anexado, para a interface poder oferecer "tentar
