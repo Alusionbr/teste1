@@ -44,7 +44,6 @@ function updateKaraokeDialogFields(){
   $("karaokeRemoveBtn").hidden=!id;
 }
 function openKaraokeDialog(){
-  if(!state.current)return notify("Abra uma música antes.");
   updateKaraokeDialogFields();
   $("karaokeDialog").showModal();
 }
@@ -55,6 +54,7 @@ $("karaokeForm").addEventListener("submit",e=>{
   e.preventDefault();
   const raw=$("karaokeLinkInput").value.trim();
   if(!raw){$("karaokeDialog").close();return}
+  if(!state.current){notify("Abra uma música antes de escolher um vídeo.");return}
   const id=parseVideoId(raw);
   if(!id)return notify("Não reconheci esse link do YouTube. Cole o link completo ou o id do vídeo.");
   state.current.videoId=id;state.current.videoOffset=0;
