@@ -9,7 +9,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.10.0">
+  <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
+  <link rel="stylesheet" href="./styles.css?v=3.11.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -55,6 +56,7 @@
     <footer class="sidebarFooter">
       <button id="pasteBtn">Colar letra</button>
       <button id="sourcesBtn">Fontes</button>
+      <button id="themeBtn">Tema</button>
       <button id="shareBtn">Compartilhar</button>
       <button id="exportBtn">Exportar</button>
       <button id="importBtn">Importar</button>
@@ -125,6 +127,21 @@
     <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho. Procurar por um pedaço da letra depende dele: as outras fontes comparam título, artista e álbum, nunca o texto. Nesse caso o app ainda procura no seu repertório e no acervo, que guardam a letra inteira.</p>
     <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="themeDialog">
+  <form method="dialog" class="modal">
+    <header><h2>Tema visual</h2><button value="cancel" aria-label="Fechar">×</button></header>
+    <div class="themeGrid" role="group" aria-label="Escolha o tema visual">
+      <button type="button" class="chip active" data-theme="neon-palco"><i style="background:oklch(0.85 0.22 145)" aria-hidden="true"></i>Neon de palco</button>
+      <button type="button" class="chip" data-theme="classico-ambar"><i style="background:#ffc15e" aria-hidden="true"></i>Clássico âmbar</button>
+      <button type="button" class="chip" data-theme="grafite-refinado"><i style="background:oklch(0.78 0.14 75)" aria-hidden="true"></i>Grafite refinado</button>
+      <button type="button" class="chip" data-theme="claro-profissional"><i style="background:oklch(0.5 0.14 45)" aria-hidden="true"></i>Claro profissional</button>
+      <button type="button" class="chip" data-theme="estudio-duplo-acento"><i style="background:oklch(0.72 0.17 40)" aria-hidden="true"></i>Estúdio duplo acento</button>
+      <button type="button" class="chip" data-theme="minimal-mono"><i style="background:oklch(0.55 0.15 25)" aria-hidden="true"></i>Minimal mono</button>
+      <button type="button" class="chip" data-theme="cancioneiro-editorial"><i style="background:oklch(0.4 0.1 25)" aria-hidden="true"></i>Cancioneiro editorial</button>
+    </div>
   </form>
 </dialog>
 
@@ -235,19 +252,19 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.10.0" defer></script>
-<script src="./search-engine.js?v=3.10.0" defer></script>
-<script src="./library.js?v=3.10.0" defer></script>
-<script src="./acervo.js?v=3.10.0" defer></script>
-<script src="./setlists.js?v=3.10.0" defer></script>
-<script src="./song-prefs.js?v=3.10.0" defer></script>
-<script src="./autoscroll.js?v=3.10.0" defer></script>
-<script src="./player.js?v=3.10.0" defer></script>
-<script src="./karaoke.js?v=3.10.0" defer></script>
-<script src="./song-edit.js?v=3.10.0" defer></script>
-<script src="./print.js?v=3.10.0" defer></script>
-<script src="./ui.js?v=3.10.0" defer></script>
-<script src="./search-ui.js?v=3.10.0" defer></script>
-<script src="./offline.js?v=3.10.0" defer></script>
+<script src="./core.js?v=3.11.0" defer></script>
+<script src="./search-engine.js?v=3.11.0" defer></script>
+<script src="./library.js?v=3.11.0" defer></script>
+<script src="./acervo.js?v=3.11.0" defer></script>
+<script src="./setlists.js?v=3.11.0" defer></script>
+<script src="./song-prefs.js?v=3.11.0" defer></script>
+<script src="./autoscroll.js?v=3.11.0" defer></script>
+<script src="./player.js?v=3.11.0" defer></script>
+<script src="./karaoke.js?v=3.11.0" defer></script>
+<script src="./song-edit.js?v=3.11.0" defer></script>
+<script src="./print.js?v=3.11.0" defer></script>
+<script src="./ui.js?v=3.11.0" defer></script>
+<script src="./search-ui.js?v=3.11.0" defer></script>
+<script src="./offline.js?v=3.11.0" defer></script>
 </body>
 </html>
