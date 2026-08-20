@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Projeto Jogo</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <section class="topbar">
+      <div>
+        <p class="eyebrow">TESTE1 • NOVO APP</p>
+        <h1>Projeto Jogo</h1>
+      </div>
+      <div class="stats" aria-label="Placar">
+        <span>Pontos <strong id="score">0</strong></span>
+        <span>Recorde <strong id="best">0</strong></span>
+      </div>
+    </section>
+
+    <section class="game-card">
+      <canvas id="game" width="960" height="540" aria-label="Área do jogo"></canvas>
+
+      <div id="overlay" class="overlay">
+        <div class="panel">
+          <p class="eyebrow">PROTÓTIPO 01</p>
+          <h2>Colete os cristais</h2>
+          <p>Movimente o personagem, pegue os cristais e aumente sua pontuação.</p>
+          <button id="startBtn" type="button">Começar</button>
+          <small>Teclado: WASD ou setas • Celular: controle na tela</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="mobile-controls" aria-label="Controles do jogo">
+      <button data-dir="up" aria-label="Cima">▲</button>
+      <div>
+        <button data-dir="left" aria-label="Esquerda">◀</button>
+        <button data-dir="down" aria-label="Baixo">▼</button>
+        <button data-dir="right" aria-label="Direita">▶</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="./game.js"></script>
+</body>
+</html>
