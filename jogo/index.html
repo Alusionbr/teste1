@@ -3,42 +3,105 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Projeto Jogo</title>
+  <meta name="theme-color" content="#11130f" />
+  <title>Último Abrigo — Sobrevivência</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <main class="game-shell">
-    <section class="topbar">
+    <header class="topbar">
       <div>
-        <p class="eyebrow">TESTE1 • NOVO APP</p>
-        <h1>Projeto Jogo</h1>
+        <p class="eyebrow">TESTE1 • NOVO JOGO</p>
+        <h1>Último Abrigo</h1>
+        <p class="subtitle">Sobrevivência pós-apocalíptica</p>
       </div>
-      <div class="stats" aria-label="Placar">
-        <span>Pontos <strong id="score">0</strong></span>
-        <span>Recorde <strong id="best">0</strong></span>
+
+      <div class="meta-stats" aria-label="Progresso da partida">
+        <span>Dia <strong id="day">1</strong></span>
+        <span>Tempo <strong id="clock">06:00</strong></span>
+        <span>Abates <strong id="kills">0</strong></span>
       </div>
+    </header>
+
+    <section class="survival-bars" aria-label="Status do sobrevivente">
+      <div class="status hp"><span>VIDA</span><div><i id="hpBar"></i></div><b id="hpText">100</b></div>
+      <div class="status hunger"><span>FOME</span><div><i id="hungerBar"></i></div><b id="hungerText">100</b></div>
+      <div class="status thirst"><span>SEDE</span><div><i id="thirstBar"></i></div><b id="thirstText">100</b></div>
+      <div class="status stamina"><span>FÔLEGO</span><div><i id="staminaBar"></i></div><b id="staminaText">100</b></div>
     </section>
 
-    <section class="game-card">
-      <canvas id="game" width="960" height="540" aria-label="Área do jogo"></canvas>
+    <section class="game-layout">
+      <div class="game-card">
+        <canvas id="game" width="960" height="540" aria-label="Mapa do jogo"></canvas>
 
-      <div id="overlay" class="overlay">
-        <div class="panel">
-          <p class="eyebrow">PROTÓTIPO 01</p>
-          <h2>Colete os cristais</h2>
-          <p>Movimente o personagem, pegue os cristais e aumente sua pontuação.</p>
-          <button id="startBtn" type="button">Começar</button>
-          <small>Teclado: WASD ou setas • Celular: controle na tela</small>
+        <div id="message" class="message" aria-live="polite"></div>
+
+        <div id="overlay" class="overlay">
+          <div class="panel">
+            <p class="eyebrow">DIA ZERO</p>
+            <h2>A cidade caiu. Você não.</h2>
+            <p>Encontre água, comida e sucata. Evite ficar cercado pelos infectados e use o abrigo como zona segura.</p>
+
+            <div class="mission-grid">
+              <span><b>1</b> Vasculhe as ruínas</span>
+              <span><b>2</b> Colete recursos</span>
+              <span><b>3</b> Enfrente infectados</span>
+              <span><b>4</b> Sobreviva aos dias</span>
+            </div>
+
+            <button id="startBtn" type="button">INICIAR SOBREVIVÊNCIA</button>
+            <small>Teclado: WASD/setas • Espaço: atacar • 1: comer • 2: beber • 3: kit médico</small>
+          </div>
         </div>
       </div>
+
+      <aside class="inventory" aria-label="Inventário">
+        <div class="inventory-title">
+          <span>MOCHILA</span>
+          <small id="objective">Objetivo: sobreviva</small>
+        </div>
+
+        <div class="inventory-grid">
+          <button class="item" id="foodBtn" type="button">
+            <span class="icon">🥫</span><span>Comida</span><b id="foodCount">1</b><small>tecla 1</small>
+          </button>
+          <button class="item" id="waterBtn" type="button">
+            <span class="icon">💧</span><span>Água</span><b id="waterCount">1</b><small>tecla 2</small>
+          </button>
+          <button class="item" id="medBtn" type="button">
+            <span class="icon">✚</span><span>Kit médico</span><b id="medCount">1</b><small>tecla 3</small>
+          </button>
+          <div class="item passive">
+            <span class="icon">⚙</span><span>Sucata</span><b id="scrapCount">0</b><small>material</small>
+          </div>
+        </div>
+
+        <div class="weapon-card">
+          <span>ARMA ATUAL</span>
+          <strong>🔧 Cano de ferro</strong>
+          <small>Dano: 35 • Corpo a corpo</small>
+        </div>
+
+        <div class="legend">
+          <span><i class="dot shelter"></i>Abrigo</span>
+          <span><i class="dot loot"></i>Suprimento</span>
+          <span><i class="dot infected"></i>Infectado</span>
+        </div>
+      </aside>
     </section>
 
-    <section class="mobile-controls" aria-label="Controles do jogo">
-      <button data-dir="up" aria-label="Cima">▲</button>
-      <div>
-        <button data-dir="left" aria-label="Esquerda">◀</button>
-        <button data-dir="down" aria-label="Baixo">▼</button>
-        <button data-dir="right" aria-label="Direita">▶</button>
+    <section class="mobile-controls" aria-label="Controles móveis">
+      <div class="dpad">
+        <button data-dir="up" aria-label="Mover para cima">▲</button>
+        <div>
+          <button data-dir="left" aria-label="Mover para esquerda">◀</button>
+          <button data-dir="down" aria-label="Mover para baixo">▼</button>
+          <button data-dir="right" aria-label="Mover para direita">▶</button>
+        </div>
+      </div>
+      <div class="action-pad">
+        <button id="attackBtn" class="attack" type="button">ATACAR</button>
+        <button id="runBtn" type="button">CORRER</button>
       </div>
     </section>
   </main>
