@@ -117,8 +117,9 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Rolar e Sincro ficam desabilitados (não mudos) enquanto o karaokê está ligado.
 - [ ] Toque duplo numa linha durante o karaokê comanda o vídeo, não o relógio interno do Sincro.
 - [ ] Enter com um botão focado dispara a ação uma vez só (não duas).
-- [ ] `.control[hidden]` esconde de verdade (Tom/Capo somem sem música com cifra) — automatizado em `karaoke-mobile-test.js`.
-- [ ] **✕**, **▶/⏸** flutuante e o ajuste rápido de Sincro na barra ficam escondidos fora do karaokê e aparecem ao entrar, já com o valor certo (sem esperar o primeiro toque no − / +).
+- [ ] Nenhum elemento com o atributo `hidden` continua ocupando espaço — varredura automatizada em `v312-test.js`. Vale para Tom/Capo, a barra de seções, a barra de repertórios e o ✕ do karaokê.
+- [ ] **✕** e o ajuste rápido de Sincro na barra ficam escondidos fora do karaokê e aparecem ao entrar, já com o valor certo (sem esperar o primeiro toque no − / +).
+- [ ] O botão flutuante **▶/⏸** aparece fora do karaokê no modo toque (aí ele rola a letra) e some fora do karaokê no modo pedaleira.
 - [ ] **✕** desliga o modo sem apagar o `videoId`/`videoOffset` salvos na música.
 - [ ] O nudge de sincronia pela barra e pelo diálogo mostram sempre o mesmo valor, o toque em qualquer um dos dois atualiza o outro.
 - [ ] A janela de rolagem manual (letra sem `.lrc`) se renova a cada evento de `scroll`, não só no toque inicial — um arraste longo não leva um puxão de volta no meio do gesto.
@@ -138,6 +139,51 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Projetor espelhando a tela: letra legível de longe, cores batendo com o vídeo por trás.
 - [ ] Deixar uma música até o fim: avança sozinha para a próxima (depois da primeira vez tocada manualmente) ou mostra "toque em › para a próxima".
 - [ ] Modo avião: o pedal Karaokê avisa que precisa de internet, sem travar o resto do app.
+
+## 6c. Busca de vídeo dentro do app
+
+**No navegador (automatizado em `v312-test.js`):**
+
+- [ ] `parseISODuration` lê `PT3M45S`, `PT1H2M3S` e `PT45S`; transmissão ao vivo (`P0D`) e texto inválido viram 0, não uma duração falsa.
+- [ ] A URL da busca sai com `type=video`, `videoEmbeddable=true` e a chave na consulta.
+- [ ] A segunda chamada preenche a duração de cada resultado, e o que bate com a duração da música vem marcado.
+- [ ] Entidades HTML do YouTube (`&quot;`, `&#39;`) aparecem decodificadas no título, sem virar `&amp;quot;`.
+- [ ] Cada erro do Google vira instrução: chave inválida aponta Ajustes; cota estourada aponta colar o link; restrição de referenciador aponta o Google Cloud.
+- [ ] Sem chave, o diálogo mostra o aviso com o atalho para Ajustes e a busca recusa explicando — o campo de colar link e o **Procurar no YouTube ↗** continuam ali.
+- [ ] Anexar pelo resultado da busca e anexar pelo link colado gravam os mesmos campos, e os dois zeram o `videoOffset` do vídeo anterior.
+- [ ] Vídeo muito mais longo que a música avisa na hora de anexar (a rolagem sem `.lrc` usa a duração da música).
+- [ ] Os chips **Karaokê**/**Original** abrem marcados e trocam entre si sem apagar o chip ativo dos outros grupos (fonte de busca, forma de controle).
+
+**No aparelho, com chave cadastrada:**
+
+- [ ] Buscar, escolher um resultado e sair do diálogo já com o vídeo salvo — sem abrir o YouTube em nenhum momento.
+- [ ] Tocar o vídeo escolhido: ele embute mesmo (o filtro deveria ter descartado os que não embutem).
+- [ ] Cota estourada de verdade (ou chave apagada): a mensagem aparece e o caminho de colar link continua funcionando.
+
+## 6d. Forma de controle (pedaleira opcional)
+
+**No navegador (automatizado em `v312-test.js`):**
+
+- [ ] Padrão é o modo **toque**: a pedaleira não ocupa espaço, sobram o botão flutuante e o **⋯**.
+- [ ] O **⋯** traz a barra como sobreposição (`position:absolute`) — não empurra o layout, logo não muda a velocidade automática — e um segundo toque fecha.
+- [ ] Com a barra aberta os flutuantes somem, em vez de espiar por cima dela.
+- [ ] No modo **pedaleira** a barra é a de sempre e o **⋯** não aparece.
+- [ ] A escolha fica guardada em `estante:v2:prefs`.
+- [ ] O flutuante é a ação do momento: fora do karaokê rola a letra, dentro toca o vídeo.
+- [ ] Espaço rola a letra **igual** nos dois modos — o modo muda o que é desenhado, nunca o que a tecla faz.
+- [ ] A primeira tecla de pedaleira oferece a barra uma vez; a segunda não insiste, e a oferta feita fica registrada.
+
+**No aparelho:**
+
+- [ ] Ligar um pedal Bluetooth pela primeira vez: aparece a oferta, um toque põe a pedaleira à vista.
+- [ ] Trocar de modo em **Ajustes** e conferir que a velocidade **auto** continua terminando junto com a música (a altura útil da tela mudou).
+- [ ] No modo toque, tocar na letra fecha a barra aberta; deixar parado alguns segundos também.
+
+## 6e. Avisos
+
+- [ ] Com a barra lateral fechada no celular, um aviso do karaokê (por exemplo, tocar Karaokê em modo avião) **aparece na tela**, flutuando acima da pedaleira.
+- [ ] Aviso comum some sozinho depois de alguns segundos; aviso com botão (fonte fora do ar → "Tentar na Inteligente") fica até fechar no ×.
+- [ ] O aviso não bloqueia o toque na letra em volta dele.
 
 ## 7. Arquivos e compartilhamento
 

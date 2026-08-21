@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.11.0";
+const APP_VERSION="3.12.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
  *
  * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
  */
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0};
+const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0,pedalMode:"toque",pedalOffered:false};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
@@ -64,7 +64,28 @@ function fold(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/
 function songIdentity(m){return fold(m&&m.title)+"|"+fold(m&&m.artist)}
 function sameSong(a,b){return songIdentity(a)===songIdentity(b)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function notify(msg,ok=false){$("notice").innerHTML=msg?`<div class="notice ${ok?"ok":""}">${msg}</div>`:""}
+/*
+ * O aviso morava dentro da barra lateral. No celular a lateral fica FORA da
+ * tela (translateX) enquanto uma música está aberta — ou seja, nenhuma
+ * mensagem chegava a quem mais precisa delas: "anúncio tocando", "toque no
+ * vídeo para liberar o som", "fim do repertório". Agora #notice é filho de
+ * <body> e o CSS o põe flutuando acima da pedaleira.
+ *
+ * Some sozinho, com uma exceção: aviso que traz botão espera decisão do
+ * usuário (o atalho "Tentar na Inteligente", em search-ui.js) e por isso ganha
+ * um × em vez de um relógio.
+ */
+let noticeTimer=null;
+const NOTICE_MS_OK=5000,NOTICE_MS_ERRO=9000;
+function notify(msg,ok=false){
+  clearTimeout(noticeTimer);noticeTimer=null;
+  const box=$("notice");if(!box)return;
+  if(!msg){box.innerHTML="";return}
+  const fica=/<button/.test(msg);
+  box.innerHTML=`<div class="notice ${ok?"ok":""}">${msg}${fica?'<button type="button" class="noticeClose" aria-label="Fechar aviso">×</button>':""}</div>`;
+  if(fica)box.querySelector(".noticeClose").onclick=()=>notify("");
+  else noticeTimer=setTimeout(()=>notify(""),ok?NOTICE_MS_OK:NOTICE_MS_ERRO);
+}
 function fmt(sec){if(!sec)return"";const m=Math.floor(sec/60),s=Math.floor(sec%60);return `${m}:${String(s).padStart(2,"0")}`}
 // Lê "3:45", "3.45" ou "225" e devolve segundos. 0 quando não dá para entender.
 function parseClock(text){const t=String(text||"").trim();if(!t)return 0;const m=t.match(/^(\d+)\s*[:.']\s*(\d{1,2})$/);if(m)return +m[1]*60+Math.min(59,+m[2]);const n=t.match(/^\d+$/);return n?+t:0}
@@ -72,13 +93,45 @@ function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=
 // `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
 // daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
 // link compartilhado, nunca enviada a outro serviço.
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
+function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay,pedalMode:state.pedalMode,pedalOffered:state.pedalOffered})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // Rolar e Sincro ficam desabilitados durante o karaokê: os três escreveriam no
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do
 // karaokê é o único jeito de voltar a usá-los — evita o usuário apertar um pedal
 // e nada acontecer, sem entender por quê.
-function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("scrollBtn").disabled=state.karaoke;$("syncBtn").classList.toggle("on",state.syncing);$("syncBtn").disabled=state.karaoke||!state.lrc.length;$("karaokeBtn").classList.toggle("on",state.karaoke&&state.videoPlaying);$("karaokeBtn").querySelector("b").textContent=state.karaoke?(state.videoPlaying?"Pausar":"Tocar"):"Karaokê";$("karaokeExitBtn").hidden=!state.karaoke;$("karaokePlayBtn").hidden=!state.karaoke;$("karaokePlayBtn").textContent=state.videoPlaying?"⏸":"▶";$("karaokePlayBtn").setAttribute("aria-label",state.videoPlaying?"Pausar vídeo":"Tocar vídeo");$("karaokeOffsetQuick").hidden=!state.karaoke;$("stageBtn").textContent=state.stage?"Modo dia":"Modo palco";document.body.classList.toggle("stageMode",state.stage);document.body.classList.toggle("karaokeMode",state.karaoke)}
+function updateControls(){document.documentElement.style.setProperty("--font",state.font+"px");$("speedOut").textContent=state.speed;$("fontOut").textContent=state.font;$("keyOut").textContent=(state.key>0?"+":"")+state.key;$("capoOut").textContent=state.capo;$("autoBtn").classList.toggle("on",state.auto);$("autoBtn").title=state.auto?"Velocidade calculada pela duração da música":"Calcular a velocidade pela duração da música";$("scrollBtn").classList.toggle("on",state.scrolling);$("scrollBtn").querySelector("b").textContent=state.scrolling?"Pausar":"Rolar";$("scrollBtn").disabled=state.karaoke;$("syncBtn").classList.toggle("on",state.syncing);$("syncBtn").disabled=state.karaoke||!state.lrc.length;$("karaokeBtn").classList.toggle("on",state.karaoke&&state.videoPlaying);$("karaokeBtn").querySelector("b").textContent=state.karaoke?(state.videoPlaying?"Pausar":"Tocar"):"Karaokê";$("karaokeExitBtn").hidden=!state.karaoke;$("karaokeOffsetQuick").hidden=!state.karaoke;updateFabs();$("stageBtn").textContent=state.stage?"☼ Dia":"☾ Palco";document.body.classList.toggle("stageMode",state.stage);document.body.classList.toggle("karaokeMode",state.karaoke);document.body.classList.toggle("modoToque",state.pedalMode!=="pedaleira");document.body.classList.toggle("modoPedaleira",state.pedalMode==="pedaleira");document.body.classList.toggle("rolando",state.scrolling||state.syncing||state.videoPlaying)}
+/*
+ * O botão flutuante é "a ação do momento", não mais um botão: no karaokê toca
+ * e pausa o vídeo; com a sincronia ligada, pausa a sincronia; fora disso liga
+ * e desliga a rolagem. Um alvo só, sempre no mesmo canto, é o que torna o app
+ * inteiro operável com o polegar de uma mão.
+ *
+ * No modo pedaleira ele continua aparecendo só durante o karaokê, como na
+ * 3.11.0: quem tem a barra completa à vista já tem os pedais.
+ */
+function fabAction(){
+  if(state.karaoke)return{run:karaokePlayPause,on:state.videoPlaying,label:state.videoPlaying?"Pausar vídeo":"Tocar vídeo"};
+  if(state.syncing)return{run:toggleSync,on:true,label:"Pausar a sincronia"};
+  return{run:toggleScroll,on:state.scrolling,label:state.scrolling?"Pausar a rolagem":"Rolar a letra"};
+}
+function updateFabs(){
+  const toque=state.pedalMode!=="pedaleira",a=fabAction(),fab=$("mainFab");
+  fab.hidden=!(state.karaoke||(toque&&!!state.current));
+  fab.textContent=a.on?"⏸":"▶";
+  fab.setAttribute("aria-label",a.label);
+  $("tweakBtn").hidden=!toque;
+}
+/*
+ * Trocar de forma de controle muda a altura útil da tela: no modo toque a
+ * pedaleira sai do fluxo. A velocidade automática é calculada em cima dessa
+ * altura, então precisa ser refeita — senão a letra continua com a velocidade
+ * da tela antiga.
+ */
+function setPedalMode(modo){
+  state.pedalMode=modo==="pedaleira"?"pedaleira":"toque";
+  updatePrefs();updateControls();
+  if(typeof applyAutoSpeed==="function")applyAutoSpeed();
+}
 
 // Erro com um rótulo de fonte anexado, para a interface poder oferecer "tentar
 // na Inteligente" só quando faz sentido (fonte fora do ar), não em qualquer erro.

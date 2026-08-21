@@ -476,6 +476,7 @@ estante/
 ├── song-prefs.js      # tom, capotraste, velocidade e anotações por música
 ├── autoscroll.js      # velocidade de rolagem calculada pela duração
 ├── player.js          # abrir música, desenhar letra, rolagem, sincronia, arquivos
+├── youtube-search.js  # busca de vídeo pela API do YouTube, com a chave do aparelho
 ├── song-edit.js       # editar a letra de uma música já aberta
 ├── print.js           # impressão da ordem do show
 ├── ui.js              # eventos da interface, atalhos e compartilhamento
@@ -538,7 +539,7 @@ Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp
 
 **Catálogo sem letra não é ganho automático.** Deezer, Apple e MusicBrainz não têm letra: acrescentá-los cria resultado que abre vazio. Eles valem porque devolvem álbum e duração exatos, o que faz o LRCLIB casar no `/api/get` e a lyrics.ovh acertar a grafia. Ao avaliar uma fonte nova, pergunte primeiro se ela traz letra ou se melhora a identificação — se não fizer nem uma coisa nem outra, não entra. O MusicBrainz aceita ~1 consulta por segundo: chamar só uma vez por busca, nunca dentro do laço de variações.
 
-Antes de adicionar uma API, confira com `curl -D-` se ela devolve cabeçalho CORS. Já avaliadas e **descartadas**: ChartLyrics (fora do ar), Musixmatch e Genius (sem CORS e com chave obrigatória), TheAudioDB (campo de letra sempre vazio), lyrics.ovh/suggest (é o Deezer por baixo, redundante).
+Antes de adicionar uma API, confira com `curl -D-` se ela devolve cabeçalho CORS. Já avaliadas e **descartadas**: ChartLyrics (fora do ar), Musixmatch e Genius (sem CORS e com chave obrigatória), TheAudioDB (campo de letra sempre vazio), lyrics.ovh/suggest (é o Deezer por baixo, redundante), Spotify (ver princípio 16).
 
 ### 9. O que está no aparelho é procurado antes da rede
 
@@ -598,6 +599,77 @@ Sem `.lrc` (a maioria das músicas), `karaokeScrollPosition()` não destaca linh
 
 `state.karaoke` (modo) e `state.videoPlaying` (relógio andando) são campos separados de propósito: `videoPlaying` é espelho do que o player informa — nunca chute nosso — porque anúncio, buffer ou um toque dentro do próprio vídeo mudam o estado sem passar pelo app. Nenhum dos dois é persistido: modo de festa não deve voltar sozinho no dia seguinte.
 
+### 15. A pedaleira é opcional, e o modo muda só o que é DESENHADO
+
+`pedalMode` (`estante:v2:prefs`, preferência do aparelho) tem dois valores.
+`"toque"` é o padrão: a `.transport` sai da tela e sobram `#mainFab` — a ação
+do momento, decidida por `fabAction()` em `core.js` — e o `#tweakBtn`, que traz
+a barra de volta como **sobreposição**. Ela é `position:absolute` de propósito:
+abrir e fechar não muda a altura do `.paperViewport`, e a velocidade automática
+é calculada em cima dessa altura. `"pedaleira"` é a barra de sempre, sem
+diferença nenhuma — palco não pode regredir.
+
+O que **nunca** muda com o modo é o teclado: o `keydown` de `ui.js` responde
+igual nos dois. Pedal Bluetooth continua funcionando para quem nunca abriu
+Ajustes. Trocar de modo chama `applyAutoSpeed()` porque a altura útil mudou.
+
+O app não pergunta nada no primeiro uso: `offerPedalMode()` oferece a barra
+**uma vez**, quando chega a primeira tecla de pedaleira, e registra
+`pedalOffered`. Acerta sozinho no palco sem atrapalhar quem só quer ler a letra,
+e não exige que ninguém saiba o que "pedaleira" significa antes de usar o app.
+
+`.chip` é usada por três grupos hoje (fonte de busca, tipo de vídeo, forma de
+controle). Quem varre chips precisa filtrar pelo `data-` do próprio grupo —
+`document.querySelectorAll(".chip")` apagava o `active` dos outros dois.
+
+### 16. Busca de vídeo: a chave é do aparelho e a reserva é obrigatória
+
+`youtube-search.js` fala com a API de dados do YouTube por `fetch()` direto
+(`googleapis.com` devolve cabeçalho CORS, diferente da Apple e da Deezer, que
+exigem JSONP). A chave fica em `keyYT`, só no aparelho, como a do Vagalume:
+nunca no link compartilhado, nunca no arquivo exportado.
+
+A cota gratuita é 10.000 unidades por dia e uma busca custa 100 — daí o cache
+em memória de sessão (nunca `localStorage`, nunca service worker: continua
+valendo não cachear resposta de API) e daí as mensagens de erro precisarem
+dizer o que fazer, não o número do erro.
+
+**Sem chave, o karaokê tem de continuar inteiro.** Colar o link e o
+`Procurar no YouTube ↗` não são resquício: são o caminho de quem não cadastrou
+chave e de quem estourou a cota do dia. Não os remova ao mexer na busca.
+
+`videoEmbeddable=true` é filtrado na origem — vídeo que recusa embutir abre
+preto com a festa esperando. A segunda chamada (`videos.list`, 1 unidade) traz
+a duração, que é o que denuncia o "1 hour loop" e o que permite avisar, ao
+anexar, quando o vídeo é bem mais longo que a música: sem `.lrc` a rolagem usa
+a duração da MÚSICA, então a letra terminaria fora de hora.
+
+### 17. Aviso que ninguém vê é aviso que não existe
+
+`#notice` morava dentro da `.sidebar`, que no celular fica fora da tela
+(`translateX(-101%)`) enquanto uma música está aberta. Resultado: nenhuma
+mensagem chegava a quem tinha o telefone na mão — justamente o público de todas
+as mensagens do karaokê. Agora é filho de `<body>`, `position:fixed` acima da
+pedaleira, e não pode voltar para dentro de `.sidebar` nem de `.stage`
+(`overflow:hidden` cortaria o balão).
+
+`notify()` agenda o sumiço, **menos** quando a mensagem traz `<button>`: aviso
+que pede decisão (o atalho "Tentar na Inteligente") espera o usuário e ganha um
+× no lugar do relógio.
+
+### 18. Spotify: avaliada e descartada
+
+Não reavaliar sem motivo novo. Tocar dentro do app pelo Web Playback SDK exige
+Premium completo (planos mobile-only não servem) **e** carregar
+`sdk.scdn.co/spotify-player.js` na página — script de terceiro, o que o
+`<iframe>` do YouTube justamente não é. O embed grátis toca 30 segundos para
+ouvinte sem Premium, e ler o relógio dele dependeria do `iframe-api` do próprio
+Spotify, script externo de novo. Como catálogo, `api.spotify.com` devolve 401
+sem token: exigiria login para entregar título, artista, álbum e duração, que
+Deezer, Apple e MusicBrainz já dão sem login — e `preview_url` volta nulo para
+apps novos, `audio-features`/`audio-analysis` estão descontinuados para
+cadastros novos, e letra a Spotify não expõe.
+
 ## Modelo de dados
 
 ```js
@@ -615,7 +687,7 @@ Sem `.lrc` (a maioria das músicas), `karaokeScrollPosition()` não destaca linh
   videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)
 ```
 
-Outras chaves: `estante:v2:prefs` (preferências do aparelho — inclui `audioDelay`, o atraso da caixa Bluetooth, e `keyYT`, guardada só no aparelho como a do Vagalume) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
+Outras chaves: `estante:v2:prefs` (preferências do aparelho — inclui `audioDelay`, o atraso da caixa Bluetooth; `keyYT`, guardada só no aparelho como a do Vagalume; e `pedalMode`, a forma de controle) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
 
 Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
@@ -629,7 +701,7 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 
 ## Regras para próximas alterações
 
-1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`; iframe, protocolo e relógio do karaokê em `karaoke.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
+1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`; iframe, protocolo e relógio do karaokê em `karaoke.js`; busca de vídeo e o fluxo do diálogo dela em `youtube-search.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
 2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
 3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
 4. Teste servindo por HTTP; service worker não roda em `file://`.
@@ -641,6 +713,9 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 - Não cachear resposta das APIs de letra.
 - Não guardar a chave do Vagalume nem a do YouTube fora do aparelho, nem enviá-las a outro serviço.
 - Não apagar repertório do usuário em migração ou importação sem confirmação.
+- Não deixar a busca de vídeo sem reserva: sem chave e sem cota, colar link e o atalho do YouTube são o caminho (princípio 16).
+- Não fazer o modo de controle mexer no que as teclas fazem — ele decide só o que aparece na tela (princípio 15).
+- Não devolver `#notice` para dentro da barra lateral (princípio 17).
 - Não transformar preferência do aparelho em ajuste por música (nem o contrário) — `audioDelay` é do aparelho, `videoOffset` é da música, e não é o mesmo engano ao contrário: um não deve nunca escrever no outro.
 - Não carregar `iframe_api` do YouTube nem qualquer script de terceiro na página — o karaokê fala o protocolo `postMessage` na mão (princípio 14). Um bug de sincronia não é motivo para adicionar o script.
 
@@ -659,4 +734,4 @@ Prioridade média:
 3. Duas colunas para letras longas em tablet, ou encaixar a música inteira na tela.
 4. Conversão para IndexedDB quando o repertório crescer.
 5. Lembrete de backup: hoje o repertório vive só no `localStorage`.
-6. Busca de vídeo do YouTube **dentro do app**, com chave da API do YouTube (100 buscas/dia grátis, mesmo modelo de chave só-no-aparelho do Vagalume) — hoje o karaokê só aceita link colado ou o atalho que abre a busca numa aba do YouTube.
+6. Reordenar a fila da festa arrastando, com a marca **vídeo** já visível na lista.

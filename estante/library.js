@@ -3,7 +3,7 @@ function renderList(){
   const data=state.tab==="results"?state.results:state.setlist;$("list").innerHTML="";$("setlistCount").textContent=state.setlist.length;
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===state.tab));
   renderSetlistBar();
-  if(!data.length){$("list").innerHTML=`<div class="empty">${state.tab==="results"?"Busque por artista e música. Use Por trecho quando lembrar apenas uma parte da letra.":"Seu repertório está vazio. Abra uma música e toque em + Repertório."}</div>`;return}
+  if(!data.length){$("list").innerHTML=`<div class="empty">${state.tab==="results"?"Busque por artista e música. Use <b>Trecho</b> quando lembrar só um pedaço da letra — ele procura também no que já está salvo aqui.":"Seu repertório está vazio. Busque uma música, abra e toque em <b>+ Repertório</b> para guardá-la com tom, capo e anotações."}</div>`;return}
   data.forEach((m,i)=>{
     const row=document.createElement("div");row.className="listRow";
     const b=document.createElement("button");b.className="songItem";if(state.tab==="setlist"&&i===state.currentIndex)b.classList.add("current");
@@ -14,7 +14,7 @@ function renderList(){
       if(m.local)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · seu repertório":"no seu repertório"}</span>`);
       else if(m.acervo)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · acervo":"acervo do site"}</span>`);
       else if(m.lyrics&&!m.synced)tags.push('<span class="tag">com letra</span>');
-    }if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
+    }if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.videoId)tags.push('<span class="tag video">vídeo</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     // Na aba de resultados o índice era zerado. Se a música aberta já estava no
     // repertório, "próxima" mandava para a PRIMEIRA do show em vez da seguinte

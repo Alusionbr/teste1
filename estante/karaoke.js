@@ -192,7 +192,7 @@ function karaokeNudgeDelay(deltaMs){
   const v=Math.max(0,Math.min(500,Math.round((Number(state.audioDelay)||0)+deltaMs)));
   state.audioDelay=v;
   updatePrefsSoon();
-  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
+  if(typeof updateDelayOut==="function")updateDelayOut();
   notify(`Atraso da caixa Bluetooth: ${v} ms.`,true);
 }
 
@@ -338,9 +338,40 @@ async function fetchVideoTitle(id){
   const d=await r.json();
   return{title:String(d.title||""),author:String(d.author_name||"")};
 }
-function youtubeSearchUrl(song){
-  const q=`${song&&song.artist||""} ${song&&song.title||""} karaokê`.trim();
-  return "https://www.youtube.com/results?search_query="+encodeURIComponent(q);
+function youtubeSearchUrl(song,modo){
+  return "https://www.youtube.com/results?search_query="+encodeURIComponent(karaokeQuery(song,modo));
+}
+
+/*
+ * Anexar um vídeo à música aberta.
+ *
+ * Estava dentro do submit do diálogo, em ui.js. Agora são DOIS caminhos até
+ * aqui — o link colado e o resultado da busca — e a regra do projeto é que em
+ * ui.js fiquem só os eventos. Um lugar só também garante que os dois caminhos
+ * gravem exatamente os mesmos campos e deem o mesmo aviso.
+ *
+ * `videoOffset` volta a zero de propósito: a sincronia era do vídeo ANTERIOR,
+ * e herdá-la faria a letra entrar torta logo no primeiro play do vídeo novo.
+ */
+function attachVideoToSong(id,meta){
+  if(!state.current||!id)return;
+  state.current.videoId=id;state.current.videoOffset=0;
+  rememberSongPref("videoId",id);rememberSongPref("videoOffset",0);
+  if(typeof updateKaraokeDialogFields==="function")updateKaraokeDialogFields();
+  const titulo=(meta&&meta.title)?`: ${esc(meta.title)}`:".";
+  notify(`Vídeo salvo nesta música${titulo}${avisoDuracao(meta&&meta.duration)}`,true);
+  if(state.karaoke)karaokeOnSongChange();
+}
+/*
+ * Sem `.lrc`, karaokeScrollPosition() rola pela fração da duração da MÚSICA,
+ * não da do vídeo. Um vídeo bem mais longo (vinheta, contagem, "1 hour loop")
+ * faz a letra terminar fora de hora, e hoje isso só se descobre ouvindo. Dizer
+ * na hora de anexar é o único momento em que dá para consertar sem pressa.
+ */
+function avisoDuracao(durVideo){
+  const durMusica=Number(state.current&&state.current.duration)||0;
+  if(!durVideo||!durMusica||Math.abs(durVideo-durMusica)<=20)return "";
+  return ` Atenção: o vídeo dura ${fmt(durVideo)} e esta música está registrada com ${fmt(durMusica)} — sem letra sincronizada a rolagem usa a duração da música, então pode terminar fora de hora. Ajuste em Sincronia desta música se precisar.`;
 }
 
 window.addEventListener("message",ytOnMessage);

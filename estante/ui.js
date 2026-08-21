@@ -17,9 +17,26 @@ $("importAddBtn").onclick=()=>finishImport("add");
 $("importReplaceBtn").onclick=()=>finishImport("replace");
 $("notesBtn").onclick=()=>{if(!state.current)return;$("notesText").value=state.current.notes||"";$("notesDialog").showModal()};
 $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;saveSongNotes($("notesText").value.trim());$("notesDialog").close();e.preventDefault()});
-$("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();else releaseAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("helpBtn").onclick=()=>$("helpDialog").showModal();
+$("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();else releaseAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=openSettings;$("helpBtn").onclick=()=>$("helpDialog").showModal();
 $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;const text=$("pasteText").value;if(!text.trim()){e.preventDefault();return $("pasteText").focus()}const sync=hasLRC(text);openSong({title:$("pasteTitle").value.trim()||"Letra colada",artist:$("pasteArtist").value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"colado"});$("pasteDialog").close();e.preventDefault()});
-$("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
+$("sourcesForm").addEventListener("submit",e=>{
+  if(e.submitter?.value==="cancel")return;
+  e.preventDefault();
+  state.keyVag=$("vagalumeKey").value.trim();
+  state.keyYT=$("youtubeKey").value.trim();
+  updatePrefs();$("sourcesDialog").close();
+  notify(state.keyVag||state.keyYT?"Ajustes salvos neste aparelho.":"Chaves removidas deste aparelho.",true);
+});
+function openSettings(){
+  $("vagalumeKey").value=state.keyVag;$("youtubeKey").value=state.keyYT;
+  updateDelayOut();syncPedalChips();
+  $("sourcesDialog").showModal();
+}
+function syncPedalChips(){document.querySelectorAll("[data-pedal-mode]").forEach(b=>b.classList.toggle("active",b.dataset.pedalMode===state.pedalMode))}
+document.querySelectorAll("[data-pedal-mode]").forEach(b=>b.onclick=()=>{setPedalMode(b.dataset.pedalMode);syncPedalChips()});
+// O atraso da caixa é do aparelho, então saiu do diálogo do karaokê (que é por
+// música) e foi para Ajustes. O <output> é o mesmo, só mudou de endereço.
+function updateDelayOut(){$("karaokeDelayOut").textContent=(Number(state.audioDelay)||0)+" ms"}
 $("exportBtn").onclick=exportSetlist;$("importBtn").onclick=()=>$("importFile").click();$("importFile").onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
 
 // --- Karaokê ---
@@ -40,9 +57,8 @@ function updateKaraokeDialogFields(){
   // controle rápido da barra de transporte — os dois mostram sempre o mesmo
   // valor, sem duplicar a lógica de leitura.
   document.querySelectorAll(".karaokeOffsetOutput").forEach(o=>o.textContent=(Number(state.current&&state.current.videoOffset)||0).toFixed(1)+"s");
-  $("karaokeDelayOut").textContent=(Number(state.audioDelay)||0)+" ms";
   $("karaokeLinkInput").value="";
-  $("karaokeSearchLink").href=youtubeSearchUrl(state.current);
+  refreshYoutubeSearchUI();
   $("karaokeRemoveBtn").hidden=!id;
 }
 function openKaraokeDialog(){
@@ -56,7 +72,28 @@ $("karaokeSettingsBtn").onclick=openKaraokeDialog;
 // diálogo faz isso. Tocar/pausar perto do vídeo é o mesmo comando de sempre,
 // só um alvo de toque a mais, mais perto do polegar.
 $("karaokeExitBtn").onclick=exitKaraoke;
-$("karaokePlayBtn").onclick=karaokePlayPause;
+// Um alvo só, sempre no mesmo canto: quem decide o que ele faz agora é
+// fabAction() (core.js), não este clique.
+$("mainFab").onclick=()=>fabAction().run();
+/*
+ * A barra sob demanda é a PRÓPRIA pedaleira, mostrada como sobreposição — não
+ * uma segunda barra com os mesmos botões. Assim ordem, rótulos, LEDs e as
+ * ligações de evento continuam sendo os mesmos, e nada precisa ser duplicado.
+ * Como ela é absoluta, abrir e fechar não muda a altura do viewport, ou seja
+ * não mexe na velocidade automática.
+ */
+const BARRA_MS=6000;
+let barraTimer=null;
+function fecharBarra(){clearTimeout(barraTimer);barraTimer=null;document.body.classList.remove("barraAberta")}
+function adiarFechoDaBarra(){clearTimeout(barraTimer);barraTimer=setTimeout(fecharBarra,BARRA_MS)}
+function alternarBarra(){
+  if(document.body.classList.contains("barraAberta"))return fecharBarra();
+  document.body.classList.add("barraAberta");adiarFechoDaBarra();
+}
+$("tweakBtn").onclick=alternarBarra;
+// Mexer em qualquer controle renova o prazo: ninguém deve ver a barra sumir no
+// meio de um ajuste de tom.
+document.querySelector(".transport").addEventListener("pointerdown",()=>{if(document.body.classList.contains("barraAberta"))adiarFechoDaBarra()});
 $("karaokeForm").addEventListener("submit",e=>{
   if(e.submitter?.value==="cancel")return;
   e.preventDefault();
@@ -64,14 +101,12 @@ $("karaokeForm").addEventListener("submit",e=>{
   if(!raw){$("karaokeDialog").close();return}
   const id=parseVideoId(raw);
   if(!id)return notify("Não reconheci esse link do YouTube. Cole o link completo ou o id do vídeo.");
-  state.current.videoId=id;state.current.videoOffset=0;
-  rememberSongPref("videoId",id);rememberSongPref("videoOffset",0);
+  attachVideoToSong(id);
   $("karaokeDialog").close();
-  notify("Vídeo salvo nesta música.",true);
   // Confirmação do título é só cortesia, e não bloqueia o resto: o oEmbed pode
   // falhar (vídeo particular, removido) sem que o vídeo salvo deixe de tocar.
+  // O caminho da busca não precisa disto: lá o título já veio na lista.
   fetchVideoTitle(id).then(info=>notify(`Vídeo confirmado: ${esc(info.title)}${info.author?" · "+esc(info.author):""}`,true)).catch(err=>notify(err.message||"Não consegui confirmar este vídeo — confira se o link está certo."));
-  if(state.karaoke)karaokeOnSongChange();
 });
 $("karaokeRemoveBtn").onclick=()=>{
   if(!state.current)return;
@@ -80,6 +115,15 @@ $("karaokeRemoveBtn").onclick=()=>{
   if(state.karaoke)exitKaraoke();
   updateKaraokeDialogFields();
   notify("Vídeo removido desta música.",true);
+};
+$("karaokeSearchBtn").onclick=runYoutubeSearch;
+$("karaokeSearchInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();runYoutubeSearch()}});
+document.querySelectorAll("[data-yt-mode]").forEach(b=>b.onclick=()=>setYoutubeMode(b.dataset.ytMode));
+$("karaokeOpenSettings").onclick=()=>{$("karaokeDialog").close();openSettings()};
+$("karaokeResults").onclick=e=>{
+  const b=e.target.closest(".ytResult");if(!b)return;
+  attachVideoToSong(b.dataset.videoId,{title:b.dataset.videoTitle,duration:Number(b.dataset.videoDuration)||0});
+  $("karaokeDialog").close();
 };
 document.querySelectorAll("[data-video-offset]").forEach(b=>b.onclick=()=>karaokeNudgeOffset(Number(b.dataset.videoOffset)));
 document.querySelectorAll("[data-audio-delay]").forEach(b=>b.onclick=()=>karaokeNudgeDelay(Number(b.dataset.audioDelay)));
@@ -263,7 +307,25 @@ document.addEventListener("visibilitychange",()=>{
  * a nossa própria ação — dois efeitos por um toque, ou seja, nenhum efeito
  * (liga e desliga na mesma tecla).
  */
+/*
+ * Em vez de perguntar no primeiro uso o que a pessoa nem sabe responder ainda,
+ * o app começa no modo toque e descobre sozinho: chegou tecla de pedaleira,
+ * ele oferece a barra UMA vez. Acerta no palco sem atrapalhar quem só abriu
+ * para ler a letra. A escolha explícita continua em Ajustes.
+ *
+ * Importante: isto muda só o que é DESENHADO. As teclas já funcionavam e
+ * continuam funcionando nos dois modos, ofertada ou não.
+ */
+const TECLAS_PEDALEIRA=[" ","Enter","ArrowLeft","ArrowRight","ArrowUp","ArrowDown","PageUp","PageDown"];
+function offerPedalMode(key){
+  if(state.pedalMode==="pedaleira"||state.pedalOffered||!TECLAS_PEDALEIRA.includes(key))return;
+  state.pedalOffered=true;updatePrefs();
+  notify('Parece que você está usando pedal ou teclado. Quer a pedaleira à vista na tela? <button type="button" id="showPedalBtn">Mostrar pedaleira</button>',true);
+  const b=$("showPedalBtn");
+  if(b)b.onclick=()=>{setPedalMode("pedaleira");notify("Pedaleira à vista. Dá para voltar ao modo toque em Ajustes.",true)};
+}
 document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;
+  offerPedalMode(e.key);
   if(state.karaoke){
     switch(e.key){
       case" ":case"Enter":e.preventDefault();karaokePlayPause();return;
@@ -278,6 +340,7 @@ document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.ta
 // Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
 // antes seguia correndo enquanto o toque reposicionava a música sem avisar.
 $("paperViewport").addEventListener("pointerdown",()=>{
+  fecharBarra();
   if(state.scrolling){toggleScroll();pausouNoToque=true}
   else if(state.syncing){toggleSync();pausouNoToque=true}
   // Sem .lrc, a letra rola sozinha pela posição do vídeo (karaokeScrollPosition,
@@ -293,4 +356,4 @@ $("paperViewport").addEventListener("scroll",()=>{
   if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 },{passive:true});
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;state.pedalMode=p.pedalMode==="pedaleira"?"pedaleira":"toque";state.pedalOffered=!!p.pedalOffered;document.querySelectorAll(".chip[data-source]").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();

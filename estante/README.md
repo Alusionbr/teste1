@@ -13,12 +13,14 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | **Busca no aparelho** | Toda busca procura antes no repertório salvo e no acervo do site — inclusive **dentro do texto da letra**. Responde na hora, funciona offline e é a única busca por trecho que não depende do Vagalume. O que já está no aparelho vem primeiro, com a sua letra e os seus ajustes. |
 | **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
 | **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) não abre mais vazia: o app tenta o acervo do site e depois a `lyrics.ovh`, que não pede chave. |
-| **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas e a duração estimada. |
+| **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas, a duração estimada e quantas já têm vídeo — as com vídeo levam a marca **vídeo** na lista, para montar a fila da festa sem abrir uma por uma. |
 | **Ajustes por música** | Tom, capotraste, velocidade de rolagem e anotações ficam salvos em cada música do repertório. O tamanho da letra é global. |
 | **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio. Encostar na letra **pausa**; para começar de outro ponto, **toque duas vezes** na linha. |
 | **Velocidade automática** | O botão **auto** calcula a velocidade pela duração da música, para a letra terminar junto com ela. Recalcula sozinho ao mudar o tamanho da letra ou girar a tela; mexer no −/+ volta ao manual. Se a versão não tiver duração, o app pergunta. |
 | **Editar letra** | Corrige verso errado, apaga lixo da fonte e guarda o arranjo da banda, sem perder tom, capotraste, velocidade nem anotações. |
 | **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` escritos na letra viram botões acima do texto: um toque e a letra rola até lá. Funciona também em letra sincronizada, e com a rolagem ligada o salto é imediato — com a sincronia, o relógio vai junto. |
+| **Forma de controle** | O app começa **no modo toque**: sem pedaleira na tela, um botão grande no canto com a ação do momento (Rolar/Pausar, ou Tocar/Pausar no karaokê) e uma barra que sobe ao tocar no **⋯**. Na primeira vez que chega tecla de pedal ou teclado, ele oferece mostrar a **pedaleira** completa — um toque e fica assim. Dá para escolher a qualquer momento em **Ajustes**. As teclas funcionam igual nos dois modos: o que muda é só o que aparece na tela. |
+| **Avisos** | As mensagens do app flutuam sobre a letra, acima da pedaleira, e somem sozinhas — as que pedem decisão ficam até você fechar. Antes moravam na barra lateral, que no celular fica fora da tela: os avisos do karaokê nunca chegavam a quem estava com o telefone na mão. |
 | **Modo palco** | Fundo escuro de alto contraste e tela sempre acesa (wake lock). |
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
 | **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. |
@@ -51,10 +53,16 @@ celular — ver aviso abaixo), projetor espelhando a tela.
 ### Como ligar
 
 1. Abra a música e toque no pedal **⚙** ao lado de Karaokê.
-2. Cole o link do vídeo (aceita link comum, `youtu.be`, `/embed/`, YouTube
-   Music, ou só o id de 11 caracteres) e confirme em **Usar este vídeo**. Sem
-   chave de API nesta versão: o botão **Procurar no YouTube ↗** abre a busca
-   pronta numa aba nova, para copiar o link de lá.
+2. **Busque o vídeo ali mesmo.** A consulta já vem pronta com o artista e o
+   nome da música; os chips **Karaokê** e **Original** trocam entre a versão
+   sem voz e o clipe. Cada resultado mostra o canal e a duração, e o que tiver
+   a duração da gravação certa vem marcado com *duração bate*. Só aparecem
+   vídeos que aceitam ser embutidos — os que abririam pretos ficam de fora.
+   Precisa da chave gratuita do YouTube (veja abaixo).
+   Sem chave, ou com a cota do dia esgotada: cole o link em **Ou cole o link
+   do vídeo** (aceita link comum, `youtu.be`, `/embed/`, YouTube Music, ou só
+   o id de 11 caracteres), ou use **Procurar no YouTube ↗**, que abre a busca
+   pronta numa aba. Depois confirme em **Usar este vídeo**.
 3. Toque no pedal **Karaokê**. Se o navegador recusar tocar sozinho (comum no
    iPhone na primeira vez), toque diretamente no vídeo — depois disso o app
    consegue trocar de música sozinho pelo resto da sessão.
@@ -129,12 +137,32 @@ do próprio YouTube: aí sim seria script externo dentro do app. O protocolo é
 falado na mão — conferido no código-fonte público do `www-widgetapi.js` do
 Google — nunca com `targetOrigin:"*"`.
 
+### A chave do YouTube
+
+A busca de vídeo dentro do app usa a API de dados do YouTube. A chave é
+gratuita: no [Google Cloud](https://console.cloud.google.com/), crie um
+projeto, ative a *YouTube Data API v3* e gere uma chave de API. Cole em
+**Ajustes → Fontes de busca → Chave da API do YouTube**.
+
+- O plano gratuito dá 10.000 unidades por dia e cada busca custa 100 — cerca
+  de **100 buscas diárias**, de sobra para montar o repertório de uma festa.
+  Repetir a mesma consulta na mesma sessão não gasta de novo.
+- A chave fica **somente neste aparelho**, igual à do Vagalume: não vai no
+  link compartilhado, não vai no arquivo exportado, não é enviada a nenhum
+  outro serviço.
+- No painel do Google vale restringir a chave por *referenciador HTTP* para o
+  endereço onde você abre o Estante — assim, se ela vazar, não serve a mais
+  ninguém.
+- Quando a cota acaba, a mensagem diz isso e aponta o caminho de colar o link;
+  o karaokê não para de funcionar por causa disso.
+
 ### Fica de fora desta versão
 
-Busca de vídeo **dentro do app** com chave da API do YouTube (existe API
-gratuita, 100 buscas/dia, mesmo modelo de chave-só-no-aparelho do Vagalume) —
-colar link e o atalho de busca externa já cobrem o essencial sem exigir
-cadastro no Google. Fica anotado para uma versão futura.
+Integração com a **Spotify**. Foi avaliada: tocar dentro do app exige Premium
+completo e carregar um script do próprio Spotify na página (as duas coisas
+contra os princípios do projeto); o embed grátis toca 30 segundos; e usá-la só
+como catálogo exigiria login para devolver menos do que Deezer, Apple e
+MusicBrainz já devolvem sem login nenhum.
 
 ## Arquivos
 
@@ -151,6 +179,7 @@ song-prefs.js      tom, capotraste, velocidade e anotações por música
 autoscroll.js      velocidade de rolagem calculada pela duração
 player.js          abrir música, desenhar a letra, rolagem, sincronia e arquivos
 karaoke.js         modo karaokê: iframe do YouTube, protocolo, relógio extrapolado
+youtube-search.js  busca de vídeo pela API do YouTube, com a chave do aparelho
 song-edit.js       editar a letra de uma música já aberta
 print.js           impressão da ordem do show
 ui.js              eventos da interface, atalhos e compartilhamento
@@ -164,7 +193,7 @@ sw.js              cache do app para funcionar offline
 | Chave | Conteúdo |
 |---|---|
 | `estante:v3:setlists` | `{version:3, activeId, setlists:[{id, name, date, songs}]}` |
-| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
+| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, forma de controle (toque/pedaleira), chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
 | `estante:v2:setlist` | formato antigo (um repertório só); migrado automaticamente e mantido como backup |
 
 Campos de cada música:

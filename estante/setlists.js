@@ -84,5 +84,8 @@ function renderSetlistBar(){
     sel.appendChild(o);
   });
   const songs=state.setlist;
-  summary.textContent=songs.length?`${songs.length} música${songs.length===1?"":"s"} · ${durationLabel(songs)}`:"Repertório vazio.";
+  // Quantas já têm vídeo importa para montar a fila da festa: sem isso só dá
+  // para saber abrindo uma por uma.
+  const comVideo=songs.filter(x=>x.videoId).length;
+  summary.textContent=songs.length?`${songs.length} música${songs.length===1?"":"s"} · ${durationLabel(songs)}${comVideo?` · ${comVideo} com vídeo`:""}`:"Repertório vazio.";
 }

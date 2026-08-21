@@ -9,12 +9,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.11.0">
+  <link rel="stylesheet" href="./styles.css?v=3.12.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
 </head>
 <body>
+<!-- Os avisos ficam FORA da barra lateral e fora de .stage: a lateral sai da
+     tela no celular (translateX) e .stage tem overflow:hidden, que cortaria o
+     balão. Filho de <body>, posicionado por CSS acima da pedaleira. -->
+<div id="notice" aria-live="polite"></div>
+
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
@@ -30,8 +35,6 @@
       <button class="chip" data-source="lrclib">Sincro</button>
       <button class="chip" data-source="excerpt">Trecho</button>
     </div>
-
-    <div id="notice" aria-live="polite"></div>
 
     <nav class="tabs">
       <button class="tab active" data-tab="results">Resultados</button>
@@ -54,7 +57,7 @@
 
     <footer class="sidebarFooter">
       <button id="pasteBtn">Colar letra</button>
-      <button id="sourcesBtn">Fontes</button>
+      <button id="sourcesBtn">Ajustes</button>
       <button id="shareBtn">Compartilhar</button>
       <button id="exportBtn">Exportar</button>
       <button id="importBtn">Importar</button>
@@ -76,7 +79,7 @@
         <button id="editBtn" disabled>Editar letra</button>
         <button id="notesBtn" disabled>Anotações</button>
         <button id="stageBtn">Modo palco</button>
-        <button id="fullscreenBtn">Tela cheia</button>
+        <button id="fullscreenBtn">⛶ Tela</button>
       </div>
     </header>
 
@@ -89,7 +92,10 @@
         <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>A busca inteligente consulta várias fontes, combina versões e coloca os resultados mais prováveis primeiro.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
       </article>
       <footer class="credits" id="credits"></footer>
-      <div class="karaokeStickyBottom"><button type="button" class="karaokeOverlayBtn karaokeFab" id="karaokePlayBtn" aria-label="Tocar vídeo" hidden>▶</button></div>
+      <div class="karaokeStickyBottom">
+        <button type="button" class="karaokeOverlayBtn overlayLeft" id="tweakBtn" aria-label="Mostrar controles" title="Mostrar controles" hidden>⋯</button>
+        <button type="button" class="karaokeOverlayBtn karaokeFab" id="mainFab" aria-label="Rolar a letra" hidden>▶</button>
+      </div>
     </section>
 
     <footer class="transport">
@@ -122,8 +128,16 @@
 
 <dialog id="sourcesDialog">
   <form method="dialog" class="modal" id="sourcesForm">
-    <header><h2>Fontes</h2><button value="cancel">×</button></header>
+    <header><h2>Ajustes</h2><button value="cancel">×</button></header>
+    <h3 class="modalSection">Este aparelho</h3>
+    <div class="fieldRow"><span>Como você controla o app</span><div class="sources" role="group" aria-label="Forma de controle"><button type="button" class="chip" data-pedal-mode="toque">Toque na tela</button><button type="button" class="chip" data-pedal-mode="pedaleira">Pedaleira ou teclado</button></div></div>
+    <p>No modo <b>toque</b> a pedaleira sai da tela e sobra espaço para a letra: fica um botão grande com a ação do momento e uma barra que sobe quando você pede. No modo <b>pedaleira</b> a barra completa fica à vista, com os LEDs de cada pedal. As teclas e o pedal Bluetooth funcionam igual nos dois.</p>
+    <div class="control karaokeControl"><span>Atraso da caixa Bluetooth</span><button type="button" data-audio-delay="-20">−</button><output id="karaokeDelayOut">0 ms</output><button type="button" data-audio-delay="20">+</button></div>
+    <p>O atraso da caixa corrige o som que chega depois da imagem no karaokê. Vale para todas as músicas.</p>
+    <h3 class="modalSection">Fontes de busca</h3>
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
+    <label>Chave da API do YouTube<input id="youtubeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
+    <p>A chave do YouTube libera a busca de vídeo dentro do app, sem abrir outra aba. É gratuita no Google Cloud e dá cerca de 100 buscas por dia. Como a do Vagalume, fica somente neste aparelho e nunca vai no link compartilhado — vale restringi-la por referenciador no painel do Google.</p>
     <p><b>Inteligente</b> consulta em paralelo o LRCLIB, o Vagalume, o Deezer, o catálogo da Apple e o MusicBrainz, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
     <p>Letra vem do LRCLIB (a única com sincronia), do Vagalume, do acervo deste site e, como reserva, da lyrics.ovh. Deezer, Apple e MusicBrainz não têm letra: servem para identificar a faixa e descobrir álbum e duração — é o que permite às outras acharem a letra certa.</p>
     <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho. Procurar por um pedaço da letra depende dele: as outras fontes comparam título, artista e álbum, nunca o texto. Nesse caso o app ainda procura no seu repertório e no acervo, que guardam a letra inteira.</p>
@@ -166,6 +180,8 @@
     <p><b>Sem internet:</b> depois da primeira abertura o app funciona offline e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não.</p>
     <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
     <p><b>Importar:</b> mostra o que vem no arquivo antes de mexer em qualquer coisa. <b>Adicionar</b> mantém o que já está no aparelho; <b>Substituir</b> troca tudo.</p>
+    <p><b>Controles na tela:</b> o app começa sem a pedaleira, com um botão grande no canto fazendo a ação do momento e o <b>⋯</b> abrindo os demais controles quando você precisa. Se você usa pedal ou teclado, ele oferece a pedaleira completa na primeira tecla — e dá para escolher quando quiser em <b>Ajustes</b>.</p>
+    <p><b>Karaokê:</b> abra o <b>⚙</b> ao lado do pedal Karaokê e busque o vídeo ali mesmo. Com a chave gratuita do YouTube cadastrada em Ajustes, a busca acontece dentro do app; sem ela, cole o link do vídeo.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
@@ -220,11 +236,19 @@
   <form method="dialog" class="modal" id="karaokeForm">
     <header><h2>Karaokê</h2><button value="cancel">×</button></header>
     <p id="karaokeCurrentVideo"></p>
-    <label>Link do vídeo no YouTube<input id="karaokeLinkInput" placeholder="Cole o link ou o id do vídeo" autocomplete="off"></label>
+    <div class="ytSearch">
+      <div class="ytSearchRow">
+        <input id="karaokeSearchInput" placeholder="Buscar vídeo no YouTube" autocomplete="off" aria-label="Buscar vídeo no YouTube">
+        <button type="button" class="accent" id="karaokeSearchBtn">Buscar</button>
+      </div>
+      <div class="sources" role="group" aria-label="Tipo de vídeo"><button type="button" class="chip active" data-yt-mode="karaoke">Karaokê</button><button type="button" class="chip" data-yt-mode="original">Original</button></div>
+      <p class="karaokeHelp" id="karaokeNoKey" hidden>A busca aqui dentro precisa da chave gratuita do YouTube. <button type="button" id="karaokeOpenSettings">Cadastrar em Ajustes</button></p>
+      <div id="karaokeResults" class="ytResults" hidden></div>
+    </div>
+    <label>Ou cole o link do vídeo<input id="karaokeLinkInput" placeholder="Cole o link ou o id do vídeo" autocomplete="off"></label>
     <p><a id="karaokeSearchLink" href="#" target="_blank" rel="noopener">Procurar no YouTube ↗</a></p>
-    <div class="control karaokeControl"><span>Atraso da caixa Bluetooth</span><button type="button" data-audio-delay="-20">−</button><output id="karaokeDelayOut">0 ms</output><button type="button" data-audio-delay="20">+</button></div>
     <div class="control karaokeControl"><span>Sincronia desta música</span><button type="button" data-video-offset="-0.5">−</button><output id="karaokeOffsetOut" class="karaokeOffsetOutput">0.0s</output><button type="button" data-video-offset="0.5">+</button></div>
-    <p class="karaokeHelp">O atraso da caixa vale para todas as músicas; a sincronia é só desta.</p>
+    <p class="karaokeHelp">A sincronia é só desta música. O atraso da caixa Bluetooth, que vale para todas, fica em Ajustes.</p>
     <footer><button type="button" class="remove" id="karaokeRemoveBtn" hidden>Remover vídeo</button><button value="cancel">Fechar</button><button class="accent" id="karaokeAttachBtn" value="default">Usar este vídeo</button></footer>
   </form>
 </dialog>
@@ -239,19 +263,20 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.11.0" defer></script>
-<script src="./search-engine.js?v=3.11.0" defer></script>
-<script src="./library.js?v=3.11.0" defer></script>
-<script src="./acervo.js?v=3.11.0" defer></script>
-<script src="./setlists.js?v=3.11.0" defer></script>
-<script src="./song-prefs.js?v=3.11.0" defer></script>
-<script src="./autoscroll.js?v=3.11.0" defer></script>
-<script src="./player.js?v=3.11.0" defer></script>
-<script src="./karaoke.js?v=3.11.0" defer></script>
-<script src="./song-edit.js?v=3.11.0" defer></script>
-<script src="./print.js?v=3.11.0" defer></script>
-<script src="./ui.js?v=3.11.0" defer></script>
-<script src="./search-ui.js?v=3.11.0" defer></script>
-<script src="./offline.js?v=3.11.0" defer></script>
+<script src="./core.js?v=3.12.0" defer></script>
+<script src="./search-engine.js?v=3.12.0" defer></script>
+<script src="./library.js?v=3.12.0" defer></script>
+<script src="./acervo.js?v=3.12.0" defer></script>
+<script src="./setlists.js?v=3.12.0" defer></script>
+<script src="./song-prefs.js?v=3.12.0" defer></script>
+<script src="./autoscroll.js?v=3.12.0" defer></script>
+<script src="./player.js?v=3.12.0" defer></script>
+<script src="./karaoke.js?v=3.12.0" defer></script>
+<script src="./youtube-search.js?v=3.12.0" defer></script>
+<script src="./song-edit.js?v=3.12.0" defer></script>
+<script src="./print.js?v=3.12.0" defer></script>
+<script src="./ui.js?v=3.12.0" defer></script>
+<script src="./search-ui.js?v=3.12.0" defer></script>
+<script src="./offline.js?v=3.12.0" defer></script>
 </body>
 </html>
