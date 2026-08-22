@@ -9,6 +9,7 @@ Publicado pelo GitHub Pages a partir da raiz: <https://alusionbr.github.io/teste
 | Ferramenta | Pasta | Para que serve |
 |---|---|---|
 | **Estante** | [`estante/`](estante/) | Letras e cifras no palco: busca em várias fontes, repertórios offline, rolagem automática, sincronia, transposição e impressão da ordem do show. Instalável no celular. |
+| **Agora** | [`agora/`](agora/) | Organizador de tarefas pensado para quem tem TDAH: captura em uma linha, uma tarefa por vez na tela, escolha por energia e tempo disponível, timer de foco com calibragem da noção de tempo, rotinas e modo calmo. Instalável no celular. |
 | **Controle360 Multi** | [`controle360/`](controle360/) | Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios. |
 
 Cada ferramenta tem o seu próprio README com detalhes de uso.
@@ -18,7 +19,7 @@ Cada ferramenta tem o seu próprio README com detalhes de uso.
 - **Publicado:** abra o endereço acima e escolha a ferramenta.
 - **Local:** clone o repositório e sirva a pasta por HTTP, por exemplo `python3 -m http.server`, depois abra `http://localhost:8000`.
 
-Abrir os arquivos direto pelo `file://` funciona para o Controle360, mas o Estante perde o modo offline: o navegador só aceita service worker em `http`/`https`.
+Abrir os arquivos direto pelo `file://` funciona para o Controle360, mas o Estante e o Agora perdem o modo offline: o navegador só aceita service worker em `http`/`https`.
 
 ## Estrutura
 
@@ -28,7 +29,9 @@ hub/styles.css      visual da página de ferramentas
 hub/tools.js        lista das ferramentas (HUB_TOOLS)
 estante/            aplicativo de letras e cifras
 controle360/        aplicativo de estoque e custos
+agora/              organizador de tarefas para TDAH
 tools/make-icons.js gerador dos ícones PNG do Estante (Node puro)
+tools/make-icons-agora.js gerador dos ícones PNG do Agora (Node puro)
 ```
 
 ## Publicar uma ferramenta nova

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Agora">
+  <rect width="512" height="512" rx="112" fill="#0d1117"/>
+  <!-- o ponto grande é a tarefa do momento; as barras atrás são o resto da
+       lista, deliberadamente menores e apagadas -->
+  <circle cx="186" cy="256" r="74" fill="#7ee0b8"/>
+  <rect x="298" y="176" width="118" height="26" rx="13" fill="#7ee0b8" opacity="0.55"/>
+  <rect x="298" y="243" width="90" height="26" rx="13" fill="#7ee0b8" opacity="0.35"/>
+  <rect x="298" y="310" width="62" height="26" rx="13" fill="#7ee0b8" opacity="0.2"/>
+</svg>

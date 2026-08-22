@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR" data-tema="escuro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="Organizador de tarefas pensado para quem tem TDAH: captura rápida, uma tarefa por vez, escolha por energia e tempo disponível, timer de foco e nada de culpa.">
+  <title>Agora — organizador de tarefas para mentes que dispersam</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./styles.css?v=1.0.0">
+</head>
+<body>
+
+<div class="cabecalho">
+<header class="topo">
+  <div class="marca">
+    <h1>Agora</h1>
+    <p>uma coisa por vez</p>
+  </div>
+
+  <!-- Captura fica no cabeçalho de propósito: qualquer ideia entra de onde
+       você estiver, sem trocar de tela e sem preencher formulário. -->
+  <form id="formCaptura" class="captura" autocomplete="off">
+    <input id="campoCaptura" type="text" maxlength="200"
+           placeholder="Apareceu na cabeça? Escreva aqui e aperte Enter"
+           aria-label="Anotar uma tarefa nova">
+    <button type="submit" class="primario">Guardar</button>
+  </form>
+
+  <div class="topo-acoes">
+    <button type="button" id="btnCalmo" class="fantasma" aria-pressed="false" title="Esconde tudo menos a tarefa do momento (tecla C)">Modo calmo</button>
+  </div>
+</header>
+
+<p class="dica-captura" id="dicaCaptura">
+  Atalhos ao escrever: <code>#casa</code> área · <code>20m</code> ou <code>1h</code> tempo ·
+  <code>@baixa</code> energia · <code>hoje</code> / <code>amanhã</code> · <code>12/09</code> prazo
+</p>
+
+<nav class="abas" id="abas" aria-label="Telas do organizador">
+  <button class="aba ativa" data-tela="agora">Agora</button>
+  <button class="aba" data-tela="hoje">Hoje</button>
+  <button class="aba" data-tela="lista">Lista</button>
+  <button class="aba" data-tela="rotinas">Rotinas</button>
+  <button class="aba" data-tela="ajustes">Ajustes</button>
+</nav>
+</div>
+
+<main id="main">
+  <section id="tela-agora" class="tela" aria-live="polite"></section>
+  <section id="tela-hoje" class="tela oculta"></section>
+  <section id="tela-lista" class="tela oculta"></section>
+  <section id="tela-rotinas" class="tela oculta"></section>
+  <section id="tela-ajustes" class="tela oculta"></section>
+</main>
+
+<footer class="rodape">
+  <p>Tudo fica guardado só neste aparelho. Faça backup em <b>Ajustes → Backup</b> antes de limpar os dados do navegador.</p>
+  <p id="rodapeVersao"></p>
+</footer>
+
+<datalist id="listaProjetos"></datalist>
+<!-- O campo de arquivo mora aqui, e não dentro da tela de Ajustes: a tela é
+     redesenhada a cada mudança, e o ouvinte do backup, ligado uma vez no
+     início, ficaria preso a um elemento já descartado. -->
+<input type="file" id="arquivoImportar" accept="application/json,.json" hidden>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="./src/core.js?v=1.0.0"></script>
+<script src="./src/model.js?v=1.0.0"></script>
+<script src="./src/engine.js?v=1.0.0"></script>
+<script src="./src/focus.js?v=1.0.0"></script>
+<script src="./src/routines.js?v=1.0.0"></script>
+<script src="./src/views.js?v=1.0.0"></script>
+<script src="./src/views-gestao.js?v=1.0.0"></script>
+<script src="./src/backup.js?v=1.0.0"></script>
+<script src="./src/app.js?v=1.0.0"></script>
+</body>
+</html>

@@ -10,7 +10,9 @@ hub/styles.css        visual da página de ferramentas
 hub/tools.js          lista das ferramentas: array HUB_TOOLS
 estante/              aplicativo de letras e cifras para palco (PWA)
 controle360/          aplicativo de estoque, custos, vendas e consignado
+agora/                organizador de tarefas pensado para TDAH (PWA)
 tools/make-icons.js   gera os ícones PNG do Estante com a zlib do Node
+tools/make-icons-agora.js  gera os ícones PNG do Agora, mesma técnica
 .github/workflows/    publica a raiz no GitHub Pages a cada push na main
 ```
 
@@ -21,7 +23,7 @@ Regras gerais:
 - Nada de servidor, login, banco externo ou biblioteca de terceiros: JavaScript puro, offline.
 - Cada ferramenta guarda os dados no armazenamento local do navegador e oferece exportação.
 
-As duas seções abaixo detalham cada ferramenta: primeiro o **Controle360 Multi**, depois o **Estante**.
+As seções abaixo detalham cada ferramenta: primeiro o **Controle360 Multi**, depois o **Estante**, depois o **Agora**.
 
 ---
 
@@ -660,3 +662,145 @@ Prioridade média:
 4. Conversão para IndexedDB quando o repertório crescer.
 5. Lembrete de backup: hoje o repertório vive só no `localStorage`.
 6. Busca de vídeo do YouTube **dentro do app**, com chave da API do YouTube (100 buscas/dia grátis, mesmo modelo de chave só-no-aparelho do Vagalume) — hoje o karaokê só aceita link colado ou o atalho que abre a busca numa aba do YouTube.
+
+---
+
+# Agora (`agora/`)
+
+## Finalidade
+
+Organizador de tarefas para quem tem TDAH. A dificuldade que ele ataca não é
+lembrar do que fazer: é **iniciar**, **escolher** e **estimar tempo**. Lista
+longa com prazo vencido em vermelho piora as três — ela cobra, e cobrança faz
+fechar o app.
+
+Documentação de uso: `agora/README.md`. Roteiro de teste: `agora/checklist-manual.md`.
+
+## Arquivos
+
+```txt
+agora/
+├── index.html            estrutura da tela
+├── styles.css            visual, temas e modo calmo
+├── src/core.js           APP_VERSION, estado, localStorage e datas
+├── src/model.js          o que é uma tarefa: criar, interpretar a frase, mudar de estado
+├── src/engine.js         escolha da próxima tarefa, calibragem de tempo e estatísticas
+├── src/focus.js          timer de foco, sessões, som e aviso
+├── src/routines.js       rotinas, histórico e sequência tolerante
+├── src/views.js          peças comuns e as telas Agora e Hoje
+├── src/views-gestao.js   telas Lista, Rotinas e Ajustes
+├── src/backup.js         exportar/restaurar JSON e CSV
+├── src/app.js            navegação, eventos, atalhos e tick do timer
+├── sw.js                 cache do casco (offline)
+├── manifest.webmanifest / icon.svg / icon-192.png / icon-512.png
+├── README.md
+└── checklist-manual.md
+```
+
+Sem módulos: os scripts entram em ordem no `index.html` e cada um publica o que
+expõe em `window.Agora`. Arquivo novo entra no `index.html` **e** no `SHELL` de
+`sw.js`.
+
+## Princípios obrigatórios
+
+### 1. Versão única
+
+`APP_VERSION` em `src/core.js`, `VERSION` em `sw.js` e o `?v=` das tags do
+`index.html` andam juntos. Alterou qualquer arquivo do Agora, bumpe os três —
+senão o service worker segue servindo a versão antiga.
+
+### 2. Offline sem exceção
+
+Nenhum recurso externo na página e nenhuma chamada de rede, nunca. É isso que
+torna seguro escrever qualquer coisa da vida pessoal ali dentro.
+
+### 3. O timer conta por horário, nunca por soma de ticks
+
+`decorridoMs()` é sempre `agora − início − pausado`. Aba escondida ou celular
+bloqueado não podem roubar minutos. A sessão é gravada assim que começa —
+fechar a aba no meio é o caso comum, não a exceção — e `recuperarAoAbrir()`
+fecha a conta de uma sessão esquecida (mais de 4h: registra o planejado, não o
+tempo de parede).
+
+### 4. Gravar é caro
+
+`salvar()` serializa o estado inteiro. Ajuste que se repete usa
+`salvarLogo()`; o que não pode se perder grava na hora; `fecharConta()` fecha
+as gravações adiadas em `pagehide` e ao esconder a aba.
+
+### 5. Campo de texto não redesenha a tela ao sair
+
+O `change` de um campo de texto dispara no *blur* — no meio do clique que a
+pessoa deu em um botão. Redesenhar ali troca o botão entre o apertar e o
+soltar, e o clique se perde. Texto grava e não redesenha; `select` e data
+podem redesenhar. O tick do timer também nunca redesenha: ele troca só o texto
+do relógio e a largura da barra.
+
+### 6. Nada é apagado por engano
+
+`solta` é um estado, não exclusão. Concluir, soltar e capturar oferecem
+**desfazer** no aviso. Restaurar backup sempre pergunta antes de substituir.
+
+### 7. A linguagem não cobra
+
+Nada de "atrasado", "pendências", contador vermelho ou score de
+produtividade. Data virada é "ficou para trás há 3 dias"; tarefa parada vira
+oferta de ajuda (quebrar em passo menor, remarcar, soltar). Isso é regra de
+produto: vergonha é o que faz abandonar a ferramenta.
+
+### 8. Triagem nunca é obrigatória
+
+Tarefa sem estimativa continua aparecendo na tela Agora, com penalidade de
+nota e os chips de tempo/energia no próprio cartão. Quem só despeja ideias
+precisa continuar sendo atendido.
+
+## Modelo de dados
+
+Tudo em `localStorage["agora:v1:dados"]`.
+
+```js
+{
+  versao: 1,
+  tarefas: [{ id, titulo, notas, projeto, energia, minutos, dia, prazo,
+              passos:[{id,texto,feito}], status, gasto, adiada, ondeParei,
+              criadoEm, atualizadoEm, feitoEm }],
+  rotinas: [{ id, nome, quando, dias, feitos:["YYYY-MM-DD"], criadoEm }],
+  sessoes: [{ id, tarefaId, titulo, inicio, fim, minutos, planejado }],
+  foco: { tarefaId, titulo, tipo, inicio, planejado, pausadoEm, pausadoMs, alarmado } | null,
+  prefs: { tema, calmo, texto, animacoes, som, avisos, limiteHoje, tempoDisponivel, energia },
+  meta: { criadoEm, versaoApp }
+}
+```
+
+`status`: `entrada` (falta tempo e/ou energia) → `ativa` → `feita` | `solta`.
+Captura que já traz tempo e energia nasce `ativa`.
+
+Fórmulas que importam:
+
+```txt
+nota da sugestão = dia + prazo + cabe no tempo + energia compatível
+                 + tem primeiro passo + já começou + adiamentos + idade
+fator de estimativa = soma(tempo real) / soma(estimado), em tarefas concluídas
+                      com estimativa e cronômetro (mínimo 3 amostras)
+previsão corrigida = estimativa × fator
+```
+
+## Regras para próximas alterações
+
+1. Sugestão, calibragem e estatística em `engine.js`; o que é uma tarefa em
+   `model.js`; timer em `focus.js`; rotinas em `routines.js`. Não empilhe
+   regra em `app.js` — lá ficam só os eventos.
+2. Alterou o formato do dado? Atualize as funções `normalizar*`, o backup e o
+   `agora/README.md`.
+3. Bumpe a versão nos três lugares e inclua arquivo novo no `SHELL` do `sw.js`.
+4. Teste servindo por HTTP; service worker não roda em `file://`.
+5. Rode `agora/checklist-manual.md` antes de publicar.
+
+## Não fazer
+
+- Não adicionar biblioteca externa, CDN ou fonte remota.
+- Não mandar nada para servidor nenhum.
+- Não criar contador de atraso, alerta vermelho ou score de produtividade.
+- Não redesenhar a tela dentro do tick do timer nem no `change` de campo de texto.
+- Não exigir triagem para a tarefa aparecer.
+- Não transformar preferência do aparelho em ajuste por tarefa (nem o contrário).

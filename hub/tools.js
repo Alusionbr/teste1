@@ -17,6 +17,13 @@ const HUB_TOOLS = [
     status: "ativo"
   },
   {
+    name: "Agora",
+    tagline: "Organizador de tarefas para quem tem TDAH: captura em uma linha, uma tarefa por vez, escolha por energia e tempo disponível, timer de foco e nada de culpa.",
+    href: "./agora/",
+    tags: ["tarefas", "foco", "TDAH", "offline", "instalável"],
+    status: "ativo"
+  },
+  {
     name: "Controle360 Multi",
     tagline: "Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios.",
     href: "./controle360/",
