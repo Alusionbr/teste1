@@ -187,6 +187,16 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 ## 7. Arquivos e compartilhamento
 
+**Compartilhar sem deixar o toque sem resposta (automatizado em `share-test.js`):**
+
+- [ ] Enquanto o link está sendo calculado, **Copiar link**, **Só a ordem** e **Com as letras** ficam os três travados. Antes só "Com as letras" travava: tocar em "Só a ordem" nesse intervalo fechava o diálogo e não fazia nada — em aparelho mais lento, a janela para errar é grande.
+- [ ] Tocar antes da hora avisa e mantém o diálogo aberto, em vez de fechar calado.
+- [ ] Compartilhamento recusado pelo aparelho (`AbortError`, que no Android também significa "não consegui abrir a folha") mantém o diálogo aberto e oferece **Copiar link**.
+- [ ] Aparelho sem `navigator.share` copia o link e diz que copiou.
+- [ ] Só o sucesso fecha o diálogo.
+- [ ] **No aparelho, Android e iPhone:** tocar em Compartilhar → Com as letras abre a folha do sistema; cancelar não deixa a tela muda; e **Copiar link** funciona mesmo quando a folha não abre.
+
+
 - [ ] **Exportar** baixa um JSON com todos os repertórios.
 - [ ] **Importar** mostra o diálogo antes de mexer em qualquer coisa, dizendo o que vem no arquivo e o que seria apagado.
 - [ ] **Adicionar** mantém os repertórios do aparelho e acrescenta os do arquivo.

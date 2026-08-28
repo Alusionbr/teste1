@@ -224,28 +224,77 @@ const LINK_LONGO=8000;
 // "0 mil caracteres" para um link de 430 não informa nada: só arredondar depois
 // que o número passa a ser grande o bastante para importar.
 function tamanhoLink(url){return url.length<2000?`${url.length} caracteres`:`${(url.length/1000).toFixed(1)} mil caracteres`}
+let linkCompleto="",linkSimples="",ultimoLink="";
+// Enquanto os dois links estão sendo montados NÃO existe link para mandar.
+// Antes só "Com as letras" era travado: tocar em "Só a ordem" nesse intervalo
+// fechava o diálogo e não fazia nada — nem link, nem aviso. Num aparelho mais
+// lento a janela de erro é bem maior, e o efeito é o toque não responder.
+function habilitarShare(pronto){
+  $("shareFullBtn").disabled=!pronto;
+  $("shareListOnlyBtn").disabled=!pronto;
+  $("shareCopyBtn").disabled=!pronto;
+}
 async function openShareDialog(){
   if(!state.setlist.length)return notify("Adicione músicas ao repertório antes de compartilhar.");
   $("shareSummary").textContent="Calculando o tamanho do link…";
-  $("shareWarn").hidden=true;$("shareFullBtn").disabled=true;
+  $("shareWarn").hidden=true;$("shareFallback").hidden=true;
+  habilitarShare(false);
   $("shareDialog").showModal();
   const [completo,simples]=await Promise.all([makeShareUrl(true),makeShareUrl(false)]);
   linkCompleto=completo;linkSimples=simples;
   const comLetra=state.setlist.filter(s=>s.lyrics||s.synced).length;
   $("shareSummary").textContent=`${state.setlist.length} música${state.setlist.length===1?"":"s"}, ${comLetra} com letra guardada. Com as letras o link fica com ${tamanhoLink(completo)} e abre sem internet; só a ordem fica com ${tamanhoLink(simples)} e quem receber precisa buscar cada letra.`;
-  $("shareFullBtn").disabled=false;
+  habilitarShare(true);
   if(completo.length>LINK_LONGO){
     $("shareWarn").hidden=false;
     $("shareWarn").textContent="Link longo: alguns aplicativos cortam links desse tamanho ao colar. Se chegar quebrado do outro lado, use Exportar e mande o arquivo.";
   }
 }
-let linkCompleto="",linkSimples="";
+/*
+ * Compartilhar não pode terminar em silêncio.
+ *
+ * Duas coisas mudaram aqui, as duas por causa de aparelhos em que o botão
+ * "não fazia nada":
+ *
+ * 1. O diálogo só fecha depois que o compartilhamento DEU CERTO. Antes fechava
+ *    de saída, então qualquer falha deixava o usuário sem janela, sem link e
+ *    sem explicação.
+ * 2. `AbortError` deixou de ser tratado como "o usuário desistiu, não diga
+ *    nada". No iPhone é isso mesmo; no Android o Chrome devolve o MESMO erro
+ *    quando não consegue abrir a folha de compartilhamento — e aí o silêncio
+ *    vira um botão morto. Como não dá para distinguir os dois casos, o diálogo
+ *    fica aberto oferecendo copiar o link, que serve nos dois.
+ *
+ * Copiar precisa do próprio toque: a permissão de área de transferência não
+ * sobrevive ao await do navigator.share. Por isso o botão Copiar link existe
+ * em vez de uma tentativa automática depois da falha.
+ */
 async function shareSetlist(comLetras){
-  $("shareDialog").close();
-  const url=comLetras?linkCompleto:linkSimples;if(!url)return;
+  const url=comLetras?linkCompleto:linkSimples;
+  if(!url)return notify("O link ainda está sendo preparado. Toque de novo em um instante.");
+  ultimoLink=url;
   const title=`Repertório Estante · ${state.setlist.length} músicas`,text=comLetras?`Repertório com ${state.setlist.length} músicas e as letras — abre sem internet.`:`Repertório com ${state.setlist.length} músicas na ordem do show.`;
-  if(navigator.share){try{await navigator.share({title,text,url});notify("Repertório compartilhado.",true);return}catch(e){if(e?.name==="AbortError")return}}
-  const ok=await copyText(url);notify(ok?"Link do repertório copiado. Cole no WhatsApp ou onde quiser.":"Não consegui copiar automaticamente. Use Exportar como alternativa.",ok)
+  const dados={title,text,url};
+  // canShare existe no Android e no iOS recentes; onde não existe, tentar é a
+  // única forma de saber.
+  if(navigator.share&&(!navigator.canShare||navigator.canShare(dados))){
+    try{
+      await navigator.share(dados);
+      $("shareDialog").close();
+      return notify("Repertório compartilhado.",true);
+    }catch(e){return mostrarReservaDoLink(e)}
+  }
+  const ok=await copyText(url);
+  if(ok){$("shareDialog").close();return notify("Link do repertório copiado. Cole no WhatsApp ou onde quiser.",true)}
+  mostrarReservaDoLink(null);
+}
+function mostrarReservaDoLink(erro){
+  const box=$("shareFallback");
+  box.hidden=false;
+  box.textContent=erro&&erro.name&&erro.name!=="AbortError"
+    ? "Este aparelho não abriu a tela de compartilhamento. Toque em Copiar link e cole onde quiser."
+    : "Não compartilhou. Toque em Copiar link e cole onde quiser, ou use Exportar e mande o arquivo.";
+  if(!$("shareDialog").open)$("shareDialog").showModal();
 }
 async function readSharedLink(){
   const hash=location.hash;
@@ -283,6 +332,16 @@ function finishSharedImport(mode){
   incomingSetlist=null;incomingName=""
 }
 $("shareBtn").onclick=openShareDialog;$("shareCloseBtn").onclick=()=>$("shareDialog").close();$("shareFullBtn").onclick=()=>shareSetlist(true);$("shareListOnlyBtn").onclick=()=>shareSetlist(false);
+// Copiar é o caminho que funciona em qualquer aparelho, inclusive onde a folha
+// de compartilhamento do sistema não abre. Copia a última forma escolhida; sem
+// escolha ainda, a completa, que é a que abre sem internet do outro lado.
+$("shareCopyBtn").onclick=async()=>{
+  const url=ultimoLink||linkCompleto||linkSimples;
+  if(!url)return notify("O link ainda está sendo preparado. Toque de novo em um instante.");
+  const ok=await copyText(url);
+  if(ok)$("shareDialog").close();
+  notify(ok?"Link do repertório copiado. Cole no WhatsApp ou onde quiser.":"Não consegui copiar neste aparelho. Use Exportar e mande o arquivo.",ok);
+};
 $("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);incomingSetlist=null;incomingName=""};$("sharedAddBtn").onclick=()=>finishSharedImport("add");$("sharedNewBtn").onclick=()=>finishSharedImport("new");
 
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
