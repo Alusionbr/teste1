@@ -472,6 +472,7 @@ estante/
 ├── acervo.js          # acervo do site: letras que moram no repositório
 ├── acervo.json        # conteúdo do acervo (vem vazio; ver estante/acervo.md)
 ├── library.js         # lista, ordem do repertório, LRC, cifras, transposição, seções
+├── ensaio.js          # ensaio de coral: naipe (voz) e repetição de trecho em laço
 ├── setlists.js        # vários repertórios: criar, trocar, migrar e persistir
 ├── song-prefs.js      # tom, capotraste, velocidade e anotações por música
 ├── autoscroll.js      # velocidade de rolagem calculada pela duração
@@ -657,6 +658,61 @@ pedaleira, e não pode voltar para dentro de `.sidebar` nem de `.stage`
 que pede decisão (o atalho "Tentar na Inteligente") espera o usuário e ganha um
 × no lugar do relógio.
 
+### 19. Coral: a voz é do aparelho, o laço é do momento
+
+Terceiro uso do app, depois de palco e festa: **várias pessoas lendo o mesmo
+texto ao mesmo tempo, cada uma com uma parte diferente**. Duas ferramentas em
+`ensaio.js`, as duas sem rede — ensaio de coral acontece em salão de igreja,
+onde o sinal não chega.
+
+**Naipe.** `classify()` já transformava `[Sopranos]` em seção; o que `ensaio.js`
+acrescenta é a distinção entre uma seção que diz QUEM CANTA e uma que diz QUE
+PARTE É. `naipeDe()` devolve `""` para `[Refrão]`, `[Ponte]`, `[Todos]`,
+`[Coro]`, `[Solo]` — e também para seção desconhecida, de propósito: devolver
+um naipe para um `[Coral Feminino]` qualquer esmaeceria metade do hino sem
+motivo. A única exceção é a voz que a própria pessoa cadastrou.
+
+As outras vozes ficam **esmaecidas, nunca escondidas**. Cantor precisa ver o
+que o outro naipe faz para saber quando entra; sumir com o texto quebraria a
+contagem. E trocar de voz **não redesenha a letra** (`aplicarNaipe()` só
+alterna classes): o texto não pode piscar no meio do ensaio.
+
+`naipe` é preferência do APARELHO, como `pedalMode` e `audioDelay` — o
+repertório é o mesmo para o coral inteiro, o que muda é quem lê. Não vai no
+link compartilhado nem no arquivo exportado.
+
+**Laço.** `state.loop` repete a seção em que você está, do marcador até o
+próximo. Não é persistido: laço é do momento, e `stopAll()` o desliga junto com
+o resto. Fecha de um jeito por modo, sempre reaproveitando o que existe —
+`seekSync()` no Sincro e no karaokê com `.lrc` (ele já sabe mandar `karaokeSeek`
+em vez de mexer no relógio interno), e a proporção de `karaokeScrollPosition()`
+ao contrário quando não há `.lrc`, que é aproximado porque sem letra temporizada
+o app nunca soube em que segundo cada verso cai.
+
+Dois cuidados que o laço exige e que não são óbvios: `loopRolagem()` devolve
+`true` quando cuidou do quadro, para o `tick()` não chamar `atScrollEnd()` e
+desligar a rolagem num trecho que termina na última linha; e `contarVolta()`
+abre uma janela de espera de 700ms, porque o `seekTo` do YouTube não é
+instantâneo e sem ela o contador subiria dezenas de vezes por repetição.
+
+### 20. Compartilhar não pode terminar em silêncio
+
+Relato de campo: em alguns Android o compartilhamento "não abre". Não era
+conflito de plataforma — eram dois caminhos mudos, os dois mais fáceis de
+acertar num aparelho lento, que é por que o iPhone escapava.
+
+Enquanto os links são montados **não existe link para mandar**: os três botões
+do diálogo ficam travados, e tocar antes da hora avisa em vez de fechar. Antes
+só "Com as letras" travava, e "Só a ordem" caía num `return` mudo **depois** de
+o diálogo já ter fechado.
+
+`AbortError` **não** é sinônimo de "o usuário desistiu". No iPhone é; no Android
+o Chrome devolve o mesmo erro quando não consegue abrir a folha de
+compartilhamento. Como os dois casos são indistinguíveis, o diálogo fica aberto
+oferecendo **Copiar link**, que serve nos dois — e copiar precisa do próprio
+toque, porque a permissão de área de transferência não sobrevive ao `await` do
+`navigator.share`. O diálogo só fecha quando deu certo.
+
 ### 18. Spotify: avaliada e descartada
 
 Não reavaliar sem motivo novo. Tocar dentro do app pelo Web Playback SDK exige
@@ -687,7 +743,7 @@ cadastros novos, e letra a Spotify não expõe.
   videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)
 ```
 
-Outras chaves: `estante:v2:prefs` (preferências do aparelho — inclui `audioDelay`, o atraso da caixa Bluetooth; `keyYT`, guardada só no aparelho como a do Vagalume; e `pedalMode`, a forma de controle) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
+Outras chaves: `estante:v2:prefs` (preferências do aparelho — inclui `audioDelay`, o atraso da caixa Bluetooth; `keyYT`, guardada só no aparelho como a do Vagalume; `pedalMode`, a forma de controle; e `naipe`/`soMinhaVoz`, a voz de quem lê) e `estante:v2:setlist` (formato antigo, mantido como backup após a migração).
 
 Cifras exibidas = `transposeLine(linha, key - capo)`, via `chordShift()`.
 
@@ -701,7 +757,7 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 
 ## Regras para próximas alterações
 
-1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`; iframe, protocolo e relógio do karaokê em `karaoke.js`; busca de vídeo e o fluxo do diálogo dela em `youtube-search.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
+1. Cálculo de cifra, LRC, seções e ordenação do repertório ficam em `library.js`; ajuste por música em `song-prefs.js`; velocidade automática em `autoscroll.js`; edição de letra em `song-edit.js`; persistência de repertório em `setlists.js`; iframe, protocolo e relógio do karaokê em `karaoke.js`; busca de vídeo e o fluxo do diálogo dela em `youtube-search.js`; naipe e laço de ensaio em `ensaio.js`. Não empilhe lógica nova em `ui.js` — lá ficam só os eventos.
 2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
 3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
 4. Teste servindo por HTTP; service worker não roda em `file://`.
@@ -716,6 +772,9 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 - Não deixar a busca de vídeo sem reserva: sem chave e sem cota, colar link e o atalho do YouTube são o caminho (princípio 16).
 - Não fazer o modo de controle mexer no que as teclas fazem — ele decide só o que aparece na tela (princípio 15).
 - Não devolver `#notice` para dentro da barra lateral (princípio 17).
+- Não esconder a voz dos outros naipes — esmaecer é o ponto (princípio 19).
+- Não persistir o laço de ensaio nem mandá-lo no link compartilhado.
+- Não deixar um toque em Compartilhar sem resposta na tela (princípio 20).
 - Não transformar preferência do aparelho em ajuste por música (nem o contrário) — `audioDelay` é do aparelho, `videoOffset` é da música, e não é o mesmo engano ao contrário: um não deve nunca escrever no outro.
 - Não carregar `iframe_api` do YouTube nem qualquer script de terceiro na página — o karaokê fala o protocolo `postMessage` na mão (princípio 14). Um bug de sincronia não é motivo para adicionar o script.
 
@@ -725,6 +784,7 @@ Prioridade alta:
 
 1. Metrônomo com tap tempo e BPM por música (`AudioContext` com oscilador, sem arquivo de áudio, para não quebrar o offline).
 2. Reordenar o repertório arrastando.
+3. Tela compartilhada de ensaio: encaixar o hino inteiro na tela do projetor, sem rolagem, para o coral todo ler junto.
 3. Mostrar o tom pelo nome da nota (`Sol → Lá`) em vez de `+2`, deduzindo o tom original das cifras.
 
 Prioridade média:

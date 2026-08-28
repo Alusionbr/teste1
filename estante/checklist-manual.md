@@ -185,6 +185,30 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Aviso comum some sozinho depois de alguns segundos; aviso com botão (fonte fora do ar → "Tentar na Inteligente") fica até fechar no ×.
 - [ ] O aviso não bloqueia o toque na letra em volta dele.
 
+## 6f. Ensaio de coral
+
+**No navegador (automatizado em `v313-test.js`):**
+
+- [ ] `naipeDe()` casa plural e singular, acento e numeração: "Sopranos", "Contralto 2", "Altos", "1ª Voz", "2a voz", "Segunda Voz".
+- [ ] `[Refrão]`, `[Ponte]`, `[Final]`, `[Todos]`, `[Coro]`, `[Solo]` e `[Uníssono]` **não** são naipe — são de todo mundo.
+- [ ] Seção desconhecida (`[Coral Feminino]`) também não vira naipe, senão esmaeceria meio hino sem motivo; mas a voz que a própria pessoa cadastrou vale.
+- [ ] Cada linha herda o naipe da seção acima; seção estrutural zera a herança.
+- [ ] Trocar de voz troca o que fica esmaecido **sem redesenhar a letra** (comparar as referências dos nós — não pode piscar no meio do ensaio).
+- [ ] O realce convive com `.active`/`.past` da sincronia.
+- [ ] A tira traz **⟳** e **Minha voz** antes das seções; só as seções de naipe são marcadas, e a sua ganha destaque. Música sem naipe não ganha o botão de voz.
+- [ ] Laço na rolagem: volta ao começo do trecho, conta uma volta por volta (não uma por quadro) e trata sozinho o trecho que termina na última linha, sem desligar a rolagem.
+- [ ] Laço no Sincro: volta o relógio. No karaokê com `.lrc`: manda `seekTo` ao vídeo **sem** mexer no relógio interno. Sem `.lrc`: converte linha em tempo proporcional.
+- [ ] `stopAll()` (Esc) e trocar de música desligam o laço; ele não é salvo em lugar nenhum. A voz, sim, fica no aparelho.
+- [ ] Música sem seção explica como marcar, em vez de não fazer nada.
+- [ ] A tecla **R** liga e desliga.
+
+**No ensaio, com o coral:**
+
+- [ ] Digitar um hino em **Colar letra** com `[Sopranos]`/`[Contraltos]` e conferir que cada pessoa vê a parte dela realçada no próprio aparelho.
+- [ ] Repetir o refrão algumas vezes com a rolagem ligada e conferir o contador.
+- [ ] Repetir um trecho com o karaokê ligado (playback no YouTube) e conferir que o vídeo volta junto com a letra.
+- [ ] Trocar de voz em Ajustes no meio do hino: o texto não pisca e o realce muda na hora.
+
 ## 7. Arquivos e compartilhamento
 
 **Compartilhar sem deixar o toque sem resposta (automatizado em `share-test.js`):**

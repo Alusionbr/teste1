@@ -38,10 +38,36 @@ function renderSectionBar(){
   const marcas=state.lines.map((l,i)=>({l,i})).filter(x=>x.l.type==="section");
   bar.hidden=marcas.length<2;
   if(bar.hidden)return;
+  const meu=meuNaipe();
+  // ⟳ repete a seção em que você está: é o gesto mais repetido de um ensaio
+  // ("de novo, do refrão"), e por isso não pede para marcar começo e fim.
+  const laco=document.createElement("button");
+  laco.type="button";laco.className="secLoop"+(state.loop?" on":"");
+  // "0×" antes da primeira volta é ruído: o número só aparece quando existe.
+  laco.textContent=state.loop&&state.loop.voltas?`⟳ ${state.loop.voltas}×`:"⟳";
+  laco.title=state.loop?"Parar de repetir":"Repetir esta seção";
+  laco.setAttribute("aria-label",laco.title);
+  laco.onclick=toggleLoop;
+  bar.appendChild(laco);
+  // Só aparece em música que marca naipe: num repertório de banda não faria
+  // sentido nenhum ocupar espaço na tira.
+  if(musicaTemNaipes()){
+    const voz=document.createElement("button");
+    voz.type="button";voz.className="secVoz"+(state.soMinhaVoz&&meu?" on":"");
+    voz.textContent=meu?"Minha voz":"Escolher voz";
+    voz.title=meu?"Realçar só a sua voz":"Escolha a sua voz em Ajustes";
+    voz.onclick=()=>meu?toggleMinhaVoz():openSettings();
+    bar.appendChild(voz);
+  }
   marcas.forEach(({l,i})=>{
     const b=document.createElement("button");
     b.type="button";b.textContent=l.text;
-    b.onclick=()=>scrollToLine(i);
+    if(l.naipe)b.classList.add("secNaipe");
+    if(l.naipe&&l.naipe===meu)b.classList.add("secMinha");
+    if(state.loop&&i===state.loop.de)b.classList.add("secLaco");
+    // Com o laço ligado, tocar em outra seção move o laço para ela — no ensaio
+    // a próxima frase é sempre "agora da ponte".
+    b.onclick=()=>{scrollToLine(i);if(state.loop)ligarLoop(i)};
     bar.appendChild(b);
   });
 }

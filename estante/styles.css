@@ -254,3 +254,30 @@ body.rolando .karaokeOverlayBtn:hover,body.rolando .karaokeOverlayBtn:focus-visi
 body.karaokeMode .headerActions #fullscreenBtn{display:inline-block}
 
 @media(max-width:560px){.headerActions button{font-size:11px}}
+
+/* ==========================================================================
+   3.13.0 — ensaio de coral: naipe e repetição de trecho
+   ========================================================================== */
+
+/* A voz das outras pessoas fica esmaecida, nunca escondida: quem canta precisa
+   ver o que o outro naipe faz para saber quando entra. Vem depois de
+   .past{opacity:.52} de propósito — a voz alheia manda na opacidade mesmo em
+   letra sincronizada. */
+.outraVoz{opacity:.34}
+.lineLyric.section.minhaVoz{color:var(--chord);border-color:currentColor}
+body.stageMode .lineLyric.section.minhaVoz,body.karaokeMode .lineLyric.section.minhaVoz{color:var(--accent)}
+
+/* Tira de seções: o laço e a voz vêm antes das seções, e as seções de naipe se
+   distinguem das estruturais (refrão, ponte) porque respondem a outra pergunta
+   — quem canta, não que parte é. */
+.sectionBar .secLoop,.sectionBar .secVoz{font-weight:800}
+.sectionBar .secLoop.on,.sectionBar .secVoz.on{color:var(--accent);border-color:#5a4726;background:#2a2418}
+.sectionBar .secNaipe{border-style:dashed}
+.sectionBar .secMinha{color:var(--accent);border-color:#5a4726;border-style:solid}
+.sectionBar .secLaco{background:#2a2418;border-color:var(--accent)}
+
+/* Campo livre da voz, ao lado dos chips das quatro comuns. */
+.chipsWrap{flex-wrap:wrap}
+.chipsWrap .chip{flex:1 0 auto;min-width:74px}
+.fieldRow input{display:block;width:100%;margin-top:8px;padding:9px 11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;outline:none}
+.fieldRow input:focus{border-color:var(--accent)}

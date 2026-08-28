@@ -21,6 +21,8 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` escritos na letra viram botões acima do texto: um toque e a letra rola até lá. Funciona também em letra sincronizada, e com a rolagem ligada o salto é imediato — com a sincronia, o relógio vai junto. |
 | **Forma de controle** | O app começa **no modo toque**: sem pedaleira na tela, um botão grande no canto com a ação do momento (Rolar/Pausar, ou Tocar/Pausar no karaokê) e uma barra que sobe ao tocar no **⋯**. Na primeira vez que chega tecla de pedal ou teclado, ele oferece mostrar a **pedaleira** completa — um toque e fica assim. Dá para escolher a qualquer momento em **Ajustes**. As teclas funcionam igual nos dois modos: o que muda é só o que aparece na tela. |
 | **Avisos** | As mensagens do app flutuam sobre a letra, acima da pedaleira, e somem sozinhas — as que pedem decisão ficam até você fechar. Antes moravam na barra lateral, que no celular fica fora da tela: os avisos do karaokê nunca chegavam a quem estava com o telefone na mão. |
+| **Coral: sua voz** | Escreva `[Sopranos]`, `[Contraltos]`, `[Tenor]`, `[Baixos]` ou `[2ª Voz]` numa linha da letra e escolha a sua voz em **Ajustes**. As entradas dos outros naipes ficam **esmaecidas, não escondidas** — dá para ver o que a outra voz faz e saber quando você entra. A escolha é do aparelho: o repertório é o mesmo para o coral inteiro, o que muda é quem lê. |
+| **Repetir trecho** | **⟳** na tira de seções (ou a tecla **R**) repete em laço a seção em que você está, do marcador até o próximo. Funciona com a rolagem, com o Sincro e com o karaokê, e conta as voltas. Com o laço ligado, tocar em outra seção leva o laço para ela. O laço é do momento: sair da música ou apertar Esc desliga. |
 | **Modo palco** | Fundo escuro de alto contraste e tela sempre acesa (wake lock). |
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
 | **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. Onde a tela de compartilhamento do sistema não abre (acontece em alguns Android), o botão **Copiar link** sempre funciona. |
@@ -174,6 +176,7 @@ search-engine.js   busca inteligente: várias fontes, variações, ranqueamento 
 acervo.js          acervo do site: letras que moram no repositório
 acervo.json        conteúdo do acervo (vem vazio; ver acervo.md)
 library.js         lista, ordenação do repertório, LRC, cifras, transposição e seções
+ensaio.js          ensaio de coral: naipe (voz) e repetição de trecho em laço
 setlists.js        vários repertórios: criar, trocar, migrar e persistir
 song-prefs.js      tom, capotraste, velocidade e anotações por música
 autoscroll.js      velocidade de rolagem calculada pela duração
@@ -193,7 +196,7 @@ sw.js              cache do app para funcionar offline
 | Chave | Conteúdo |
 |---|---|
 | `estante:v3:setlists` | `{version:3, activeId, setlists:[{id, name, date, songs}]}` |
-| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, forma de controle (toque/pedaleira), chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
+| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, forma de controle (toque/pedaleira), voz no coral, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
 | `estante:v2:setlist` | formato antigo (um repertório só); migrado automaticamente e mantido como backup |
 
 Campos de cada música:

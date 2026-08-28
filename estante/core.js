@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.12.1";
+const APP_VERSION="3.13.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
  *
  * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
  */
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0,pedalMode:"toque",pedalOffered:false};
+const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,keyVag:"",keyYT:"",audioDelay:0,pedalMode:"toque",pedalOffered:false,naipe:"",soMinhaVoz:true,loop:null};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
@@ -90,10 +90,12 @@ function fmt(sec){if(!sec)return"";const m=Math.floor(sec/60),s=Math.floor(sec%6
 // Lê "3:45", "3.45" ou "225" e devolve segundos. 0 quando não dá para entender.
 function parseClock(text){const t=String(text||"").trim();if(!t)return 0;const m=t.match(/^(\d+)\s*[:.']\s*(\d{1,2})$/);if(m)return +m[1]*60+Math.min(59,+m[2]);const n=t.match(/^\d+$/);return n?+t:0}
 function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=on?"online":"offline";n.className=on?"online":"offline";n.title=on?"Busca online disponível":"Sem internet: repertório salvo continua disponível"}
+// `naipe` (a voz de quem lê) também é do aparelho, não da música: o repertório
+// é o mesmo para o coral inteiro, o que muda é quem está lendo.
 // `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
 // daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
 // link compartilhado, nunca enviada a outro serviço.
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay,pedalMode:state.pedalMode,pedalOffered:state.pedalOffered})}
+function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay,pedalMode:state.pedalMode,pedalOffered:state.pedalOffered,naipe:state.naipe,soMinhaVoz:state.soMinhaVoz})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // Rolar e Sincro ficam desabilitados durante o karaokê: os três escreveriam no
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do

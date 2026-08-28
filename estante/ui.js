@@ -29,9 +29,19 @@ $("sourcesForm").addEventListener("submit",e=>{
 });
 function openSettings(){
   $("vagalumeKey").value=state.keyVag;$("youtubeKey").value=state.keyYT;
-  updateDelayOut();syncPedalChips();
+  updateDelayOut();syncPedalChips();syncNaipeChips();
   $("sourcesDialog").showModal();
 }
+// A voz pode ser uma das quatro comuns ou o nome que a casa usa ("2ª voz",
+// "coral feminino"): os chips marcam as comuns, o campo guarda o resto.
+function syncNaipeChips(){
+  const chips=[...document.querySelectorAll(".chip[data-naipe]")];
+  const comum=chips.some(b=>b.dataset.naipe===state.naipe);
+  chips.forEach(b=>b.classList.toggle("active",comum&&b.dataset.naipe===state.naipe));
+  $("naipeOutro").value=comum?"":state.naipe;
+}
+document.querySelectorAll(".chip[data-naipe]").forEach(b=>b.onclick=()=>{setNaipe(b.dataset.naipe);syncNaipeChips()});
+$("naipeOutro").addEventListener("change",e=>{setNaipe(e.target.value.trim());syncNaipeChips()});
 function syncPedalChips(){document.querySelectorAll("[data-pedal-mode]").forEach(b=>b.classList.toggle("active",b.dataset.pedalMode===state.pedalMode))}
 document.querySelectorAll("[data-pedal-mode]").forEach(b=>b.onclick=()=>{setPedalMode(b.dataset.pedalMode);syncPedalChips()});
 // O atraso da caixa é do aparelho, então saiu do diálogo do karaokê (que é por
@@ -395,7 +405,7 @@ document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.ta
       case"Escape":if(state.videoPlaying)karaokePlayPause();else exitKaraoke();return;
     }
   }
-  switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
+  switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"r":case"R":toggleLoop();break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
 // Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
 // antes seguia correndo enquanto o toque reposicionava a música sem avisar.
 $("paperViewport").addEventListener("pointerdown",()=>{
@@ -415,4 +425,4 @@ $("paperViewport").addEventListener("scroll",()=>{
   if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 },{passive:true});
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;state.pedalMode=p.pedalMode==="pedaleira"?"pedaleira":"toque";state.pedalOffered=!!p.pedalOffered;document.querySelectorAll(".chip[data-source]").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;state.pedalMode=p.pedalMode==="pedaleira"?"pedaleira":"toque";state.pedalOffered=!!p.pedalOffered;state.naipe=String(p.naipe||"").slice(0,24);state.soMinhaVoz=p.soMinhaVoz!==false;document.querySelectorAll(".chip[data-source]").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();

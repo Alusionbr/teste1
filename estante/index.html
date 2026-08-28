@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.12.1">
+  <link rel="stylesheet" href="./styles.css?v=3.13.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -121,7 +121,7 @@
     <header><h2>Colar letra ou cifra</h2><button value="cancel">×</button></header>
     <label>Música<input id="pasteTitle" placeholder="Ex.: Ainda Bem"></label>
     <label>Artista<input id="pasteArtist" placeholder="Ex.: Marisa Monte"></label>
-    <label>Letra, cifra ou .LRC<textarea id="pasteText" placeholder="Cole a letra aqui. Linhas só com acordes viram cifras; [Refrão] vira seção; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
+    <label>Letra, cifra ou .LRC<textarea id="pasteText" placeholder="Cole a letra aqui. Linhas só com acordes viram cifras; [Refrão] vira seção; [Sopranos] ou [2ª Voz] marcam a entrada de um naipe; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
     <footer><button value="cancel">Cancelar</button><button class="accent" id="pasteOpen" value="default">Abrir</button></footer>
   </form>
 </dialog>
@@ -132,6 +132,8 @@
     <h3 class="modalSection">Este aparelho</h3>
     <div class="fieldRow"><span>Como você controla o app</span><div class="sources" role="group" aria-label="Forma de controle"><button type="button" class="chip" data-pedal-mode="toque">Toque na tela</button><button type="button" class="chip" data-pedal-mode="pedaleira">Pedaleira ou teclado</button></div></div>
     <p>No modo <b>toque</b> a pedaleira sai da tela e sobra espaço para a letra: fica um botão grande com a ação do momento e uma barra que sobe quando você pede. No modo <b>pedaleira</b> a barra completa fica à vista, com os LEDs de cada pedal. As teclas e o pedal Bluetooth funcionam igual nos dois.</p>
+    <div class="fieldRow"><span>Sua voz no coral</span><div class="sources chipsWrap" role="group" aria-label="Voz no coral"><button type="button" class="chip" data-naipe="">Todos</button><button type="button" class="chip" data-naipe="soprano">Soprano</button><button type="button" class="chip" data-naipe="contralto">Contralto</button><button type="button" class="chip" data-naipe="tenor">Tenor</button><button type="button" class="chip" data-naipe="baixo">Baixo</button></div><input id="naipeOutro" placeholder="Outra voz: 2ª voz, barítono, o nome que vocês usam" autocomplete="off" aria-label="Outra voz"></div>
+    <p>Escolhendo a sua voz, as entradas dos outros naipes ficam esmaecidas — esmaecidas, não escondidas: dá para ver o que a outra voz faz e saber quando você entra. Funciona nas letras que marcam <b>[Sopranos]</b>, <b>[Contraltos]</b>, <b>[Tenor]</b>, <b>[Baixos]</b> ou <b>[2ª Voz]</b> numa linha. Na tira acima da letra, <b>⟳</b> repete a seção em que você está.</p>
     <div class="control karaokeControl"><span>Atraso da caixa Bluetooth</span><button type="button" data-audio-delay="-20">−</button><output id="karaokeDelayOut">0 ms</output><button type="button" data-audio-delay="20">+</button></div>
     <p>O atraso da caixa corrige o som que chega depois da imagem no karaokê. Vale para todas as músicas.</p>
     <h3 class="modalSection">Fontes de busca</h3>
@@ -181,6 +183,7 @@
     <p><b>Sem internet:</b> depois da primeira abertura o app funciona offline e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não.</p>
     <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
     <p><b>Importar:</b> mostra o que vem no arquivo antes de mexer em qualquer coisa. <b>Adicionar</b> mantém o que já está no aparelho; <b>Substituir</b> troca tudo.</p>
+    <p><b>Coral:</b> escolha a sua voz em <b>Ajustes</b> e as entradas dos outros naipes ficam esmaecidas, sem sumir da tela. Na tira acima da letra, <b>⟳</b> (ou a tecla <b>R</b>) repete em laço a seção em que você está — com a rolagem, com o Sincro e com o karaokê. Toque em outra seção para levar o laço para ela.</p>
     <p><b>Controles na tela:</b> o app começa sem a pedaleira, com um botão grande no canto fazendo a ação do momento e o <b>⋯</b> abrindo os demais controles quando você precisa. Se você usa pedal ou teclado, ele oferece a pedaleira completa na primeira tecla — e dá para escolher quando quiser em <b>Ajustes</b>.</p>
     <p><b>Karaokê:</b> abra o <b>⚙</b> ao lado do pedal Karaokê e busque o vídeo ali mesmo. Com a chave gratuita do YouTube cadastrada em Ajustes, a busca acontece dentro do app; sem ela, cole o link do vídeo.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
@@ -199,9 +202,10 @@
   <form method="dialog" class="modal" id="editForm">
     <header><h2>Editar letra</h2><button value="cancel">×</button></header>
     <p>Corrija o que a fonte trouxe errado e escreva o arranjo da banda. Tom, capotraste, velocidade e anotações não mudam.</p>
+    <p>Numa linha sozinha, <b>[Refrão]</b> e <b>[Ponte]</b> viram atalhos; <b>[Sopranos]</b>, <b>[Contraltos]</b>, <b>[Tenor]</b>, <b>[Baixos]</b> e <b>[2ª Voz]</b> marcam quem canta dali até a próxima marca, e cada pessoa do coral pode realçar a voz dela.</p>
     <label>Música<input id="editTitle"></label>
     <label>Artista<input id="editArtist"></label>
-    <label>Letra ou cifra<textarea id="editText" placeholder="Linhas só com acordes viram cifras; [Refrão] vira seção e ganha atalho; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
+    <label>Letra ou cifra<textarea id="editText" placeholder="Linhas só com acordes viram cifras; [Refrão] vira seção e ganha atalho; [Sopranos] marca a entrada de um naipe; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
     <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
   </form>
 </dialog>
@@ -264,20 +268,21 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.12.1" defer></script>
-<script src="./search-engine.js?v=3.12.1" defer></script>
-<script src="./library.js?v=3.12.1" defer></script>
-<script src="./acervo.js?v=3.12.1" defer></script>
-<script src="./setlists.js?v=3.12.1" defer></script>
-<script src="./song-prefs.js?v=3.12.1" defer></script>
-<script src="./autoscroll.js?v=3.12.1" defer></script>
-<script src="./player.js?v=3.12.1" defer></script>
-<script src="./karaoke.js?v=3.12.1" defer></script>
-<script src="./youtube-search.js?v=3.12.1" defer></script>
-<script src="./song-edit.js?v=3.12.1" defer></script>
-<script src="./print.js?v=3.12.1" defer></script>
-<script src="./ui.js?v=3.12.1" defer></script>
-<script src="./search-ui.js?v=3.12.1" defer></script>
-<script src="./offline.js?v=3.12.1" defer></script>
+<script src="./core.js?v=3.13.0" defer></script>
+<script src="./search-engine.js?v=3.13.0" defer></script>
+<script src="./library.js?v=3.13.0" defer></script>
+<script src="./ensaio.js?v=3.13.0" defer></script>
+<script src="./acervo.js?v=3.13.0" defer></script>
+<script src="./setlists.js?v=3.13.0" defer></script>
+<script src="./song-prefs.js?v=3.13.0" defer></script>
+<script src="./autoscroll.js?v=3.13.0" defer></script>
+<script src="./player.js?v=3.13.0" defer></script>
+<script src="./karaoke.js?v=3.13.0" defer></script>
+<script src="./youtube-search.js?v=3.13.0" defer></script>
+<script src="./song-edit.js?v=3.13.0" defer></script>
+<script src="./print.js?v=3.13.0" defer></script>
+<script src="./ui.js?v=3.13.0" defer></script>
+<script src="./search-ui.js?v=3.13.0" defer></script>
+<script src="./offline.js?v=3.13.0" defer></script>
 </body>
 </html>
