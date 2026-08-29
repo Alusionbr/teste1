@@ -131,7 +131,39 @@ function atScrollEnd(){return $("paperViewport").scrollTop>=scrollDistance()-4}
 
 // Exporta todos os repertórios (versão 3). A chave "setlist" continua saindo
 // com o repertório ativo para que arquivos novos ainda abram em versões antigas.
-function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,setlists:state.setlists,setlist:state.setlist};const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+/*
+ * Exportar. A chave "setlist" continua saindo com o repertório ativo para que
+ * arquivos novos ainda abram em versões antigas.
+ *
+ * Por que não é só um <a download>: no iOS, e principalmente no app instalado
+ * na tela de início, baixar um blob por link ou não faz nada ou abre o JSON
+ * numa aba sem oferecer salvar — justo o caminho que distribui as letras
+ * digitadas à mão para o resto do grupo. Compartilhar o ARQUIVO funciona nos
+ * dois sistemas e ainda entrega direto no grupo do WhatsApp, que é o que se
+ * quer fazer com ele. O download continua sendo a reserva no desktop.
+ */
+async function exportSetlist(){
+  const data={version:3,activeId:state.activeSetlistId,setlists:state.setlists,setlist:state.setlist};
+  const texto=JSON.stringify(data,null,2),nome="estante-repertorio.json";
+  if(typeof marcarBackupFeito==="function")marcarBackupFeito();
+  try{
+    const file=new File([texto],nome,{type:"application/json"});
+    // canShare é síncrono: a checagem acontece no mesmo toque, sem gastar o
+    // gesto do usuário que o share precisa.
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"Repertório Estante"});
+      return notify("Arquivo do repertório enviado.",true);
+    }
+  }catch(e){
+    // Princípio: compartilhar não pode terminar em silêncio. Cancelou ou
+    // falhou, a pessoa fica sabendo e o caminho do download segue abaixo.
+    if(e&&e.name==="AbortError")return notify("Não enviou o arquivo. Toque em Exportar de novo quando quiser.",true);
+  }
+  const a=document.createElement("a"),blob=new Blob([texto],{type:"application/json"});
+  a.href=URL.createObjectURL(blob);a.download=nome;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  notify("Arquivo do repertório gerado.",true);
+}
 /*
  * Importação. Aceita o formato novo (vários repertórios) e os antigos (um
  * repertório só ou um array puro de músicas).
@@ -186,8 +218,9 @@ async function fullscreen(){
     }
   }catch{}
   const sidebar=$("sidebar"),app=document.querySelector(".app"),on=document.body.dataset.wide==="on";
-  if(on){delete document.body.dataset.wide;sidebar.style.display="";app.style.gridTemplateColumns="";$("fullscreenBtn").textContent="Tela cheia"}
-  else{document.body.dataset.wide="on";sidebar.style.display="none";app.style.gridTemplateColumns="1fr";$("fullscreenBtn").textContent="Sair tela"}
+  if(on){delete document.body.dataset.wide;sidebar.style.display="";app.style.gridTemplateColumns=""}
+  else{document.body.dataset.wide="on";sidebar.style.display="none";app.style.gridTemplateColumns="1fr"}
+  updateControls();
 }
 /*
  * Manter a tela acesa enquanto a música está em uso.

@@ -233,6 +233,26 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Com um repertório grande (~30 músicas com letra), o diálogo mostra o aviso de link longo.
 - [ ] **Imprimir** mostra a ordem do show com tom, capo, duração e anotações; a opção "Com as letras" traz uma música por página.
 
+## 7b. Guardar o repertório e o telefone
+
+**No navegador (automatizado em `v314-test.js`):**
+
+- [ ] `persist()` é pedido uma vez e em silêncio; navegador sem a API não quebra nada.
+- [ ] O convite de instalar só aparece com repertório de verdade, uma vez na vida, e fica registrado. Quem já instalou não recebe nada.
+- [ ] No iPhone (sem `beforeinstallprompt`) o aviso ensina Compartilhar → Adicionar à Tela de Início.
+- [ ] O lembrete de backup só anota a data na primeira vez; avisa com prazo vencido; não incomoda com backup recente nem com repertório pequeno.
+- [ ] Exportar usa `share({files})` onde dá, cai para o download onde não dá, e cancelar avisa em vez de sumir calado. Exportar conta como backup feito.
+- [ ] Nenhum campo de diálogo abaixo de 16px; `touch-action:manipulation` na letra e nos pedais; o ⛶ sobrevive ao atalho de tela cheia.
+
+**No aparelho:**
+
+- [ ] **iPhone instalado na tela de início:** o cabeçalho fica abaixo do relógio e da bateria, não por baixo.
+- [ ] **iPhone:** focar um campo do editor de letra **não** dá zoom na página.
+- [ ] **iPhone:** duplo toque numa linha de letra sincronizada reposiciona a música, em vez de dar zoom.
+- [ ] **iPhone:** Exportar abre a folha de compartilhamento e dá para mandar no WhatsApp do grupo.
+- [ ] **iPhone deitado:** o texto não encosta no notch.
+- [ ] **Android:** o convite de instalar aparece e o botão Instalar abre o prompt do sistema.
+
 ## 8. Offline e instalação
 
 - [ ] Depois da primeira abertura, recarregar em modo avião (DevTools → Network → Offline) mantém o app e o repertório funcionando.

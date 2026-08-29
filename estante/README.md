@@ -27,6 +27,7 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
 | **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. Onde a tela de compartilhamento do sistema não abre (acontece em alguns Android), o botão **Copiar link** sempre funciona. |
 | **Offline** | Depois da primeira abertura o app funciona sem internet e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não. |
+| **Guardar o repertório** | O app pede ao navegador para não apagar o armazenamento, oferece **uma vez** guardar o Estante na tela de início (no iPhone, com o passo a passo, porque lá não existe convite automático) e lembra de exportar quando passa mais de um mês. **Instalar na tela de início importa de verdade no iPhone:** o Safari pode apagar o armazenamento de um site que fica ~7 dias sem ser aberto, e uma semana é o intervalo de um coral que ensaia por semana. |
 | **Karaokê** | Modo à parte, para festa: vídeo do YouTube atrás da letra, som saindo por Bluetooth. Cole o link do vídeo em ⚙, calibre o atraso da caixa uma vez e ajuste a introdução por música. Sem `.lrc` a letra rola pela posição do vídeo; com `.lrc`, destaca a linha certa. Ver detalhes abaixo. |
 
 ### Atalhos de teclado
@@ -172,6 +173,7 @@ MusicBrainz já devolvem sem login nenhum.
 index.html         estrutura da tela e diálogos
 styles.css         visual, modo palco e folha de impressão
 core.js            estado, armazenamento, versão do app e fontes de letra
+guardar.js         persistência do armazenamento, convite de instalar e lembrete de backup
 search-engine.js   busca inteligente: várias fontes, variações, ranqueamento e busca no repertório
 acervo.js          acervo do site: letras que moram no repositório
 acervo.json        conteúdo do acervo (vem vazio; ver acervo.md)
@@ -196,7 +198,7 @@ sw.js              cache do app para funcionar offline
 | Chave | Conteúdo |
 |---|---|
 | `estante:v3:setlists` | `{version:3, activeId, setlists:[{id, name, date, songs}]}` |
-| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, forma de controle (toque/pedaleira), voz no coral, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
+| `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, forma de controle (toque/pedaleira), voz no coral, data do último backup, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
 | `estante:v2:setlist` | formato antigo (um repertório só); migrado automaticamente e mantido como backup |
 
 Campos de cada música:

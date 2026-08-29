@@ -468,6 +468,7 @@ estante/
 ├── index.html         # estrutura da tela e diálogos
 ├── styles.css         # visual, modo palco e folha de impressão
 ├── core.js            # estado, armazenamento, APP_VERSION e fontes de letra
+├── guardar.js         # persistência do armazenamento, convite de instalar, lembrete de backup
 ├── search-engine.js   # busca inteligente: várias fontes, variações, ranking e busca local
 ├── acervo.js          # acervo do site: letras que moram no repositório
 ├── acervo.json        # conteúdo do acervo (vem vazio; ver estante/acervo.md)
@@ -712,6 +713,53 @@ compartilhamento. Como os dois casos são indistinguíveis, o diálogo fica aber
 oferecendo **Copiar link**, que serve nos dois — e copiar precisa do próprio
 toque, porque a permissão de área de transferência não sobrevive ao `await` do
 `navigator.share`. O diálogo só fecha quando deu certo.
+
+### 21. O telefone não é um desktop pequeno, e o iPhone não é o Android
+
+Auditado com medição em cinco telas. O que separava os dois sistemas:
+
+- **`touch-action`.** O app usa duplo toque para reposicionar a sincronia
+  (`tapSyncLine`). No Chrome com viewport `device-width` o duplo-toque-zoom já
+  vem desligado; **no Safari não** — o gesto do app colidia com o do sistema.
+  `manipulation` desliga só esse gesto: a pinça continua, e ela é
+  acessibilidade.
+- **Campo abaixo de 16px.** O Safari dá zoom ao focar e não volta. Os campos
+  herdavam os 11px do `.modal label`, o que também era pequeno demais para
+  digitar em qualquer aparelho.
+- **`env(safe-area-inset-*)`.** Só o `bottom` era tratado. Com
+  `viewport-fit=cover` e a barra translúcida, no iPhone instalado o cabeçalho
+  ficava sob o relógio, e deitado o notch comia a primeira letra dos versos.
+- **Fullscreen API não existe no iPhone** (só no iPad). O atalho que esconde a
+  barra lateral é o único caminho lá — e ele escrevia o rótulo do botão à mão,
+  apagando o ícone. Rótulo de botão se decide em `updateControls()`, com todos
+  os outros.
+- **Largura não é toque.** `@media(max-width:900px)` deixa o Android em
+  paisagem (915px) cair no layout de mouse, com alvos de 27px num aparelho de
+  dedo. (Tratado na 3.15.0.)
+
+### 22. O repertório vive só no localStorage, e isso não é igual nos dois
+
+No Safari o ITP apaga o armazenamento de um site que passa ~7 dias sem ser
+aberto — e uma semana é exatamente o intervalo de um coral que ensaia por
+semana. Instalar na tela de início tira o site dessa regra: é a defesa mais
+eficaz que existe sem servidor, e por isso o convite existe.
+
+Três camadas em `guardar.js`, da mais silenciosa para a mais visível, e
+**no máximo um aviso por abertura** — instalar resolve a causa, exportar
+resolve a consequência, e `notify()` só mostra um de cada vez:
+
+1. `pedirPersistencia()` nunca fala nada: não há o que o usuário decida.
+2. `ofereceInstalar()` só depois de existir repertório (propaganda de um app
+   que a pessoa ainda não sabe se quer é pior que nada), uma vez na vida,
+   registrada em `installOferecido`. No iPhone não existe
+   `beforeinstallprompt`: lá o passo a passo escrito é o único caminho.
+3. `lembrarBackup()` na primeira vez só anota a data — senão quem acabou de
+   montar o repertório levaria um aviso no mesmo dia.
+
+`exportSetlist()` tenta `share({files})` antes do `<a download>`: no iOS, e
+principalmente no app instalado, baixar um blob por link ou não faz nada ou
+abre o JSON numa aba. E compartilhar já entrega no grupo do WhatsApp, que é o
+que se quer fazer com o arquivo.
 
 ### 18. Spotify: avaliada e descartada
 

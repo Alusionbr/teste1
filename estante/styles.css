@@ -281,3 +281,38 @@ body.stageMode .lineLyric.section.minhaVoz,body.karaokeMode .lineLyric.section.m
 .chipsWrap .chip{flex:1 0 auto;min-width:74px}
 .fieldRow input{display:block;width:100%;margin-top:8px;padding:9px 11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;outline:none}
 .fieldRow input:focus{border-color:var(--accent)}
+
+/* ==========================================================================
+   3.14.0 — o que só quebra no telefone (medido em cinco telas)
+   ========================================================================== */
+
+/* O Safari infla o texto sozinho ao girar para paisagem. O app calcula a
+   velocidade de rolagem em cima da altura da letra: se o corpo muda por
+   conta própria, a conta passa a estar errada. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* Duplo toque na letra sincronizada reposiciona a música (tapSyncLine, em
+   player.js). No Safari, duplo toque é ZOOM — o gesto que o app usa colide com
+   o do sistema, e só no iPhone: no Chrome, viewport device-width já desliga o
+   duplo-toque-zoom. `manipulation` desliga só esse gesto; a pinça continua
+   funcionando, e ela é acessibilidade, não pode sumir. */
+.lineLyric,button,select,summary{touch-action:manipulation}
+
+/* Campo de texto abaixo de 16px faz o Safari dar zoom ao focar — e não voltar.
+   Aqui os campos herdavam os 11px do rótulo (.modal label), o que além do zoom
+   era pequeno demais para digitar em qualquer aparelho: é onde o regente do
+   coral escreve o hino inteiro. */
+.modal input{font-size:16px}
+.modal textarea{font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* Área segura em todos os lados, não só embaixo. Com viewport-fit=cover e a
+   barra de status translúcida, no iPhone instalado na tela de início o
+   cabeçalho ficava POR BAIXO do relógio e da bateria. */
+.brand{height:auto;min-height:66px;padding-top:calc(15px + env(safe-area-inset-top))}
+.songHeader{padding-top:calc(10px + env(safe-area-inset-top))}
+@media(min-width:901px){.songHeader{padding-top:calc(13px + env(safe-area-inset-top))}}
+/* Deitado, o notch avança pela lateral e come a primeira letra de cada verso. */
+@media(orientation:landscape){
+  .paper{padding-left:max(clamp(20px,5vw,60px),env(safe-area-inset-left));padding-right:max(clamp(20px,5vw,60px),env(safe-area-inset-right))}
+  .songHeader,.transport{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+}
