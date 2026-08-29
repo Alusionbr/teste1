@@ -89,4 +89,14 @@ function saveDuration(text){
 
 // A altura da letra muda com o tamanho da fonte, a rotação da tela e a troca de
 // música. Recalcular sozinho evita que o automático fique errado no meio do show.
-if("ResizeObserver"in window)new ResizeObserver(()=>applyAutoSpeed()).observe($("paper"));
+/*
+ * Dois observados, não um. O #paper cobre mudança de fonte e de rotação; o
+ * #paperViewport cobre a ALTURA ÚTIL mudando sem o papel mudar de tamanho —
+ * recolher o cabeçalho em paisagem, a pedaleira saindo do fluxo no modo toque.
+ * scrollDistance() desconta o clientHeight do viewport, então essa altura entra
+ * na conta e sem isto o automático ficava com o número da tela antiga.
+ */
+if("ResizeObserver"in window){
+  const obs=new ResizeObserver(()=>applyAutoSpeed());
+  obs.observe($("paper"));obs.observe($("paperViewport"));
+}

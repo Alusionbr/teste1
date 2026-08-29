@@ -14,6 +14,7 @@ $("editForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")ret
 $("durationForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();saveDuration($("durationInput").value);$("durationDialog").close()});
 $("importCloseBtn").onclick=()=>{$("importDialog").close();incomingImport=null};
 $("importAddBtn").onclick=()=>finishImport("add");
+$("importMergeBtn").onclick=()=>finishImport("merge");
 $("importReplaceBtn").onclick=()=>finishImport("replace");
 $("notesBtn").onclick=()=>{if(!state.current)return;$("notesText").value=state.current.notes||"";$("notesDialog").showModal()};
 $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;saveSongNotes($("notesText").value.trim());$("notesDialog").close();e.preventDefault()});
@@ -332,11 +333,7 @@ function showIncomingSetlist(list){
 function finishSharedImport(mode){
   if(!incomingSetlist)return;
   if(mode==="new")createSetlist(incomingName||"Repertório recebido",incomingSetlist);
-  else{
-    const existing=new Set(state.setlist.map(songIdentity));
-    incomingSetlist.forEach(x=>{const k=songIdentity(x);if(!existing.has(k)){state.setlist.push(storedSong(x));existing.add(k)}});
-    saveSetlists();
-  }
+  else juntarMusicas(incomingSetlist);
   state.tab="setlist";state.currentIndex=-1;renderList();updateSaveButton();$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);
   notify(`Repertório ${mode==="new"?"recebido em uma lista nova":"adicionado"}: ${state.setlist.length} músicas.`,true);
   incomingSetlist=null;incomingName=""

@@ -194,6 +194,14 @@ function askImportMode(setlists,activeId){
 function finishImport(mode){
   if(!incomingImport)return;
   const{setlists,activeId}=incomingImport;
+  // "Juntar ao aberto" faz com o arquivo o que o link compartilhado sempre fez:
+  // atualiza a lista que está em uso em vez de empilhar uma nova a cada vez.
+  if(mode==="merge"){
+    const novas=juntarMusicas(setlists.flatMap(s=>s.songs));
+    state.currentIndex=-1;state.tab="setlist";renderList();updateSaveButton();$("importDialog").close();
+    notify(novas?`${novas} música${novas===1?"":"s"} juntada${novas===1?"":"s"} a "${esc(activeSetlist().name)}".`:"Todas as músicas do arquivo já estavam neste repertório.",true);
+    incomingImport=null;return;
+  }
   if(mode==="replace"){
     state.setlists=setlists;
     state.activeSetlistId=setlists.some(s=>s.id===activeId)?activeId:setlists[0].id;

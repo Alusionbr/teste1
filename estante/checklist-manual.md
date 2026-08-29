@@ -253,6 +253,15 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] **iPhone deitado:** o texto não encosta no notch.
 - [ ] **Android:** o convite de instalar aparece e o botão Instalar abre o prompt do sistema.
 
+## 7c. Alvo pelo dedo, paisagem e importação (automatizado em `v315-test.js`)
+
+- [ ] Telefone em pé, telefone **deitado (915px)** e tablet: nenhum alvo abaixo de 44px. Era o Android deitado que caía no layout de mouse com botões de 27px.
+- [ ] No mouse o compacto volta — o desktop não foi abandonado.
+- [ ] A fileira ↑ ↓ × ganha largura (44px) sem esticar a altura da lista.
+- [ ] Telefone deitado, com a letra andando: cabeçalho e tira recolhem, sobra tela, e a velocidade automática refaz a conta com a altura nova. Pausar traz tudo de volta.
+- [ ] Com a letra andando, apoiar o dedo não abre a lupa nem o menu de copiar; parada, a letra volta a ser selecionável.
+- [ ] **Juntar ao aberto** acrescenta só o que falta ao repertório em uso, sem criar repertório novo nem trocar o nome, e o link compartilhado passa pela mesma função.
+
 ## 8. Offline e instalação
 
 - [ ] Depois da primeira abertura, recarregar em modo avião (DevTools → Network → Offline) mantém o app e o repertório funcionando.

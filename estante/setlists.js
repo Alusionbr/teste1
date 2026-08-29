@@ -42,6 +42,26 @@ function loadSetlists(){
   bindActiveSetlist();
 }
 
+/*
+ * Junta músicas no repertório ABERTO, sem duplicar.
+ *
+ * É o que "adicionar" quer dizer para quem recebe a lista do ensaio toda
+ * semana: atualizar a mesma lista, não empilhar uma lista nova a cada domingo.
+ * O link compartilhado já fazia isso; o arquivo criava repertórios novos, e as
+ * duas portas diziam "Adicionar".
+ */
+function juntarMusicas(lista){
+  const existentes=new Set(state.setlist.map(songIdentity));
+  let novas=0;
+  lista.forEach(x=>{
+    const k=songIdentity(x);
+    if(existentes.has(k))return;
+    state.setlist.push(storedSong(x));existentes.add(k);novas++;
+  });
+  saveSetlists();
+  return novas;
+}
+
 function createSetlist(name,songs){
   const s=makeSetlist(name,(songs||[]).map(storedSong));
   state.setlists.push(s);state.activeSetlistId=s.id;state.currentIndex=-1;

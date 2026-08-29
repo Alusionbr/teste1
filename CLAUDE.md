@@ -761,6 +761,38 @@ principalmente no app instalado, baixar um blob por link ou não faz nada ou
 abre o JSON numa aba. E compartilhar já entrega no grupo do WhatsApp, que é o
 que se quer fazer com o arquivo.
 
+### 23. Largura não é toque, e o desktop não pode ser abandonado
+
+`@media(max-width:900px)` decidia o tamanho dos alvos: um Android deitado
+(915px) caía no layout de mouse com botões de 27px, num aparelho de dedo, e o
+tablet na estante idem. Agora quem decide é `@media(pointer:coarse)` — o efeito
+é mobile-first (onde há dedo, alvo grande) sem reescrever a folha inteira, e
+`pointer:fine` mantém o compacto de sempre. As regras de **layout** (barra
+lateral fora da tela, pedaleira rolando de lado) continuam por largura: elas
+são sobre espaço, não sobre dedo.
+
+Duas exceções deliberadas: a fileira `↑ ↓ ×` ganha largura e para nos 38px de
+altura, porque três botões de 44px empilhados ao lado de cada música deixariam
+metade da lista fora da tela; e um `#pasteBtn` estilizado por id vencia o
+seletor de classe do bloco — id pesa mais que classe, e foi o único alvo que
+sobrou pequeno até o id ser repetido lá dentro.
+
+**O `ResizeObserver` do autoscroll passou a observar dois elementos.** O
+`#paper` cobre mudança de fonte e de rotação; o `#paperViewport` cobre a altura
+ÚTIL mudando sem o papel mudar de tamanho — o cabeçalho recolhendo em paisagem,
+a pedaleira saindo do fluxo no modo toque. `scrollDistance()` desconta o
+`clientHeight` do viewport, então essa altura entra na conta, e sem o segundo
+observado o automático ficava com o número da tela antiga.
+
+### 24. "Adicionar" tinha dois sentidos
+
+Link compartilhado com **Adicionar** fundia as músicas no repertório aberto;
+arquivo com **Adicionar** criava repertórios novos. Para um coral que recebe a
+lista toda semana, o segundo empilhava repertórios sem parar. `juntarMusicas()`
+(`setlists.js`) é agora a única implementação, usada pelos dois caminhos, e o
+diálogo de importar ganhou **Juntar ao aberto** ao lado de Adicionar e
+Substituir — três portas com três nomes que dizem o que fazem.
+
 ### 18. Spotify: avaliada e descartada
 
 Não reavaliar sem motivo novo. Tocar dentro do app pelo Web Playback SDK exige

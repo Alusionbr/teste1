@@ -316,3 +316,49 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .paper{padding-left:max(clamp(20px,5vw,60px),env(safe-area-inset-left));padding-right:max(clamp(20px,5vw,60px),env(safe-area-inset-right))}
   .songHeader,.transport{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
 }
+
+/* ==========================================================================
+   3.15.0 — quem manda no tamanho do alvo é o dedo, não a largura da tela
+   ========================================================================== */
+
+/*
+ * Mobile-first no efeito: onde há dedo, alvo grande; onde há mouse, o compacto
+ * de sempre. `@media(max-width:900px)` decidia por LARGURA, e por isso um
+ * Android deitado (915px) caía no layout de mouse com botões de 27px — num
+ * aparelho de toque. Tablet na estante tinha o mesmo problema.
+ *
+ * Implementado como camada `pointer:coarse` em vez de inverter a folha inteira:
+ * o resultado para o usuário é o mesmo e o layout de palco, que já está
+ * estabilizado, não é reescrito.
+ */
+@media(pointer:coarse){
+  .chip,.tab,.search button,.sidebarFooter button,.headerActions button,.menu,
+  .setlistActions button,.sectionBar button,.modal footer button,.control button,
+  .ytResult,.modal>header button{min-height:44px}
+  .setlistActions button,.control button,.menu{min-width:44px}
+  /* #pasteBtn ganhou min-height:36px por id na 3.12.0 e vencia o seletor de
+     classe acima: id pesa mais que classe, e sem repetir o id aqui ele era o
+     único alvo pequeno que sobrava no dedo. */
+  .sidebarFooter #pasteBtn{min-height:44px}
+  /* A fileira ↑ ↓ × fica ao lado de cada música. Três botões de 44px de altura
+     empilhados deixariam metade das músicas fora da tela: aqui o ganho vai
+     para a largura, que é onde o dedo erra numa coluna estreita. */
+  .rowActions button{min-width:44px;min-height:38px}
+}
+
+/*
+ * Telefone deitado: sobram ~286px de letra depois do cabeçalho, da tira de
+ * seções e da pedaleira. Com a letra andando, o cabeçalho e a tira não estão
+ * sendo lidos — recolhem e voltam no toque, que é o mesmo gesto que já pausa.
+ * `max-height:500px` restringe ao telefone: no tablet deitado a altura sobra e
+ * esconder o cabeçalho só tiraria o ☰ do alcance.
+ */
+@media(pointer:coarse) and (orientation:landscape) and (max-height:500px){
+  body.rolando:not(.karaokeMode) .songHeader,
+  body.rolando:not(.karaokeMode) .sectionBar{display:none}
+}
+
+/* Apoiar o dedo na tela para segurar o tablet não pode abrir a lupa nem o menu
+   de copiar do iOS. Só enquanto a letra anda: parada, ela continua
+   selecionável e copiável. */
+body.rolando .paper{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
-  <link rel="stylesheet" href="./styles.css?v=3.14.0">
+  <link rel="stylesheet" href="./styles.css?v=3.15.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -224,8 +224,8 @@
     <header><h2>Importar repertório</h2><button id="importCloseBtn" type="button">×</button></header>
     <p id="importSummary"></p>
     <p id="importWarning" class="warn"></p>
-    <p><b>Adicionar</b> mantém o que já está aqui e acrescenta os do arquivo. <b>Substituir</b> troca tudo.</p>
-    <footer><button id="importReplaceBtn" type="button" class="remove">Substituir</button><button class="accent" id="importAddBtn" type="button">Adicionar</button></footer>
+    <p><b>Juntar ao aberto</b> acrescenta as músicas do arquivo ao repertório que você está usando agora, sem duplicar — é o que serve para receber a lista do ensaio toda semana. <b>Adicionar</b> guarda o que veio como repertórios separados. <b>Substituir</b> troca tudo.</p>
+    <footer><button id="importReplaceBtn" type="button" class="remove">Substituir</button><button id="importMergeBtn" type="button">Juntar ao aberto</button><button class="accent" id="importAddBtn" type="button">Adicionar</button></footer>
   </div>
 </dialog>
 
@@ -268,22 +268,22 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.14.0" defer></script>
-<script src="./guardar.js?v=3.14.0" defer></script>
-<script src="./search-engine.js?v=3.14.0" defer></script>
-<script src="./library.js?v=3.14.0" defer></script>
-<script src="./ensaio.js?v=3.14.0" defer></script>
-<script src="./acervo.js?v=3.14.0" defer></script>
-<script src="./setlists.js?v=3.14.0" defer></script>
-<script src="./song-prefs.js?v=3.14.0" defer></script>
-<script src="./autoscroll.js?v=3.14.0" defer></script>
-<script src="./player.js?v=3.14.0" defer></script>
-<script src="./karaoke.js?v=3.14.0" defer></script>
-<script src="./youtube-search.js?v=3.14.0" defer></script>
-<script src="./song-edit.js?v=3.14.0" defer></script>
-<script src="./print.js?v=3.14.0" defer></script>
-<script src="./ui.js?v=3.14.0" defer></script>
-<script src="./search-ui.js?v=3.14.0" defer></script>
-<script src="./offline.js?v=3.14.0" defer></script>
+<script src="./core.js?v=3.15.0" defer></script>
+<script src="./guardar.js?v=3.15.0" defer></script>
+<script src="./search-engine.js?v=3.15.0" defer></script>
+<script src="./library.js?v=3.15.0" defer></script>
+<script src="./ensaio.js?v=3.15.0" defer></script>
+<script src="./acervo.js?v=3.15.0" defer></script>
+<script src="./setlists.js?v=3.15.0" defer></script>
+<script src="./song-prefs.js?v=3.15.0" defer></script>
+<script src="./autoscroll.js?v=3.15.0" defer></script>
+<script src="./player.js?v=3.15.0" defer></script>
+<script src="./karaoke.js?v=3.15.0" defer></script>
+<script src="./youtube-search.js?v=3.15.0" defer></script>
+<script src="./song-edit.js?v=3.15.0" defer></script>
+<script src="./print.js?v=3.15.0" defer></script>
+<script src="./ui.js?v=3.15.0" defer></script>
+<script src="./search-ui.js?v=3.15.0" defer></script>
+<script src="./offline.js?v=3.15.0" defer></script>
 </body>
 </html>
