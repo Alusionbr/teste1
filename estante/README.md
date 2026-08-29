@@ -193,6 +193,7 @@ ui.js              eventos da interface, atalhos e compartilhamento
 search-ui.js       formulário de busca e modos de fonte
 offline.js         registra o service worker e avisa de versão nova
 sw.js              cache do app para funcionar offline
+tests/             suítes de navegador e o roteiro que roda todas (ver tests/README.md)
 ```
 
 ## Dados guardados no navegador

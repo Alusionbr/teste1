@@ -485,6 +485,7 @@ estante/
 ├── search-ui.js       # formulário de busca e modos de fonte
 ├── offline.js         # registra o service worker e avisa de versão nova
 ├── sw.js              # cache do casco do app
+├── tests/             # suítes de navegador; `node estante/tests/rodar.js` roda todas
 ├── manifest.webmanifest
 └── icon.svg / icon-192.png / icon-512.png
 ```
@@ -841,7 +842,13 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 2. Alterou formato de dado? Atualize a migração, o export/import e o `estante/README.md`.
 3. Bumpe a versão (princípio 1) e inclua arquivos novos no `SHELL` do `sw.js`.
 4. Teste servindo por HTTP; service worker não roda em `file://`.
-5. Rode `estante/checklist-manual.md` antes de publicar.
+5. Rode `node estante/tests/rodar.js` (20 suítes, ~2 min, sem internet) e o
+   `estante/checklist-manual.md` antes de publicar. Suíte que falha é regressão
+   **ou** expectativa desatualizada — distinga as duas e, se for a segunda,
+   ajuste a asserção explicando por quê no comentário. Nunca apague asserção
+   para passar.
+6. `estante/tests/` fica fora do `SHELL` e não é servido ao navegador: mexer só
+   em teste não pede bump de versão.
 
 ## Não fazer
 
