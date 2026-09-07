@@ -4,6 +4,24 @@ Leitor de letras e cifras feito para tocar: repertórios salvos no aparelho, bus
 
 Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 
+## Treino de canto · versão 3.12.0
+
+1. Abra uma música e toque em **Treinar** no cabeçalho.
+2. Escolha o trecho: marcações como `[Refrão]` viram opções; letras sem marcações usam parágrafos separados por linhas em branco. O restante da letra fica menos destacado.
+3. Use **Voltar ao trecho** para repetir a prática. O botão reposiciona a letra e respeita a pausa atual; não cria repetição automática. Com LRC, move também o relógio da sincronia ou o vídeo no karaokê. Sem LRC, só reposiciona a letra; o vídeo continua.
+4. Toque em **Ocultar versos** para praticar de memória e **Mostrar versos** para conferir. Cifras e seções continuam visíveis. Fechar o painel ou trocar de música revela os versos.
+5. Abra **Ritmo**, ajuste o BPM ou toque algumas vezes em **Marcar ritmo** acompanhando a música. Escolha 2, 3, 4 ou 6 tempos e ligue o metrônomo. A primeira batida tem som mais agudo.
+
+O metrônomo funciona offline, com áudio gerado no aparelho e faixa de 40–240 BPM. Ele só começa por ação do usuário e para ao trocar de música, editar a letra, fechar o treino, esconder/sair da página ou pressionar Esc. O som depende do volume e da saída de áudio do aparelho. O BPM do metrônomo não muda a velocidade nem o tom do vídeo.
+
+BPM (`bpm`) e tempos por compasso (`beats`) ficam na música, inclusive ao exportar, importar, duplicar ou compartilhar por link. Arquivos antigos continuam abrindo: BPM ausente fica em 0 (sem andamento definido, usando 80 no painel) e compasso ausente usa 4. Nenhuma chave antiga de repertório é apagada. O estado ligado/desligado, os versos ocultos e o trecho selecionado não são persistidos.
+
+A busca inteligente passa a ser o padrão para aparelhos sem preferência anterior. A troca de músicas ignora respostas atrasadas de buscas anteriores, inclusive quando a letra é editada antes de uma consulta terminar.
+
+### Verificação automatizada
+
+Execute `node --test estante/tests/practice.test.cjs` na raiz do repositório. Os testes verificam preservação de dados, seleção/memorização, cálculo por toques, agendamento/cancelamento do áudio e concorrência na abertura de músicas. O roteiro em `checklist-manual.md` cobre a validação em navegador/aparelho antes de publicar.
+
 ## No palco
 
 | Recurso | Como funciona |
@@ -153,6 +171,8 @@ Campos de cada música:
   capo,   // casa do capotraste (só muda a exibição das cifras)
   speed,  // velocidade de rolagem desta música
   auto,   // true = velocidade calculada pela duração, ignorando speed
+  bpm,    // 40–240; 0 quando ainda não definido
+  beats,  // tempos por compasso: 2, 3, 4 ou 6; padrão 4
   notes,  // anotação de palco
   videoId,      // id do vídeo do YouTube usado no karaokê desta música
   videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)

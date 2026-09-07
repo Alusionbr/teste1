@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "3.11.1";
+const VERSION = "3.12.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -28,6 +28,7 @@ const SHELL = [
   "./autoscroll.js",
   "./player.js",
   "./karaoke.js",
+  "./practice.js",
   "./song-edit.js",
   "./print.js",
   "./ui.js",
