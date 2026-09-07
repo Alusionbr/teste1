@@ -91,14 +91,17 @@ function stopAll(){state.scrolling=false;state.syncing=false;stopTickIfIdle();la
 // Nenhum dos dois liga durante o karaokê: os três escreveriam no mesmo
 // scrollTop (ou no mesmo relógio) ao mesmo tempo — Rolar por velocidade,
 // Sincro pelo relógio interno, karaokê pelo relógio do vídeo.
-function toggleScroll(){if(state.karaoke)return;if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+function toggleScroll(){if(state.karaoke)return;if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){highlightVisibleLine();keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
 function toggleSync(){if(state.karaoke)return;if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
 // No karaokê o relógio é o do vídeo, não o interno (syncStart): reposicionar
 // tem de mandar o comando pro player, senão os dois relógios divergem — a
 // letra volta para onde a sincronia interna estava, o vídeo continua de onde já
 // estava.
 function seekSync(i){if(!state.lrc[i])return;if(state.karaoke){karaokeSeek(state.lrc[i].t);highlight(i);return}syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
-function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
+function setHighlight(i,follow){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(follow&&n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
+function highlight(i){setHighlight(i,true)}
+// Na rolagem livre, o foco visual da janela marca o trecho atual.
+function highlightVisibleLine(){const nodes=[...$("paper").children];if(!nodes.length)return;const viewport=$("paperViewport");const focus=viewport.scrollTop+viewport.clientHeight*.38;let i=0;for(let k=0;k<nodes.length;k++){if(nodes[k].offsetTop<=focus)i=k;else break}while(i>0&&state.lines[i]?.type==="blank")i--;setHighlight(i,false)}
 /*
  * Um quadro nunca vale mais que MAX_DT.
  *
@@ -109,7 +112,7 @@ function highlight(i){if(i===lastActive)return;lastActive=i;const nodes=$("paper
  * a letra no fim, parada, é falha de palco.
  */
 const MAX_DT=0.1;
-function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=Math.min((now-lastFrame)/1000,MAX_DT);lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if(atScrollEnd())toggleScroll()}}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}
+function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=Math.min((now-lastFrame)/1000,MAX_DT);lastFrame=now;if(state.scrolling){pixelRest+=state.speed*dt;const px=Math.floor(pixelRest);if(px){pixelRest-=px;$("paperViewport").scrollTop+=px;if(atScrollEnd())toggleScroll()}highlightVisibleLine()}if(state.syncing){syncOffset=(now-syncStart)/1000;let i=-1;for(let k=0;k<state.lrc.length;k++){if(state.lrc[k].t<=syncOffset)i=k;else break}if(i>=0)highlight(i)}
   // O relógio aqui não é o nosso (now-syncStart): é o do vídeo, extrapolado em
   // karaoke.js entre as entregas do player. Com .lrc, a varredura linear que
   // acha a linha é a MESMA de cima — só a origem do tempo muda. Sem .lrc (a
