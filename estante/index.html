@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=3.11.1">
+  <link rel="stylesheet" href="./styles.css?v=3.12.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -198,7 +198,16 @@
     <label>Música<input id="editTitle"></label>
     <label>Artista<input id="editArtist"></label>
     <label>Letra ou cifra<textarea id="editText" placeholder="Linhas só com acordes viram cifras; [Refrão] vira seção e ganha atalho; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
-    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
+    <footer><button type="button" id="timingOpenBtn" hidden>Ajustar tempos</button><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
+  </form>
+</dialog>
+
+<dialog id="timingDialog">
+  <form method="dialog" class="modal" id="timingForm">
+    <header><h2>Ajustar tempos</h2><button value="cancel">×</button></header>
+    <p>Defina em segundos quando cada trecho começa. Depois aplique e salve a letra.</p>
+    <div id="timingRows" class="timingRows"></div>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Aplicar tempos</button></footer>
   </form>
 </dialog>
 
@@ -252,19 +261,19 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.11.1" defer></script>
-<script src="./search-engine.js?v=3.11.1" defer></script>
-<script src="./library.js?v=3.11.1" defer></script>
-<script src="./acervo.js?v=3.11.1" defer></script>
-<script src="./setlists.js?v=3.11.1" defer></script>
-<script src="./song-prefs.js?v=3.11.1" defer></script>
-<script src="./autoscroll.js?v=3.11.1" defer></script>
-<script src="./player.js?v=3.11.1" defer></script>
-<script src="./karaoke.js?v=3.11.1" defer></script>
-<script src="./song-edit.js?v=3.11.1" defer></script>
-<script src="./print.js?v=3.11.1" defer></script>
-<script src="./ui.js?v=3.11.1" defer></script>
-<script src="./search-ui.js?v=3.11.1" defer></script>
-<script src="./offline.js?v=3.11.1" defer></script>
+<script src="./core.js?v=3.12.0" defer></script>
+<script src="./search-engine.js?v=3.12.0" defer></script>
+<script src="./library.js?v=3.12.0" defer></script>
+<script src="./acervo.js?v=3.12.0" defer></script>
+<script src="./setlists.js?v=3.12.0" defer></script>
+<script src="./song-prefs.js?v=3.12.0" defer></script>
+<script src="./autoscroll.js?v=3.12.0" defer></script>
+<script src="./player.js?v=3.12.0" defer></script>
+<script src="./karaoke.js?v=3.12.0" defer></script>
+<script src="./song-edit.js?v=3.12.0" defer></script>
+<script src="./print.js?v=3.12.0" defer></script>
+<script src="./ui.js?v=3.12.0" defer></script>
+<script src="./search-ui.js?v=3.12.0" defer></script>
+<script src="./offline.js?v=3.12.0" defer></script>
 </body>
 </html>
