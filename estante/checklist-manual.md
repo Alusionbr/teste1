@@ -164,3 +164,18 @@ Teste em 360–390 px de largura e num tablet, ou nas ferramentas de dispositivo
 ## 9. Migração
 
 - [ ] Com um `estante:v2:setlist` antigo no navegador, abrir o app cria o repertório "Repertório" com as mesmas músicas e mantém a chave antiga como backup.
+
+
+## 10. Treino de canto (3.12.0)
+
+- [ ] Em celular (360–390 px) e tablet, Treinar abre um painel que não cobre a letra; o painel rola por dentro quando necessário.
+- [ ] Com `[Refrão]` / `[Ponte]`, escolher cada trecho destaca apenas suas linhas. Sem marcações, os parágrafos viram trechos.
+- [ ] Ocultar versos mantém cifras/seções visíveis; Mostrar versos e fechar Treinar revelam tudo. Trocar de música também revela tudo.
+- [ ] Voltar ao trecho funciona com rolagem parada e ligada. Com LRC, reposiciona o relógio mantendo o estado de pausa; no karaokê, reposiciona o vídeo. Sem LRC no karaokê, avisa que o áudio continua.
+- [ ] Marcar ritmo quatro vezes a intervalos de meio segundo indica aproximadamente 120 BPM.
+- [ ] Ligar o metrônomo no iPhone e Android produz batidas regulares e acentua a primeira; mudar 2/3/4/6 tempos reinicia o compasso.
+- [ ] Parar, Esc, fechar Treinar, trocar/editar música e esconder/sair da aba silenciam os cliques; ao voltar o som não inicia sozinho.
+- [ ] Salvar música, mudar BPM/compasso, recarregar e abrir novamente preserva os ajustes. Exportação/importação, duplicação e link compartilhado também preservam.
+- [ ] Sem internet, o treino e o metrônomo funcionam com letras já salvas.
+- [ ] Com teclado, Tab alcança os controles e Espaço nos botões do treino aciona apenas o botão; Esc para o metrônomo.
+- [ ] Abrir A com busca lenta e logo abrir B: resposta ou erro de A não muda letra/créditos de B. Editar A enquanto carrega também preserva a edição.

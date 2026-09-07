@@ -14,7 +14,7 @@ function renderList(){
       if(m.local)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · seu repertório":"no seu repertório"}</span>`);
       else if(m.acervo)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · acervo":"acervo do site"}</span>`);
       else if(m.lyrics&&!m.synced)tags.push('<span class="tag">com letra</span>');
-    }if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
+    }if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.bpm)tags.push(`<span class="tag key">${normalizeBpm(m.bpm)} BPM</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.source)tags.push(`<span class="tag">${esc(m.source)}</span>`);
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     // Na aba de resultados o índice era zerado. Se a música aberta já estava no
     // repertório, "próxima" mandava para a PRIMEIRA do show em vez da seguinte
@@ -74,7 +74,9 @@ function rowButton(text,disabled,fn,cls=""){const b=document.createElement("butt
  * artista e título. `catalogUrl` sumia do mesmo jeito, e com ele o link "ver
  * referência da faixa" das músicas que só o catálogo achou.
  */
-function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",vagId:String(m.vagId||""),catalogUrl:String(m.catalogUrl||""),key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||""),videoId:String(m.videoId||"").slice(0,24),videoOffset:Number(m.videoOffset)||0}}
+function normalizeBpm(value){const n=Number(value);return Number.isFinite(n)&&n>=40&&n<=240?Math.round(n):0}
+function normalizeBeats(value){return [2,3,4,6].includes(Number(value))?Number(value):4}
+function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",vagId:String(m.vagId||""),catalogUrl:String(m.catalogUrl||""),key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||""),bpm:normalizeBpm(m.bpm),beats:normalizeBeats(m.beats),videoId:String(m.videoId||"").slice(0,24),videoOffset:Number(m.videoOffset)||0}}
 function storedSong(m){return normalizeSong(m)}
 // Ao salvar, a música aberta passa a ser a atual do show: sem isso "próxima"
 // continuaria mandando para a primeira do repertório.

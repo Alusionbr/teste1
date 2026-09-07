@@ -27,6 +27,7 @@ function saveSongEdit(){
   // Título e artista formam a identidade da música (sameSong). Se mudarem, o
   // índice no repertório precisa ser achado ANTES da edição, senão a música
   // editada não seria reconhecida e viraria uma cópia órfã.
+  openSongRequest++; // invalida qualquer busca iniciada antes desta edição
   const i=state.setlist.findIndex(x=>sameSong(x,state.current));
   const sync=hasLRC(texto);
   state.current.title=$("editTitle").value.trim()||state.current.title;

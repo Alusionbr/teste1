@@ -23,6 +23,19 @@ $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")re
 $("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
 $("exportBtn").onclick=exportSetlist;$("importBtn").onclick=()=>$("importFile").click();$("importFile").onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
 
+// --- Treino ---
+$("practiceBtn").onclick=togglePracticePanel;
+$("practiceSection").onchange=e=>selectPracticeSection(e.target.value);
+$("practiceRestart").onclick=restartPracticeSection;
+$("practiceMemory").onclick=()=>{practice.memorizing=!practice.memorizing;applyPracticeFocus()};
+$("practiceBpm").onchange=e=>setPracticeBpm(e.target.value);
+$("practiceTap").onclick=tapPracticeTempo;
+$("practiceBeats").onchange=e=>{practice.beats=normalizeBeats(e.target.value);rememberSongPref("beats",practice.beats);if(practice.running||practice.starting){stopMetronome();startMetronome()}};
+$("metronomeBtn").onclick=()=>{if(practice.running||practice.starting)stopMetronome();else startMetronome()};
+window.addEventListener("pagehide",stopMetronome);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState!=="visible")stopMetronome()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")stopMetronome()});
+
 // --- Karaokê ---
 // O pedal faz três coisas por si, sem menu: sem vídeo, abre o diálogo para
 // colar um; com vídeo e fora do modo, entra e tenta tocar; já dentro do modo,
@@ -132,7 +145,7 @@ function sharedSongs(comLetras){
     // videoId/videoOffset vão nas duas formas pelo mesmo motivo de tom e capo:
     // são 11 caracteres e um número, e o repertório recebido deve chegar pronto
     // para tocar. A chave da API nunca vai — ela é do aparelho.
-    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0,videoId:s.videoId||"",videoOffset:s.videoOffset||0};
+    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0,bpm:normalizeBpm(s.bpm),beats:normalizeBeats(s.beats),videoId:s.videoId||"",videoOffset:s.videoOffset||0};
     if(!comLetras)return base;
     return Object.assign(base,{lyrics:s.lyrics||"",synced:s.synced||"",instrumental:!!s.instrumental,source:s.source||"",notes:s.notes||""});
   });
@@ -256,7 +269,7 @@ document.addEventListener("visibilitychange",()=>{
  * a nossa própria ação — dois efeitos por um toque, ou seja, nenhum efeito
  * (liga e desliga na mesma tecla).
  */
-document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;
+document.addEventListener("keydown",e=>{if(e.key!=="Escape"&&e.target.closest?.("#practicePanel, #practiceBtn"))return;if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)||document.querySelector("dialog[open]"))return;
   if(state.karaoke){
     switch(e.key){
       case" ":case"Enter":e.preventDefault();karaokePlayPause();return;
@@ -280,4 +293,4 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"smart";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();

@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=3.11.1">
+  <link rel="stylesheet" href="./styles.css?v=3.12.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -73,6 +73,7 @@
         <p id="songArtist">Busque uma música ou cole sua própria letra</p>
       </div>
       <div class="headerActions">
+        <button id="practiceBtn" aria-expanded="false" aria-controls="practicePanel">Treinar</button>
         <button id="saveBtn">+ Repertório</button>
         <button id="editBtn" disabled>Editar letra</button>
         <button id="notesBtn" disabled>Anotações</button>
@@ -82,6 +83,26 @@
     </header>
 
     <div class="songNotes" id="songNotes" hidden></div>
+    <section class="practicePanel" id="practicePanel" aria-label="Treino de canto" hidden>
+      <div class="practiceRow">
+        <strong class="practiceTitle">Seu ensaio</strong>
+        <label class="practiceSectionLabel" for="practiceSection">Trecho<select id="practiceSection" disabled><option value="-1">Música inteira</option></select></label>
+        <button id="practiceRestart" disabled>Voltar ao trecho</button>
+        <button id="practiceMemory" aria-pressed="false" disabled>Ocultar versos</button>
+      </div>
+      <details class="practiceRhythm">
+        <summary>Ritmo · metrônomo e andamento</summary>
+        <div class="practiceRow">
+          <label for="practiceBpm">BPM<input id="practiceBpm" type="number" inputmode="numeric" min="40" max="240" step="1" value="80"></label>
+          <button id="practiceTap" title="Toque várias vezes no ritmo da música">Marcar ritmo</button>
+          <label for="practiceBeats">Tempos<select id="practiceBeats"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="6">6</option></select></label>
+          <button id="metronomeBtn" aria-pressed="false">Ligar metrônomo</button>
+          <output id="practicePulse" aria-label="Batida atual" aria-live="off">—</output>
+        </div>
+        <p id="practiceSaveHint">Abra uma música para guardar seu BPM. O metrônomo já pode ser usado.</p>
+      </details>
+      <p id="practiceHint" role="status">Escolha um trecho, cante e oculte os versos para testar sua memória. Cifras e seções continuam visíveis.</p>
+    </section>
     <div class="sectionBar" id="sectionBar" hidden aria-label="Seções da música"></div>
 
     <section class="paperViewport" id="paperViewport">
@@ -167,6 +188,9 @@
 <dialog id="helpDialog">
   <form method="dialog" class="modal">
     <header><h2>Uso no palco</h2><button value="cancel">×</button></header>
+    <p><b>Treinar:</b> escolha uma seção ou um trecho separado por linhas em branco. O trecho ganha destaque; <b>Voltar ao trecho</b> reposiciona a letra, respeitando a pausa. Com LRC, também reposiciona a sincronia e o karaokê. Sem LRC, só a letra volta, não o áudio.</p>
+    <p><b>Memorização:</b> use <b>Ocultar versos</b> para cantar de memória e <b>Mostrar versos</b> para conferir. Cifras e títulos continuam visíveis. Fechar o treino ou trocar de música revela tudo.</p>
+    <p><b>Metrônomo:</b> abra Ritmo, escolha 40–240 BPM ou toque em <b>Marcar ritmo</b> acompanhando a música. A primeira batida do compasso tem som mais agudo. BPM e compasso ficam na música salva; trocar de música, fechar o treino, sair da aba ou apertar Esc para o som.</p>
     <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância. É o modo mais confiável quando alguma fonte está fora do ar.</p>
     <p><b>Busca no que já é seu:</b> toda busca procura antes no seu repertório e no acervo do site, inclusive <b>dentro da letra</b> — dá para achar a música por um verso. Funciona sem internet e vem sempre primeiro na lista.</p>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira ou toque em <b>auto</b>: o Estante calcula a velocidade pela duração da música para a letra terminar junto. Mexer no −/+ volta para o manual.</p>
@@ -252,19 +276,20 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.11.1" defer></script>
-<script src="./search-engine.js?v=3.11.1" defer></script>
-<script src="./library.js?v=3.11.1" defer></script>
-<script src="./acervo.js?v=3.11.1" defer></script>
-<script src="./setlists.js?v=3.11.1" defer></script>
-<script src="./song-prefs.js?v=3.11.1" defer></script>
-<script src="./autoscroll.js?v=3.11.1" defer></script>
-<script src="./player.js?v=3.11.1" defer></script>
-<script src="./karaoke.js?v=3.11.1" defer></script>
-<script src="./song-edit.js?v=3.11.1" defer></script>
-<script src="./print.js?v=3.11.1" defer></script>
-<script src="./ui.js?v=3.11.1" defer></script>
-<script src="./search-ui.js?v=3.11.1" defer></script>
-<script src="./offline.js?v=3.11.1" defer></script>
+<script src="./core.js?v=3.12.0" defer></script>
+<script src="./search-engine.js?v=3.12.0" defer></script>
+<script src="./library.js?v=3.12.0" defer></script>
+<script src="./acervo.js?v=3.12.0" defer></script>
+<script src="./setlists.js?v=3.12.0" defer></script>
+<script src="./song-prefs.js?v=3.12.0" defer></script>
+<script src="./autoscroll.js?v=3.12.0" defer></script>
+<script src="./player.js?v=3.12.0" defer></script>
+<script src="./karaoke.js?v=3.12.0" defer></script>
+<script src="./practice.js?v=3.12.0" defer></script>
+<script src="./song-edit.js?v=3.12.0" defer></script>
+<script src="./print.js?v=3.12.0" defer></script>
+<script src="./ui.js?v=3.12.0" defer></script>
+<script src="./search-ui.js?v=3.12.0" defer></script>
+<script src="./offline.js?v=3.12.0" defer></script>
 </body>
 </html>
