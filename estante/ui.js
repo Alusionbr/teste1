@@ -5,7 +5,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{state.tab=b.dataset.
 $("menuBtn").onclick=()=>$("sidebar").classList.toggle("open");$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
 document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>changeSpeed(Number(b.dataset.speed)));
 // Mudar o tamanho da letra muda a altura do texto: o automático recalcula.
-document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();applyAutoSpeed();updatePrefsSoon()});
+document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(20,Math.min(72,state.font+Number(b.dataset.font)));updateControls();applyAutoSpeed();updatePrefsSoon()});
 $("autoBtn").onclick=toggleAuto;
 document.querySelectorAll("[data-key]").forEach(b=>b.onclick=()=>changeKey(Number(b.dataset.key)));
 document.querySelectorAll("[data-capo]").forEach(b=>b.onclick=()=>changeCapo(Number(b.dataset.capo)));
@@ -17,7 +17,7 @@ $("importAddBtn").onclick=()=>finishImport("add");
 $("importReplaceBtn").onclick=()=>finishImport("replace");
 $("notesBtn").onclick=()=>{if(!state.current)return;$("notesText").value=state.current.notes||"";$("notesDialog").showModal()};
 $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;saveSongNotes($("notesText").value.trim());$("notesDialog").close();e.preventDefault()});
-$("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();else releaseAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("themeBtn").onclick=()=>$("themeDialog").showModal();$("helpBtn").onclick=()=>$("helpDialog").showModal();
+$("stageBtn").onclick=async()=>{if(!state.stage&&!state.current){if(!state.setlist.length)return notify("Adicione uma música antes de tocar.");state.currentIndex=0;await openSong(state.setlist[0])}state.stage=!state.stage;if(state.stage){showView("reader");keepAwake()}else{releaseAwake();window.dispatchEvent(new Event("estante:stage-exit"))}updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("themeBtn").onclick=()=>$("themeDialog").showModal();$("helpBtn").onclick=()=>$("helpDialog").showModal();
 document.querySelectorAll("#themeDialog [data-theme]").forEach(b=>b.onclick=()=>applyTheme(b.dataset.theme));
 $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;const text=$("pasteText").value;if(!text.trim()){e.preventDefault();return $("pasteText").focus()}const sync=hasLRC(text);openSong({title:$("pasteTitle").value.trim()||"Letra colada",artist:$("pasteArtist").value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"colado"});$("pasteDialog").close();e.preventDefault()});
 $("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
@@ -90,20 +90,19 @@ function askSetlistName(action,title,valor){
 $("setlistSelect").onchange=e=>{switchSetlist(e.target.value);renderList();updateSaveButton()};
 $("setlistNew").onclick=()=>askSetlistName("new","Novo repertório","");
 $("setlistRename").onclick=()=>{const s=activeSetlist();if(s)askSetlistName("rename","Renomear repertório",s.name)};
-$("setlistCopy").onclick=()=>{duplicateSetlist(state.activeSetlistId);renderList();updateSaveButton();notify("Repertório duplicado.",true)};
+$("setlistCopy").onclick=()=>{if(!duplicateSetlist(state.activeSetlistId))return;renderList();updateSaveButton();notify("Repertório duplicado.",true)};
 $("setlistDelete").onclick=()=>{
   const s=activeSetlist();if(!s)return;
-  const ultimo=state.setlists.length===1;
-  const pergunta=ultimo?`Esvaziar "${s.name}"? As ${s.songs.length} músicas salvas serão apagadas.`:`Apagar o repertório "${s.name}" com ${s.songs.length} música(s)?`;
+  const pergunta=`Apagar o repertório "${s.name}" com ${s.songs.length} música(s)?`;
   if(!confirm(pergunta))return;
-  deleteSetlist(s.id);renderList();updateSaveButton();notify(ultimo?"Repertório esvaziado.":"Repertório apagado.",true);
+  if(!deleteSetlist(s.id))return;renderList();updateSaveButton();notify('Repertório apagado. <button type="button" id="undoDelete">Desfazer</button>');
 };
 $("setlistForm").addEventListener("submit",e=>{
   if(e.submitter?.value==="cancel")return;
   const nome=$("setlistName").value.trim();
   if(!nome){e.preventDefault();return $("setlistName").focus()}
-  if(setlistAction==="rename")renameSetlist(state.activeSetlistId,nome);else createSetlist(nome);
-  $("setlistDialog").close();renderList();updateSaveButton();e.preventDefault();
+  const creating=setlistAction!=="rename",ok=creating?createSetlist(nome):renameSetlist(state.activeSetlistId,nome);if(!ok){e.preventDefault();return}
+  $("setlistDialog").close();if(creating)showView("setlists");renderList();updateSaveButton();e.preventDefault();
 });
 
 $("printBtn").onclick=()=>{if(!state.setlist.length)return notify("Adicione músicas ao repertório antes de imprimir.");$("printDialog").showModal()};
@@ -203,7 +202,8 @@ async function readSharedLink(){
     const data=await unpackShare(hash);
     if(!(data?.v===1||data?.v===2)||!Array.isArray(data.songs)||!data.songs.length)throw Error("Este link de repertório não está num formato que eu conheça.");
     incomingName=String(data.name||"").slice(0,60);
-    return data.songs.map(normalizeSong).slice(0,150);
+    if(data.songs.length>2000)throw Error("Este repertório é grande demais para abrir por link. Peça o arquivo de exportação.");
+    return data.songs.map(normalizeSong);
   }catch(e){notify(e.message||"Não consegui ler este link de repertório.");return null}
 }
 let incomingSetlist=null,incomingName="";
@@ -221,10 +221,11 @@ function showIncomingSetlist(list){
 }
 function finishSharedImport(mode){
   if(!incomingSetlist)return;
-  if(mode==="new")createSetlist(incomingName||"Repertório recebido",incomingSetlist);
+  if(mode==="new"){if(!createSetlist(incomingName||"Repertório recebido",incomingSetlist))return}
   else{
+    if(!activeSetlist())return notify("Crie um repertório para receber estas músicas.");
     const existing=new Set(state.setlist.map(songIdentity));
-    incomingSetlist.forEach(x=>{const k=songIdentity(x);if(!existing.has(k)){state.setlist.push(storedSong(x));existing.add(k)}});
+    incomingSetlist.forEach(x=>{const k=songIdentity(x);if(!existing.has(k)){const song=storedSong(x);song.entryId=stableId("e");song.ownerSetlistId=state.activeSetlistId;state.setlist.push(song);existing.add(k)}});
     saveSetlists();
   }
   state.tab="setlist";state.currentIndex=-1;renderList();updateSaveButton();$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);
@@ -233,6 +234,24 @@ function finishSharedImport(mode){
 }
 $("shareBtn").onclick=openShareDialog;$("shareCloseBtn").onclick=()=>$("shareDialog").close();$("shareFullBtn").onclick=()=>shareSetlist(true);$("shareListOnlyBtn").onclick=()=>shareSetlist(false);
 $("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);incomingSetlist=null;incomingName=""};$("sharedAddBtn").onclick=()=>finishSharedImport("add");$("sharedNewBtn").onclick=()=>finishSharedImport("new");
+
+function updateStageContext(){const current=state.current,set=current&&state.setlists.find(s=>s.id===current.ownerSetlistId);const index=set&&set.songs.findIndex(song=>song.entryId===current.entryId);$("stageContext").textContent=set&&index>=0?`${set.name} · ${index+1}/${set.songs.length}`:"Música avulsa";$("prevBtn").disabled=!(set&&index>0);$("nextBtn").disabled=!(set&&index>=0&&index<set.songs.length-1)}
+function renderHome(){
+  $("homeCount").textContent=`${state.setlists.length} de 10`;
+  for(const id of ["homeNew","setlistNew"]){$(id).disabled=state.setlists.length>=MAX_ACTIVE_SETLISTS;$(id).title=$(id).disabled?"Você já tem 10 repertórios.":""}
+  const list=$("setlistCards");list.textContent="";
+  if(!state.setlists.length)list.innerHTML='<div class="homeEmpty">Você ainda não tem repertórios. Crie o primeiro para começar.</div>';
+  state.setlists.forEach(set=>{const ready=set.songs.filter(song=>song.lyrics||song.synced).length,b=document.createElement("button");b.type="button";b.className="setlistCard";b.innerHTML=`<span><strong>${esc(set.name)}</strong><small>${set.songs.length} música${set.songs.length===1?"":"s"} · ${durationLabel(set.songs)} · ${ready===set.songs.length?"Letras disponíveis":`${set.songs.length-ready} para preparar`}</small></span><b aria-hidden="true">›</b>`;b.onclick=()=>{switchSetlist(set.id);showView("setlists")};list.appendChild(b)});
+  const resume=state.resume,current=resume&&state.setlists.find(s=>s.id===resume.setlistId),entry=current&&current.songs.find(s=>s.entryId===resume.entryId),box=$("continueCard");box.textContent="";
+  if(entry){const i=current.songs.findIndex(s=>s.entryId===entry.entryId),card=document.createElement("div");card.className="continueCard";card.innerHTML=`<span><strong>Continuar · ${esc(current.name)}</strong><small>${esc(entry.title)} · Música ${i+1} de ${current.songs.length}</small></span><button type="button">Continuar</button>`;card.querySelector("button").onclick=async()=>{switchSetlist(current.id,{keepSession:true});state.currentIndex=i;await openSong(entry);$("stageBtn").click()};box.appendChild(card)}
+  const recovery=$("recoveryCard");recovery.textContent="";if(state.recoveredSetlists.length||state.recovery||state.trash.length){const card=document.createElement("section");card.className="recoveryCard";card.innerHTML=`<strong>Dados preservados e recuperação</strong><p>${state.recoveredSetlists.length?`${state.recoveredSetlists.length} repertório${state.recoveredSetlists.length===1?"":"s"} aguardando espaço. `:""}${state.trash.length?`${state.trash.length} item${state.trash.length===1?"":"s"} apagado${state.trash.length===1?"":"s"} ${state.trash.length===1?"disponível":"disponíveis"}. `:""}Baixe uma cópia completa antes de organizar.</p><div><button type="button" data-recovery="export">Baixar cópia</button>${state.recoveredSetlists.length&&state.setlists.length<MAX_ACTIVE_SETLISTS?'<button type="button" data-recovery="activate">Trazer próximo repertório</button>':""}${state.trash.length?'<button type="button" data-recovery="clear">Limpar itens apagados</button>':""}</div>`;card.onclick=event=>{if(event.target.dataset.recovery==="export")exportRecovery();if(event.target.dataset.recovery==="activate")activateRecovered();if(event.target.dataset.recovery==="clear")clearDeletedItems()};recovery.appendChild(card)}
+}
+function exportRecovery(){const data={savedAt:new Date().toISOString(),repertories:state.recoveredSetlists,deletedItems:state.trash,originals:state.recovery&&state.recovery.items||[]},blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="estante-dados-preservados.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+function activateRecovered(){if(state.setlists.length>=MAX_ACTIVE_SETLISTS||!state.recoveredSetlists.length)return;const set=state.recoveredSetlists.shift();state.setlists.push(set);state.activeSetlistId=set.id;bindActiveSetlist();saveSetlists();renderHome();renderList();notify("Repertório recuperado.",true)}
+function clearDeletedItems(){if(!confirm(`Remover definitivamente ${state.trash.length} item(ns) da recuperação? Baixe uma cópia antes se quiser guardá-los.`))return;state.trash=[];saveSetlists();renderHome();notify("Itens apagados removidos da recuperação.",true)}
+function showView(view){state.view=view;document.body.classList.toggle("homeMode",view==="home");document.querySelectorAll(".primaryNav button").forEach(b=>b.removeAttribute("aria-current"));if(view==="home")$("homeNav").setAttribute("aria-current","page");if(view==="setlists"){$("setlistsNav").setAttribute("aria-current","page");state.tab="setlist";renderList();if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.add("open")}if(view==="search"){$("searchNav").setAttribute("aria-current","page");state.tab="results";renderList();$("sidebar").classList.add("open");$("searchInput").focus()}if(view==="reader")$("sidebar").classList.remove("open")}
+$("homeNav").onclick=()=>showView("home");$("setlistsNav").onclick=()=>showView("setlists");$("searchNav").onclick=()=>showView("search");$("homeNew").onclick=()=>askSetlistName("new","Novo repertório","");$("homeSearch").onclick=()=>showView("search");$("settingsHome").onclick=()=>$("themeDialog").showModal();
+$("notice").addEventListener("click",event=>{if(event.target.id==="retrySave")persistData();else if(event.target.id==="exportPending")exportPendingData();else if(event.target.id==="addAgain")addSong(true);else if(event.target.id==="undoDelete"){if(!restoreLastSong())restoreLastDelete()}});
 
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
 // Gravação adiada não pode morrer com a aba: fecha a conta ao sair ou esconder.
@@ -280,4 +299,4 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(async function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,keyVag:oldP.chaveVagalume};await loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=Math.max(16,Math.min(72,Number(p.font)||32));state.stage=false;state.theme=p.theme||"grafite-refinado";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder="Música, artista, trecho ou versão";updateControls();updateNetwork();renderList();renderHome();showView("home");updateSaveButton();const incoming=await readSharedLink();if(incoming)showIncomingSetlist(incoming)})();

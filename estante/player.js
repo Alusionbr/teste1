@@ -4,23 +4,27 @@ function renderMissingLyrics(song,message){
   const title=catalogOnly?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
   const detail=catalogOnly?"A faixa foi identificada no catálogo, porém nenhuma das fontes de letras devolveu conteúdo para esta versão. Tente outra versão, a busca por trecho ou cole a letra.":message;
   $("paper").innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail||"")}</small></div>`;
-  const links=[];if(song.vagUrl)links.push(`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(song.catalogUrl)links.push(`<a href="${esc(song.catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
+  const links=[],vag=safeUrl(song.vagUrl),catalog=safeUrl(song.catalogUrl);if(vag)links.push(`<a href="${esc(vag)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(catalog)links.push(`<a href="${esc(catalog)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
 }
 async function openSong(song){
-  stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
+  const token=++state.loadToken;
+  if(state.songAbort)state.songAbort.abort();state.songAbort=new AbortController();const requestOptions={signal:state.songAbort.signal};
+  stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();updateStageContext();
   // Troca o vídeo já aqui, antes da busca de letra que pode esperar até 12s de
   // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
   // da caixa enquanto a tela já mostrava o título da próxima.
   karaokeOnSongChange();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
-    try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
-      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
+    try{if(song.vagId&&state.keyVag)await fetchVagalume(song,requestOptions);else await fetchLrclibSong(song,requestOptions);if(token!==state.loadToken)return}catch(first){
+      if(token!==state.loadToken)return;
+      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song,requestOptions);if(token!==state.loadToken)return;notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{if(token===state.loadToken)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
     }
     persistCurrent();
   }
-  renderCurrentLyrics();updateSaveButton();
-  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.vagUrl&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
+  if(token!==state.loadToken)return;renderCurrentLyrics();updateSaveButton();
+  if(song.ownerSetlistId&&song.entryId){state.resume={setlistId:song.ownerSetlistId,entryId:song.entryId,lineIndex:0,contentRevision:song.contentRevision||1};saveSetlistsSoon();renderHome()}
+  const vag=safeUrl(song.vagUrl);if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(vag&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(vag)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
 }
 // Redesenha a letra da música aberta a partir do que está em state.current.
 // Serve para abrir a música e também depois de editar a letra, sem consultar a
@@ -131,9 +135,8 @@ function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=M
  */
 function atScrollEnd(){return $("paperViewport").scrollTop>=scrollDistance()-4}
 
-// Exporta todos os repertórios (versão 3). A chave "setlist" continua saindo
-// com o repertório ativo para que arquivos novos ainda abram em versões antigas.
-function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,setlists:state.setlists,setlist:state.setlist};const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+// Exporta o documento V4 e inclui uma cópia compatível com a versão anterior.
+function exportSetlist(){const data=v4FromRuntime({setlists:state.setlists,recoveredSetlists:state.recoveredSetlists,activeSetlistId:state.activeSetlistId,trash:state.trash,resume:state.resume},state.documentRevision);data.version=4;data.setlist=state.setlist;const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorios-v4.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
 /*
  * Importação. Aceita o formato novo (vários repertórios) e os antigos (um
  * repertório só ou um array puro de músicas).
@@ -146,7 +149,7 @@ function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,se
 let incomingImport=null;
 function importSetlist(file){const r=new FileReader();r.onload=()=>{try{
   const d=JSON.parse(r.result);
-  if(d&&Array.isArray(d.setlists)&&d.setlists.length)askImportMode(d.setlists.map(normalizeSetlist),d.activeId);
+  if(d&&Array.isArray(d.setlists)&&d.setlists.length)askImportMode(uniqueSetlists(d.setlists.map(migrateSetlist)),d.activeSetlistId||d.activeId);
   else{
     const raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw 0;
     askImportMode([makeSetlist("Repertório importado",raw.map(normalizeSong))],"");
@@ -157,7 +160,7 @@ function askImportMode(setlists,activeId){
   incomingImport={setlists,activeId};
   const musicas=setlists.reduce((t,s)=>t+s.songs.length,0);
   const aqui=state.setlists.length,musicasAqui=state.setlists.reduce((t,s)=>t+s.songs.length,0);
-  $("importSummary").textContent=`O arquivo tem ${setlists.length} repertório${setlists.length===1?"":"s"} e ${musicas} música${musicas===1?"":"s"}: ${setlists.map(s=>s.name).slice(0,3).join(", ")}${setlists.length>3?"…":""}.`;
+  $("importSummary").textContent=`O arquivo tem ${setlists.length} repertório${setlists.length===1?"":"s"} e ${musicas} música${musicas===1?"":"s"}: ${setlists.map(s=>s.name).slice(0,3).join(", ")}${setlists.length>3?"…":""}.${setlists.length>MAX_ACTIVE_SETLISTS?` Dez ficarão ativos e ${setlists.length-MAX_ACTIVE_SETLISTS} continuarão disponíveis em Dados antigos preservados.`:""}`;
   $("importWarning").textContent=`Substituir apaga o que está neste aparelho: ${aqui} repertório${aqui===1?"":"s"} e ${musicasAqui} música${musicasAqui===1?"":"s"}.`;
   $("importDialog").showModal();
 }
@@ -165,13 +168,15 @@ function finishImport(mode){
   if(!incomingImport)return;
   const{setlists,activeId}=incomingImport;
   if(mode==="replace"){
-    state.setlists=setlists;
-    state.activeSetlistId=setlists.some(s=>s.id===activeId)?activeId:setlists[0].id;
+    if(state.trash.length>=20){notify("A área de recuperação está cheia. Baixe uma cópia e organize os itens apagados antes de substituir.");return}state.trash.push({type:"backup",deletedAt:new Date().toISOString(),value:{setlists:state.setlists,activeSetlistId:state.activeSetlistId}});
+    state.setlists=setlists.slice(0,MAX_ACTIVE_SETLISTS);state.recoveredSetlists.push(...setlists.slice(MAX_ACTIVE_SETLISTS));
+    state.activeSetlistId=state.setlists.some(s=>s.id===activeId)?activeId:state.setlists[0].id;
   }else{
     // Entram como repertórios novos, com id próprio para não colidir com os que
     // já estão no aparelho.
-    setlists.forEach(s=>{s.id=newSetlistId();state.setlists.push(s)});
-    state.activeSetlistId=setlists[0].id;
+    const room=MAX_ACTIVE_SETLISTS-state.setlists.length;if(setlists.length>room){notify(`Há espaço para ${room} repertório${room===1?"":"s"}. Exporte ou organize os atuais antes de importar.`);return}
+    setlists.forEach(raw=>{const s=makeSetlist(raw.name,raw.songs);state.setlists.push(s)});
+    state.activeSetlistId=state.setlists[state.setlists.length-setlists.length].id;
   }
   state.currentIndex=-1;bindActiveSetlist();saveSetlists();
   state.tab="setlist";renderList();updateSaveButton();$("importDialog").close();
