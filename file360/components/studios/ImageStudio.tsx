@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { ResultPanel } from "@/components/ResultPanel";
 import { transformImageBatch, type ImageFormat, type ImageOptions } from "@/src/engines/images";
 import type { Artifact, ProgressUpdate } from "@/src/types";
 
-export function ImageStudio({ files, onReset }: { files: File[]; onReset: () => void }) {
-  const [format, setFormat] = useState<ImageFormat>("webp");
+export function ImageStudio({ files, initialFormat, onReset }: { files: File[]; initialFormat?: string; onReset: () => void }) {
+  const [format, setFormat] = useState<ImageFormat>(initialFormat === "jpeg" || initialFormat === "png" ? initialFormat : "webp");
   const [maxEdge, setMaxEdge] = useState(1920);
   const [quality, setQuality] = useState(82);
   const [rotate, setRotate] = useState<ImageOptions["rotate"]>(0);
@@ -18,6 +18,8 @@ export function ImageStudio({ files, onReset }: { files: File[]; onReset: () => 
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const controller = useRef<AbortController | null>(null);
   const preview = useMemo(() => URL.createObjectURL(files[0]), [files]);
+
+  useEffect(() => () => controller.current?.abort(), []);
 
   const run = async () => {
     const abort = new AbortController();
@@ -32,7 +34,7 @@ export function ImageStudio({ files, onReset }: { files: File[]; onReset: () => 
     } finally { setProgress(null); controller.current = null; }
   };
 
-  if (artifacts.length) return <ResultPanel artifacts={artifacts} onReset={onReset} />;
+  if (artifacts.length) return <ResultPanel artifacts={artifacts} errors={errors} onReset={onReset} />;
   return (
     <section className="editor-grid">
       <div className="preview-panel image-preview">

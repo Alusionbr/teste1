@@ -9,6 +9,7 @@ export const LIMITS = {
   batchOutputBytes: 100 * 1024 * 1024,
   pdfBytes: 25 * 1024 * 1024,
   pdfPages: 100,
+  pdfOutputBytes: 100 * 1024 * 1024,
   mediaBytes: 100 * 1024 * 1024,
   mediaSeconds: 5 * 60,
   archiveBytes: 100 * 1024 * 1024,

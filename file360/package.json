@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/lib/ranges.test.ts src/lib/files.test.ts"
+    "test": "node --test src/lib/ranges.test.ts src/lib/files.test.ts src/lib/file-signatures.test.ts src/lib/media-dimensions.test.ts src/lib/streams.test.ts"
   },
   "dependencies": {
     "@mediabunny/mp3-encoder": "1.57.0",

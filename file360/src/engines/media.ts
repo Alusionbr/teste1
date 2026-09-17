@@ -1,5 +1,6 @@
 import { artifactFromBlob } from "@/src/lib/download";
 import { baseName, formatDuration, LIMITS, safeFilename } from "@/src/lib/files";
+import { fitMediaWithinLongEdge } from "@/src/lib/media-dimensions";
 import type { Artifact, ProgressUpdate } from "@/src/types";
 
 export type MediaFormat = "mp4" | "webm" | "mp3" | "wav" | "m4a";
@@ -81,10 +82,12 @@ export async function convertMedia(
   signal: AbortSignal,
   onProgress: (update: ProgressUpdate) => void,
 ): Promise<Artifact> {
+  if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
   const { media, input } = await openInput(file);
   let conversion: import("mediabunny").Conversion | undefined;
   try {
     const duration = await input.computeDuration();
+    if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
     const start = Math.max(0, options.start || 0);
     const end = Math.min(duration, options.end > 0 ? options.end : duration);
     if (start >= end) throw new Error("O início precisa ser anterior ao fim.");
@@ -95,20 +98,29 @@ export async function convertMedia(
     let video: Parameters<typeof media.Conversion.init>[0]["video"];
     let audio: Parameters<typeof media.Conversion.init>[0]["audio"];
     const quality = new media.Quality(options.quality);
+    const primaryVideo = await input.getPrimaryVideoTrack();
+    let targetDimensions: { width: number; height: number } | undefined;
+    if (primaryVideo && options.maxWidth > 0) {
+      const [sourceWidth, sourceHeight] = await Promise.all([
+        primaryVideo.getDisplayWidth(),
+        primaryVideo.getDisplayHeight(),
+      ]);
+      targetDimensions = fitMediaWithinLongEdge(sourceWidth, sourceHeight, options.maxWidth);
+    }
 
     switch (options.format) {
       case "mp4":
         format = new media.Mp4OutputFormat({ fastStart: "in-memory" });
         mime = "video/mp4";
         extension = "mp4";
-        video = { codec: "avc", quality, width: options.maxWidth || undefined, forceTranscode: true };
+        video = { codec: "avc", quality, ...targetDimensions, fit: "contain" };
         audio = options.removeAudio ? { discard: true } : { codec: "aac", quality };
         break;
       case "webm":
         format = new media.WebMOutputFormat();
         mime = "video/webm";
         extension = "webm";
-        video = { codec: "vp9", quality, width: options.maxWidth || undefined, forceTranscode: true };
+        video = { codec: "vp9", quality, ...targetDimensions, fit: "contain" };
         audio = options.removeAudio ? { discard: true } : { codec: "opus", quality };
         break;
       case "mp3": {
@@ -141,6 +153,7 @@ export async function convertMedia(
 
     const target = new media.BufferTarget();
     const output = new media.Output({ format, target });
+    if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
     conversion = await media.Conversion.init({
       input,
       output,
@@ -152,6 +165,10 @@ export async function convertMedia(
       tags: {},
       showWarnings: false,
     });
+    if (signal.aborted) {
+      await conversion.cancel();
+      throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
+    }
     if (!conversion.isValid) {
       throw new Error("O dispositivo não consegue combinar os codecs necessários para essa saída.");
     }
@@ -166,7 +183,8 @@ export async function convertMedia(
     if (!target.buffer) throw new Error("A conversão terminou sem gerar um arquivo.");
     const blob = new Blob([target.buffer], { type: mime });
     if (blob.size > LIMITS.mediaBytes) throw new Error("O resultado excedeu o limite local de 100 MB.");
-    const detail = `${formatDuration(end - start)} · ${conversion.discardedTracks.length ? "faixas secundárias ignoradas" : "faixas principais preservadas"}`;
+    const sizeDetail = targetDimensions && (options.format === "mp4" || options.format === "webm") ? ` · ${targetDimensions.width} × ${targetDimensions.height}` : "";
+    const detail = `${formatDuration(end - start)}${sizeDetail} · ${conversion.discardedTracks.length ? "faixas secundárias ignoradas" : "faixas principais preservadas"}`;
     return artifactFromBlob(`${safeFilename(baseName(file.name))}.${extension}`, blob, detail);
   } finally {
     input.dispose();

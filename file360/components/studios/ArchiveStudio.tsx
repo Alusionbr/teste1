@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { ResultPanel } from "@/components/ResultPanel";
 import { createGzip, createZip, extractGzip, extractZip } from "@/src/engines/archive";
@@ -15,16 +15,22 @@ export function ArchiveStudio({ files, onReset }: { files: File[]; onReset: () =
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+
+  useEffect(() => () => controller.current?.abort(), []);
 
   const run = async () => {
+    const abort = new AbortController();
+    controller.current = abort;
     setRunning(true); setError(""); setProgress({ value: 0, label: "Preparando arquivos" });
     try {
-      if (mode === "zip") setArtifacts([await createZip(files, setProgress)]);
-      else if (mode === "gzip") setArtifacts([await createGzip(files[0])]);
-      else if (/\.zip$/i.test(files[0].name)) setArtifacts(await extractZip(files[0], setProgress));
-      else setArtifacts([await extractGzip(files[0])]);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível processar o arquivo."); }
-    finally { setRunning(false); setProgress(null); }
+      if (mode === "zip") setArtifacts([await createZip(files, setProgress, abort.signal)]);
+      else if (mode === "gzip") setArtifacts([await createGzip(files[0], abort.signal)]);
+      else if (/\.zip$/i.test(files[0].name)) setArtifacts(await extractZip(files[0], setProgress, abort.signal));
+      else setArtifacts([await extractGzip(files[0], abort.signal)]);
+    } catch (reason) {
+      if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "Não foi possível processar o arquivo.");
+    } finally { setRunning(false); setProgress(null); controller.current = null; }
   };
 
   if (artifacts.length) return <ResultPanel artifacts={artifacts} onReset={onReset} />;
@@ -38,7 +44,7 @@ export function ArchiveStudio({ files, onReset }: { files: File[]; onReset: () =
       </div>
       <div className="note-box"><strong>Proteção local</strong><p>Limite de 500 itens e 250 MB extraídos. Caminhos inseguros são bloqueados automaticamente.</p></div>
       {error && <div className="error-box" role="alert"><strong>Não foi possível concluir</strong><p>{error}</p></div>}
-      {progress && running ? <ProgressPanel progress={progress} /> : <button className="button primary wide" onClick={run}>{mode === "extract" ? "Extrair conteúdo" : "Compactar arquivos"}</button>}
+      {progress && running ? <ProgressPanel progress={progress} onCancel={() => controller.current?.abort()} /> : <button className="button primary wide" onClick={run}>{mode === "extract" ? "Extrair conteúdo" : "Compactar arquivos"}</button>}
     </section>
   );
 }

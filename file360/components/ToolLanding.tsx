@@ -4,6 +4,6 @@ import type { ToolPage } from "@/src/config/tool-pages";
 
 export function ToolLanding({ page }: { page: ToolPage | undefined }) {
   if (!page) notFound();
-  return <File360App initialTool={page.tool} heading={page.heading} description={page.description} />;
+  return <File360App initialTool={page.tool} initialFormat={page.format} initialOperation={page.operation} heading={page.heading} description={page.description} />;
 }
 

@@ -9,13 +9,14 @@ import type { Artifact, ProgressUpdate } from "@/src/types";
 
 type Mode = "merge" | "extract" | "split" | "images" | "to-pdf";
 
-export function PdfStudio({ files, onReset }: { files: File[]; onReset: () => void }) {
+export function PdfStudio({ files, initialOperation, initialFormat, onReset }: { files: File[]; initialOperation?: string; initialFormat?: string; onReset: () => void }) {
   const allImages = files.every((file) => file.type.startsWith("image/") || /\.(heic|heif)$/i.test(file.name));
-  const [mode, setMode] = useState<Mode>(allImages ? "to-pdf" : files.length > 1 ? "merge" : "extract");
+  const requestedMode: Mode | undefined = initialOperation === "to-pdf" || initialOperation === "images" || initialOperation === "merge" || initialOperation === "extract" || initialOperation === "split" ? initialOperation : undefined;
+  const [mode, setMode] = useState<Mode>(allImages ? "to-pdf" : requestedMode === "to-pdf" ? "extract" : requestedMode ?? (files.length > 1 ? "merge" : "extract"));
   const [pages, setPages] = useState(0);
   const [ranges, setRanges] = useState("");
   const [rotate, setRotate] = useState(0);
-  const [format, setFormat] = useState<"jpeg" | "png">("jpeg");
+  const [format, setFormat] = useState<"jpeg" | "png">(initialFormat === "png" ? "png" : "jpeg");
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState("");
@@ -23,19 +24,25 @@ export function PdfStudio({ files, onReset }: { files: File[]; onReset: () => vo
 
   useEffect(() => {
     if (allImages) return;
-    inspectPdf(files[0]).then((info) => setPages(info.pages)).catch((reason) => setError(reason instanceof Error ? reason.message : "PDF inválido."));
+    const abort = new AbortController();
+    inspectPdf(files[0], abort.signal).then((info) => setPages(info.pages)).catch((reason) => {
+      if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "PDF inválido.");
+    });
+    return () => abort.abort();
   }, [allImages, files]);
+
+  useEffect(() => () => controller.current?.abort(), []);
 
   const run = async () => {
     const abort = new AbortController(); controller.current = abort; setError(""); setProgress({ value: 0, label: "Lendo arquivos" });
     try {
       let output: Artifact[];
-      if (mode === "merge") output = [await mergePdfs(files, setProgress)];
-      else if (mode === "to-pdf") output = [await imagesToPdf(files, setProgress)];
+      if (mode === "merge") output = [await mergePdfs(files, setProgress, abort.signal)];
+      else if (mode === "to-pdf") output = [await imagesToPdf(files, setProgress, abort.signal)];
       else {
         const selected = parsePageRanges(ranges, pages);
-        if (mode === "extract") output = [await extractPdfPages(files[0], selected, rotate)];
-        else if (mode === "split") output = await splitPdfPages(files[0], selected);
+        if (mode === "extract") output = [await extractPdfPages(files[0], selected, rotate, abort.signal)];
+        else if (mode === "split") output = await splitPdfPages(files[0], selected, abort.signal);
         else output = await pdfToImages(files[0], selected, format, 144, abort.signal, setProgress);
       }
       setArtifacts(output);

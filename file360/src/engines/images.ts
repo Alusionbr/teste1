@@ -1,5 +1,6 @@
 import { artifactFromBlob } from "@/src/lib/download";
 import { baseName, extensionOf, LIMITS, safeFilename } from "@/src/lib/files";
+import { detectPdfEmbeddableImage } from "@/src/lib/file-signatures";
 import type { Artifact, ProgressUpdate } from "@/src/types";
 
 export type ImageFormat = "jpeg" | "png" | "webp";
@@ -140,12 +141,9 @@ export async function transformImageBatch(
 }
 
 export async function imageForPdf(file: File): Promise<{ bytes: Uint8Array; mime: "image/jpeg" | "image/png" }> {
-  if (file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name)) {
-    return { bytes: new Uint8Array(await file.arrayBuffer()), mime: "image/jpeg" };
-  }
-  if (file.type === "image/png" || /\.png$/i.test(file.name)) {
-    return { bytes: new Uint8Array(await file.arrayBuffer()), mime: "image/png" };
-  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const detectedMime = detectPdfEmbeddableImage(bytes);
+  if (detectedMime) return { bytes, mime: detectedMime };
   const artifact = await transformImage(file, {
     format: "jpeg",
     maxEdge: 5000,

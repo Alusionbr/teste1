@@ -5,12 +5,14 @@ import { ProgressPanel } from "@/components/ProgressPanel";
 import { ResultPanel } from "@/components/ResultPanel";
 import { convertMedia, getMediaCapabilities, inspectMedia, type MediaFormat, type MediaInfo } from "@/src/engines/media";
 import { formatDuration } from "@/src/lib/files";
+import { fitMediaWithinLongEdge } from "@/src/lib/media-dimensions";
 import type { Artifact, ProgressUpdate } from "@/src/types";
 
-export function MediaStudio({ file, onReset }: { file: File; onReset: () => void }) {
+export function MediaStudio({ file, initialFormat, onReset }: { file: File; initialFormat?: string; onReset: () => void }) {
   const [info, setInfo] = useState<MediaInfo | null>(null);
   const [capabilities, setCapabilities] = useState<{ video: string[]; audio: string[] } | null>(null);
-  const [format, setFormat] = useState<MediaFormat>(file.type.startsWith("audio/") ? "mp3" : "mp4");
+  const allowedFormat = initialFormat === "mp4" || initialFormat === "webm" || initialFormat === "mp3" || initialFormat === "wav" || initialFormat === "m4a" ? initialFormat : undefined;
+  const [format, setFormat] = useState<MediaFormat>(allowedFormat ?? (file.type.startsWith("audio/") ? "mp3" : "mp4"));
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
   const [maxWidth, setMaxWidth] = useState(1920);
@@ -25,7 +27,7 @@ export function MediaStudio({ file, onReset }: { file: File; onReset: () => void
   useEffect(() => {
     inspectMedia(file).then((value) => { setInfo(value); setEnd(Number(value.duration.toFixed(2))); }).catch((reason) => setError(reason instanceof Error ? reason.message : "Mídia incompatível."));
     getMediaCapabilities().then(setCapabilities).catch(() => setCapabilities(null));
-    return () => URL.revokeObjectURL(preview);
+    return () => { controller.current?.abort(); URL.revokeObjectURL(preview); };
   }, [file, preview]);
 
   const run = async () => {
@@ -39,6 +41,7 @@ export function MediaStudio({ file, onReset }: { file: File; onReset: () => void
   const duration = info?.duration ?? 1;
   const range = info ? Math.max(0, Math.min(1, (end - start) / duration)) : 1;
   const outputHint = capabilities ? `Saídas detectadas: ${[capabilities.video.includes("avc") && "MP4", capabilities.video.includes("vp9") && "WebM", capabilities.audio.includes("mp3") && "MP3"].filter(Boolean).join(" · ") || "modo compatível"}.` : "As opções são confirmadas pelo navegador ao iniciar.";
+  const targetDimensions = info?.width && info.height ? fitMediaWithinLongEdge(info.width, info.height, maxWidth) : null;
   return (
     <section className="editor-grid">
       <div className="preview-panel media-preview">
@@ -51,7 +54,7 @@ export function MediaStudio({ file, onReset }: { file: File; onReset: () => void
         <div className="field-pair"><label className="field"><span>Início (segundos)</span><input type="number" min="0" step="0.01" value={start} onChange={(event) => setStart(Number(event.target.value))} /></label><label className="field"><span>Fim</span><input type="number" min="0" step="0.01" value={end} onChange={(event) => setEnd(Number(event.target.value))} /></label></div>
         <div className="timeline" aria-label="Intervalo selecionado"><span style={{ left: `${Math.max(0, Math.min(100, start / duration * 100))}%`, width: `${Math.max(1, range * 100)}%` }} /></div>
         <div className="timeline-inputs"><label><span>Início</span><input type="range" min="0" max={duration} step="0.01" value={Math.min(start, duration)} onChange={(event) => setStart(Math.min(Number(event.target.value), Math.max(0, end - 0.01)))} /></label><label><span>Fim</span><input type="range" min="0.01" max={duration} step="0.01" value={Math.min(Math.max(end, start + 0.01), duration)} onChange={(event) => setEnd(Math.max(Number(event.target.value), start + 0.01))} /></label></div>
-        {(format === "mp4" || format === "webm") && <><label className="field"><span>Resolução máxima</span><select value={maxWidth} onChange={(event) => setMaxWidth(Number(event.target.value))}><option value="854">480p</option><option value="1280">720p</option><option value="1920">1080p</option><option value="2560">1440p</option><option value="3840">4K (exigente)</option></select></label><label className="check-row"><input type="checkbox" checked={removeAudio} onChange={(event) => setRemoveAudio(event.target.checked)} /><span>Remover áudio</span></label></>}
+        {(format === "mp4" || format === "webm") && <><label className="field"><span>Maior lado do vídeo</span><select value={maxWidth} onChange={(event) => setMaxWidth(Number(event.target.value))}><option value="854">Até 854 px</option><option value="1280">Até 1280 px</option><option value="1920">Até 1920 px</option><option value="2560">Até 2560 px</option><option value="3840">Até 3840 px (exigente)</option></select>{targetDimensions && <small>Saída prevista: {targetDimensions.width} × {targetDimensions.height}. Vídeos menores não são ampliados.</small>}</label><label className="check-row"><input type="checkbox" checked={removeAudio} onChange={(event) => setRemoveAudio(event.target.checked)} /><span>Remover áudio</span></label></>}
         <label className="field"><span>Qualidade</span><select value={quality} onChange={(event) => setQuality(event.target.value as "high" | "medium" | "low")}><option value="high">Alta qualidade</option><option value="medium">Equilibrado</option><option value="low">Menor arquivo</option></select></label>
         <p className="capability-note">{outputHint}</p>
         {error && <div className="error-box" role="alert"><strong>Este arquivo precisa de atenção</strong><p>{error}</p></div>}

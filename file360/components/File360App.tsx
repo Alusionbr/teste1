@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { FileDropzone } from "@/components/FileDropzone";
 import { FileList } from "@/components/FileList";
@@ -24,31 +24,38 @@ const ArchiveStudio = dynamic(() => import("@/components/studios/ArchiveStudio")
 
 export function File360App({
   initialTool = "image",
+  initialFormat,
+  initialOperation,
   heading = <>Faça o que precisa.<br />Baixe e pronto.</>,
   description = "Converta, corte, comprima e organize arquivos sem criar conta. Seus arquivos não saem do dispositivo.",
 }: {
   initialTool?: ToolId;
+  initialFormat?: string;
+  initialOperation?: string;
   heading?: React.ReactNode;
   description?: string;
 }) {
   const [tool, setTool] = useState<ToolId>(initialTool);
   const [files, setFiles] = useState<File[]>([]);
+  const explicitTool = useRef(initialFormat !== undefined || initialOperation !== undefined);
 
   const receive = (nextFiles: File[]) => {
     setFiles(nextFiles);
     const categories = new Set(nextFiles.map(categoryOf));
-    if (categories.size === 1) {
+    if (!explicitTool.current && categories.size === 1) {
       const detected = [...categories][0];
       if (detected !== "unknown") setTool(detected);
     }
   };
 
   const selectTool = (next: ToolId) => {
+    explicitTool.current = true;
     setTool(next);
     setFiles([]);
   };
 
   const selected = tools.find((item) => item.id === tool)!;
+  const fileKey = files.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join("|");
   const homeHref = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`;
 
   return (
@@ -87,10 +94,10 @@ export function File360App({
           </div>
           <FileDropzone files={files} onFiles={receive} accept={selected.accept} multiple={tool !== "media"} />
           <FileList files={files} onChange={setFiles} />
-          {files.length > 0 && tool === "image" && <ImageStudio files={files} onReset={() => setFiles([])} />}
-          {files.length > 0 && tool === "pdf" && <PdfStudio key={files.map((file) => `${file.name}:${file.lastModified}`).join("|")} files={files} onReset={() => setFiles([])} />}
-          {files.length > 0 && tool === "media" && <MediaStudio key={`${files[0].name}:${files[0].lastModified}`} file={files[0]} onReset={() => setFiles([])} />}
-          {files.length > 0 && tool === "archive" && <ArchiveStudio files={files} onReset={() => setFiles([])} />}
+          {files.length > 0 && tool === "image" && <ImageStudio key={fileKey} files={files} initialFormat={initialFormat} onReset={() => setFiles([])} />}
+          {files.length > 0 && tool === "pdf" && <PdfStudio key={fileKey} files={files} initialOperation={initialOperation} initialFormat={initialFormat} onReset={() => setFiles([])} />}
+          {files.length > 0 && tool === "media" && <MediaStudio key={fileKey} file={files[0]} initialFormat={initialFormat} onReset={() => setFiles([])} />}
+          {files.length > 0 && tool === "archive" && <ArchiveStudio key={fileKey} files={files} onReset={() => setFiles([])} />}
         </div>
       </section>
 
