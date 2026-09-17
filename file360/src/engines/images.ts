@@ -9,6 +9,7 @@ export type ImageOptions = {
   maxEdge: number;
   quality: number;
   rotate: 0 | 90 | 180 | 270;
+  cropAspect?: number;
   flipHorizontal: boolean;
   flipVertical: boolean;
   background: string;
@@ -55,9 +56,24 @@ export async function transformImage(file: File, options: ImageOptions): Promise
     const pixels = bitmap.width * bitmap.height;
     if (pixels > LIMITS.imagePixels) throw new Error("A imagem excede 24 megapixels e pode esgotar a memória do dispositivo.");
 
+    const cropAspect = options.cropAspect && Number.isFinite(options.cropAspect) && options.cropAspect > 0 ? options.cropAspect : undefined;
+    let cropWidth = bitmap.width;
+    let cropHeight = bitmap.height;
+    let cropX = 0;
+    let cropY = 0;
+    if (cropAspect) {
+      const sourceAspect = bitmap.width / bitmap.height;
+      if (sourceAspect > cropAspect) {
+        cropWidth = Math.round(bitmap.height * cropAspect);
+        cropX = Math.floor((bitmap.width - cropWidth) / 2);
+      } else {
+        cropHeight = Math.round(bitmap.width / cropAspect);
+        cropY = Math.floor((bitmap.height - cropHeight) / 2);
+      }
+    }
     const rotated = options.rotate === 90 || options.rotate === 270;
-    const sourceWidth = rotated ? bitmap.height : bitmap.width;
-    const sourceHeight = rotated ? bitmap.width : bitmap.height;
+    const sourceWidth = rotated ? cropHeight : cropWidth;
+    const sourceHeight = rotated ? cropWidth : cropHeight;
     const scale = Math.min(1, options.maxEdge / Math.max(sourceWidth, sourceHeight));
     const width = Math.max(1, Math.round(sourceWidth * scale));
     const height = Math.max(1, Math.round(sourceHeight * scale));
@@ -77,7 +93,7 @@ export async function transformImage(file: File, options: ImageOptions): Promise
     context.rotate((options.rotate * Math.PI) / 180);
     const drawWidth = rotated ? height : width;
     const drawHeight = rotated ? width : height;
-    context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.drawImage(bitmap, cropX, cropY, cropWidth, cropHeight, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
 
     const requestedMime = mimeByFormat[options.format];
     const blob = await canvasToBlob(canvas, requestedMime, options.quality / 100);

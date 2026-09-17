@@ -89,7 +89,7 @@ export function File360App({
           <FileList files={files} onChange={setFiles} />
           {files.length > 0 && tool === "image" && <ImageStudio files={files} onReset={() => setFiles([])} />}
           {files.length > 0 && tool === "pdf" && <PdfStudio key={files.map((file) => `${file.name}:${file.lastModified}`).join("|")} files={files} onReset={() => setFiles([])} />}
-          {files.length > 0 && tool === "media" && <MediaStudio file={files[0]} onReset={() => setFiles([])} />}
+          {files.length > 0 && tool === "media" && <MediaStudio key={`${files[0].name}:${files[0].lastModified}`} file={files[0]} onReset={() => setFiles([])} />}
           {files.length > 0 && tool === "archive" && <ArchiveStudio files={files} onReset={() => setFiles([])} />}
         </div>
       </section>
