@@ -1,7 +1,7 @@
 "use strict";
 (function(){
   const SEARCH_VERSION="3.3";
-  if(localStorage.getItem("estante:search-engine")!==SEARCH_VERSION){state.source="smart";localStorage.setItem("estante:search-engine",SEARCH_VERSION);updatePrefs()}
+  try{if(localStorage.getItem("estante:search-engine")!==SEARCH_VERSION){state.source="smart";localStorage.setItem("estante:search-engine",SEARCH_VERSION);updatePrefs()}}catch{}
   // Fontes que dependem só do Vagalume (Brasil e Trecho): quando ele está fora
   // do ar, os dois chips ganham um sinal visual em vez de deixar o usuário
   // descobrir tentando e recebendo erro toda vez.
@@ -36,11 +36,12 @@
     const btn=$("trySmartBtn");if(btn)btn.onclick=()=>{state.source="smart";syncSourceUI();updatePrefs();$("searchInput").value=q;$("searchForm").requestSubmit()};
   }
   const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
-  $("searchForm").onsubmit=async e=>{e.preventDefault();const q=$("searchInput").value.trim();if(!q)return;
+  let searchToken=0;
+  $("searchForm").onsubmit=async e=>{e.preventDefault();const q=$("searchInput").value.trim();if(!q)return;const token=++searchToken;
     // Repertório salvo + acervo do site são procurados sempre, antes de
     // qualquer rede: respondem na hora, funcionam offline e são a única busca
     // que acha por trecho sem depender do Vagalume.
-    const locais=withLocalFirst(searchLocal(q),await searchAcervo(q));
+    const acervo=await searchAcervo(q);if(token!==searchToken)return;const locais=withLocalFirst(searchLocal(q),acervo);
     if(!navigator.onLine){
       state.results=locais;state.tab="results";renderList();
       return notify(locais.length
@@ -49,14 +50,14 @@
     }
     const button=$("searchForm").querySelector("button");button.disabled=true;button.textContent="Buscando…";notify(state.source==="smart"?"Busca inteligente: consultando várias fontes e variações…":"Procurando…",true);
     try{
-      state.results=withLocalFirst(locais,await searchMusic(q));state.tab="results";renderList();
+      const remote=await searchMusic(q);if(token!==searchToken)return;state.results=withLocalFirst(locais,remote);state.tab="results";renderList();
       if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}
       const doRepertorio=locais.length?`${locais.length} já no aparelho · `:"";
       if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes";notify(`${plural(state.results.length,"resultado","resultados")} · ${doRepertorio}${src}. Os melhores aparecem primeiro.`,true)}
       else notify(locais.length?`${doRepertorio}mais ${state.results.length-locais.length} da busca.`:"",true);
-    }catch(err){
+    }catch(err){if(token!==searchToken)return;
       // A rede falhou, mas o que está salvo continua valendo: mostra o que dá.
       state.results=locais;renderList();notifySourceError(err,q,locais.length);
-    }finally{button.disabled=false;button.textContent="Buscar";syncSourceUI()}};
+    }finally{if(token===searchToken){button.disabled=false;button.textContent="Buscar";syncSourceUI()}}};
   syncSourceUI();renderList();
 })();
