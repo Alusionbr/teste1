@@ -22,6 +22,13 @@ const HUB_TOOLS = [
     href: "./controle360/",
     tags: ["gestão", "estoque", "CMV", "offline"],
     status: "ativo"
+  },
+  {
+    name: "File360",
+    tagline: "Converta imagens e mídia, organize PDFs e compacte arquivos sem enviar nada para um servidor.",
+    href: "./file360/",
+    tags: ["arquivos", "conversão", "privacidade", "local"],
+    status: "ativo"
   }
 ];
 

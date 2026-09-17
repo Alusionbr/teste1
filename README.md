@@ -10,6 +10,7 @@ Publicado pelo GitHub Pages a partir da raiz: <https://alusionbr.github.io/teste
 |---|---|---|
 | **Estante** | [`estante/`](estante/) | Letras e cifras no palco: busca em várias fontes, repertórios offline, rolagem automática, sincronia, transposição e impressão da ordem do show. Instalável no celular. |
 | **Controle360 Multi** | [`controle360/`](controle360/) | Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios. |
+| **File360** | [`file360/`](file360/) | Imagens em lote, PDFs, vídeo, áudio, ZIP e GZIP processados localmente, sem conta nem upload. |
 
 Cada ferramenta tem o seu próprio README com detalhes de uso.
 
@@ -28,6 +29,7 @@ hub/styles.css      visual da página de ferramentas
 hub/tools.js        lista das ferramentas (HUB_TOOLS)
 estante/            aplicativo de letras e cifras
 controle360/        aplicativo de estoque e custos
+file360/             ferramenta local de arquivos (Next.js exportado estaticamente)
 tools/make-icons.js gerador dos ícones PNG do Estante (Node puro)
 ```
 

@@ -1,0 +1,11 @@
+packages:
+  - "."
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - '@mediabunny/mp3-encoder@1.57.0'
+  - mediabunny@1.57.0

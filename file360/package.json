@@ -1,0 +1,35 @@
+{
+  "name": "file360",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/lib/ranges.test.ts src/lib/files.test.ts"
+  },
+  "dependencies": {
+    "@mediabunny/mp3-encoder": "1.57.0",
+    "@zip.js/zip.js": "2.15.0",
+    "heic-to": "1.5.2",
+    "mediabunny": "1.57.0",
+    "next": "16.3.5",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.3.289",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.3",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.5",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

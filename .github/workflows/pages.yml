@@ -25,13 +25,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: file360/pnpm-lock.yaml
+
+      - name: Install File360
+        working-directory: file360
+        run: pnpm install --frozen-lockfile
+
+      - name: Build File360
+        working-directory: file360
+        env:
+          NEXT_PUBLIC_BASE_PATH: /teste1/file360
+          NEXT_PUBLIC_PRODUCTION: "true"
+        run: pnpm build
+
+      - name: Stage site
+        run: |
+          mkdir _site
+          rsync -a --exclude='.git' --exclude='_site' --exclude='file360' ./ _site/
+          mkdir -p _site/file360
+          cp -a file360/out/. _site/file360/
+          touch _site/.nojekyll
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
