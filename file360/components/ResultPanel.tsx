@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createZip } from "@/src/engines/archive";
 import { downloadBlob } from "@/src/lib/download";
 import { formatBytes } from "@/src/lib/files";
@@ -9,6 +9,18 @@ import type { Artifact } from "@/src/types";
 export function ResultPanel({ artifacts, errors = [], onReset }: { artifacts: Artifact[]; errors?: string[]; onReset: () => void }) {
   const [zipping, setZipping] = useState(false);
   const [zipError, setZipError] = useState("");
+
+  useEffect(() => {
+    const cleanup = () => {
+      for (const artifact of artifacts) void artifact.cleanup?.();
+    };
+    window.addEventListener("pagehide", cleanup);
+    return () => {
+      window.removeEventListener("pagehide", cleanup);
+      window.setTimeout(cleanup, 10_000);
+    };
+  }, [artifacts]);
+
   if (!artifacts.length) return null;
 
   const downloadAll = async () => {

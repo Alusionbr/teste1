@@ -12,6 +12,6 @@ export function downloadBlob(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export function artifactFromBlob(name: string, blob: Blob, detail?: string): Artifact {
-  return { id: crypto.randomUUID(), name, blob, detail };
+export function artifactFromBlob(name: string, blob: Blob, detail?: string, cleanup?: Artifact["cleanup"]): Artifact {
+  return { id: crypto.randomUUID(), name, blob, detail, cleanup };
 }

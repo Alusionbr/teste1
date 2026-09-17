@@ -38,7 +38,11 @@ export function FileDropzone({ files, onFiles, accept, multiple = true }: Props)
         type="file"
         accept={accept}
         multiple={multiple}
-        onChange={(event) => receive(event.target.files)}
+        onChange={(event) => {
+          receive(event.target.files);
+          // Allow selecting the same file again after "Processar outro".
+          event.currentTarget.value = "";
+        }}
       />
       <div className="dropzone-mark" aria-hidden="true">＋</div>
       <div>

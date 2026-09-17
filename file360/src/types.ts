@@ -5,6 +5,7 @@ export type Artifact = {
   name: string;
   blob: Blob;
   detail?: string;
+  cleanup?: () => Promise<void> | void;
 };
 
 export type ProgressUpdate = {

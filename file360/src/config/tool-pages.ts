@@ -18,6 +18,7 @@ export const converterPages: ToolPage[] = [
   { slug: "png-para-jpg", title: "Converter PNG para JPG online", heading: "PNG para JPG em segundos.", description: "Converta PNG para JPG com fundo branco, tamanho e qualidade ajustáveis, sem enviar imagens.", tool: "image", format: "jpeg" },
   { slug: "imagem-para-pdf", title: "Converter imagem para PDF online", heading: "Imagens em um único PDF.", description: "Organize JPG, PNG, WebP ou HEIC e crie um PDF na ordem escolhida.", tool: "pdf", operation: "to-pdf" },
   { slug: "pdf-para-jpg", title: "Converter PDF para JPG online", heading: "PDF para imagens JPG.", description: "Escolha páginas e exporte JPG em alta definição, uma página por vez para controlar a memória.", tool: "pdf", operation: "images", format: "jpeg" },
+  { slug: "video-para-gif", title: "Converter vídeo para GIF online", heading: "Vídeo para GIF, sem upload.", description: "Escolha um trecho curto, ajuste tamanho, FPS e cores e crie um GIF animado no navegador.", tool: "media", operation: "gif", format: "gif" },
 ];
 
 export const actionPages: Record<string, ToolPage[]> = {
