@@ -33,7 +33,7 @@ export function ArchiveStudio({ files, onReset }: { files: File[]; onReset: () =
     } finally { setRunning(false); setProgress(null); controller.current = null; }
   };
 
-  if (artifacts.length) return <ResultPanel artifacts={artifacts} onReset={onReset} />;
+  if (artifacts.length) return <ResultPanel artifacts={artifacts} onAdjust={() => setArtifacts([])} onReset={onReset} />;
   return (
     <section className="controls-panel single-panel">
       <div className="control-heading"><div><p className="section-kicker">Arquivos compactados</p><h3>{extractable ? "Extraia ou crie um novo pacote" : `Compacte ${files.length} item${files.length > 1 ? "s" : ""}`}</h3></div><span>Sem upload</span></div>

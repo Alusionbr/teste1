@@ -34,7 +34,7 @@ export function ImageStudio({ files, initialFormat, onReset }: { files: File[]; 
     } finally { setProgress(null); controller.current = null; }
   };
 
-  if (artifacts.length) return <ResultPanel artifacts={artifacts} errors={errors} onReset={onReset} />;
+  if (artifacts.length) return <ResultPanel artifacts={artifacts} errors={errors} onAdjust={() => setArtifacts([])} onReset={onReset} />;
   return (
     <section className="editor-grid">
       <div className="preview-panel image-preview">

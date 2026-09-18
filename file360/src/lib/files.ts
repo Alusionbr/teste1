@@ -82,6 +82,12 @@ export function safeFilename(name: string, fallback = "arquivo"): string {
   return normalized || fallback;
 }
 
+export function resultFilename(base: string, originalName: string): string {
+  const extension = extensionOf(originalName);
+  const safeBase = safeFilename(base, "arquivo");
+  return extension ? `${safeBase}.${extension}` : safeBase;
+}
+
 export function uniqueName(name: string, existing: Set<string>): string {
   const safe = safeFilename(name);
   if (!existing.has(safe.toLowerCase())) {

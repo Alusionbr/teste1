@@ -51,7 +51,7 @@ export function PdfStudio({ files, initialOperation, initialFormat, onReset }: {
     } finally { setProgress(null); controller.current = null; }
   };
 
-  if (artifacts.length) return <ResultPanel artifacts={artifacts} onReset={onReset} />;
+  if (artifacts.length) return <ResultPanel artifacts={artifacts} onAdjust={() => setArtifacts([])} onReset={onReset} />;
   return (
     <section className="controls-panel single-panel">
       <div className="control-heading"><div><p className="section-kicker">Organizar PDF</p><h3>{allImages ? "Transforme imagens em PDF" : pages ? `${pages} páginas detectadas` : "Analisando documento"}</h3></div><span>100% local</span></div>

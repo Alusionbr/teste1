@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { baseName, extensionOf, formatBytes, safeFilename, uniqueName } from "./files.ts";
+import { baseName, extensionOf, formatBytes, resultFilename, safeFilename, uniqueName } from "./files.ts";
 
 describe("nomes de arquivos", () => {
   it("normaliza nomes sem permitir separadores de caminho", () => {
@@ -14,6 +14,10 @@ describe("nomes de arquivos", () => {
     const names = new Set<string>();
     assert.equal(uniqueName("foto.jpg", names), "foto.jpg");
     assert.equal(uniqueName("FOTO.jpg", names), "FOTO-2.jpg");
+  });
+  it("renomeia o resultado com acentos e preserva a extensão real", () => {
+    assert.equal(resultFilename("férias: verão", "saida.webp"), "férias- verão.webp");
+    assert.equal(resultFilename("", "saida.pdf"), "arquivo.pdf");
   });
 });
 

@@ -1,7 +1,7 @@
 import { artifactFromBlob } from "@/src/lib/download";
 import { baseName, formatDuration, LIMITS, safeFilename } from "@/src/lib/files";
 import { fitMediaWithinLongEdge } from "@/src/lib/media-dimensions";
-import { mediaLimitsForStorage } from "@/src/lib/media-limits";
+import { gifInputBytesForStorage, mediaLimitsForOutput, mediaLimitsForStorage } from "@/src/lib/media-limits";
 import { canUseExpandedMediaStorage, createTemporaryOutput, type TemporaryOutput } from "@/src/lib/opfs";
 import type { Artifact, ProgressUpdate } from "@/src/types";
 
@@ -85,7 +85,8 @@ async function convertVideoToGif(
   signal: AbortSignal,
   onProgress: (update: ProgressUpdate) => void,
 ): Promise<Artifact> {
-  if (file.size > LIMITS.gifInputBytes) throw new Error("Para GIF, use um vídeo de até 250 MB.");
+  const gifInputBytes = gifInputBytesForStorage(await canUseExpandedMediaStorage(LIMITS.mediaExtendedBytes));
+  if (file.size > gifInputBytes) throw new Error(`Para GIF, este navegador aceita vídeos de até ${Math.round(gifInputBytes / 1024 / 1024)} MB.`);
   const { media, input } = await openInput(file);
   try {
     const track = await input.getPrimaryVideoTrack();
@@ -189,6 +190,7 @@ export async function convertMedia(
     let audio: Parameters<typeof media.Conversion.init>[0]["audio"];
     const quality = new media.Quality(options.quality);
     const primaryVideo = await input.getPrimaryVideoTrack();
+    const primaryAudio = await input.getPrimaryAudioTrack();
     let targetDimensions: { width: number; height: number } | undefined;
     if (primaryVideo && options.maxWidth > 0) {
       const [sourceWidth, sourceHeight] = await Promise.all([
@@ -202,11 +204,17 @@ export async function convertMedia(
     if (expandedStorage) {
       try {
         temporary = await createTemporaryOutput(extension, limits.bytes);
-      } catch (error) {
-        if (file.size > LIMITS.mediaBytes) throw error;
+      } catch {
+        // A estimativa de espaço pode ficar desatualizada entre a inspeção e a
+        // criação do arquivo. O perfil básico abaixo continua seguro em memória.
+        temporary = undefined;
       }
     }
     const streaming = Boolean(temporary);
+    const outputLimits = mediaLimitsForOutput(expandedStorage, streaming);
+    if (file.size > outputLimits.bytes || duration > outputLimits.seconds) {
+      throw new Error(`O armazenamento temporário ampliado não ficou disponível. Neste modo, use mídia de até ${Math.round(outputLimits.bytes / 1024 / 1024)} MB e ${Math.round(outputLimits.seconds / 60)} minutos.`);
+    }
 
     switch (options.format) {
       case "mp4":
@@ -254,9 +262,12 @@ export async function convertMedia(
     conversion = await media.Conversion.init({
       input,
       output,
-      tracks: "primary",
-      video,
-      audio,
+      tracks: "all",
+      video: (track) => track === primaryVideo ? video : { discard: true },
+      audio: (track) => {
+        if (options.removeAudio) return { discard: true };
+        return track === primaryAudio ? audio : { discard: true };
+      },
       trim: { start, end },
       copy: false,
       tags: {},
@@ -270,22 +281,34 @@ export async function convertMedia(
       throw new Error("O dispositivo não consegue combinar os codecs necessários para essa saída.");
     }
     conversion.onProgress = (value: number) => onProgress({ value, label: `Processando ${Math.round(value * 100)}%` });
-    const abort = () => void conversion?.cancel();
+    const abort = () => void conversion?.cancel().catch(() => undefined);
     signal.addEventListener("abort", abort, { once: true });
     try {
       await conversion.execute();
+    } catch (error) {
+      if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
+      throw error;
     } finally {
       signal.removeEventListener("abort", abort);
     }
+    if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
     const blob = temporary
       ? await temporary.getFile()
       : target instanceof media.BufferTarget && target.buffer
         ? new Blob([target.buffer], { type: mime })
         : null;
+    if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
     if (!blob) throw new Error("A conversão terminou sem gerar um arquivo.");
-    if (blob.size > limits.bytes) throw new Error(`O resultado excedeu o limite local de ${Math.round(limits.bytes / 1024 / 1024)} MB.`);
+    if (blob.size > outputLimits.bytes) throw new Error(`O resultado excedeu o limite local de ${Math.round(outputLimits.bytes / 1024 / 1024)} MB.`);
     const sizeDetail = targetDimensions && (options.format === "mp4" || options.format === "webm") ? ` · ${targetDimensions.width} × ${targetDimensions.height}` : "";
-    const detail = `${formatDuration(end - start)}${sizeDetail} · ${conversion.discardedTracks.length ? "faixas secundárias ignoradas" : "faixas principais preservadas"}`;
+    const discardedAudio = conversion.discardedTracks.filter(({ track }) => track.type === "audio").length;
+    const audioDetail = options.removeAudio
+      ? "áudio removido"
+      : discardedAudio
+        ? `${discardedAudio} faixa${discardedAudio > 1 ? "s" : ""} de áudio secundária${discardedAudio > 1 ? "s" : ""} ignorada${discardedAudio > 1 ? "s" : ""}`
+        : "áudio preservado quando presente";
+    const detail = `${formatDuration(end - start)}${sizeDetail} · ${audioDetail}`;
+    if (signal.aborted) throw signal.reason ?? new DOMException("Processamento cancelado.", "AbortError");
     keepTemporary = Boolean(temporary);
     return artifactFromBlob(`${safeFilename(baseName(file.name))}.${extension}`, blob, detail, temporary?.cleanup);
   } finally {

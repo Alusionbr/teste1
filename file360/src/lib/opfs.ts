@@ -21,6 +21,12 @@ type IterableDirectoryHandle = FileSystemDirectoryHandle & {
   entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
 };
 
+type WritableFile = {
+  write: (chunk: PositionedChunk) => Promise<void>;
+  close: () => Promise<void>;
+  abort: (reason?: unknown) => Promise<void>;
+};
+
 function storageManager(): StorageManagerWithDirectory | null {
   if (typeof navigator === "undefined" || !navigator.storage) return null;
   return navigator.storage as StorageManagerWithDirectory;
@@ -43,6 +49,14 @@ export async function createTemporaryOutput(extension: string, maxBytes: number)
   if (!storage?.getDirectory) throw new Error("O navegador não oferece armazenamento temporário ampliado.");
   const root = await storage.getDirectory();
   const directory = await root.getDirectoryHandle(DIRECTORY_NAME, { create: true });
+  return createTemporaryOutputInDirectory(directory, extension, maxBytes);
+}
+
+export async function createTemporaryOutputInDirectory(
+  directory: FileSystemDirectoryHandle,
+  extension: string,
+  maxBytes: number,
+): Promise<TemporaryOutput> {
   const now = Date.now();
   const iterableDirectory = directory as IterableDirectoryHandle;
   if (typeof iterableDirectory.entries === "function") {
@@ -56,8 +70,10 @@ export async function createTemporaryOutput(extension: string, maxBytes: number)
   const safeExtension = /^[a-z0-9]{2,5}$/i.test(extension) ? extension.toLowerCase() : "bin";
   const filename = `job-${now}-${crypto.randomUUID()}.${safeExtension}`;
   const handle = await directory.getFileHandle(filename, { create: true });
-  const fileWritable = await handle.createWritable();
+  const fileWritable = await handle.createWritable() as WritableFile;
   let largestEnd = 0;
+  let writerSettled = false;
+  let cleanupPromise: Promise<void> | null = null;
 
   const writable = new WritableStream<PositionedChunk>({
     async write(chunk) {
@@ -67,15 +83,39 @@ export async function createTemporaryOutput(extension: string, maxBytes: number)
       }
       await fileWritable.write(chunk);
     },
-    close: () => fileWritable.close(),
-    abort: (reason) => fileWritable.abort(reason),
+    async close() {
+      if (writerSettled) return;
+      try {
+        await fileWritable.close();
+      } catch (error) {
+        await fileWritable.abort(error).catch(() => undefined);
+        throw error;
+      } finally {
+        writerSettled = true;
+      }
+    },
+    async abort(reason) {
+      if (writerSettled) return;
+      try {
+        await fileWritable.abort(reason);
+      } finally {
+        writerSettled = true;
+      }
+    },
   });
 
   return {
     writable,
     getFile: () => handle.getFile(),
-    cleanup: async () => {
-      await directory.removeEntry(filename).catch(() => undefined);
+    cleanup: () => {
+      cleanupPromise ??= (async () => {
+        if (!writerSettled) {
+          writerSettled = true;
+          await fileWritable.abort(new DOMException("Saída temporária descartada.", "AbortError")).catch(() => undefined);
+        }
+        await directory.removeEntry(filename).catch(() => undefined);
+      })();
+      return cleanupPromise;
     },
   };
 }

@@ -20,6 +20,12 @@ Antes de ampliar recursos de mídia, revisar: fallback de OPFS que pode manter o
 
 ## Entregas em ordem
 
+### Estado de entrega — P0 / pacote 1
+
+Implementado em 18/09/2026: catálogo central de ações e rotas SEO, objetivos rápidos filtrados pelo tipo de arquivo, renomeação preservando a extensão, compartilhamento por capacidade em cada resultado, download como alternativa, retorno aos ajustes com original e opções preservados, fallback seguro quando OPFS falha, encerramento e limpeza idempotente da saída temporária, cancelamento próximo da finalização e política explícita para faixas de áudio.
+
+Validação concluída: 32 testes em 13 suítes, TypeScript, ESLint e exportação estática. Em Chromium desktop, uma imagem PNG foi convertida para WebP; um MP4 público de 5 segundos foi convertido sem áudio e também gerou GIF de 480 × 270, 8 FPS e 1,76 MB; o retorno aos ajustes preservou o arquivo e as opções. Os testes de compartilhamento usam adaptador injetável e a interface confirmou a capacidade do navegador, mas a folha nativa não foi concluída com um destinatário. Homologação de upload, codec, memória e compartilhamento em iPhone/Safari e Android/Chrome permanece pendente e deve registrar modelo, sistema, navegador, arquivo, duração e resultado observado.
+
 ### P0 / pacote 1 — base confiável e resultado compartilhável
 
 Esforço recomendado ao Sol: alto nas correções de recursos, médio na interface.
