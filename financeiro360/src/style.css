@@ -6,3 +6,5 @@
 @media(max-width:520px){.metrics,.form-grid{grid-template-columns:1fr}.month-bar{justify-content:start}.records li,.market-list li{flex-wrap:wrap}.topbar h1{font-size:1.5rem}}
 
 .recurring-panel{margin-top:1rem}.recurring-list{margin-top:1.2rem}.recurring-panel .summary-list li{flex-wrap:wrap}.recurring-panel .summary-list button{margin-left:auto}
+
+#import-dialog{width:min(92vw,720px);max-height:85vh;overflow:auto;padding:1.4rem}.import-preview{max-height:230px;overflow:auto}.import-label,.import-consent{display:block;margin:1rem 0}.import-label input{display:block;width:100%;margin-top:.4rem;border:1px solid #b9ccd0;border-radius:9px;padding:.65rem}.import-consent input{width:auto;margin-right:.5rem}

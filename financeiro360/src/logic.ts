@@ -50,6 +50,12 @@ export interface RecurringItem {
   day: number;
 }
 
+export interface ImportInfo {
+  source: string;
+  importedAt: string;
+  entryCount: number;
+}
+
 export interface State {
   version: 1;
   names: Record<Person, string>;
@@ -58,6 +64,7 @@ export interface State {
   entries: Entry[];
   market: MarketItem[];
   recurring: RecurringItem[];
+  importInfo?: ImportInfo;
 }
 
 export const emptyState = (): State => ({
@@ -184,5 +191,23 @@ export function parseBackup(input: unknown): State {
     return { id: item.id, name: item.name, amountCents: item.amountCents, category: item.category, buyer: item.buyer, scope: item.scope, startMonth: item.startMonth, day: item.day as number };
   });
   if (new Set(cards.map((card) => card.id)).size !== cards.length || entryIds.size !== entries.length || new Set(market.map((item) => item.id)).size !== market.length || new Set(recurring.map((item) => item.id)).size !== recurring.length) throw new Error("Backup contém identificadores duplicados.");
-  return { version: 1, names: { wife: input.names.wife, husband: input.names.husband }, budgetCents: input.budgetCents, cards, entries, market, recurring };
+  let importInfo: ImportInfo | undefined;
+  if (input.importInfo !== undefined) {
+    const info = input.importInfo;
+    if (!record(info) || !text(info.source, 160) || !text(info.importedAt, 40) || !Number.isSafeInteger(info.entryCount) || (info.entryCount as number) < 0) throw new Error("Histórico de importação inválido no backup.");
+    importInfo = { source: info.source, importedAt: info.importedAt, entryCount: info.entryCount as number };
+  }
+  return { version: 1, names: { wife: input.names.wife, husband: input.names.husband }, budgetCents: input.budgetCents, cards, entries, market, recurring, ...(importInfo ? { importInfo } : {}) };
+}
+
+export function backupSummary(state: State) {
+  const dates = state.entries.map((entry) => entry.date).sort();
+  return {
+    entries: state.entries.length,
+    cards: state.cards.length,
+    market: state.market.length,
+    recurring: state.recurring.length,
+    firstDate: dates[0] || null,
+    lastDate: dates[dates.length - 1] || null,
+  };
 }

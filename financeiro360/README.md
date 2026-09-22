@@ -2,7 +2,7 @@
 
 MVP local para um casal planejar custos do lar. A esposa pode ser titular de um cartão e o marido pode registrar compras feitas nele; titular e responsável pela compra são mostrados separadamente. Há lançamentos manuais de receitas e despesas, orçamento mensal do lar, custos por categoria, faturas previstas com parcelas, lista de mercado com valor estimado e custo real, despesas fixas previstas mensalmente e backup JSON.
 
-**Os dados ficam somente no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. O cadastro e os cálculos são locais; não há sincronização, acesso à conta bancária ou captura de fatura. Para transferir dados, exporte um backup JSON em um aparelho e importe no outro. A importação substitui os dados locais após confirmação.
+**Os dados ficam somente no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. O cadastro e os cálculos são locais; não há sincronização, acesso à conta bancária ou captura de fatura. Para transferir dados, exporte um backup JSON em um aparelho e importe no outro. A importação mostra uma prévia local (contagens, período e primeiros lançamentos), pede uma origem informada e substitui os dados locais apenas após confirmação explícita. A origem é uma anotação do usuário, não uma verificação externa.
 
 ## Executar
 
@@ -40,3 +40,5 @@ Alertas de orçamento aparecem na interface ao abrir o app. Ainda não há lanç
 Manifesto, lockfile, TypeScript e build são próprios desta pasta. O projeto não usa o workspace de `file360/` e não entra no artefato do GitHub Pages. Futuro deploy independente poderá apontar Root Directory para `financeiro360/` e saída para `dist/`; nenhuma hospedagem foi configurada por esta entrega.
 
 Veja [docs/ARCHITECTURE-BLUEPRINT.md](docs/ARCHITECTURE-BLUEPRINT.md) para a decisão de arquitetura e os limites do MVP.
+
+O [plano de migração privada](docs/PRIVATE-MIGRATION-PLAN.md) descreve as decisões de acesso e conferência exigidas antes de importar registros históricos reais.

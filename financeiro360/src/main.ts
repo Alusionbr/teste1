@@ -1,9 +1,9 @@
 import "./style.css";
 import { readStored, writeStored, STORAGE_KEY } from "./storage";
 import {
-  dueDate, expenseTotal, incomeTotal, invoiceLines, monthEntries,
+  backupSummary, dueDate, expenseTotal, incomeTotal, invoiceLines, monthEntries,
   parseBackup, parseMoney, pendingRecurring, recurrenceDate, totalCents, validIsoDate,
-  type Entry, type Person,
+  type Entry, type Person, type State,
 } from "./logic";
 
 const root = document.querySelector<HTMLDivElement>("#app");
@@ -20,6 +20,8 @@ const loaded = readStored(() => localStorage.getItem(STORAGE_KEY));
 let state = loaded.state;
 let storageBlocked = loaded.blocked;
 let notice = storageBlocked ? "Os dados locais não puderam ser lidos. Importe um backup válido em Dados antes de lançar novos registros; o conteúdo anterior foi preservado." : "";
+let pendingImport: State | null = null;
+let importFilename = "";
 
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
@@ -179,10 +181,16 @@ function planningView() {
 }
 
 function dataView() {
+  const summary = pendingImport ? backupSummary(pendingImport) : null;
+  const preview = pendingImport ? pendingImport.entries.slice(0, 10).map((entry) => `<li><span>${escapeHtml(entry.date)} · ${escapeHtml(entry.description)} · ${escapeHtml(pendingImport.names[entry.buyer])}</span><strong>${money(entry.amountCents)}</strong></li>`).join("") : "";
   return `<section class="panel narrow"><h2>Seus dados</h2><p>Dados ficam somente neste navegador e dispositivo. O casal não vê atualizações em dois celulares automaticamente. Use exportar/importar para transferir manualmente um backup.</p>
     <div class="button-row"><button type="button" data-export>Exportar backup JSON</button><label class="file-label">Importar backup JSON<input id="import-file" type="file" accept="application/json,.json"></label></div>
-    <p class="hint">Importar substitui todos os dados locais após confirmação. Guarde o arquivo de backup em local seguro: ele contém suas informações financeiras.</p>
-  </section>`;
+    <p class="hint">Importar substitui todos os dados locais após revisão e confirmação. Guarde o arquivo de backup em local seguro: ele contém suas informações financeiras.</p>
+    ${state.importInfo ? `<p class="hint">Última origem informada: ${escapeHtml(state.importInfo.source)} · ${escapeHtml(state.importInfo.importedAt)} · ${state.importInfo.entryCount} lançamentos. Esta origem foi informada por quem importou; o app não a verifica.</p>` : ""}
+  </section>
+  <dialog id="import-dialog" aria-labelledby="import-title"><h2 id="import-title">Revisar importação</h2>
+    ${summary ? `<p>Arquivo: <strong>${escapeHtml(importFilename)}</strong></p><p>${summary.entries} lançamentos · ${summary.cards} cartões · ${summary.market} itens de mercado · ${summary.recurring} despesas fixas</p><p>Período: ${summary.firstDate || "sem lançamentos"} ${summary.lastDate && summary.lastDate !== summary.firstDate ? `até ${summary.lastDate}` : ""}</p><h3>Primeiros lançamentos</h3>${preview ? `<ul class="summary-list import-preview">${preview}</ul>` : `<p class="empty">Nenhum lançamento.</p>`}<label class="import-label">Origem informada por você<input id="import-source" maxlength="160" value="${escapeHtml(importFilename)}" required></label><label class="import-consent"><input id="import-agree" type="checkbox"> Entendo que isto substituirá todos os dados locais atuais.</label><div class="dialog-actions"><button type="button" class="secondary" data-cancel-import>Cancelar</button><button type="button" data-confirm-import>Substituir dados locais</button></div>` : ""}
+  </dialog>`;
 }
 
 const views: Record<string, () => string> = { overview, entries: entriesView, cards: cardsView, market: marketView, planning: planningView, data: dataView };
@@ -205,8 +213,21 @@ function requireMoney(raw: string, label: string, allowZero = false): number {
 root.addEventListener("click", (event) => {
   const target = event.target as Element;
   const tabButton = target.closest<HTMLButtonElement>("[data-tab]");
-  if (tabButton) { tab = tabButton.dataset.tab || "overview"; notice = ""; render(); return; }
+  if (tabButton) { tab = tabButton.dataset.tab || "overview"; pendingImport = null; notice = ""; render(); return; }
   if (target.closest("[data-close-dialog]")) { root?.querySelector<HTMLDialogElement>("#buy-dialog")?.close(); return; }
+  if (target.closest("[data-cancel-import]")) { pendingImport = null; importFilename = ""; render(); return; }
+  if (target.closest("[data-confirm-import]")) {
+    if (!pendingImport) return;
+    const agreed = root?.querySelector<HTMLInputElement>("#import-agree")?.checked;
+    const source = root?.querySelector<HTMLInputElement>("#import-source")?.value.trim() || "";
+    if (!agreed || !source) { notice = "Informe a origem e confirme que os dados locais serão substituídos."; root?.querySelector<HTMLDialogElement>("#import-dialog")?.close(); render(); root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal(); return; }
+    const before = state, wasBlocked = storageBlocked;
+    state = { ...pendingImport, importInfo: { source, importedAt: new Date().toISOString(), entryCount: pendingImport.entries.length } };
+    storageBlocked = false;
+    if (save()) { notice = "Backup importado após revisão."; pendingImport = null; importFilename = ""; }
+    else { state = before; storageBlocked = wasBlocked; }
+    render(); return;
+  }
   const buy = target.closest<HTMLButtonElement>("[data-buy]");
   if (buy) {
     const dialog = root?.querySelector<HTMLDialogElement>("#buy-dialog");
@@ -258,17 +279,16 @@ root.addEventListener("change", async (event) => {
   const target = event.target as HTMLInputElement;
   if (target.id === "month" && /^\d{4}-\d{2}$/.test(target.value)) { month = target.value; render(); return; }
   if (target.id === "import-file" && target.files?.[0]) {
+    pendingImport = null;
     try {
       const file = target.files[0];
       if (file.size > 10 * 1024 * 1024) throw new Error("O backup deve ter até 10 MB.");
-      const imported = parseBackup(JSON.parse(await file.text()));
-      if (!confirm("Importar este backup e substituir todos os dados locais?")) { target.value = ""; return; }
-      const before = state, wasBlocked = storageBlocked;
-      state = imported; storageBlocked = false;
-      if (save()) notice = "Backup importado.";
-      else { state = before; storageBlocked = wasBlocked; }
+      pendingImport = parseBackup(JSON.parse(await file.text()));
+      importFilename = file.name;
+      notice = "Revise o conteúdo antes de substituir seus dados.";
     } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível importar o arquivo."; }
     render();
+    if (pendingImport) root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal();
   }
 });
 

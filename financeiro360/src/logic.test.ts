@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dueDate, emptyState, expenseTotal, installmentAmount, invoiceLines, invoiceMonth, monthEntries, parseBackup, parseMoney, pendingRecurring, recurrenceDate, type Card, type Entry } from "./logic.ts";
+import { backupSummary, dueDate, emptyState, expenseTotal, installmentAmount, invoiceLines, invoiceMonth, monthEntries, parseBackup, parseMoney, pendingRecurring, recurrenceDate, type Card, type Entry } from "./logic.ts";
 
 const card: Card = { id: "wife-card", name: "Cartão", owner: "wife", limitCents: 300000, closingDay: 20, dueDay: 10 };
 const purchase: Entry = { id: "a", date: "2026-01-21", description: "Compra do lar", amountCents: 10001, kind: "expense", category: "Mercado", buyer: "husband", scope: "family", payment: "card", cardId: card.id, installments: 3 };
@@ -65,4 +65,14 @@ test("backup com recorrência confirmada sobrevive ao recarregamento", () => {
   assert.equal(restored.entries[0].recurringId, "internet");
   assert.equal(pendingRecurring(restored, "2027-01").length, 0);
   assert.equal(pendingRecurring(restored, "2027-02").length, 1);
+});
+
+test("prévia de importação resume período e preserva origem informada", () => {
+  const backup = emptyState();
+  backup.entries.push({ id: "a", date: "2026-02-15", description: "Conta", amountCents: 12500, kind: "expense", category: "Moradia", buyer: "wife", scope: "family", payment: "cash", installments: 1 });
+  backup.entries.push({ id: "b", date: "2025-12-01", description: "Receita", amountCents: 50000, kind: "income", category: "Outros", buyer: "husband", scope: "personal", payment: "cash", installments: 1 });
+  backup.importInfo = { source: "Arquivo privado revisado", importedAt: "2026-09-22T12:00:00.000Z", entryCount: 2 };
+  const restored = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.deepEqual(backupSummary(restored), { entries: 2, cards: 0, market: 0, recurring: 0, firstDate: "2025-12-01", lastDate: "2026-02-15" });
+  assert.deepEqual(restored.importInfo, backup.importInfo);
 });
