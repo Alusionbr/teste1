@@ -2,7 +2,7 @@ import "./style.css";
 import { readStored, writeStored, STORAGE_KEY } from "./storage";
 import {
   dueDate, expenseTotal, incomeTotal, invoiceLines, monthEntries,
-  parseBackup, parseMoney, totalCents, validIsoDate,
+  parseBackup, parseMoney, pendingRecurring, recurrenceDate, totalCents, validIsoDate,
   type Entry, type Person,
 } from "./logic";
 
@@ -55,6 +55,8 @@ function overview() {
   const spent = expenseTotal(family);
   const ratio = state.budgetCents ? spent / state.budgetCents : 0;
   const pending = state.market.filter((item) => !item.boughtDate).reduce((sum, item) => sum + Math.round(item.quantity * item.estimatedCents), 0);
+  const recurringPending = pendingRecurring(state, month);
+  const recurringFamilyForecast = recurringPending.filter((item) => item.scope === "family").reduce((sum, item) => sum + item.amountCents, 0);
   const byCategory = new Map<string, number>();
   for (const entry of family) byCategory.set(entry.category, (byCategory.get(entry.category) || 0) + entry.amountCents);
   const categories = [...byCategory].sort((a, b) => b[1] - a[1]);
@@ -66,7 +68,7 @@ function overview() {
     <section class="intro"><h2>Visão do lar · ${escapeHtml(monthLabel(month))}</h2><p>Os números são calculados dos lançamentos manuais salvos neste navegador.</p></section>
     <div class="metrics">
       <article class="metric"><span>Despesas do lar</span><strong>${money(spent)}</strong><small>Por data da compra; inclui cartão uma vez</small></article>
-      <article class="metric"><span>Orçamento restante</span><strong>${money(state.budgetCents - spent)}</strong><small>Meta mensal ${money(state.budgetCents)}</small></article>
+      <article class="metric"><span>Orçamento restante</span><strong>${money(state.budgetCents - spent)}</strong><small>Meta mensal ${money(state.budgetCents)} · previsto com fixas: ${money(state.budgetCents - spent - recurringFamilyForecast)}</small></article>
       <article class="metric"><span>Despesas pessoais</span><strong>${money(expenseTotal(personal))}</strong><small>Fora do orçamento do lar</small></article>
       <article class="metric"><span>Receitas lançadas</span><strong>${money(incomeTotal(entries))}</strong><small>Saldo previsto: ${money(incomeTotal(entries) - expenseTotal(entries))}</small></article>
     </div>
@@ -75,6 +77,7 @@ function overview() {
       <section class="panel"><h3>Custos do lar por categoria</h3>${categories.length ? `<ul class="summary-list">${categories.map(([category, total]) => `<li><span>${escapeHtml(category)}</span><strong>${money(total)}</strong></li>`).join("")}</ul>` : `<p class="empty">Nenhuma despesa do lar neste mês.</p>`}</section>
       <section class="panel"><h3>Como funciona o cartão</h3><p>Uma compra entra no custo do mês em que foi feita. Sua parcela aparece na fatura do mês correspondente. Pagar a fatura não cria uma segunda despesa.</p><button type="button" data-tab="cards" class="secondary">Ver faturas</button></section>
     </div>
+    <section class="panel recurring-panel"><h3>Despesas fixas previstas neste mês</h3><p>A previsão não entra no gasto real até você confirmar o lançamento.</p>${recurringPending.length ? `<ul class="summary-list">${recurringPending.map((item) => `<li><span>${escapeHtml(item.name)} · ${recurrenceDate(month, item.day).split("-").reverse().join("/")} · ${item.scope === "family" ? "Lar" : "Pessoal"}</span><strong>${money(item.amountCents)}</strong><button type="button" data-confirm-recurring="${escapeHtml(item.id)}">Confirmar</button></li>`).join("")}</ul>` : `<p class="empty">Nenhuma despesa fixa pendente neste mês.</p>`}</section>
   `;
 }
 
@@ -160,6 +163,18 @@ function planningView() {
       <button type="submit">Salvar planejamento</button>
     </form>
     <p class="hint">A meta vale para todos os meses; o histórico de lançamentos permanece por data. Alertas são exibidos ao abrir este aplicativo, sem notificações ou sincronização.</p>
+    <h3>Despesas fixas mensais</h3><p>Cadastre aluguel, internet ou outras contas. A previsão aparece todo mês; confirme manualmente quando o gasto acontecer.</p>
+    <form id="recurring-form" class="form-grid">
+      <label class="wide">Descrição<input name="name" maxlength="160" placeholder="Ex.: aluguel" required></label>
+      <label>Valor previsto (R$)<input name="amount" inputmode="decimal" placeholder="0,00" required></label>
+      <label>Categoria<input name="category" maxlength="80" placeholder="Ex.: Moradia" required></label>
+      <label>Responsável<select name="buyer">${peopleOptions()}</select></label>
+      <label>Uso<select name="scope"><option value="family">Lar / família</option><option value="personal">Pessoal</option></select></label>
+      <label>Dia do mês<input name="day" type="number" min="1" max="31" value="1" required></label>
+      <label>Começa em<input name="startMonth" type="month" value="${month}" required></label>
+      <button type="submit">Adicionar despesa fixa</button>
+    </form>
+    ${state.recurring.length ? `<ul class="summary-list recurring-list">${state.recurring.map((item) => `<li><span>${escapeHtml(item.name)} · ${money(item.amountCents)} · dia ${item.day} · desde ${item.startMonth}</span><button type="button" class="icon-button" data-delete-recurring="${escapeHtml(item.id)}" aria-label="Remover despesa fixa">×</button></li>`).join("")}</ul>` : `<p class="empty">Nenhuma despesa fixa cadastrada.</p>`}
   </section>`;
 }
 
@@ -198,6 +213,19 @@ root.addEventListener("click", (event) => {
     const hidden = dialog?.querySelector<HTMLInputElement>('input[name="itemId"]');
     if (dialog && hidden) { hidden.value = buy.dataset.buy || ""; dialog.showModal(); }
     return;
+  }
+  const confirmRecurring = target.closest<HTMLButtonElement>("[data-confirm-recurring]");
+  if (confirmRecurring) {
+    const item = pendingRecurring(state, month).find((candidate) => candidate.id === confirmRecurring.dataset.confirmRecurring);
+    if (!item) { notice = "Esta previsão já foi confirmada ou não pertence ao mês."; render(); return; }
+    commitChange(() => {
+      state.entries.push({ id: id(), date: recurrenceDate(month, item.day), description: item.name, amountCents: item.amountCents, kind: "expense", category: item.category, buyer: item.buyer, scope: item.scope, payment: "cash", installments: 1, recurringId: item.id, recurringMonth: month });
+    }, "Despesa fixa confirmada e lançada."); return;
+  }
+  const removeRecurring = target.closest<HTMLButtonElement>("[data-delete-recurring]");
+  if (removeRecurring) {
+    if (!confirm("Remover esta previsão futura? Lançamentos já confirmados permanecem.")) return;
+    commitChange(() => { state.recurring = state.recurring.filter((item) => item.id !== removeRecurring.dataset.deleteRecurring); }, "Previsão removida."); return;
   }
   const removeEntry = target.closest<HTMLButtonElement>("[data-delete-entry]");
   if (removeEntry) {
@@ -283,6 +311,11 @@ root.addEventListener("submit", (event) => {
       state.entries.push({ id: entryId, date, description: `Mercado: ${item.name}`, amountCents: actualCents, kind: "expense", category: "Mercado", buyer: value(form, "buyer") as Person, scope: "family", payment, cardId: payment === "card" ? cardId : undefined, installments: 1, marketItemId: item.id });
       item.actualCents = actualCents; item.boughtDate = date; item.entryId = entryId;
       month = date.slice(0, 7); successMessage = "Compra e despesa registradas.";
+    } else if (form.id === "recurring-form") {
+      const day = Number(value(form, "day")), startMonth = value(form, "startMonth");
+      if (!Number.isInteger(day) || day < 1 || day > 31 || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(startMonth)) throw new Error("Informe mês inicial e dia válidos.");
+      state.recurring.push({ id: id(), name: value(form, "name"), amountCents: requireMoney(value(form, "amount"), "um valor"), category: value(form, "category"), buyer: value(form, "buyer") as Person, scope: value(form, "scope") as Entry["scope"], startMonth, day });
+      successMessage = "Despesa fixa prevista nos próximos meses.";
     } else if (form.id === "planning-form") {
       state.names = { wife: value(form, "wifeName"), husband: value(form, "husbandName") };
       state.budgetCents = requireMoney(value(form, "budget"), "um orçamento", true);

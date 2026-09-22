@@ -2,7 +2,7 @@
 
 ## Produto entregue
 
-MVP em português para planejamento doméstico de um casal, inspirado em funções gerais de controle financeiro, sem reutilizar marca ou layout de outro produto. Pessoas do casal são perfis de atribuição no mesmo dispositivo, **não contas autenticadas**. O cadastro manual registra quem fez uma compra, se é do lar ou pessoal, e qual cartão foi usado. Orçamento e custos são calculados das despesas familiares; faturas projetadas são calculadas das compras no cartão. Lista de mercado liga o custo real a um lançamento.
+MVP em português para planejamento doméstico de um casal, inspirado em funções gerais de controle financeiro, sem reutilizar marca ou layout de outro produto. Pessoas do casal são perfis de atribuição no mesmo dispositivo, **não contas autenticadas**. O cadastro manual registra quem fez uma compra, se é do lar ou pessoal, e qual cartão foi usado. Orçamento e custos são calculados das despesas familiares; faturas projetadas são calculadas das compras no cartão. Lista de mercado liga o custo real a um lançamento. Despesas fixas mensais geram previsões até o usuário confirmar cada lançamento, sem duplicar o custo real.
 
 O aplicativo usa `localStorage` e exportação/importação JSON manual. Não há sincronização entre aparelhos, banco, autenticação, integração com bancos/cartões, leitura automática de fatura ou dados pré-preenchidos. Qualquer proposta futura de serviço de dados exige desenho de acesso, políticas, modelo, migração e rollback antes de implementação. Nenhum cliente ou migração Supabase foi criado.
 
@@ -23,4 +23,4 @@ Executar `npm ci`, `npm test`, `npm run typecheck` e `npm run build` a partir de
 
 Compra parcelada é uma única despesa no mês da compra, com parcelas distribuídas nas faturas previstas. Pagamento da fatura não é lançamento separado. O calendário de faturas usa fechamento e vencimento informados pelo usuário; não modela feriados, alterações retroativas de regras do cartão ou juros. Alterar ou excluir cartão com compras vinculadas não é oferecido; exclusão é bloqueada. O orçamento mensal é uma meta global, não histórico de metas por mês. Alertas são locais na interface e não enviam notificações.
 
-Backup JSON é validado na importação e substitui os dados locais somente após confirmação. Ainda não há recorrências, CSV, conciliação, comprovantes, permissões por pessoa, histórico compartilhado nem sincronização. Essas capacidades exigem definição posterior de requisitos e privacidade.
+Backup JSON é validado na importação e substitui os dados locais somente após confirmação. Ainda não há execução automática de recorrências, CSV, conciliação, comprovantes, permissões por pessoa, histórico compartilhado nem sincronização. Essas capacidades exigem definição posterior de requisitos e privacidade.

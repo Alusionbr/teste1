@@ -25,6 +25,8 @@ export interface Entry {
   cardId?: string;
   installments: number;
   marketItemId?: string;
+  recurringId?: string;
+  recurringMonth?: string;
 }
 
 export interface MarketItem {
@@ -37,6 +39,17 @@ export interface MarketItem {
   entryId?: string;
 }
 
+export interface RecurringItem {
+  id: string;
+  name: string;
+  amountCents: number;
+  category: string;
+  buyer: Person;
+  scope: Scope;
+  startMonth: string;
+  day: number;
+}
+
 export interface State {
   version: 1;
   names: Record<Person, string>;
@@ -44,6 +57,7 @@ export interface State {
   cards: Card[];
   entries: Entry[];
   market: MarketItem[];
+  recurring: RecurringItem[];
 }
 
 export const emptyState = (): State => ({
@@ -53,6 +67,7 @@ export const emptyState = (): State => ({
   cards: [],
   entries: [],
   market: [],
+  recurring: [],
 });
 
 export function validIsoDate(value: string): boolean {
@@ -77,6 +92,16 @@ export function dueDate(month: string, card: Card): string {
   const [year, index] = dueMonth.split("-").map(Number);
   const lastDay = new Date(Date.UTC(year, index, 0)).getUTCDate();
   return `${dueMonth}-${String(Math.min(card.dueDay, lastDay)).padStart(2, "0")}`;
+}
+
+export function recurrenceDate(month: string, day: number): string {
+  const [year, index] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, index, 0)).getUTCDate();
+  return `${month}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+export function pendingRecurring(state: State, month: string): RecurringItem[] {
+  return state.recurring.filter((item) => item.startMonth <= month && !state.entries.some((entry) => entry.recurringId === item.id && entry.recurringMonth === month));
 }
 
 export function installmentAmount(amountCents: number, count: number, index: number): number {
@@ -137,7 +162,8 @@ export function parseBackup(input: unknown): State {
   if (!record(input) || input.version !== 1 || !record(input.names) || !text(input.names.wife, 80) || !text(input.names.husband, 80) || !cents(input.budgetCents) || !Array.isArray(input.cards) || !Array.isArray(input.entries) || !Array.isArray(input.market)) {
     throw new Error("Arquivo de backup inválido ou incompatível.");
   }
-  if (input.cards.length > 100 || input.entries.length > 20000 || input.market.length > 5000) throw new Error("Backup excede os limites de importação.");
+  const rawRecurring = input.recurring === undefined ? [] : input.recurring;
+  if (!Array.isArray(rawRecurring) || input.cards.length > 100 || input.entries.length > 20000 || input.market.length > 5000 || rawRecurring.length > 500) throw new Error("Backup excede os limites de importação ou contém recorrências inválidas.");
   const cards: Card[] = input.cards.map((item: unknown) => {
     if (!record(item) || !text(item.id, 80) || !text(item.name) || !person(item.owner) || !cents(item.limitCents) || !Number.isInteger(item.closingDay) || !Number.isInteger(item.dueDay) || (item.closingDay as number) < 1 || (item.closingDay as number) > 31 || (item.dueDay as number) < 1 || (item.dueDay as number) > 31) throw new Error("Cartão inválido no backup.");
     return { id: item.id, name: item.name, owner: item.owner, limitCents: item.limitCents, closingDay: item.closingDay as number, dueDay: item.dueDay as number };
@@ -146,13 +172,17 @@ export function parseBackup(input: unknown): State {
   const entries: Entry[] = input.entries.map((item: unknown) => {
     if (!record(item) || !text(item.id, 80) || !text(item.date, 10) || !validIsoDate(item.date) || !text(item.description) || !cents(item.amountCents) || item.amountCents === 0 || (item.kind !== "expense" && item.kind !== "income") || !text(item.category, 80) || !person(item.buyer) || (item.scope !== "family" && item.scope !== "personal") || (item.payment !== "cash" && item.payment !== "card") || !Number.isInteger(item.installments) || (item.installments as number) < 1 || (item.installments as number) > 48) throw new Error("Lançamento inválido no backup.");
     if (item.payment === "card" && (item.kind !== "expense" || !text(item.cardId, 80) || !cardIds.has(item.cardId))) throw new Error("Lançamento vinculado a cartão inválido.");
-    return { id: item.id, date: item.date, description: item.description, amountCents: item.amountCents, kind: item.kind, category: item.category, buyer: item.buyer, scope: item.scope, payment: item.payment, cardId: item.payment === "card" ? item.cardId as string : undefined, installments: item.installments as number, marketItemId: text(item.marketItemId, 80) ? item.marketItemId : undefined };
+    return { id: item.id, date: item.date, description: item.description, amountCents: item.amountCents, kind: item.kind, category: item.category, buyer: item.buyer, scope: item.scope, payment: item.payment, cardId: item.payment === "card" ? item.cardId as string : undefined, installments: item.installments as number, marketItemId: text(item.marketItemId, 80) ? item.marketItemId : undefined, recurringId: text(item.recurringId, 80) ? item.recurringId : undefined, recurringMonth: text(item.recurringMonth, 7) && /^\\d{4}-\\d{2}$/.test(item.recurringMonth) ? item.recurringMonth : undefined };
   });
   const entryIds = new Set(entries.map((entry) => entry.id));
   const market: MarketItem[] = input.market.map((item: unknown) => {
     if (!record(item) || !text(item.id, 80) || !text(item.name) || typeof item.quantity !== "number" || !Number.isFinite(item.quantity) || item.quantity <= 0 || !cents(item.estimatedCents) || (item.actualCents !== undefined && !cents(item.actualCents)) || (item.boughtDate !== undefined && (!text(item.boughtDate, 10) || !validIsoDate(item.boughtDate))) || (item.entryId !== undefined && (!text(item.entryId, 80) || !entryIds.has(item.entryId)))) throw new Error("Item de mercado inválido no backup.");
     return { id: item.id, name: item.name, quantity: item.quantity, estimatedCents: item.estimatedCents, actualCents: item.actualCents, boughtDate: item.boughtDate, entryId: item.entryId };
   });
-  if (new Set(cards.map((card) => card.id)).size !== cards.length || entryIds.size !== entries.length || new Set(market.map((item) => item.id)).size !== market.length) throw new Error("Backup contém identificadores duplicados.");
-  return { version: 1, names: { wife: input.names.wife, husband: input.names.husband }, budgetCents: input.budgetCents, cards, entries, market };
+  const recurring: RecurringItem[] = rawRecurring.map((item: unknown) => {
+    if (!record(item) || !text(item.id, 80) || !text(item.name) || !cents(item.amountCents) || item.amountCents === 0 || !text(item.category, 80) || !person(item.buyer) || (item.scope !== "family" && item.scope !== "personal") || !text(item.startMonth, 7) || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(item.startMonth) || !Number.isInteger(item.day) || (item.day as number) < 1 || (item.day as number) > 31) throw new Error("Recorrência inválida no backup.");
+    return { id: item.id, name: item.name, amountCents: item.amountCents, category: item.category, buyer: item.buyer, scope: item.scope, startMonth: item.startMonth, day: item.day as number };
+  });
+  if (new Set(cards.map((card) => card.id)).size !== cards.length || entryIds.size !== entries.length || new Set(market.map((item) => item.id)).size !== market.length || new Set(recurring.map((item) => item.id)).size !== recurring.length) throw new Error("Backup contém identificadores duplicados.");
+  return { version: 1, names: { wife: input.names.wife, husband: input.names.husband }, budgetCents: input.budgetCents, cards, entries, market, recurring };
 }
