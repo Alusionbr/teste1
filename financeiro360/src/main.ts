@@ -1,11 +1,11 @@
 import "./style.css";
+import { readStored, writeStored, STORAGE_KEY } from "./storage";
 import {
-  dueDate, emptyState, expenseTotal, incomeTotal, invoiceLines, monthEntries,
+  dueDate, expenseTotal, incomeTotal, invoiceLines, monthEntries,
   parseBackup, parseMoney, totalCents, validIsoDate,
   type Entry, type Person,
 } from "./logic";
 
-const STORAGE_KEY = "financeiro360:v1";
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("Elemento #app não encontrado.");
 
@@ -16,14 +16,10 @@ function localDate(): string {
 const today = localDate();
 let month = today.slice(0, 7);
 let tab = "overview";
-let state = emptyState();
-let notice = "";
-try {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) state = parseBackup(JSON.parse(saved));
-} catch {
-  notice = "Os dados locais não puderam ser lidos. Restaure um backup em Dados antes de lançar novos registros.";
-}
+const loaded = readStored(() => localStorage.getItem(STORAGE_KEY));
+let state = loaded.state;
+let storageBlocked = loaded.blocked;
+let notice = storageBlocked ? "Os dados locais não puderam ser lidos. Importe um backup válido em Dados antes de lançar novos registros; o conteúdo anterior foi preservado." : "";
 
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
@@ -34,13 +30,18 @@ const peopleOptions = (selected: Person = "wife") => (["wife", "husband"] as con
 const monthLabel = (selected: string) => new Date(`${selected}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
 function save(): boolean {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch {
-    notice = "Não foi possível salvar neste navegador. Exporte um backup e verifique o espaço disponível.";
-    return false;
-  }
+  const saved = writeStored((serialized) => localStorage.setItem(STORAGE_KEY, serialized), state, storageBlocked);
+  if (!saved) notice = storageBlocked ? "Gravação bloqueada: importe um backup válido para preservar os dados existentes." : "Não foi possível salvar neste navegador. Exporte um backup e verifique o espaço disponível.";
+  return saved;
+}
+
+function commitChange(change: () => void, successMessage: string) {
+  if (storageBlocked) { notice = "Gravação bloqueada: importe um backup válido antes de alterar dados."; render(); return; }
+  const before = structuredClone(state);
+  change();
+  if (save()) notice = successMessage;
+  else state = before;
+  render();
 }
 
 function cardOptions() {
@@ -202,21 +203,22 @@ root.addEventListener("click", (event) => {
   if (removeEntry) {
     if (!confirm("Excluir este lançamento?")) return;
     const entryId = removeEntry.dataset.deleteEntry;
-    state.entries = state.entries.filter((entry) => entry.id !== entryId);
-    for (const item of state.market) if (item.entryId === entryId) { item.entryId = undefined; item.boughtDate = undefined; item.actualCents = undefined; }
-    save(); render(); return;
+    commitChange(() => {
+      state.entries = state.entries.filter((entry) => entry.id !== entryId);
+      for (const item of state.market) if (item.entryId === entryId) { item.entryId = undefined; item.boughtDate = undefined; item.actualCents = undefined; }
+    }, "Lançamento excluído."); return;
   }
   const removeCard = target.closest<HTMLButtonElement>("[data-delete-card]");
   if (removeCard) {
     const cardId = removeCard.dataset.deleteCard;
     if (state.entries.some((entry) => entry.cardId === cardId)) { notice = "Exclua primeiro os lançamentos vinculados a este cartão."; render(); return; }
     if (!confirm("Excluir este cartão?")) return;
-    state.cards = state.cards.filter((card) => card.id !== cardId);
-    save(); render(); return;
+    commitChange(() => { state.cards = state.cards.filter((card) => card.id !== cardId); }, "Cartão excluído."); return;
   }
   const removeMarket = target.closest<HTMLButtonElement>("[data-delete-market]");
-  if (removeMarket) { state.market = state.market.filter((item) => item.id !== removeMarket.dataset.deleteMarket); save(); render(); return; }
+  if (removeMarket) { commitChange(() => { state.market = state.market.filter((item) => item.id !== removeMarket.dataset.deleteMarket); }, "Item removido."); return; }
   if (target.closest("[data-export]")) {
+    if (storageBlocked) { notice = "Importe um backup válido antes de exportar; os dados anteriores não foram apagados."; render(); return; }
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `financeiro360-backup-${today}.json`; anchor.click();
@@ -233,7 +235,10 @@ root.addEventListener("change", async (event) => {
       if (file.size > 10 * 1024 * 1024) throw new Error("O backup deve ter até 10 MB.");
       const imported = parseBackup(JSON.parse(await file.text()));
       if (!confirm("Importar este backup e substituir todos os dados locais?")) { target.value = ""; return; }
-      state = imported; notice = "Backup importado."; save();
+      const before = state, wasBlocked = storageBlocked;
+      state = imported; storageBlocked = false;
+      if (save()) notice = "Backup importado.";
+      else { state = before; storageBlocked = wasBlocked; }
     } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível importar o arquivo."; }
     render();
   }
@@ -242,7 +247,10 @@ root.addEventListener("change", async (event) => {
 root.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = event.target as HTMLFormElement;
+  const before = structuredClone(state);
+  let successMessage = "";
   try {
+    if (storageBlocked) throw new Error("Gravação bloqueada: importe um backup válido antes de lançar novos registros.");
     if (form.id === "entry-form") {
       const kind = value(form, "kind") as Entry["kind"];
       const payment = value(form, "payment") as Entry["payment"];
@@ -253,17 +261,17 @@ root.addEventListener("submit", (event) => {
       if (payment === "card" && kind === "expense" && !state.cards.some((card) => card.id === cardId)) throw new Error("Selecione um cartão cadastrado.");
       if (kind === "income" && payment === "card") throw new Error("Receitas não podem ser lançadas na fatura do cartão.");
       state.entries.push({ id: id(), date, description: value(form, "description"), amountCents: requireMoney(value(form, "amount"), "um valor"), kind, category: value(form, "category"), buyer: value(form, "buyer") as Person, scope: value(form, "scope") as Entry["scope"], payment, cardId: payment === "card" ? cardId : undefined, installments: payment === "card" ? count : 1 });
-      month = date.slice(0, 7); notice = "Lançamento salvo.";
+      month = date.slice(0, 7); successMessage = "Lançamento salvo.";
     } else if (form.id === "card-form") {
       const closingDay = Number(value(form, "closingDay")), dueDay = Number(value(form, "dueDay"));
       if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31 || !Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) throw new Error("Dias de fechamento e vencimento devem estar entre 1 e 31.");
       state.cards.push({ id: id(), name: value(form, "name"), owner: value(form, "owner") as Person, limitCents: requireMoney(value(form, "limit"), "um limite", true), closingDay, dueDay });
-      notice = "Cartão cadastrado.";
+      successMessage = "Cartão cadastrado.";
     } else if (form.id === "market-form") {
       const quantity = Number(value(form, "quantity"));
       if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("Informe uma quantidade válida.");
       state.market.push({ id: id(), name: value(form, "name"), quantity, estimatedCents: requireMoney(value(form, "estimate"), "um preço estimado", true) });
-      notice = "Item adicionado à lista.";
+      successMessage = "Item adicionado à lista.";
     } else if (form.id === "buy-form") {
       const item = state.market.find((candidate) => candidate.id === value(form, "itemId"));
       if (!item || item.boughtDate) throw new Error("Item indisponível.");
@@ -274,14 +282,17 @@ root.addEventListener("submit", (event) => {
       const entryId = id();
       state.entries.push({ id: entryId, date, description: `Mercado: ${item.name}`, amountCents: actualCents, kind: "expense", category: "Mercado", buyer: value(form, "buyer") as Person, scope: "family", payment, cardId: payment === "card" ? cardId : undefined, installments: 1, marketItemId: item.id });
       item.actualCents = actualCents; item.boughtDate = date; item.entryId = entryId;
-      month = date.slice(0, 7); notice = "Compra e despesa registradas.";
+      month = date.slice(0, 7); successMessage = "Compra e despesa registradas.";
     } else if (form.id === "planning-form") {
       state.names = { wife: value(form, "wifeName"), husband: value(form, "husbandName") };
       state.budgetCents = requireMoney(value(form, "budget"), "um orçamento", true);
-      notice = "Planejamento salvo.";
+      successMessage = "Planejamento salvo.";
     } else return;
-    save(); render();
+    if (save()) notice = successMessage;
+    else state = before;
+    render();
   } catch (error) {
+    state = before;
     notice = error instanceof Error ? error.message : "Não foi possível salvar.";
     render();
   }
