@@ -1,4 +1,4 @@
-import { emptyState, parseBackup, type State } from "./logic";
+import { emptyState, parseBackup, type State } from "./logic.ts";
 
 export const STORAGE_KEY = "financeiro360:v1";
 
