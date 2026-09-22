@@ -181,8 +181,9 @@ function planningView() {
 }
 
 function dataView() {
-  const summary = pendingImport ? backupSummary(pendingImport) : null;
-  const preview = pendingImport ? pendingImport.entries.slice(0, 10).map((entry) => `<li><span>${escapeHtml(entry.date)} · ${escapeHtml(entry.description)} · ${escapeHtml(pendingImport.names[entry.buyer])}</span><strong>${money(entry.amountCents)}</strong></li>`).join("") : "";
+  const draft = pendingImport;
+  const summary = draft ? backupSummary(draft) : null;
+  const preview = draft ? draft.entries.slice(0, 10).map((entry) => `<li><span>${escapeHtml(entry.date)} · ${escapeHtml(entry.description)} · ${escapeHtml(draft.names[entry.buyer])}</span><strong>${money(entry.amountCents)}</strong></li>`).join("") : "";
   return `<section class="panel narrow"><h2>Seus dados</h2><p>Dados ficam somente neste navegador e dispositivo. O casal não vê atualizações em dois celulares automaticamente. Use exportar/importar para transferir manualmente um backup.</p>
     <div class="button-row"><button type="button" data-export>Exportar backup JSON</button><label class="file-label">Importar backup JSON<input id="import-file" type="file" accept="application/json,.json"></label></div>
     <p class="hint">Importar substitui todos os dados locais após revisão e confirmação. Guarde o arquivo de backup em local seguro: ele contém suas informações financeiras.</p>
