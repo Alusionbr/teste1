@@ -54,3 +54,13 @@ test("backup anterior sem recorrências permanece importável", () => {
   delete backup.recurring;
   assert.deepEqual(parseBackup(backup).recurring, []);
 });
+
+test("backup com recorrência confirmada sobrevive ao recarregamento", () => {
+  const state = emptyState();
+  state.recurring.push({ id: "internet", name: "Internet", amountCents: 9990, category: "Moradia", buyer: "husband", scope: "family", startMonth: "2026-12", day: 10 });
+  state.entries.push({ id: "internet-jan", date: "2027-01-10", description: "Internet", amountCents: 9990, kind: "expense", category: "Moradia", buyer: "husband", scope: "family", payment: "cash", installments: 1, recurringId: "internet", recurringMonth: "2027-01" });
+  const restored = parseBackup(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(restored, state);
+  assert.equal(pendingRecurring(restored, "2027-01").length, 0);
+  assert.equal(pendingRecurring(restored, "2027-02").length, 1);
+});

@@ -313,7 +313,7 @@ root.addEventListener("submit", (event) => {
       month = date.slice(0, 7); successMessage = "Compra e despesa registradas.";
     } else if (form.id === "recurring-form") {
       const day = Number(value(form, "day")), startMonth = value(form, "startMonth");
-      if (!Number.isInteger(day) || day < 1 || day > 31 || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(startMonth)) throw new Error("Informe mês inicial e dia válidos.");
+      if (!Number.isInteger(day) || day < 1 || day > 31 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth)) throw new Error("Informe mês inicial e dia válidos.");
       state.recurring.push({ id: id(), name: value(form, "name"), amountCents: requireMoney(value(form, "amount"), "um valor"), category: value(form, "category"), buyer: value(form, "buyer") as Person, scope: value(form, "scope") as Entry["scope"], startMonth, day });
       successMessage = "Despesa fixa prevista nos próximos meses.";
     } else if (form.id === "planning-form") {
