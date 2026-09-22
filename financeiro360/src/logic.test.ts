@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { backupSummary, dueDate, emptyState, expenseTotal, installmentAmount, invoiceLines, invoiceMonth, monthEntries, parseBackup, parseMoney, pendingRecurring, recurrenceDate, type Card, type Entry } from "./logic.ts";
+import { accountBalance, backupSummary, dueDate, emptyState, obligationBalance, obligationStatus, expenseTotal, installmentAmount, invoiceLines, invoiceMonth, monthEntries, parseBackup, parseMoney, pendingRecurring, recurrenceDate, type Card, type Entry } from "./logic.ts";
 
 const card: Card = { id: "wife-card", name: "Cartão", owner: "wife", limitCents: 300000, closingDay: 20, dueDay: 10 };
 const purchase: Entry = { id: "a", date: "2026-01-21", description: "Compra do lar", amountCents: 10001, kind: "expense", category: "Mercado", buyer: "husband", scope: "family", payment: "card", cardId: card.id, installments: 3 };
@@ -73,6 +73,46 @@ test("prévia de importação resume período e preserva origem informada", () =
   backup.entries.push({ id: "b", date: "2025-12-01", description: "Receita", amountCents: 50000, kind: "income", category: "Outros", buyer: "husband", scope: "personal", payment: "cash", installments: 1 });
   backup.importInfo = { source: "Arquivo privado revisado", importedAt: "2026-09-22T12:00:00.000Z", entryCount: 2 };
   const restored = parseBackup(JSON.parse(JSON.stringify(backup)));
-  assert.deepEqual(backupSummary(restored), { entries: 2, cards: 0, market: 0, recurring: 0, firstDate: "2025-12-01", lastDate: "2026-02-15" });
+  assert.deepEqual(backupSummary(restored), { entries: 2, cards: 0, market: 0, recurring: 0, accounts: 0, transfers: 0, obligations: 0, pending: 0, firstDate: "2025-12-01", lastDate: "2026-02-15" });
   assert.deepEqual(restored.importInfo, backup.importInfo);
+});
+
+test("contas separadas e transferência não duplicam receitas ou despesas", () => {
+  const state = emptyState();
+  state.accounts = [
+    { id: "personal", name: "Conta pessoal", kind: "personal", owner: "husband", openingBalanceCents: 100000, asOfDate: "2026-01-01" },
+    { id: "business", name: "Conta empresa", kind: "business", owner: "husband", openingBalanceCents: 50000, asOfDate: "2026-01-01" },
+    { id: "unknown", name: "Conta sem base", kind: "family", owner: null, openingBalanceCents: null, asOfDate: null },
+  ];
+  state.cards.push({ id: "card", name: "Cartão", owner: "wife", limitCents: 100000, closingDay: 20, dueDay: 10 });
+  state.entries.push(
+    { id: "expense", date: "2026-01-02", description: "Mercado", amountCents: 20000, kind: "expense", category: "Mercado", buyer: "husband", scope: "family", payment: "cash", accountId: "personal", installments: 1 },
+    { id: "income", date: "2026-01-03", description: "Receita", amountCents: 10000, kind: "income", category: "Outros", buyer: "husband", scope: "personal", payment: "cash", accountId: "personal", installments: 1 },
+    { id: "card", date: "2026-01-04", description: "Cartão", amountCents: 6000, kind: "expense", category: "Lazer", buyer: "wife", scope: "family", payment: "card", cardId: "card", installments: 1 },
+  );
+  state.transfers.push({ id: "transfer", date: "2026-01-05", description: "Entre contas", fromAccountId: "personal", toAccountId: "business", amountCents: 30000 });
+  state.obligations.push({ id: "debt", name: "Dívida", creditor: "Credor", owner: "husband", scope: "personal", startingBalanceCents: 100000, dueDate: null, payments: [{ id: "pay", date: "2026-01-06", amountCents: 25000, accountId: "personal" }] });
+  assert.equal(accountBalance(state, state.accounts[0]), 35000);
+  assert.equal(accountBalance(state, state.accounts[1]), 80000);
+  assert.equal(accountBalance(state, state.accounts[2]), null);
+  assert.equal(expenseTotal(state.entries), 26000);
+  assert.equal(obligationBalance(state.obligations[0]), 75000);
+  assert.equal(obligationStatus(state.obligations[0]), "aberta");
+  state.obligations[0].payments.push({ id: "last", date: "2026-01-07", amountCents: 75000 });
+  assert.equal(obligationStatus(state.obligations[0]), "quitada");
+  const restored = parseBackup(JSON.parse(JSON.stringify(state)));
+  assert.equal(accountBalance(restored, restored.accounts[0]), 35000);
+  assert.equal(obligationStatus(restored.obligations[0]), "quitada");
+});
+
+test("backup antigo e pendência incerta preservam ausência explícita de saldo, data e valor", () => {
+  const legacy: Record<string, unknown> = { ...emptyState() };
+  for (const key of ["accounts", "transfers", "obligations", "pending"]) delete legacy[key];
+  const loaded = parseBackup(legacy);
+  assert.deepEqual([loaded.accounts, loaded.transfers, loaded.obligations, loaded.pending], [[], [], [], []]);
+  loaded.pending.push({ id: "candidate", description: "Lançamento a conferir", date: null, amountCents: null, kind: "transfer", category: "", buyer: null, scope: null, payment: null, accountId: null, cardId: null, sourceRef: "conversa privada", sourceDate: "2026-01-10", confidence: "probable", status: "pending_review", notes: "falta extrato" });
+  const restored = parseBackup(JSON.parse(JSON.stringify(loaded)));
+  assert.deepEqual(restored.pending, loaded.pending);
+  assert.equal(backupSummary(restored).pending, 1);
+  assert.equal(expenseTotal(restored.entries), 0);
 });

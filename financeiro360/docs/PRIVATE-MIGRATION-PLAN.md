@@ -6,21 +6,21 @@ O MVP registra dados manualmente em um único navegador. “Esposa” e “Marid
 
 A importação atual serve para backups no formato do próprio Financeiro360. Ela valida a estrutura, mostra contagens, período e uma amostra, pede a origem informada por quem importa e só então substitui os dados locais. Ela não extrai informação automaticamente de conversas, anexos ou extratos.
 
-## Próximas etapas para contas, dívidas e privacidade
+## Próximas etapas de privacidade e migração
 
 1. **Definir a fronteira de acesso.** Confirmar quais pessoas terão contas separadas, o que cada uma pode ver ou editar e como despesas pessoais e compartilhadas aparecem nas faturas. Sem essa definição, não há base segura para sincronização.
-2. **Modelar contas e obrigações.** Distinguir conta bancária pessoal, conta de empresa e conta compartilhada; registrar titular e escopo. Para dívidas, separar valor original, saldo informado, vencimentos e pagamentos. Transferências e pagamentos de fatura precisam de regras para não duplicar gastos.
+2. **Conferir contas e obrigações.** O modelo local já distingue conta pessoal, da empresa e da família, transferências e pagamentos parciais de principal. Validar nomenclatura, saldos de referência e regras de fatura antes de dados reais.
 3. **Escolher armazenamento e autorização.** Caso haja sincronização, projetar autenticação, políticas por registro, auditoria, migração e rollback antes de conectar um serviço. Não presumir que um banco de outro produto pertence ao Financeiro360.
 4. **Preparar migração privada.** Reconciliar cada registro histórico com uma fonte acessível. Para cada item, guardar descrição, valor, data ou mês, pessoa, conta/cartão, escopo, origem e estado de confiança. Valores, datas ou anexos ausentes ficam pendentes de revisão, sem adivinhação.
-5. **Revisar e importar localmente.** Gerar o arquivo privado fora do repositório, conferir totais e duplicatas com o usuário, importar pelo fluxo de revisão e manter backup anterior para retorno. Nenhum dado real ou credencial deve ser commitado, anexado ao PR ou usado em exemplos públicos.
+5. **Revisar e importar localmente.** Gerar o arquivo privado fora do histórico do Git, conferir totais e duplicatas com o usuário, importar pelo fluxo de revisão e manter backup anterior para retorno. Nenhum dado real ou credencial deve ser commitado, anexado ao PR ou usado em exemplos públicos.
 
 ## Critério para liberar migração
 
 O usuário deve confirmar a política de visibilidade, o destino dos dados incertos e a lista conciliada de registros. Até lá, este PR permanece sem nomes, saldos ou transações reais. A prévia de importação é uma proteção contra substituição acidental, não uma validação contábil ou verificação da fonte.
 
-## Modelo proposto para a próxima versão
+## Modelo local e evolução proposta
 
-A versão atual continua intacta até que a política de acesso seja definida. Uma versão de dados futura deve acrescentar estes conceitos antes da importação histórica:
+O modelo local agora contém contas, transferências, dívidas com pagamentos de principal e registros pendentes. Ainda não protege dados por pessoa nem concilia faturas. Uma versão sincronizada deve consolidar estes conceitos antes da migração histórica:
 
 | Entidade | Campos essenciais | Regra |
 | --- | --- | --- |
@@ -37,7 +37,33 @@ Cada registro migrado deve ter `status: confirmed | pending_review`, `sourceRef`
 ## Sequência técnica proposta
 
 1. Aprovar visibilidade de cada escopo e decidir se haverá sincronização. Se houver contas separadas, impor autorização no servidor e no banco, com negação por padrão e testes de acesso cruzado. Rótulos na interface não são proteção.
-2. Criar schema versionado e adaptador dos backups v1, preservando os lançamentos atuais. Definir migração reversível e exportação antes da mudança.
-3. Implementar contas e transferências com invariantes: soma da transferência entre contas próprias igual a zero; pagamento de fatura e principal não duplicam despesa; saldos desconhecidos continuam desconhecidos.
-4. Implementar obrigações e conciliação de faturas, com testes de parcelas, vencimentos, juros e pagamentos parciais.
-5. Preparar um arquivo de migração **fora do Git**, revisar item por item com o usuário, importar apenas confirmados e manter pendentes sem afetar totais. Validar totais por conta/cartão e permitir desfazer a importação pelo backup anterior.
+2. Planejar schema sincronizado e adaptador dos backups locais, preservando lançamentos, contas, transferências, dívidas e pendências. Definir migração reversível e exportação antes da mudança.
+3. Concluir conciliação de faturas e tratamento de juros/taxas. Testar parcelas, vencimentos, pagamentos parciais e ausência de dupla contagem.
+4. Preparar um arquivo de migração **fora do Git**, em `financeiro360/local-data/` ou `financeiro360/private/` (ignorados pelo Git), revisar item por item com o usuário, importar apenas confirmados e manter pendentes sem afetar totais. Validar totais por conta/cartão e permitir desfazer a importação pelo backup anterior.
+
+## Formato local de candidatos pendentes
+
+O backup do aplicativo é um JSON com `version: 1` e arrays de `cards`, `entries`, `market`, `recurring`, `accounts`, `transfers`, `obligations` e `pending`. Para gerar um arquivo privado de migração, exporte um backup vazio pelo app e edite **uma cópia local ignorada pelo Git**. Cada item em `pending` usa:
+
+```ts
+{
+  id: string;                   // identificador único, sem informação pessoal
+  description: string;          // resumo legível
+  date: string | null;          // data da transação; null se incerta
+  amountCents: number | null;   // centavos; null se incerto
+  kind: "income" | "expense" | "transfer" | "obligation" | null;
+  category: string;             // categoria sugerida ou ""
+  buyer: "wife" | "husband" | null;
+  scope: "family" | "personal" | null;
+  payment: "cash" | "card" | null;
+  accountId: string | null;     // conta sugerida cadastrada ou null
+  cardId: string | null;        // cartão sugerido cadastrado ou null
+  sourceRef: string;            // referência privada da origem
+  sourceDate: string | null;    // data da conversa/fonte, diferente de date
+  confidence: "unknown" | "probable" | "verified";
+  status: "pending_review";
+  notes: string;                // dúvida específica a resolver
+}
+```
+
+A importação valida referências a contas/cartões existentes. Pendências não afetam orçamento, saldos nem faturas. Confirmar uma pendência de receita/despesa cria um lançamento e preserva `sourceRef` e `sourceDate`; transferências e dívidas exigem conciliação nos módulos próprios. Esta estrutura não deve ser usada para inventar data, saldo ou valor ausentes.
