@@ -1,0 +1,290 @@
+import "./style.css";
+import {
+  dueDate, emptyState, expenseTotal, incomeTotal, invoiceLines, monthEntries,
+  parseBackup, parseMoney, totalCents, validIsoDate,
+  type Entry, type Person,
+} from "./logic";
+
+const STORAGE_KEY = "financeiro360:v1";
+const root = document.querySelector<HTMLDivElement>("#app");
+if (!root) throw new Error("Elemento #app não encontrado.");
+
+function localDate(): string {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+const today = localDate();
+let month = today.slice(0, 7);
+let tab = "overview";
+let state = emptyState();
+let notice = "";
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) state = parseBackup(JSON.parse(saved));
+} catch {
+  notice = "Os dados locais não puderam ser lidos. Restaure um backup em Dados antes de lançar novos registros.";
+}
+
+const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
+const id = () => crypto.randomUUID();
+const value = (form: HTMLFormElement, name: string) => String(new FormData(form).get(name) ?? "").trim();
+const personName = (person: Person) => state.names[person] || (person === "wife" ? "Esposa" : "Marido");
+const peopleOptions = (selected: Person = "wife") => (["wife", "husband"] as const).map((person) => `<option value="${person}" ${selected === person ? "selected" : ""}>${escapeHtml(personName(person))}</option>`).join("");
+const monthLabel = (selected: string) => new Date(`${selected}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+function save(): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    notice = "Não foi possível salvar neste navegador. Exporte um backup e verifique o espaço disponível.";
+    return false;
+  }
+}
+
+function cardOptions() {
+  return state.cards.map((card) => `<option value="${escapeHtml(card.id)}">${escapeHtml(card.name)} · ${escapeHtml(personName(card.owner))}</option>`).join("");
+}
+
+function overview() {
+  const entries = monthEntries(state.entries, month);
+  const family = entries.filter((entry) => entry.kind === "expense" && entry.scope === "family");
+  const personal = entries.filter((entry) => entry.kind === "expense" && entry.scope === "personal");
+  const spent = expenseTotal(family);
+  const ratio = state.budgetCents ? spent / state.budgetCents : 0;
+  const pending = state.market.filter((item) => !item.boughtDate).reduce((sum, item) => sum + Math.round(item.quantity * item.estimatedCents), 0);
+  const byCategory = new Map<string, number>();
+  for (const entry of family) byCategory.set(entry.category, (byCategory.get(entry.category) || 0) + entry.amountCents);
+  const categories = [...byCategory].sort((a, b) => b[1] - a[1]);
+  const alerts = [
+    ratio >= 1 ? "Orçamento do lar ultrapassado neste mês." : ratio >= .8 ? "O lar já usou pelo menos 80% do orçamento mensal." : "",
+    pending ? `Lista de mercado pendente: ${money(pending)} estimados.` : "",
+  ].filter(Boolean);
+  return `
+    <section class="intro"><h2>Visão do lar · ${escapeHtml(monthLabel(month))}</h2><p>Os números são calculados dos lançamentos manuais salvos neste navegador.</p></section>
+    <div class="metrics">
+      <article class="metric"><span>Despesas do lar</span><strong>${money(spent)}</strong><small>Por data da compra; inclui cartão uma vez</small></article>
+      <article class="metric"><span>Orçamento restante</span><strong>${money(state.budgetCents - spent)}</strong><small>Meta mensal ${money(state.budgetCents)}</small></article>
+      <article class="metric"><span>Despesas pessoais</span><strong>${money(expenseTotal(personal))}</strong><small>Fora do orçamento do lar</small></article>
+      <article class="metric"><span>Receitas lançadas</span><strong>${money(incomeTotal(entries))}</strong><small>Saldo previsto: ${money(incomeTotal(entries) - expenseTotal(entries))}</small></article>
+    </div>
+    ${alerts.length ? `<div class="alert" role="status">${alerts.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}</div>` : ""}
+    <div class="two-col">
+      <section class="panel"><h3>Custos do lar por categoria</h3>${categories.length ? `<ul class="summary-list">${categories.map(([category, total]) => `<li><span>${escapeHtml(category)}</span><strong>${money(total)}</strong></li>`).join("")}</ul>` : `<p class="empty">Nenhuma despesa do lar neste mês.</p>`}</section>
+      <section class="panel"><h3>Como funciona o cartão</h3><p>Uma compra entra no custo do mês em que foi feita. Sua parcela aparece na fatura do mês correspondente. Pagar a fatura não cria uma segunda despesa.</p><button type="button" data-tab="cards" class="secondary">Ver faturas</button></section>
+    </div>
+  `;
+}
+
+function entriesView() {
+  const entries = monthEntries(state.entries, month).sort((a, b) => b.date.localeCompare(a.date));
+  return `
+    <div class="two-col top-align">
+      <section class="panel"><h2>Novo lançamento manual</h2>
+        <form id="entry-form" class="form-grid">
+          <label>Tipo<select name="kind"><option value="expense">Despesa</option><option value="income">Receita</option></select></label>
+          <label>Data<input name="date" type="date" value="${today}" required></label>
+          <label class="wide">Descrição<input name="description" maxlength="160" placeholder="Ex.: compras da semana" required></label>
+          <label>Valor total (R$)<input name="amount" inputmode="decimal" placeholder="0,00" required></label>
+          <label>Categoria<input name="category" maxlength="80" list="categories" placeholder="Ex.: Mercado" required></label>
+          <datalist id="categories"><option value="Mercado"><option value="Moradia"><option value="Saúde"><option value="Transporte"><option value="Lazer"><option value="Educação"><option value="Salário"><option value="Outros"></datalist>
+          <label>Quem fez o lançamento<select name="buyer">${peopleOptions()}</select></label>
+          <label>Uso<select name="scope"><option value="family">Lar / família</option><option value="personal">Pessoal</option></select></label>
+          <label>Pagamento<select name="payment"><option value="cash">Dinheiro / débito / Pix</option><option value="card">Cartão de crédito</option></select></label>
+          <label>Cartão<select name="cardId"><option value="">Selecione</option>${cardOptions()}</select></label>
+          <label>Parcelas<select name="installments" type="number"><option value="1">1×</option>${Array.from({ length: 23 }, (_, index) => `<option value="${index + 2}">${index + 2}×</option>`).join("")}</select></label>
+          <p class="hint wide">Parcelas só se aplicam a despesas no cartão. Cadastre o cartão antes de usar.</p>
+          <button type="submit">Salvar lançamento</button>
+        </form>
+      </section>
+      <section class="panel"><h2>Lançamentos de ${escapeHtml(monthLabel(month))}</h2>
+        ${entries.length ? `<ul class="records">${entries.map((entry) => `<li><div><strong>${escapeHtml(entry.description)}</strong><small>${entry.date.split("-").reverse().join("/")} · ${escapeHtml(entry.category)} · ${escapeHtml(personName(entry.buyer))} · ${entry.scope === "family" ? "Lar" : "Pessoal"} · ${entry.payment === "card" ? `Cartão ${entry.installments}×` : "À vista"}</small></div><strong class="${entry.kind}">${entry.kind === "expense" ? "−" : "+"}${money(entry.amountCents)}</strong><button type="button" class="icon-button" data-delete-entry="${escapeHtml(entry.id)}" aria-label="Excluir lançamento">×</button></li>`).join("")}</ul>` : `<p class="empty">Sem lançamentos neste mês.</p>`}
+      </section>
+    </div>
+  `;
+}
+
+function cardsView() {
+  return `
+    <div class="two-col top-align"><section class="panel"><h2>Cartões da casa</h2><p>O titular e quem fez cada compra são informações separadas.</p>
+      <form id="card-form" class="form-grid">
+        <label class="wide">Nome do cartão<input name="name" maxlength="160" placeholder="Ex.: Cartão da esposa" required></label>
+        <label>Titular<select name="owner">${peopleOptions()}</select></label>
+        <label>Limite (R$)<input name="limit" inputmode="decimal" placeholder="0,00" required></label>
+        <label>Dia do fechamento<input name="closingDay" type="number" min="1" max="31" value="20" required></label>
+        <label>Dia do vencimento<input name="dueDay" type="number" min="1" max="31" value="10" required></label>
+        <button type="submit">Adicionar cartão</button>
+      </form>
+    </section><section class="panel"><h2>Faturas · ${escapeHtml(monthLabel(month))}</h2>
+      ${state.cards.length ? state.cards.map((card) => {
+        const lines = invoiceLines(state.entries, card, month);
+        const total = totalCents(lines);
+        const byWife = totalCents(lines.filter((line) => line.entry.buyer === "wife"));
+        const byHusband = total - byWife;
+        return `<div class="card-block"><div class="card-heading"><h3>${escapeHtml(card.name)}</h3><button type="button" class="icon-button" data-delete-card="${escapeHtml(card.id)}" aria-label="Excluir cartão">×</button></div><p>Titular: ${escapeHtml(personName(card.owner))} · Fecha dia ${card.closingDay} · Vence ${dueDate(month, card).split("-").reverse().join("/")}</p><p>Limite cadastrado: ${money(card.limitCents)}</p><strong>Total da fatura: ${money(total)}</strong><p>${escapeHtml(personName("wife"))}: ${money(byWife)} · ${escapeHtml(personName("husband"))}: ${money(byHusband)}</p>${lines.length ? `<ul class="summary-list">${lines.map((line) => `<li><span>${escapeHtml(line.entry.description)} · ${line.installment}/${line.entry.installments} · ${escapeHtml(personName(line.entry.buyer))}</span><strong>${money(line.amountCents)}</strong></li>`).join("")}</ul>` : `<p class="empty">Sem parcelas nesta fatura.</p>`}</div>`;
+      }).join("") : `<p class="empty">Cadastre um cartão para lançar compras na fatura.</p>`}
+      <p class="hint">Fatura prevista pelas compras registradas. Não indica pagamento, saldo bancário nem limite disponível em tempo real.</p>
+    </section></div>
+  `;
+}
+
+function marketView() {
+  const pending = state.market.filter((item) => !item.boughtDate);
+  const bought = state.market.filter((item) => item.boughtDate);
+  return `
+    <div class="two-col top-align"><section class="panel"><h2>Lista de mercado</h2>
+      <form id="market-form" class="form-grid">
+        <label class="wide">Produto<input name="name" maxlength="160" placeholder="Ex.: arroz" required></label>
+        <label>Quantidade<input name="quantity" type="number" min="0.01" step="0.01" value="1" required></label>
+        <label>Preço estimado por unidade (R$)<input name="estimate" inputmode="decimal" placeholder="0,00" required></label>
+        <button type="submit">Adicionar à lista</button>
+      </form>
+      <h3>Pendentes</h3>
+      ${pending.length ? `<ul class="market-list">${pending.map((item) => `<li><div><strong>${escapeHtml(item.name)}</strong><small>${item.quantity} × ${money(item.estimatedCents)} = ${money(Math.round(item.quantity * item.estimatedCents))} estimados</small></div><button type="button" class="secondary" data-buy="${escapeHtml(item.id)}">Registrar compra</button><button type="button" class="icon-button" data-delete-market="${escapeHtml(item.id)}" aria-label="Remover item">×</button></li>`).join("")}</ul>` : `<p class="empty">Lista vazia.</p>`}
+    </section><section class="panel"><h2>Compras registradas</h2><p>Ao registrar, o custo real entra automaticamente como despesa do lar na categoria Mercado.</p>
+      ${bought.length ? `<ul class="summary-list">${bought.map((item) => `<li><span>${escapeHtml(item.name)} · ${item.boughtDate?.split("-").reverse().join("/")}</span><strong>${money(item.actualCents || 0)}</strong></li>`).join("")}</ul>` : `<p class="empty">Nenhuma compra registrada.</p>`}
+      <p class="hint">O preço real é o total pago pelo item, não o preço unitário. Para corrigir um lançamento, exclua a despesa em Lançamentos e registre o item novamente.</p>
+    </section></div>
+    <dialog id="buy-dialog"><form id="buy-form" class="form-grid"><h2 class="wide">Registrar compra</h2><input type="hidden" name="itemId"><label>Data<input name="date" type="date" value="${today}" required></label><label>Total real pago (R$)<input name="actual" inputmode="decimal" placeholder="0,00" required></label><label>Quem comprou<select name="buyer">${peopleOptions()}</select></label><label>Pagamento<select name="payment"><option value="cash">Dinheiro / débito / Pix</option><option value="card">Cartão de crédito</option></select></label><label>Cartão<select name="cardId"><option value="">Selecione</option>${cardOptions()}</select></label><div class="dialog-actions wide"><button type="button" class="secondary" data-close-dialog>Cancelar</button><button type="submit">Salvar compra</button></div></form></dialog>
+  `;
+}
+
+function planningView() {
+  return `<section class="panel narrow"><h2>Planejamento do casal</h2><p>Defina os nomes exibidos e a meta de despesas compartilhadas por mês. As despesas pessoais ficam separadas da meta.</p>
+    <form id="planning-form" class="form-grid">
+      <label>Nome da esposa<input name="wifeName" maxlength="80" value="${escapeHtml(state.names.wife)}" required></label>
+      <label>Nome do marido<input name="husbandName" maxlength="80" value="${escapeHtml(state.names.husband)}" required></label>
+      <label>Orçamento mensal do lar (R$)<input name="budget" inputmode="decimal" value="${(state.budgetCents / 100).toFixed(2).replace(".", ",")}" required></label>
+      <button type="submit">Salvar planejamento</button>
+    </form>
+    <p class="hint">A meta vale para todos os meses; o histórico de lançamentos permanece por data. Alertas são exibidos ao abrir este aplicativo, sem notificações ou sincronização.</p>
+  </section>`;
+}
+
+function dataView() {
+  return `<section class="panel narrow"><h2>Seus dados</h2><p>Dados ficam somente neste navegador e dispositivo. O casal não vê atualizações em dois celulares automaticamente. Use exportar/importar para transferir manualmente um backup.</p>
+    <div class="button-row"><button type="button" data-export>Exportar backup JSON</button><label class="file-label">Importar backup JSON<input id="import-file" type="file" accept="application/json,.json"></label></div>
+    <p class="hint">Importar substitui todos os dados locais após confirmação. Guarde o arquivo de backup em local seguro: ele contém suas informações financeiras.</p>
+  </section>`;
+}
+
+const views: Record<string, () => string> = { overview, entries: entriesView, cards: cardsView, market: marketView, planning: planningView, data: dataView };
+function render() {
+  root!.innerHTML = `<header class="topbar"><div class="topbar-inner"><div><p class="brand-kicker">Planejamento do lar</p><h1>${escapeHtml(import.meta.env.VITE_APP_NAME || "Financeiro360")}</h1></div><p>Registro manual · dados apenas neste dispositivo</p></div></header>
+    <div class="layout"><nav class="tabs" aria-label="Áreas do aplicativo">${[
+      ["overview", "Visão geral"], ["entries", "Lançamentos"], ["cards", "Cartões e faturas"], ["market", "Mercado"], ["planning", "Planejamento"], ["data", "Dados"],
+    ].map(([key, label]) => `<button type="button" data-tab="${key}" class="${tab === key ? "active" : ""}">${label}</button>`).join("")}</nav>
+    <div class="month-bar"><label>Mês de referência <input id="month" type="month" value="${month}"></label></div>
+    ${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}
+    ${views[tab]()}</div>`;
+}
+
+function requireMoney(raw: string, label: string, allowZero = false): number {
+  const parsed = parseMoney(raw);
+  if (parsed === null || (!allowZero && parsed === 0)) throw new Error(`Informe ${label} válido em reais (ex.: 12,50).`);
+  return parsed;
+}
+
+root.addEventListener("click", (event) => {
+  const target = event.target as Element;
+  const tabButton = target.closest<HTMLButtonElement>("[data-tab]");
+  if (tabButton) { tab = tabButton.dataset.tab || "overview"; notice = ""; render(); return; }
+  if (target.closest("[data-close-dialog]")) { root?.querySelector<HTMLDialogElement>("#buy-dialog")?.close(); return; }
+  const buy = target.closest<HTMLButtonElement>("[data-buy]");
+  if (buy) {
+    const dialog = root?.querySelector<HTMLDialogElement>("#buy-dialog");
+    const hidden = dialog?.querySelector<HTMLInputElement>('input[name="itemId"]');
+    if (dialog && hidden) { hidden.value = buy.dataset.buy || ""; dialog.showModal(); }
+    return;
+  }
+  const removeEntry = target.closest<HTMLButtonElement>("[data-delete-entry]");
+  if (removeEntry) {
+    if (!confirm("Excluir este lançamento?")) return;
+    const entryId = removeEntry.dataset.deleteEntry;
+    state.entries = state.entries.filter((entry) => entry.id !== entryId);
+    for (const item of state.market) if (item.entryId === entryId) { item.entryId = undefined; item.boughtDate = undefined; item.actualCents = undefined; }
+    save(); render(); return;
+  }
+  const removeCard = target.closest<HTMLButtonElement>("[data-delete-card]");
+  if (removeCard) {
+    const cardId = removeCard.dataset.deleteCard;
+    if (state.entries.some((entry) => entry.cardId === cardId)) { notice = "Exclua primeiro os lançamentos vinculados a este cartão."; render(); return; }
+    if (!confirm("Excluir este cartão?")) return;
+    state.cards = state.cards.filter((card) => card.id !== cardId);
+    save(); render(); return;
+  }
+  const removeMarket = target.closest<HTMLButtonElement>("[data-delete-market]");
+  if (removeMarket) { state.market = state.market.filter((item) => item.id !== removeMarket.dataset.deleteMarket); save(); render(); return; }
+  if (target.closest("[data-export]")) {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `financeiro360-backup-${today}.json`; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+});
+
+root.addEventListener("change", async (event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.id === "month" && /^\d{4}-\d{2}$/.test(target.value)) { month = target.value; render(); return; }
+  if (target.id === "import-file" && target.files?.[0]) {
+    try {
+      const file = target.files[0];
+      if (file.size > 10 * 1024 * 1024) throw new Error("O backup deve ter até 10 MB.");
+      const imported = parseBackup(JSON.parse(await file.text()));
+      if (!confirm("Importar este backup e substituir todos os dados locais?")) { target.value = ""; return; }
+      state = imported; notice = "Backup importado."; save();
+    } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível importar o arquivo."; }
+    render();
+  }
+});
+
+root.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target as HTMLFormElement;
+  try {
+    if (form.id === "entry-form") {
+      const kind = value(form, "kind") as Entry["kind"];
+      const payment = value(form, "payment") as Entry["payment"];
+      const cardId = value(form, "cardId");
+      const count = Number(value(form, "installments"));
+      const date = value(form, "date");
+      if (!validIsoDate(date)) throw new Error("Informe uma data válida.");
+      if (payment === "card" && kind === "expense" && !state.cards.some((card) => card.id === cardId)) throw new Error("Selecione um cartão cadastrado.");
+      if (kind === "income" && payment === "card") throw new Error("Receitas não podem ser lançadas na fatura do cartão.");
+      state.entries.push({ id: id(), date, description: value(form, "description"), amountCents: requireMoney(value(form, "amount"), "um valor"), kind, category: value(form, "category"), buyer: value(form, "buyer") as Person, scope: value(form, "scope") as Entry["scope"], payment, cardId: payment === "card" ? cardId : undefined, installments: payment === "card" ? count : 1 });
+      month = date.slice(0, 7); notice = "Lançamento salvo.";
+    } else if (form.id === "card-form") {
+      const closingDay = Number(value(form, "closingDay")), dueDay = Number(value(form, "dueDay"));
+      if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31 || !Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) throw new Error("Dias de fechamento e vencimento devem estar entre 1 e 31.");
+      state.cards.push({ id: id(), name: value(form, "name"), owner: value(form, "owner") as Person, limitCents: requireMoney(value(form, "limit"), "um limite", true), closingDay, dueDay });
+      notice = "Cartão cadastrado.";
+    } else if (form.id === "market-form") {
+      const quantity = Number(value(form, "quantity"));
+      if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("Informe uma quantidade válida.");
+      state.market.push({ id: id(), name: value(form, "name"), quantity, estimatedCents: requireMoney(value(form, "estimate"), "um preço estimado", true) });
+      notice = "Item adicionado à lista.";
+    } else if (form.id === "buy-form") {
+      const item = state.market.find((candidate) => candidate.id === value(form, "itemId"));
+      if (!item || item.boughtDate) throw new Error("Item indisponível.");
+      const payment = value(form, "payment") as Entry["payment"], cardId = value(form, "cardId"), date = value(form, "date");
+      if (!validIsoDate(date)) throw new Error("Informe uma data válida.");
+      if (payment === "card" && !state.cards.some((card) => card.id === cardId)) throw new Error("Selecione um cartão cadastrado.");
+      const actualCents = requireMoney(value(form, "actual"), "o total real");
+      const entryId = id();
+      state.entries.push({ id: entryId, date, description: `Mercado: ${item.name}`, amountCents: actualCents, kind: "expense", category: "Mercado", buyer: value(form, "buyer") as Person, scope: "family", payment, cardId: payment === "card" ? cardId : undefined, installments: 1, marketItemId: item.id });
+      item.actualCents = actualCents; item.boughtDate = date; item.entryId = entryId;
+      month = date.slice(0, 7); notice = "Compra e despesa registradas.";
+    } else if (form.id === "planning-form") {
+      state.names = { wife: value(form, "wifeName"), husband: value(form, "husbandName") };
+      state.budgetCents = requireMoney(value(form, "budget"), "um orçamento", true);
+      notice = "Planejamento salvo.";
+    } else return;
+    save(); render();
+  } catch (error) {
+    notice = error instanceof Error ? error.message : "Não foi possível salvar.";
+    render();
+  }
+});
+
+render();
