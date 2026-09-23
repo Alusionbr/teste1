@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#101216">
   <meta name="description" content="Estante: letras e cifras para palco, repertório salvo no aparelho, busca inteligente, rolagem automática, sincronia e transposição.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=3.12.0">
+  <link rel="stylesheet" href="./styles.css?v=4.0.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -20,6 +20,11 @@
   <aside class="sidebar" id="sidebar">
     <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
 
+    <nav class="primaryNav" aria-label="Navegação principal">
+      <button type="button" id="homeNav">Início</button>
+      <button type="button" id="setlistsNav">Meus Repertórios</button>
+      <button type="button" id="searchNav">Buscar</button>
+    </nav>
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
       <button>Buscar</button>
@@ -65,9 +70,22 @@
   </aside>
 
   <main class="stage" id="stage">
+    <section class="homeView" id="homeView" aria-labelledby="homeTitle">
+      <header><span>ESTANTE</span><button type="button" id="settingsHome">Ajustes</button></header>
+      <div class="homeContent">
+        <p class="eyebrow">PREPARAR · TOCAR</p>
+        <h1 id="homeTitle">O que você vai tocar hoje?</h1>
+        <p class="homeLead">Monte sua lista e leve as letras para tocar.</p>
+        <div id="continueCard"></div>
+        <div class="homeActions"><button type="button" class="homePrimary" id="homeNew">Novo Repertório</button><button type="button" id="homeSearch">Buscar música</button></div>
+        <div class="homeSectionTitle"><h2>Meus Repertórios</h2><span id="homeCount">0 de 10</span></div>
+        <div class="setlistCards" id="setlistCards"></div>
+        <div id="recoveryCard"></div>
+      </div>
+    </section>
     <div id="karaokeFrame" aria-hidden="true"></div>
     <header class="songHeader">
-      <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
+      <button class="menu" id="menuBtn" aria-label="Abrir navegação">☰</button>
       <div class="songMeta">
         <h1 id="songTitle">Nenhuma música aberta</h1>
         <p id="songArtist">Busque uma música ou cole sua própria letra</p>
@@ -76,7 +94,7 @@
         <button id="saveBtn">+ Repertório</button>
         <button id="editBtn" disabled>Editar letra</button>
         <button id="notesBtn" disabled>Anotações</button>
-        <button id="stageBtn">Modo palco</button>
+        <button id="stageBtn">Tocar</button>
         <button id="fullscreenBtn">Tela cheia</button>
       </div>
     </header>
@@ -91,18 +109,19 @@
       <footer class="credits" id="credits"></footer>
     </section>
 
+    <div class="stageContext" id="stageContext" aria-live="polite"></div>
     <footer class="transport">
       <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
-      <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Karaokê</b></button>
-      <button class="pedal small" id="karaokeSettingsBtn" aria-label="Configurar karaokê" title="Configurar karaokê">⚙</button>
+      <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Acompanhamento</b></button>
+      <button class="pedal small" id="karaokeSettingsBtn" aria-label="Configurar acompanhamento" title="Configurar acompanhamento">⚙</button>
       <div class="control"><span>Vel.</span><button data-speed="-2">−</button><output id="speedOut">18</output><button data-speed="2">+</button><button id="autoBtn" class="auto" title="Calcular a velocidade pela duração da música">auto</button></div>
-      <div class="control"><span>Letra</span><button data-font="-2">−</button><output id="fontOut">26</output><button data-font="2">+</button></div>
+      <div class="control fontControl"><span>Letra</span><button data-font="-2" aria-label="Diminuir letra">A−</button><output id="fontOut">32</output><button data-font="2" aria-label="Aumentar letra">A+</button></div>
       <div class="control" id="keyControl" hidden><span>Tom</span><button data-key="-1">−</button><output id="keyOut">0</output><button data-key="1">+</button></div>
       <div class="control" id="capoControl" hidden><span>Capo</span><button data-capo="-1">−</button><output id="capoOut">0</output><button data-capo="1">+</button></div>
       <div class="spacer"></div>
-      <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹</button>
-      <button class="pedal small" id="nextBtn" aria-label="Próxima música">›</button>
+      <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹ Anterior</button>
+      <button class="pedal small" id="nextBtn" aria-label="Próxima música">Próxima ›</button>
       <button class="pedal small" id="topBtn" aria-label="Voltar ao topo">↑</button>
     </footer>
   </main>
@@ -240,7 +259,7 @@
 
 <dialog id="karaokeDialog">
   <form method="dialog" class="modal" id="karaokeForm">
-    <header><h2>Karaokê</h2><button value="cancel">×</button></header>
+    <header><h2>Acompanhamento com mídia</h2><button value="cancel">×</button></header>
     <p id="karaokeCurrentVideo"></p>
     <label>Link do vídeo no YouTube<input id="karaokeLinkInput" placeholder="Cole o link ou o id do vídeo" autocomplete="off"></label>
     <p><a id="karaokeSearchLink" href="#" target="_blank" rel="noopener">Procurar no YouTube ↗</a></p>
@@ -260,20 +279,24 @@
 </dialog>
 
 <div id="printArea" aria-hidden="true"></div>
+<div id="saveState" class="saveState" role="status">Salvo neste aparelho</div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.12.0" defer></script>
-<script src="./search-engine.js?v=3.12.0" defer></script>
-<script src="./library.js?v=3.12.0" defer></script>
-<script src="./acervo.js?v=3.12.0" defer></script>
-<script src="./setlists.js?v=3.12.0" defer></script>
-<script src="./song-prefs.js?v=3.12.0" defer></script>
-<script src="./autoscroll.js?v=3.12.0" defer></script>
-<script src="./player.js?v=3.12.0" defer></script>
-<script src="./karaoke.js?v=3.12.0" defer></script>
-<script src="./song-edit.js?v=3.12.0" defer></script>
-<script src="./print.js?v=3.12.0" defer></script>
-<script src="./ui.js?v=3.12.0" defer></script>
-<script src="./search-ui.js?v=3.12.0" defer></script>
-<script src="./offline.js?v=3.12.0" defer></script>
+<script src="./core.js?v=4.0.0" defer></script>
+<script src="./search-engine.js?v=4.0.0" defer></script>
+<script src="./library.js?v=4.0.0" defer></script>
+<script src="./acervo.js?v=4.0.0" defer></script>
+<script src="./migration.js?v=4.0.0" defer></script>
+<script src="./storage.js?v=4.0.0" defer></script>
+<script src="./setlists.js?v=4.0.0" defer></script>
+<script src="./song-prefs.js?v=4.0.0" defer></script>
+<script src="./autoscroll.js?v=4.0.0" defer></script>
+<script src="./player.js?v=4.0.0" defer></script>
+<script src="./youtube-adapter.js?v=4.0.0" defer></script>
+<script src="./karaoke.js?v=4.0.0" defer></script>
+<script src="./song-edit.js?v=4.0.0" defer></script>
+<script src="./print.js?v=4.0.0" defer></script>
+<script src="./ui.js?v=4.0.0" defer></script>
+<script src="./search-ui.js?v=4.0.0" defer></script>
+<script src="./offline.js?v=4.0.0" defer></script>
 </body>
 </html>

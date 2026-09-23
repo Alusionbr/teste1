@@ -32,7 +32,7 @@ function rememberSongPref(field,value){
 }
 // Uma música do repertório guarda os próprios ajustes; uma música só aberta
 // (resultado de busca, letra colada) não tem onde guardar.
-function currentIsSaved(){return !!state.current&&state.setlist.some(x=>sameSong(x,state.current))}
+function currentIsSaved(){return !!state.current&&!!state.current.entryId&&state.setlists.some(set=>set.id===state.current.ownerSetlistId&&set.songs.some(x=>x.entryId===state.current.entryId))}
 
 function refreshChords(){
   const n=chordShift();

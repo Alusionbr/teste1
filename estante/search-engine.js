@@ -8,7 +8,7 @@ function cleanEdition(s){return String(s||"").replace(/[\[(][^\])]*(?:ao vivo|li
 function searchTokens(s){return new Set(searchFold(s).split(" ").filter(x=>x.length>1))}
 function overlapScore(a,b){const A=searchTokens(a),B=searchTokens(b);if(!A.size||!B.size)return 0;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/Math.max(A.size,B.size)}
 function candidateScore(m,q){const qf=searchFold(q),tf=searchFold(m.title),af=searchFold(m.artist),hay=(tf+" "+af).trim();let score=overlapScore(q,hay)*100;if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;if(m.synced)score+=12;else if(m.lyrics)score+=8;if((m.sources||[]).includes("Vagalume"))score+=4;if((m.sources||[]).includes("Apple"))score+=3;if((m.sources||[]).includes("Deezer"))score+=2;if((m.sources||[]).includes("MusicBrainz"))score+=2;return score}
-function songKey(m){return searchFold(cleanEdition(m.title))+"|"+searchFold(String(m.artist||"").replace(/\b(feat\.?|ft\.?|com)\b.*$/i,""))}
+function songKey(m){const duration=Number(m.duration)>0?Math.round(Number(m.duration)/5)*5:"",version=searchFold(m.title),artist=searchFold(m.artist),detail=duration||searchFold(m.album);return`${version}|${artist}|${detail}`}
 function mergeSongs(rows,q){const map=new Map();for(const raw of rows){if(!raw||!raw.title)continue;const k=songKey(raw);const old=map.get(k);if(!old){const x={...raw,sources:[...(raw.sources||[raw.source].filter(Boolean))]};map.set(k,x);continue}const src=new Set([...(old.sources||[]),...(raw.sources||[raw.source].filter(Boolean))]);old.sources=[...src];for(const f of ["lyrics","synced","vagId","vagUrl","catalogUrl","appleId","album","duration"]){if(!old[f]&&raw[f])old[f]=raw[f]}if((raw.synced||raw.lyrics)&&!(old.synced||old.lyrics)){old.lyrics=raw.lyrics||"";old.synced=raw.synced||""}}
   const all=[...map.values()];for(const m of all){m.source=m.sources.join(" + ");m._score=candidateScore(m,q)}return all.sort((a,b)=>b._score-a._score||String(a.title).localeCompare(String(b.title))).slice(0,35)}
 function queryVariants(q){const out=[q];const clean=cleanEdition(q);if(searchFold(clean)!==searchFold(q)&&clean.length>2)out.push(clean);const noFeat=clean.replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"").trim();if(noFeat.length>2&&!out.some(x=>searchFold(x)===searchFold(noFeat)))out.push(noFeat);const dash=q.split(/\s[-–—]\s/).map(x=>x.trim()).filter(x=>x.length>2);for(const x of dash)if(!out.some(v=>searchFold(v)===searchFold(x)))out.push(x);return out.slice(0,3)}
@@ -82,8 +82,8 @@ function withLocalFirst(locais,remotos){
 async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const first=await Promise.allSettled([searchLrclib(q),searchVagalumeAdvanced(q),searchItunes(q),searchDeezer(q),searchMusicBrainz(q)]);first.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});let merged=mergeSongs(rows,q);if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
 searchMusic=async function(q){if(state.source==="smart")return smartSearchMusic(q);return legacySearchMusic(q)};
-fetchLrclibSong=async function(song){
-  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();
+fetchLrclibSong=async function(song,options={}){
+  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS,...options},15000);if(r.ok){const x=await r.json();
     // Só aceitar se veio texto de verdade. O LRCLIB responde 200 com
     // plainLyrics e syncedLyrics nulos em vários registros que não são
     // instrumentais; aceitar isso como sucesso abria a música EM BRANCO e
@@ -94,8 +94,8 @@ fetchLrclibSong=async function(song){
       return song;
     }
   }}catch{}}
-  try{return await legacyFetchLrclibSong(song)}catch(first){
-    if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
+  try{return await legacyFetchLrclibSong(song,options)}catch(first){
+    if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song,options)}}catch{}}
     // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)
     // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
     // não havia mais nada a tentar.

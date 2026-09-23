@@ -3,7 +3,7 @@ function renderList(){
   const data=state.tab==="results"?state.results:state.setlist;$("list").innerHTML="";$("setlistCount").textContent=state.setlist.length;
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===state.tab));
   renderSetlistBar();
-  if(!data.length){$("list").innerHTML=`<div class="empty">${state.tab==="results"?"Busque por artista e música. Use Por trecho quando lembrar apenas uma parte da letra.":"Seu repertório está vazio. Abra uma música e toque em + Repertório."}</div>`;return}
+  if(!data.length){$("list").innerHTML=`<div class="empty">${state.tab==="results"?"Busque por música, artista ou por um trecho da letra.":state.setlists.length?"Este repertório está vazio. Busque uma música ou use Colar letra.":"Crie seu primeiro repertório para começar."}</div>`;return}
   data.forEach((m,i)=>{
     const row=document.createElement("div");row.className="listRow";
     const b=document.createElement("button");b.className="songItem";if(state.tab==="setlist"&&i===state.currentIndex)b.classList.add("current");
@@ -20,7 +20,7 @@ function renderList(){
     // repertório, "próxima" mandava para a PRIMEIRA do show em vez da seguinte
     // — no meio da apresentação. Resolver por identidade acerta os dois casos:
     // devolve -1 sozinho para música que não está no repertório ativo.
-    b.onclick=()=>{state.currentIndex=state.tab==="setlist"?i:state.setlist.findIndex(x=>sameSong(x,m));openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
+    b.onclick=()=>{state.currentIndex=state.tab==="setlist"?i:state.setlist.findIndex(x=>m.entryId&&x.entryId===m.entryId&&x.ownerSetlistId===m.ownerSetlistId);openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
     if(state.tab==="setlist"){const a=document.createElement("div");a.className="rowActions";a.append(rowButton("↑",i===0,()=>moveSong(i,-1)),rowButton("↓",i===data.length-1,()=>moveSong(i,1)),rowButton("×",false,()=>removeSong(i),"remove"));row.appendChild(a)}
     $("list").appendChild(row);
   });
@@ -74,12 +74,13 @@ function rowButton(text,disabled,fn,cls=""){const b=document.createElement("butt
  * artista e título. `catalogUrl` sumia do mesmo jeito, e com ele o link "ver
  * referência da faixa" das músicas que só o catálogo achou.
  */
-function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",vagId:String(m.vagId||""),catalogUrl:String(m.catalogUrl||""),key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||""),videoId:String(m.videoId||"").slice(0,24),videoOffset:Number(m.videoOffset)||0}}
+function normalizeSong(m={}){return{entryId:String(m.entryId||m.id||""),ownerSetlistId:String(m.ownerSetlistId||""),contentRevision:Math.max(1,Number(m.contentRevision)||1),title:m.title??m.titulo??"Sem título",artist:m.artist??m.artista??"",album:m.album||"",duration:m.duration??m.duracao??0,lyrics:m.lyrics??m.letra??"",synced:m.synced??m.sincronizada??"",instrumental:!!m.instrumental,source:m.source??m.fonte??"",vagUrl:m.vagUrl??m.urlVagalume??"",vagId:String(m.vagId||""),catalogUrl:String(m.catalogUrl||""),key:Number(m.key)||0,capo:Number(m.capo)||0,speed:Number(m.speed)||0,auto:!!m.auto,notes:String(m.notes||""),videoId:String(m.videoId||"").slice(0,24),videoOffset:Number(m.videoOffset)||0}}
 function storedSong(m){return normalizeSong(m)}
 // Ao salvar, a música aberta passa a ser a atual do show: sem isso "próxima"
 // continuaria mandando para a primeira do repertório.
-function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));state.currentIndex=state.setlist.length-1;saveSetlists();state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
-function removeSong(i){state.setlist.splice(i,1);if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;saveSetlists();renderList();updateSaveButton()}
+function addSong(force=false){if(!state.current)return;if(!activeSetlist())return notify("Crie um repertório antes de adicionar a música.");const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists&&!force)return notify('Essa música já está neste repertório. <button type="button" id="addAgain">Adicionar novamente</button>');const song=storedSong(state.current);song.entryId=stableId("e");song.ownerSetlistId=state.activeSetlistId;state.setlist.push(song);state.current=song;state.currentIndex=state.setlist.length-1;saveSetlists();state.tab="setlist";renderList();updateSaveButton();renderHome();notify("Adicionada ao repertório.",true)}
+function removeSong(i){if(state.trash.length>=20)return notify("A área de recuperação está cheia. Baixe uma cópia e organize os itens apagados antes de remover outro.");const removed=state.setlist.splice(i,1)[0];if(!removed)return;if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;state.trash.push({type:"song",setlistId:state.activeSetlistId,index:i,deletedAt:new Date().toISOString(),value:removed});saveSetlists();renderList();updateSaveButton();renderHome();notify('Música removida. <button type="button" id="undoDelete">Desfazer</button>')}
+function restoreLastSong(){const item=state.trash[state.trash.length-1];if(!item||item.type!=="song")return false;const set=state.setlists.find(s=>s.id===item.setlistId);if(!set)return false;state.trash.pop();set.songs.splice(Math.min(item.index,set.songs.length),0,item.value);if(set.id===state.activeSetlistId)bindActiveSetlist();saveSetlists();renderList();renderHome();notify("Música restaurada.",true);return true}
 function moveSong(i,d){const j=Math.max(0,Math.min(state.setlist.length-1,i+d));if(i===j)return;const[x]=state.setlist.splice(i,1);state.setlist.splice(j,0,x);if(state.currentIndex===i)state.currentIndex=j;else if(i<state.currentIndex&&j>=state.currentIndex)state.currentIndex--;else if(i>state.currentIndex&&j<=state.currentIndex)state.currentIndex++;saveSetlists();renderList()}
 /*
  * Anterior/próxima dentro do repertório.
@@ -107,12 +108,12 @@ function jumpSong(d){
 const LRC_TIME=/\[(\d+):(\d+(?:[.:]\d+)?)\]/g;
 const LRC_META=/\[[a-z]{2,10}:[^\]]*\]/gi;
 function parseLRC(text){
-  const out=[];
+  const out=[],meta=String(text||"").match(/\[offset:([+-]?\d+)\]/i),fileOffset=meta?Number(meta[1])/1000:0;
   text.split(/\r?\n/).forEach(line=>{
     const marks=[...line.matchAll(LRC_TIME)];
     if(!marks.length)return;
     const body=line.replace(LRC_TIME,"").replace(LRC_META,"").trim();
-    marks.forEach(m=>out.push({t:+m[1]*60+parseFloat(m[2].replace(":",".")),text:body}));
+    marks.forEach(m=>out.push({t:Math.max(0,+m[1]*60+parseFloat(m[2].replace(":","."))+fileOffset),text:body}));
   });
   return out.sort((a,b)=>a.t-b.t);
 }
