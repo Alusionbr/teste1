@@ -1,0 +1,60 @@
+# Financeiro360
+
+MVP local para um casal planejar custos do lar. A esposa pode ser titular de um cartão e o marido pode registrar compras feitas nele; titular e responsável pela compra são mostrados separadamente. Há lançamentos manuais de receitas e despesas, orçamento mensal do lar, custos por categoria, faturas previstas com parcelas, lista de mercado com valor estimado e custo real, despesas fixas previstas mensalmente, contas pessoais/da empresa/da família, transferências internas, dívidas com pagamentos parciais, pendências de revisão e backup JSON.
+
+**Os dados ficam somente no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. O cadastro e os cálculos são locais; não há sincronização, acesso à conta bancária ou captura de fatura. Para transferir dados, exporte um backup JSON em um aparelho e importe no outro. A importação mostra uma prévia local (contagens, período e primeiros lançamentos), pede uma origem informada e substitui os dados locais apenas após confirmação explícita. A origem é uma anotação do usuário, não uma verificação externa.
+
+## Executar
+
+Requer Node.js compatível com Vite 7 e npm. Dentro de `financeiro360/`:
+
+```bash
+npm ci
+npm run dev
+```
+
+Para validar:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+O build sai em `dist/`. As variáveis de `.env.example` são públicas no bundle, portanto nunca use `VITE_` para segredos.
+
+No Windows PowerShell, a partir da raiz do repositório:
+
+```powershell
+cd .\financeiro360
+npm ci
+npm run dev
+```
+
+Abra o endereço `http://localhost:5173/` mostrado pelo Vite. Para testar uma migração privada, use a aba **Seus dados** e selecione manualmente o JSON em `local-data/`; confira a prévia de pendências antes de substituir os dados deste navegador. Mantenha esse arquivo fora de qualquer repositório ou compartilhamento público.
+
+## Como os números são calculados
+
+- **Custo do lar e orçamento:** somam o valor total das despesas familiares no mês da compra. Despesas pessoais aparecem separadas.
+- **Fatura:** uma compra no cartão entra na fatura do mês do fechamento se for feita até o dia de fechamento; depois disso, entra na fatura seguinte. Parcelas seguintes vão às faturas dos meses seguintes. Centavos restantes são distribuídos nas primeiras parcelas.
+- **Vencimento:** usa o dia cadastrado; se ele for anterior ou igual ao fechamento, considera o mês posterior. Em meses curtos, limita ao último dia.
+- **Sem duplicidade:** a fatura é uma visão das compras. O app não cria uma segunda despesa ao exibi-la ou pagá-la.
+- **Despesas fixas:** são previsões mensais separadas do gasto real. Confirmar manualmente cria um lançamento à vista uma vez naquele mês; excluir o lançamento faz a previsão voltar a ficar pendente. A previsão respeita virada de ano e limita o dia ao último dia dos meses curtos.
+- **Mercado:** a lista guarda estimativa unitária; registrar o total real de um item gera uma despesa familiar em Mercado. Excluir essa despesa devolve o item à lista pendente.
+- **Saldo previsto do mês:** receitas menos despesas registradas por data. Não equivale ao saldo de conta bancária.
+- **Contas:** saldo inicial em branco significa desconhecido e permanece desconhecido. Se um saldo inicial for informado, a data-base representa o fim daquele dia; apenas lançamentos, transferências e pagamentos de dívidas posteriores alteram o saldo exibido. Compras no cartão não debitam a conta até existir conciliação de fatura, ainda não implementada.
+- **Transferências:** movem valor entre contas próprias; não viram receita ou despesa.
+- **Dívidas:** o saldo devido conhecido diminui com pagamentos parciais de principal. Saldo inicial desconhecido continua desconhecido; o pagamento pode reduzir uma conta vinculada sem gerar uma segunda despesa. Juros e taxas exigem lançamento de despesa separado.
+- **Pendências:** histórico incompleto pode guardar data, valor, conta e categoria sugeridas, data da fonte, grau de confiança e referência. Fica fora de todos os totais até revisão e confirmação. Pendências de transferência ou dívida devem ser conciliadas nos módulos próprios antes de removê-las.
+
+Alertas de orçamento aparecem na interface ao abrir o app. Ainda não há lançamento recorrente automático sem confirmação, lembretes do sistema, conciliação de pagamentos da fatura, importação CSV nem integração financeira externa. Cadastros e lançamentos são manuais. Os tipos de conta são rótulos locais, não permissões: qualquer pessoa com acesso ao mesmo navegador pode ver tudo. Ainda não há conciliação de pagamentos de fatura, nem saldo bancário confiável quando a base é desconhecida.
+
+## Isolamento e publicação
+
+Manifesto, lockfile, TypeScript e build são próprios desta pasta. O projeto não usa o workspace de `file360/` e não entra no artefato do GitHub Pages. Futuro deploy independente poderá apontar Root Directory para `financeiro360/` e saída para `dist/`; nenhuma hospedagem foi configurada por esta entrega.
+
+Veja [docs/ARCHITECTURE-BLUEPRINT.md](docs/ARCHITECTURE-BLUEPRINT.md) para a decisão de arquitetura e os limites do MVP.
+
+O [plano de migração privada](docs/PRIVATE-MIGRATION-PLAN.md) descreve as decisões de acesso e conferência exigidas antes de importar registros históricos reais.
+
+Arquivos privados para migração local devem ficar em `financeiro360/local-data/` ou `financeiro360/private/`, ambos ignorados pelo Git. Nunca inclua dados pessoais no PR.

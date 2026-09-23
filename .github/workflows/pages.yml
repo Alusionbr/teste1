@@ -51,7 +51,7 @@ jobs:
       - name: Stage site
         run: |
           mkdir _site
-          rsync -a --exclude='.git' --exclude='_site' --exclude='file360' ./ _site/
+          rsync -a --exclude='.git' --exclude='_site' --exclude='file360' --exclude='financeiro360' ./ _site/
           mkdir -p _site/file360
           cp -a file360/out/. _site/file360/
           touch _site/.nojekyll
