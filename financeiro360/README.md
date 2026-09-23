@@ -23,6 +23,16 @@ npm run build
 
 O build sai em `dist/`. As variáveis de `.env.example` são públicas no bundle, portanto nunca use `VITE_` para segredos.
 
+No Windows PowerShell, a partir da raiz do repositório:
+
+```powershell
+cd .\financeiro360
+npm ci
+npm run dev
+```
+
+Abra o endereço `http://localhost:5173/` mostrado pelo Vite. Para testar uma migração privada, use a aba **Seus dados** e selecione manualmente o JSON em `local-data/`; confira a prévia de pendências antes de substituir os dados deste navegador. Mantenha esse arquivo fora de qualquer repositório ou compartilhamento público.
+
 ## Como os números são calculados
 
 - **Custo do lar e orçamento:** somam o valor total das despesas familiares no mês da compra. Despesas pessoais aparecem separadas.
