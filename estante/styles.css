@@ -113,3 +113,6 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
   .printNotes{margin:3px 0 0;font:10pt system-ui,sans-serif;font-style:italic;color:#333}
   .printLyrics{margin:8px 0 0;font:10.5pt/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap}
 }
+
+.sidebarClose{display:none}
+@media(max-width:900px){.sidebarClose{display:block;margin-left:auto;background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted);min-width:40px;min-height:40px;font-size:22px}}
