@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "3.12.0";
+const VERSION = "3.13.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -45,7 +45,6 @@ self.addEventListener("install", event => {
       // addAll falha inteiro se um arquivo faltar; guardamos um a um para que
       // uma ausência isolada não impeça o app de ficar offline.
       .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => null))))
-      .then(() => self.skipWaiting())
   );
 });
 
