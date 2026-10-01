@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — letras e cifras no palco</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=3.12.0">
+  <link rel="stylesheet" href="./styles.css?v=3.13.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -18,7 +18,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
+    <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
 
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
@@ -67,7 +67,7 @@
   <main class="stage" id="stage">
     <div id="karaokeFrame" aria-hidden="true"></div>
     <header class="songHeader">
-      <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
+      <button class="menu" id="menuBtn" aria-label="Abrir repertório" aria-expanded="false" aria-controls="sidebar">☰</button>
       <div class="songMeta">
         <h1 id="songTitle">Nenhuma música aberta</h1>
         <p id="songArtist">Busque uma música ou cole sua própria letra</p>
@@ -261,19 +261,19 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.12.0" defer></script>
-<script src="./search-engine.js?v=3.12.0" defer></script>
-<script src="./library.js?v=3.12.0" defer></script>
-<script src="./acervo.js?v=3.12.0" defer></script>
-<script src="./setlists.js?v=3.12.0" defer></script>
-<script src="./song-prefs.js?v=3.12.0" defer></script>
-<script src="./autoscroll.js?v=3.12.0" defer></script>
-<script src="./player.js?v=3.12.0" defer></script>
-<script src="./karaoke.js?v=3.12.0" defer></script>
-<script src="./song-edit.js?v=3.12.0" defer></script>
-<script src="./print.js?v=3.12.0" defer></script>
-<script src="./ui.js?v=3.12.0" defer></script>
-<script src="./search-ui.js?v=3.12.0" defer></script>
-<script src="./offline.js?v=3.12.0" defer></script>
+<script src="./core.js?v=3.13.0" defer></script>
+<script src="./search-engine.js?v=3.13.0" defer></script>
+<script src="./library.js?v=3.13.0" defer></script>
+<script src="./acervo.js?v=3.13.0" defer></script>
+<script src="./setlists.js?v=3.13.0" defer></script>
+<script src="./song-prefs.js?v=3.13.0" defer></script>
+<script src="./autoscroll.js?v=3.13.0" defer></script>
+<script src="./player.js?v=3.13.0" defer></script>
+<script src="./karaoke.js?v=3.13.0" defer></script>
+<script src="./song-edit.js?v=3.13.0" defer></script>
+<script src="./print.js?v=3.13.0" defer></script>
+<script src="./ui.js?v=3.13.0" defer></script>
+<script src="./search-ui.js?v=3.13.0" defer></script>
+<script src="./offline.js?v=3.13.0" defer></script>
 </body>
 </html>
