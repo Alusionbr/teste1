@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.12.0";
+const APP_VERSION="3.13.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -72,7 +72,7 @@ function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=
 // `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
 // daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
 // link compartilhado, nunca enviada a outro serviço.
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,theme:state.theme,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
+function updatePrefs(){return save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,theme:state.theme,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // Rolar e Sincro ficam desabilitados durante o karaokê: os três escreveriam no
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do
