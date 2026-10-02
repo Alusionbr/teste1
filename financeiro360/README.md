@@ -2,7 +2,7 @@
 
 MVP local para um casal planejar custos do lar. A esposa pode ser titular de um cartão e o marido pode registrar compras feitas nele; titular e responsável pela compra são mostrados separadamente. Há lançamentos manuais de receitas e despesas, orçamento mensal do lar, custos por categoria, faturas previstas com parcelas, lista de mercado com valor estimado e custo real, despesas fixas previstas mensalmente, contas pessoais/da empresa/da família, transferências internas, dívidas com pagamentos parciais, pendências de revisão e backup JSON.
 
-**Os dados ficam somente no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. O cadastro e os cálculos são locais; não há sincronização, acesso à conta bancária ou captura de fatura. Para transferir dados, exporte um backup JSON em um aparelho e importe no outro. A importação mostra uma prévia local (contagens, período e primeiros lançamentos), pede uma origem informada e substitui os dados locais apenas após confirmação explícita. A origem é uma anotação do usuário, não uma verificação externa.
+**Os dados locais ficam no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. Quando o cofre Supabase privado estiver configurado, cada pessoa poderá entrar em sua própria conta e salvar ou carregar uma cópia por ação explícita; isso ainda não compartilha dados entre o casal. O cadastro financeiro e os cálculos são locais; não há acesso à conta bancária ou captura de fatura. Para transferir dados sem o cofre, exporte um backup JSON em um aparelho e importe no outro. Toda importação mostra uma prévia e exige confirmação. Sair da conta não remove os dados locais deste navegador.
 
 ## Executar
 
@@ -58,3 +58,11 @@ Veja [docs/ARCHITECTURE-BLUEPRINT.md](docs/ARCHITECTURE-BLUEPRINT.md) para a dec
 O [plano de migração privada](docs/PRIVATE-MIGRATION-PLAN.md) descreve as decisões de acesso e conferência exigidas antes de importar registros históricos reais.
 
 Arquivos privados para migração local devem ficar em `financeiro360/local-data/` ou `financeiro360/private/`, ambos ignorados pelo Git. Nunca inclua dados pessoais no PR.
+
+## Supabase: cofre privado opcional
+
+A [migração `fin_user_vault`](supabase/migrations/20261002212035_financeiro360_user_vault.sql) prepara um cofre **privado por usuário**. Para usar, o projeto correto precisa ter essa migração aplicada e um `.env.local` ignorado pelo Git com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Sem esses dois valores, o app segue em modo local. Nunca coloque chave secret/service role em `VITE_`.
+
+Na aba **Dados**, entre ou crie uma conta por e-mail/senha. Entrar não envia os lançamentos. **Revisar e salvar cópia** pede confirmação e rejeita se outra gravação alterou a revisão remota. **Revisar cópia para carregar** valida e mostra a prévia; antes de substituir dados locais, o app solicita download de backup e exige que você confirme ter salvo o arquivo. O backup remoto é um JSON completo privado da conta autenticada, sem compartilhamento entre cônjuges. Evite usar a mesma conta ou o mesmo navegador para dados que cada pessoa não deve ver.
+
+O [plano de integração](docs/SUPABASE-INTEGRATION-PLAN.md) registra limites, testes RLS e retorno. A migração do cofre foi aplicada ao projeto Supabase confirmado e a tabela permanece sem dados reais. A integração continua opcional e manual.

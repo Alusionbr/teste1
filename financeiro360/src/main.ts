@@ -1,4 +1,5 @@
 import "./style.css";
+import { createSupabaseClient, createSupabaseVaultTransport, PrivateVault } from "./cloud-vault";
 import { readStored, writeStored, STORAGE_KEY } from "./storage";
 import {
   accountBalance, backupSummary, dueDate, expenseTotal, incomeTotal, invoiceLines, monthEntries, obligationBalance, obligationStatus, parseSignedMoney,
@@ -23,6 +24,28 @@ let notice = storageBlocked ? "Os dados locais não puderam ser lidos. Importe u
 let pendingImport: State | null = null;
 let importFilename = "";
 let selectedReviewId: string | null = null;
+let cloudClient: ReturnType<typeof createSupabaseClient> | null = null;
+let cloudVault: PrivateVault | null = null;
+let cloudEmail = "";
+let cloudConfigError = "";
+let cloudImport = false;
+let cloudBackupReady = false;
+let cloudImportUserId: string | null = null;
+const cloudUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const cloudKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+if (cloudUrl && cloudKey) {
+  try {
+    cloudClient = createSupabaseClient(cloudUrl, cloudKey);
+    cloudVault = new PrivateVault(createSupabaseVaultTransport(cloudClient));
+  } catch (error) {
+    cloudConfigError = error instanceof Error ? error.message : "Configuração de nuvem inválida.";
+  }
+}
+if (cloudClient) {
+  void cloudClient.auth.getUser().then(({ data }) => {
+    if (data.user) { cloudEmail = data.user.email || data.user.id; if (tab === "data") render(); }
+  }).catch(() => {});
+}
 
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
@@ -36,6 +59,24 @@ function save(): boolean {
   const saved = writeStored((serialized) => localStorage.setItem(STORAGE_KEY, serialized), state, storageBlocked);
   if (!saved) notice = storageBlocked ? "Gravação bloqueada: importe um backup válido para preservar os dados existentes." : "Não foi possível salvar neste navegador. Exporte um backup e verifique o espaço disponível.";
   return saved;
+}
+
+function downloadLocalBackup(): boolean {
+  try {
+    const content = storageBlocked ? localStorage.getItem(STORAGE_KEY) : JSON.stringify(state, null, 2);
+    if (content === null) throw new Error("Não foi possível ler os dados locais para backup.");
+    const blob = new Blob([content], { type: storageBlocked ? "text/plain" : "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `financeiro360-local-antes-da-carga-${localDate()}.${storageBlocked ? "txt" : "json"}`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch {
+    notice = "Não foi possível preparar o backup local. A carga foi cancelada.";
+    return false;
+  }
 }
 
 function commitChange(change: () => void, successMessage: string) {
@@ -277,19 +318,26 @@ function dataView() {
   const summary = draft ? backupSummary(draft) : null;
   const preview = draft ? draft.entries.slice(0, 10).map((entry) => `<li><span>${escapeHtml(entry.date)} · ${escapeHtml(entry.description)} · ${escapeHtml(draft.names[entry.buyer])}</span><strong>${money(entry.amountCents)}</strong></li>`).join("") : "";
   const pendingPreview = draft ? draft.pending.slice(0, 10).map((item) => `<li><span>${escapeHtml(item.description)} · transação: ${item.date ? escapeHtml(item.date) : "data incerta"} · fonte: ${item.sourceDate ? escapeHtml(item.sourceDate) : "data incerta"}</span><strong>${item.amountCents === null ? "Valor incerto" : money(item.amountCents)}</strong></li>`).join("") : "";
-  return `<section class="panel narrow"><h2>Seus dados</h2><p>Dados ficam somente neste navegador e dispositivo. O casal não vê atualizações em dois celulares automaticamente. Use exportar/importar para transferir manualmente um backup.</p>
+  const cloudPanel = !cloudClient
+    ? `<section class="panel narrow"><h2>Cofre privado</h2><p class="hint">Nuvem desativada. Configure URL e chave publicável do projeto autorizado para habilitar login e cópias manuais. ${cloudConfigError ? escapeHtml(cloudConfigError) : ""}</p></section>`
+    : `<section class="panel narrow"><h2>Cofre privado</h2><p>Uma conta por pessoa. O cofre é privado para quem entrou; não compartilha despesas entre o casal. Salvar e carregar são manuais. Os dados locais deste navegador continuam visíveis aqui mesmo após sair da conta.</p>
+      ${cloudEmail ? `<p>Conta: <strong>${escapeHtml(cloudEmail)}</strong></p><div class="button-row"><button type="button" data-cloud-save>Revisar e salvar cópia</button><button type="button" class="secondary" data-cloud-load>Revisar cópia para carregar</button><button type="button" class="secondary" data-cloud-signout>Sair</button></div>`
+        : `<form id="cloud-login-form" class="form-grid"><label>E-mail<input name="email" type="email" autocomplete="username" required></label><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><div class="button-row"><button type="submit">Entrar</button><button type="button" class="secondary" data-cloud-signup>Criar conta</button></div></form><p class="hint">O cadastro pode exigir confirmação por e-mail. Nenhum dado financeiro é enviado ao entrar.</p>`}
+    </section>`;
+  return `<section class="panel narrow"><h2>Seus dados</h2><p>Dados locais ficam neste navegador. O cofre privado opcional recebe uma cópia somente quando você escolhe salvar; não há compartilhamento automático entre o casal.</p>
     <div class="button-row"><button type="button" data-export>Exportar backup JSON</button><label class="file-label">Importar backup JSON<input id="import-file" type="file" accept="application/json,.json"></label></div>
     <p class="hint">Importar substitui todos os dados locais após revisão e confirmação. Guarde o arquivo de backup em local seguro: ele contém suas informações financeiras.</p>
     ${state.importInfo ? `<p class="hint">Última origem informada: ${escapeHtml(state.importInfo.source)} · ${escapeHtml(state.importInfo.importedAt)} · ${state.importInfo.entryCount} lançamentos. Esta origem foi informada por quem importou; o app não a verifica.</p>` : ""}
   </section>
+  ${cloudPanel}
   <dialog id="import-dialog" aria-labelledby="import-title"><h2 id="import-title">Revisar importação</h2>
-    ${summary ? `<p>Arquivo: <strong>${escapeHtml(importFilename)}</strong></p><p>${summary.entries} lançamentos · ${summary.cards} cartões · ${summary.market} itens de mercado · ${summary.recurring} despesas fixas · ${summary.accounts} contas · ${summary.transfers} transferências · ${summary.obligations} dívidas · ${summary.pending} pendências</p><p>Período: ${summary.firstDate || "sem lançamentos"} ${summary.lastDate && summary.lastDate !== summary.firstDate ? `até ${summary.lastDate}` : ""}</p><h3>Primeiros lançamentos</h3>${preview ? `<ul class="summary-list import-preview">${preview}</ul>` : `<p class="empty">Nenhum lançamento confirmado.</p>`}${summary.pending ? `<h3>Primeiras pendências</h3><p class="hint">Pendências ficam fora dos totais até revisão e confirmação. Exibindo até 10 de ${summary.pending}.</p><ul class="summary-list import-preview">${pendingPreview}</ul>` : ""}<label class="import-label">Origem informada por você<input id="import-source" maxlength="160" value="${escapeHtml(importFilename)}" required></label><label class="import-consent"><input id="import-agree" type="checkbox"> Entendo que isto substituirá todos os dados locais atuais.</label><div class="dialog-actions"><button type="button" class="secondary" data-cancel-import>Cancelar</button><button type="button" data-confirm-import>Substituir dados locais</button></div>` : ""}
+    ${summary ? `<p>Arquivo: <strong>${escapeHtml(importFilename)}</strong></p><p>${summary.entries} lançamentos · ${summary.cards} cartões · ${summary.market} itens de mercado · ${summary.recurring} despesas fixas · ${summary.accounts} contas · ${summary.transfers} transferências · ${summary.obligations} dívidas · ${summary.pending} pendências</p><p>Período: ${summary.firstDate || "sem lançamentos"} ${summary.lastDate && summary.lastDate !== summary.firstDate ? `até ${summary.lastDate}` : ""}</p><h3>Primeiros lançamentos</h3>${preview ? `<ul class="summary-list import-preview">${preview}</ul>` : `<p class="empty">Nenhum lançamento confirmado.</p>`}${summary.pending ? `<h3>Primeiras pendências</h3><p class="hint">Pendências ficam fora dos totais até revisão e confirmação. Exibindo até 10 de ${summary.pending}.</p><ul class="summary-list import-preview">${pendingPreview}</ul>` : ""}${cloudImport ? `<p class="hint">Antes de carregar, baixe um backup dos dados locais atuais. A cópia do cofre será aplicada só após sua confirmação.</p><button type="button" class="secondary" data-cloud-backup>Baixar backup local</button><p class="hint">${cloudBackupReady ? "Download solicitado; confirme que o arquivo foi salvo." : "Backup local ainda não solicitado."}</p><label class="import-consent"><input id="cloud-backup-confirm" type="checkbox"> Confirmei que o backup local foi salvo em meu dispositivo.</label>` : ""}<label class="import-label">Origem informada por você<input id="import-source" maxlength="160" value="${escapeHtml(importFilename)}" required></label><label class="import-consent"><input id="import-agree" type="checkbox"> Entendo que isto substituirá todos os dados locais atuais.</label><div class="dialog-actions"><button type="button" class="secondary" data-cancel-import>Cancelar</button><button type="button" data-confirm-import>Substituir dados locais</button></div>` : ""}
   </dialog>`;
 }
 
 const views: Record<string, () => string> = { overview, entries: entriesView, cards: cardsView, accounts: accountsView, obligations: obligationsView, market: marketView, planning: planningView, review: reviewView, data: dataView };
 function render() {
-  root!.innerHTML = `<header class="topbar"><div class="topbar-inner"><div><p class="brand-kicker">Planejamento do lar</p><h1>${escapeHtml(import.meta.env.VITE_APP_NAME || "Financeiro360")}</h1></div><p>Registro manual · dados apenas neste dispositivo</p></div></header>
+  root!.innerHTML = `<header class="topbar"><div class="topbar-inner"><div><p class="brand-kicker">Planejamento do lar</p><h1>${escapeHtml(import.meta.env.VITE_APP_NAME || "Financeiro360")}</h1></div><p>Registro manual · dados locais neste dispositivo</p></div></header>
     <div class="layout"><nav class="tabs" aria-label="Áreas do aplicativo">${[
       ["overview", "Visão geral"], ["entries", "Lançamentos"], ["cards", "Cartões e faturas"], ["accounts", "Contas"], ["obligations", "Dívidas"], ["market", "Mercado"], ["planning", "Planejamento"], ["review", "Pendências"], ["data", "Dados"],
     ].map(([key, label]) => `<button type="button" data-tab="${key}" class="${tab === key ? "active" : ""}">${label}</button>`).join("")}</nav>
@@ -304,12 +352,70 @@ function requireMoney(raw: string, label: string, allowZero = false): number {
   return parsed;
 }
 
-root.addEventListener("click", (event) => {
+root.addEventListener("click", async (event) => {
   const target = event.target as Element;
+  if (target.closest("[data-cloud-signup]")) {
+    const form = root?.querySelector<HTMLFormElement>("#cloud-login-form");
+    if (!cloudClient || !form) return;
+    const email = value(form, "email"), password = value(form, "password");
+    if (!email || !password) { notice = "Informe e-mail e senha."; render(); return; }
+    try {
+      const { data, error } = await cloudClient.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + window.location.pathname } });
+      if (error) throw error;
+      cloudEmail = data.session ? data.user?.email || "" : "";
+      notice = data.session ? "Conta criada e autenticada. Nenhum dado financeiro foi enviado." : "Cadastro solicitado. Confira o e-mail para confirmar a conta antes de entrar.";
+    } catch (error) { notice = error instanceof Error ? error.message : "Falha ao criar conta."; }
+    render(); return;
+  }
+  if (target.closest("[data-cloud-signout]")) {
+    if (!cloudClient) return;
+    const { error } = await cloudClient.auth.signOut({ scope: 'local' });
+    if (error) { notice = "Não foi possível sair da conta: " + error.message; }
+    else { cloudEmail = ""; pendingImport = null; cloudImport = false; cloudImportUserId = null; notice = "Sessão encerrada. Dados locais permanecem neste navegador."; }
+    render(); return;
+  }
+  if (target.closest("[data-cloud-save]")) {
+    if (!cloudVault) return;
+    if (storageBlocked) { notice = "Gravação local bloqueada; recupere seus dados antes de enviar uma cópia."; render(); return; }
+    const snapshot = structuredClone(state);
+    try {
+      const remote = await cloudVault.preview();
+      const expectedUserId = remote?.userId ?? await cloudVault.currentUserId();
+      const localSummary = backupSummary(snapshot);
+      const remoteLabel = remote ? `cofre na revisão ${remote.revision}, com ${remote.summary.entries} lançamentos e ${remote.summary.pending} pendências` : "cofre vazio";
+      if (!confirm(`Enviar uma cópia privada para ${cloudEmail}? Local: ${localSummary.entries} lançamentos e ${localSummary.pending} pendências. Remoto: ${remoteLabel}. Uma cópia existente será substituída; faça backup antes se precisar mantê-la.`)) return;
+      const result = await cloudVault.saveExplicit(snapshot, remote?.revision ?? null, expectedUserId);
+      notice = result.status === "conflict" ? "O cofre mudou em outro dispositivo. Nenhum dado foi sobrescrito; revise novamente." : `Cópia privada salva na revisão ${result.revision}. Seus dados locais não mudaram.`;
+    } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível salvar no cofre."; }
+    render(); return;
+  }
+  if (target.closest("[data-cloud-load]")) {
+    if (!cloudVault) return;
+    try {
+      const remote = await cloudVault.preview();
+      if (!remote) { notice = "Este cofre ainda não tem uma cópia."; render(); return; }
+      pendingImport = remote.state;
+      importFilename = `Cofre privado · ${cloudEmail} · revisão ${remote.revision}`;
+      cloudImport = true;
+      cloudImportUserId = remote.userId;
+      cloudBackupReady = false;
+      notice = "Confira a prévia e baixe o backup local antes de carregar.";
+      render();
+      root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal();
+    } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível consultar o cofre."; render(); }
+    return;
+  }
+  if (target.closest("[data-cloud-backup]")) {
+    cloudBackupReady = downloadLocalBackup();
+    root?.querySelector<HTMLDialogElement>("#import-dialog")?.close();
+    render();
+    root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal();
+    return;
+  }
   const tabButton = target.closest<HTMLButtonElement>("[data-tab]");
   if (tabButton) { tab = tabButton.dataset.tab || "overview"; pendingImport = null; notice = ""; render(); return; }
   if (target.closest("[data-close-dialog]")) { root?.querySelector<HTMLDialogElement>("#buy-dialog")?.close(); return; }
-  if (target.closest("[data-cancel-import]")) { pendingImport = null; importFilename = ""; render(); return; }
+  if (target.closest("[data-cancel-import]")) { pendingImport = null; importFilename = ""; cloudImport = false; cloudBackupReady = false; cloudImportUserId = null; render(); return; }
   if (target.closest("[data-close-review]")) { selectedReviewId = null; render(); return; }
   const reviewItem = target.closest<HTMLButtonElement>("[data-review-item]");
   if (reviewItem) { selectedReviewId = reviewItem.dataset.reviewItem || null; tab = "review"; render(); root?.querySelector<HTMLDialogElement>("#review-dialog")?.showModal(); return; }
@@ -322,11 +428,19 @@ root.addEventListener("click", (event) => {
     if (!pendingImport) return;
     const agreed = root?.querySelector<HTMLInputElement>("#import-agree")?.checked;
     const source = root?.querySelector<HTMLInputElement>("#import-source")?.value.trim() || "";
-    if (!agreed || !source) { notice = "Informe a origem e confirme que os dados locais serão substituídos."; root?.querySelector<HTMLDialogElement>("#import-dialog")?.close(); render(); root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal(); return; }
+    const backupConfirmed = root?.querySelector<HTMLInputElement>("#cloud-backup-confirm")?.checked;
+    if ((cloudImport && (!cloudBackupReady || !backupConfirmed)) || !agreed || !source) { notice = cloudImport && (!cloudBackupReady || !backupConfirmed) ? "Baixe e confirme que salvou o backup local antes de carregar a cópia do cofre." : "Informe a origem e confirme que os dados locais serão substituídos."; root?.querySelector<HTMLDialogElement>("#import-dialog")?.close(); render(); root?.querySelector<HTMLDialogElement>("#import-dialog")?.showModal(); return; }
+    if (cloudImport) {
+      try {
+        if (!cloudVault || !cloudImportUserId || await cloudVault.currentUserId() !== cloudImportUserId) {
+          throw new Error("A sessão mudou desde a prévia. Consulte o cofre novamente.");
+        }
+      } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível confirmar a conta do cofre."; render(); return; }
+    }
     const before = state, wasBlocked = storageBlocked;
     state = { ...pendingImport, importInfo: { source, importedAt: new Date().toISOString(), entryCount: pendingImport.entries.length } };
     storageBlocked = false;
-    if (save()) { notice = "Backup importado após revisão."; pendingImport = null; importFilename = ""; }
+    if (save()) { notice = cloudImport ? "Cópia do cofre carregada após revisão; backup local solicitado." : "Backup importado após revisão."; pendingImport = null; importFilename = ""; cloudImport = false; cloudBackupReady = false; cloudImportUserId = null; }
     else { state = before; storageBlocked = wasBlocked; }
     render(); return;
   }
@@ -408,6 +522,7 @@ root.addEventListener("change", async (event) => {
   if (target.id === "month" && /^\d{4}-\d{2}$/.test(target.value)) { month = target.value; render(); return; }
   if (target.id === "import-file" && target.files?.[0]) {
     pendingImport = null;
+    cloudImport = false; cloudBackupReady = false; cloudImportUserId = null;
     try {
       const file = target.files[0];
       if (file.size > 10 * 1024 * 1024) throw new Error("O backup deve ter até 10 MB.");
@@ -420,9 +535,21 @@ root.addEventListener("change", async (event) => {
   }
 });
 
-root.addEventListener("submit", (event) => {
+root.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target as HTMLFormElement;
+  if (form.id === "cloud-login-form") {
+    if (!cloudClient) return;
+    try {
+      const { data, error } = await cloudClient.auth.signInWithPassword({
+        email: value(form, "email"), password: value(form, "password"),
+      });
+      if (error || !data.user) throw error || new Error("Login não confirmado.");
+      cloudEmail = data.user.email || data.user.id;
+      notice = "Conectado ao cofre privado. Nenhum dado financeiro foi enviado ou carregado.";
+    } catch (error) { notice = error instanceof Error ? error.message : "Não foi possível entrar."; }
+    render(); return;
+  }
   const before = structuredClone(state);
   let successMessage = "";
   try {
