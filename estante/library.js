@@ -20,7 +20,7 @@ function renderList(){
     // repertório, "próxima" mandava para a PRIMEIRA do show em vez da seguinte
     // — no meio da apresentação. Resolver por identidade acerta os dois casos:
     // devolve -1 sozinho para música que não está no repertório ativo.
-    b.onclick=()=>{state.currentIndex=state.tab==="setlist"?i:state.setlist.findIndex(x=>sameSong(x,m));openSong(m);if(matchMedia("(max-width:900px)").matches)$("sidebar").classList.remove("open");renderList()};row.appendChild(b);
+    b.onclick=()=>{state.currentIndex=state.tab==="setlist"?i:state.setlist.findIndex(x=>sameSong(x,m));openSong(m);if(matchMedia("(max-width:900px)").matches)closeSidebar();renderList()};row.appendChild(b);
     if(state.tab==="setlist"){const a=document.createElement("div");a.className="rowActions";a.append(rowButton("↑",i===0,()=>moveSong(i,-1)),rowButton("↓",i===data.length-1,()=>moveSong(i,1)),rowButton("×",false,()=>removeSong(i),"remove"));row.appendChild(a)}
     $("list").appendChild(row);
   });
@@ -78,7 +78,7 @@ function normalizeSong(m={}){return{title:m.title??m.titulo??"Sem título",artis
 function storedSong(m){return normalizeSong(m)}
 // Ao salvar, a música aberta passa a ser a atual do show: sem isso "próxima"
 // continuaria mandando para a primeira do repertório.
-function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);state.setlist.push(storedSong(state.current));state.currentIndex=state.setlist.length-1;saveSetlists();state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
+function addSong(){if(!state.current)return;const exists=state.setlist.some(x=>sameSong(x,state.current));if(exists)return notify("Essa música já está no repertório.",true);const previousIndex=state.currentIndex;state.setlist.push(storedSong(state.current));state.currentIndex=state.setlist.length-1;if(!saveSetlists()){state.setlist.pop();state.currentIndex=previousIndex;return}state.tab="setlist";renderList();updateSaveButton();notify("Adicionada ao repertório.",true)}
 function removeSong(i){state.setlist.splice(i,1);if(i<state.currentIndex)state.currentIndex--;else if(i===state.currentIndex)state.currentIndex=-1;if(state.currentIndex>=state.setlist.length)state.currentIndex=state.setlist.length-1;saveSetlists();renderList();updateSaveButton()}
 function moveSong(i,d){const j=Math.max(0,Math.min(state.setlist.length-1,i+d));if(i===j)return;const[x]=state.setlist.splice(i,1);state.setlist.splice(j,0,x);if(state.currentIndex===i)state.currentIndex=j;else if(i<state.currentIndex&&j>=state.currentIndex)state.currentIndex--;else if(i>state.currentIndex&&j<=state.currentIndex)state.currentIndex++;saveSetlists();renderList()}
 /*
