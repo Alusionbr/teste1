@@ -17,9 +17,11 @@ Aplicativo doméstico com interface responsiva para computador e celular. O admi
 
 ## Estado da entrega
 
-O banco de produção está ativado no projeto `iowuejrpzoibyidiuvpt`, por autorização do proprietário em 04/10/2026. A migração familiar e a função `fin-family-admin` foram publicadas. O projeto anterior permanece pausado porque o limite gratuito impediu sua restauração. Os objetos financeiros usam prefixo `fin_`, schema privado e bucket próprio, sem alterar tabelas ou configurações globais dos demais aplicativos. A conta administrativa foi criada pelo fluxo normal de Auth e precisa da confirmação de e-mail. A senha não está no repositório. A demonstração contém dados fictícios mantidos apenas em memória.
+O banco de produção está ativado no projeto `iowuejrpzoibyidiuvpt`, por autorização do proprietário em 04/10/2026. A migração familiar e a função `fin-family-admin` foram publicadas. Os objetos financeiros usam prefixo `fin_`, schema privado e bucket próprio, sem alterar tabelas ou configurações globais dos demais aplicativos.
 
-O usuário ainda definirá o e-mail da esposa e fornecerá o relatório financeiro de outra conversa. Não há lançamentos reais importados. Nenhum outro projeto foi pausado ou excluído.
+O administrador e o segundo membro familiar já existem no banco. Em 04/10/2026 foi feita a primeira carga de dados reais diretamente no Supabase, sem versionar extratos, números de conta, documentos bancários ou outros dados sensíveis no GitHub. A carga inclui histórico bancário classificado, contas, dívidas/cartões modelados como passivos, despesas recorrentes e regras de privacidade. O saldo conhecido da conta PJ foi reconciliado com o extrato de origem; contas sem extrato recente permanecem com saldo desconhecido para não apresentar um valor falso.
+
+A demonstração em `src/family/demo.ts` continua fictícia e serve apenas para desenvolvimento local. Consulte [status da importação](docs/DATA-IMPORT-STATUS.md) para entender o que foi carregado e o que ainda depende de confirmação.
 
 ## Executar e verificar
 
