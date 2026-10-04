@@ -327,7 +327,7 @@ function entryForm(preset: Partial<Entry> = {}) {
     ]
       .map(([v, l]) => opt(v, l, e.kind))
       .join("")}</select>`,
-  )}${field("amount", "Valor (R$)", moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data", input("date", "date", e.date, "required"))}${field("due_date", "Vencimento (opcional)", input("due_date", "date", e.due_date || ""))}${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
+  )}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data", input("date", "date", e.date, "required"))}${field("due_date", "Vencimento (opcional)", input("due_date", "date", e.due_date || ""))}${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -769,6 +769,13 @@ function syncInstallmentPreview() {
   const preview = root.querySelector<HTMLElement>("#installment-preview");
   const enabled =
     val(form, "kind") === "expense" && val(form, "payment") === "card";
+  const amountLabel = root.querySelector<HTMLElement>("#amount-label");
+  if (amountLabel)
+    amountLabel.textContent = enabled
+      ? val(form, "installment_basis") === "each"
+        ? "Valor de cada parcela (R$)"
+        : "Valor total da compra (R$)"
+      : "Valor (R$)";
   if (box) box.hidden = !enabled;
   if (preview) preview.hidden = !enabled;
   if (!enabled || !preview) return;
