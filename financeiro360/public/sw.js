@@ -1,0 +1,5 @@
+// Cache only public application shell. Auth, financial responses and documents are never cached.
+const CACHE='fin-family-shell-v1';
+self.addEventListener('install',event=>{self.skipWaiting();});
+self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch',event=>{const u=new URL(event.request.url);if(event.request.method!=='GET'||u.origin!==self.location.origin)return;const isShell=event.request.mode==='navigate'||/\/assets\/[^/]+\.(js|css)$/.test(u.pathname)||/\/(icon\.svg|manifest\.webmanifest)$/.test(u.pathname);if(!isShell)return;event.respondWith(fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();event.waitUntil(caches.open(CACHE).then(c=>c.put(event.request,copy)));}return response;}).catch(async()=>{const cached=await caches.match(event.request);if(cached)return cached;if(event.request.mode==='navigate'){const c=await caches.match(new URL('./',self.location).href);if(c)return c;}return Response.error();}));});

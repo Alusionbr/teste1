@@ -1,0 +1,297 @@
+import {
+  invoiceMonth,
+  installmentAmount,
+  addMonths,
+  parseMoney,
+  validIsoDate,
+} from "../logic.ts";
+export { parseMoney, validIsoDate };
+export type Permission =
+  | "entries"
+  | "cards"
+  | "payments"
+  | "documents"
+  | "pantry"
+  | "shopping";
+export const permissions: Record<Permission, string> = {
+  entries: "Registrar e editar seus gastos",
+  cards: "Cadastrar seus cartões e contas",
+  payments: "Informar pagamentos",
+  documents: "Anexar comprovantes e faturas",
+  pantry: "Atualizar a despensa",
+  shopping: "Organizar e concluir compras",
+};
+export interface Member {
+  home_id: string;
+  user_id: string;
+  display_name: string;
+  role: "admin" | "member";
+  active: boolean;
+  permissions: Record<Permission, boolean>;
+  password_change_required: boolean;
+}
+export interface Home {
+  id: string;
+  name: string;
+  owner_id: string;
+  budget_cents: number;
+}
+export interface RecordBase {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  shared: boolean;
+  created_at?: string;
+}
+export interface Account extends RecordBase {
+  name: string;
+  area: string;
+  opening_cents: number | null;
+  balance_date: string | null;
+}
+export interface Card extends RecordBase {
+  name: string;
+  limit_cents: number | null;
+  closing_day: number;
+  due_day: number;
+}
+export interface Entry extends RecordBase {
+  description: string;
+  amount_cents: number;
+  date: string;
+  due_date: string | null;
+  kind: "expense" | "income" | "card_payment" | "transfer" | "debt_payment";
+  category: string;
+  area: string;
+  status: "paid" | "pending" | "pending_review";
+  payment: "cash" | "card";
+  card_id: string | null;
+  account_id: string | null;
+  target_account_id: string | null;
+  debt_id: string | null;
+  installments: number;
+  invoice_month: string | null;
+  source_ref: string | null;
+}
+export interface Debt extends RecordBase {
+  name: string;
+  creditor: string;
+  balance_cents: number | null;
+  due_date: string | null;
+  area: string;
+}
+export interface Goal extends RecordBase {
+  name: string;
+  target_cents: number;
+  saved_cents: number;
+  due_date: string | null;
+}
+export interface Pantry {
+  id: string;
+  home_id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  minimum: number;
+  daily_use: number;
+  price_cents: number;
+  expires_on: string | null;
+  updated_at: string;
+}
+export interface Shopping {
+  id: string;
+  home_id: string;
+  name: string;
+  pantry_id: string | null;
+  quantity: number;
+  unit: string;
+  estimate_cents: number;
+  bought: boolean;
+}
+export interface Document extends RecordBase {
+  name: string;
+  path: string;
+  entry_id: string | null;
+  card_id: string | null;
+  mime: string;
+  size: number;
+}
+export interface Audit {
+  id: string;
+  actor_id: string;
+  action: string;
+  table_name: string;
+  created_at: string;
+}
+export interface Recurring extends RecordBase {
+  name: string;
+  amount_cents: number;
+  category: string;
+  area: string;
+  day: number;
+  start_month: string;
+}
+export interface Data {
+  home: Home;
+  members: Member[];
+  accounts: Account[];
+  cards: Card[];
+  entries: Entry[];
+  debts: Debt[];
+  goals: Goal[];
+  pantry: Pantry[];
+  shopping: Shopping[];
+  documents: Document[];
+  audit: Audit[];
+  recurring: Recurring[];
+}
+export const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+export const brl = (c: number) =>
+  (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+export function forecast(p: Pantry, date = today()) {
+  const elapsed = Math.max(
+    0,
+    Math.floor(
+      (Date.parse(date + "T12:00:00Z") - Date.parse(p.updated_at)) / 86400000,
+    ),
+  );
+  const stock = Math.max(0, p.quantity - elapsed * p.daily_use);
+  return {
+    stock,
+    days: p.daily_use > 0 ? Math.floor(stock / p.daily_use) : null,
+  };
+}
+export function recommendations(
+  items: Pantry[],
+  existing: Shopping[],
+  days = 14,
+  date = today(),
+) {
+  return items
+    .filter((p) => !existing.some((s) => !s.bought && s.pantry_id === p.id))
+    .map((p) => {
+      const f = forecast(p, date);
+      const target = Math.max(p.minimum, p.daily_use * days);
+      return {
+        p,
+        quantity: Math.ceil(Math.max(0, target - f.stock) * 100) / 100,
+      };
+    })
+    .filter((x) => x.quantity > 0);
+}
+export function installments(e: Entry, c: Card, month: string) {
+  if (
+    e.kind !== "expense" ||
+    e.payment !== "card" ||
+    e.card_id !== c.id ||
+    e.status === "pending_review"
+  )
+    return 0;
+  const first = invoiceMonth(e.date, c.closing_day);
+  for (let i = 0; i < e.installments; i++)
+    if (addMonths(first, i) === month)
+      return installmentAmount(e.amount_cents, e.installments, i);
+  return 0;
+}
+export function invoice(data: Data, c: Card, month: string) {
+  const total = data.entries.reduce((s, e) => s + installments(e, c, month), 0);
+  const paid = data.entries
+    .filter(
+      (e) =>
+        e.kind === "card_payment" &&
+        e.card_id === c.id &&
+        e.invoice_month === month &&
+        e.status === "paid",
+    )
+    .reduce((s, e) => s + e.amount_cents, 0);
+  return { total, paid, remaining: Math.max(0, total - paid) };
+}
+export function balance(data: Data, a: Account) {
+  if (a.opening_cents === null || !a.balance_date) return null;
+  return data.entries
+    .filter((e) => e.status === "paid" && e.date > a.balance_date!)
+    .reduce((s, e) => {
+      if (e.kind === "transfer")
+        return (
+          s +
+          (e.target_account_id === a.id ? e.amount_cents : 0) -
+          (e.account_id === a.id ? e.amount_cents : 0)
+        );
+      if (e.account_id !== a.id || e.payment === "card") return s;
+      return s + (e.kind === "income" ? e.amount_cents : -e.amount_cents);
+    }, a.opening_cents);
+}
+export function metrics(data: Data, month: string, date = today()) {
+  const valid = data.entries.filter((e) => e.status !== "pending_review");
+  const current = valid.filter((e) => e.date.startsWith(month));
+  const expenses = current.filter((e) => e.kind === "expense");
+  const spend = expenses.reduce((s, e) => s + e.amount_cents, 0);
+  const income = current
+    .filter((e) => e.kind === "income")
+    .reduce((s, e) => s + e.amount_cents, 0);
+  const home = expenses
+    .filter((e) => e.area === "household")
+    .reduce((s, e) => s + e.amount_cents, 0);
+  const categories = new Map<string, number>();
+  expenses.forEach((e) =>
+    categories.set(
+      e.category,
+      (categories.get(e.category) || 0) + e.amount_cents,
+    ),
+  );
+  return {
+    spend,
+    income,
+    home,
+    categories: [...categories].sort((a, b) => b[1] - a[1]),
+    overdue: valid.filter(
+      (e) => e.status === "pending" && e.due_date && e.due_date < date,
+    ),
+    pending: data.entries.filter((e) => e.status === "pending_review"),
+    cash: current
+      .filter(
+        (e) =>
+          e.status === "paid" && e.payment === "cash" && e.kind !== "transfer",
+      )
+      .reduce(
+        (s, e) => s + (e.kind === "income" ? e.amount_cents : -e.amount_cents),
+        0,
+      ),
+  };
+}
+export function validateEntry(e: Entry) {
+  if (
+    !e.description.trim() ||
+    e.description.length > 160 ||
+    !Number.isSafeInteger(e.amount_cents) ||
+    e.amount_cents <= 0 ||
+    !validIsoDate(e.date) ||
+    (e.due_date && !validIsoDate(e.due_date)) ||
+    !Number.isInteger(e.installments) ||
+    e.installments < 1 ||
+    e.installments > 48
+  )
+    throw Error("Confira descrição, valor, data e parcelas.");
+  if (e.payment === "card" && (e.kind !== "expense" || !e.card_id))
+    throw Error("Compra no cartão exige um cartão cadastrado.");
+  if (
+    e.kind === "card_payment" &&
+    (!e.card_id ||
+      !e.invoice_month ||
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(e.invoice_month))
+  )
+    throw Error("Selecione o cartão e o mês da fatura.");
+  if (
+    e.kind === "transfer" &&
+    (!e.account_id ||
+      !e.target_account_id ||
+      e.account_id === e.target_account_id)
+  )
+    throw Error("Transferência exige duas contas diferentes.");
+  if (e.kind === "debt_payment" && !e.debt_id)
+    throw Error("Selecione a dívida.");
+  return e;
+}

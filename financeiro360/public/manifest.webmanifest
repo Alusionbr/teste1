@@ -1,0 +1,19 @@
+{
+  "name": "Financeiro360 · Nossa casa",
+  "short_name": "Financeiro360",
+  "description": "Finanças, despensa e compras da família",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#1b6b55",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

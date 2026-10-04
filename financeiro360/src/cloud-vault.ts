@@ -60,7 +60,7 @@ export class PrivateVault {
   }
 }
 
-export function createSupabaseClient(url: string, publishableKey: string): SupabaseClient {
+export function createSupabaseClient(url: string, publishableKey: string, storageKey?: string): SupabaseClient {
   const parsed = new URL(url);
   if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname))) {
     throw new Error("URL Supabase inválida: use HTTPS ou localhost de desenvolvimento.");
@@ -68,7 +68,7 @@ export function createSupabaseClient(url: string, publishableKey: string): Supab
   if (!publishableKey.startsWith("sb_publishable_")) {
     throw new Error("Use somente uma chave publishable no navegador.");
   }
-  return createClient(parsed.toString().replace(/\/$/, ""), publishableKey);
+  return createClient(parsed.toString().replace(/\/$/, ""), publishableKey, storageKey ? { auth: { storageKey } } : undefined);
 }
 
 export function createSupabaseVaultTransport(client: SupabaseClient): VaultTransport {

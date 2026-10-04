@@ -586,7 +586,7 @@ root.addEventListener("submit", async (event) => {
       if (payment === "cash" && accountId && !state.accounts.some((account) => account.id === accountId)) throw new Error("Conta inválida.");
       const actualCents = requireMoney(value(form, "actual"), "o total real");
       const entryId = id();
-      state.entries.push({ id: entryId, date, description: `Mercado: ${item.name}`, amountCents: actualCents, kind: "expense", category: "Mercado", buyer: value(form, "buyer") as Person, scope: "family", payment, cardId: payment === "card" ? cardId : undefined, accountId: payment === "cash" && accountId ? accountId : undefined, installments: 1, marketItemId: item.id });
+      state.entries.push({ id: entryId, date, description: `Mercado: ${item.name}`.slice(0,160), amountCents: actualCents, kind: "expense", category: "Mercado", buyer: value(form, "buyer") as Person, scope: "family", payment, cardId: payment === "card" ? cardId : undefined, accountId: payment === "cash" && accountId ? accountId : undefined, installments: 1, marketItemId: item.id });
       item.actualCents = actualCents; item.boughtDate = date; item.entryId = entryId;
       month = date.slice(0, 7); successMessage = "Compra e despesa registradas.";
     } else if (form.id === "pending-form") {
@@ -658,3 +658,4 @@ root.addEventListener("submit", async (event) => {
 });
 
 render();
+
