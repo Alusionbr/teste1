@@ -54,14 +54,24 @@ jobs:
         working-directory: financeiro360
         run: npm ci
 
-      - name: Build Financeiro360
-        id: financeiro_build
+      - name: Validate Financeiro360
+        id: financeiro_validation
         if: steps.financeiro_install.outcome == 'success'
         continue-on-error: true
         working-directory: financeiro360
+        run: |
+          npm test
+          npm run test:db
+
+      - name: Build Financeiro360
+        id: financeiro_build
+        if: steps.financeiro_install.outcome == 'success' && steps.financeiro_validation.outcome == 'success'
+        continue-on-error: true
+        working-directory: financeiro360
         env:
-          VITE_SUPABASE_URL: ${{ vars.FINANCEIRO360_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.FINANCEIRO360_SUPABASE_PUBLISHABLE_KEY }}
+          # Public browser configuration; financial access is enforced by RLS.
+          VITE_SUPABASE_URL: https://iowuejrpzoibyidiuvpt.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_RJisxh4p6IAXX_nPVtkMeQ__-QcfB8p
         run: npm run build -- --base /teste1/financeiro360/
 
       - name: Stage site

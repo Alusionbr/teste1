@@ -1,70 +1,43 @@
-# Financeiro360
+# Financeiro360 · Nossa casa
 
-MVP local para um casal planejar custos do lar. A esposa pode ser titular de um cartão e o marido pode registrar compras feitas nele; titular e responsável pela compra são mostrados separadamente. Há lançamentos manuais de receitas e despesas, orçamento mensal do lar, custos por categoria, faturas previstas com parcelas, lista de mercado com valor estimado e custo real, despesas fixas previstas mensalmente, contas pessoais/da empresa/da família, transferências internas, dívidas com pagamentos parciais, pendências de revisão e backup JSON.
+Aplicativo doméstico com interface responsiva para computador e celular. O administrador vê todos os registros da família, incluindo áreas pessoais e empresa. Cada membro vê apenas seus registros e aqueles que o administrador compartilhou. A autorização é feita por linha no Supabase, inclusive para os documentos; não depende de esconder controles na interface.
 
-**Os dados locais ficam no navegador e dispositivo usados.** Dois celulares não compartilham atualizações automaticamente. Quando o cofre Supabase privado estiver configurado, cada pessoa poderá entrar em sua própria conta e salvar ou carregar uma cópia por ação explícita; isso ainda não compartilha dados entre o casal. O cadastro financeiro e os cálculos são locais; não há acesso à conta bancária ou captura de fatura. Para transferir dados sem o cofre, exporte um backup JSON em um aparelho e importe no outro. Toda importação mostra uma prévia e exige confirmação. Sair da conta não remove os dados locais deste navegador.
+## Recursos implementados
 
-## Executar
+- Painel mensal com gastos, receitas, orçamento do lar, categorias, faturas, contas vencidas e alertas da despensa. Totais de um membro usam somente registros acessíveis. Valores são em centavos inteiros.
+- Receitas, despesas, compras parceladas, transferências, pagamentos de faturas e principal de dívidas; criação, edição, exclusão, filtros e revisão de registros incertos.
+- Cartões com fechamento, vencimento e limite; pagamentos parciais separados das despesas. Contas com saldo inicial opcional e data-base. Saldo desconhecido permanece desconhecido.
+- Despesas fixas mensais: geração explícita de compromissos a pagar, sem duplicar o mesmo mês e sem pagamentos automáticos.
+- Administração de membros, suspensão de acesso e permissões para lançamentos, cartões/contas, pagamentos, documentos, despensa e compras. Senha alterável em Configurações.
+- Comprovantes e faturas PDF/JPG/PNG/WebP até 10 MB em bucket privado, abertura por URL de 60 segundos. Um anexo de registro privado permanece inacessível mesmo que o documento tenha compartilhamento marcado.
+- Despensa com estoque contado, unidade, consumo diário informado, duração estimada, estoque mínimo, preço e validade. Lista sugerida para 14 dias, sem duplicar itens pendentes.
+- Conclusão da compra em uma transação: uma despesa com o total real, reposição de estoque e baixa dos itens selecionados. Repetir o mesmo pedido não duplica compras.
+- Metas com progresso informado, histórico administrativo, exportação dos dados visíveis e importação CSV/JSON de receitas/despesas em revisão, com prévia. O lote é inserido de forma atômica.
+- Manifesto de app instalável e cache somente do shell público. Respostas financeiras, Auth e documentos não entram no cache offline.
 
-Requer Node.js compatível com Vite 7 e npm. Dentro de `financeiro360/`:
+## Estado da entrega
 
-```bash
+O banco de produção está ativado no projeto `iowuejrpzoibyidiuvpt`, por autorização do proprietário em 04/10/2026. A migração familiar e a função `fin-family-admin` foram publicadas. O projeto anterior permanece pausado porque o limite gratuito impediu sua restauração. Os objetos financeiros usam prefixo `fin_`, schema privado e bucket próprio, sem alterar tabelas ou configurações globais dos demais aplicativos. A conta administrativa foi criada pelo fluxo normal de Auth e precisa da confirmação de e-mail. A senha não está no repositório. A demonstração contém dados fictícios mantidos apenas em memória.
+
+O usuário ainda definirá o e-mail da esposa e fornecerá o relatório financeiro de outra conversa. Não há lançamentos reais importados. Nenhum outro projeto foi pausado ou excluído.
+
+## Executar e verificar
+
+Requer Node 22.12+ ou 24, npm e as dependências do lockfile.
+
+```sh
 npm ci
 npm run dev
-```
-
-Para validar:
-
-```bash
-npm run typecheck
 npm test
-npm run build
+npm run test:db
+npm run typecheck
+npm run build -- --base /teste1/financeiro360/
 ```
 
-O build sai em `dist/`. As variáveis de `.env.example` são públicas no bundle, portanto nunca use `VITE_` para segredos.
+`test:db` executa a migração em PostgreSQL WASM (PGlite), com papéis e schemas Auth/Storage de teste. Cobre acesso cruzado, anonimato, anexos, permissões, suspensão, compras atômicas e recorrência. Não substitui a verificação da configuração real de Auth, Data API, Storage e Edge Functions após ativação.
 
-No Windows PowerShell, a partir da raiz do repositório:
+Ver [operações e ativação](docs/FAMILY-OPERATIONS.md) para provisionar o banco, a conta inicial e o retorno. O fluxo anterior local permanece em `src/main.ts`, `logic.ts` e `storage.ts`; os dados do navegador anterior não são enviados automaticamente ao novo aplicativo.
 
-```powershell
-cd .\financeiro360
-npm ci
-npm run dev
-```
+## Limites explícitos
 
-Abra o endereço `http://localhost:5173/` mostrado pelo Vite. Para testar uma migração privada, use a aba **Seus dados** e selecione manualmente o JSON em `local-data/`; confira a prévia de pendências antes de substituir os dados deste navegador. Mantenha esse arquivo fora de qualquer repositório ou compartilhamento público.
-
-## Como os números são calculados
-
-- **Custo do lar e orçamento:** somam o valor total das despesas familiares no mês da compra. Despesas pessoais aparecem separadas.
-- **Fatura:** uma compra no cartão entra na fatura do mês do fechamento se for feita até o dia de fechamento; depois disso, entra na fatura seguinte. Parcelas seguintes vão às faturas dos meses seguintes. Centavos restantes são distribuídos nas primeiras parcelas.
-- **Vencimento:** usa o dia cadastrado; se ele for anterior ou igual ao fechamento, considera o mês posterior. Em meses curtos, limita ao último dia.
-- **Sem duplicidade:** a fatura é uma visão das compras. O app não cria uma segunda despesa ao exibi-la ou pagá-la.
-- **Despesas fixas:** são previsões mensais separadas do gasto real. Confirmar manualmente cria um lançamento à vista uma vez naquele mês; excluir o lançamento faz a previsão voltar a ficar pendente. A previsão respeita virada de ano e limita o dia ao último dia dos meses curtos.
-- **Mercado:** a lista guarda estimativa unitária; registrar o total real de um item gera uma despesa familiar em Mercado. Excluir essa despesa devolve o item à lista pendente.
-- **Saldo previsto do mês:** receitas menos despesas registradas por data. Não equivale ao saldo de conta bancária.
-- **Contas:** saldo inicial em branco significa desconhecido e permanece desconhecido. Se um saldo inicial for informado, a data-base representa o fim daquele dia; apenas lançamentos, transferências e pagamentos de dívidas posteriores alteram o saldo exibido. Compras no cartão não debitam a conta até existir conciliação de fatura, ainda não implementada.
-- **Transferências:** movem valor entre contas próprias; não viram receita ou despesa.
-- **Dívidas:** o saldo devido conhecido diminui com pagamentos parciais de principal. Saldo inicial desconhecido continua desconhecido; o pagamento pode reduzir uma conta vinculada sem gerar uma segunda despesa. Juros e taxas exigem lançamento de despesa separado.
-- **Pendências:** histórico incompleto pode guardar data, valor, conta e categoria sugeridas, data da fonte, grau de confiança e referência. Fica fora de todos os totais até revisão e confirmação. Pendências de transferência ou dívida devem ser conciliadas nos módulos próprios antes de removê-las.
-
-Alertas de orçamento aparecem na interface ao abrir o app. Ainda não há lançamento recorrente automático sem confirmação, lembretes do sistema, conciliação de pagamentos da fatura, importação CSV nem integração financeira externa. Cadastros e lançamentos são manuais. Os tipos de conta são rótulos locais, não permissões: qualquer pessoa com acesso ao mesmo navegador pode ver tudo. Ainda não há conciliação de pagamentos de fatura, nem saldo bancário confiável quando a base é desconhecida.
-
-## Isolamento e publicação
-
-Manifesto, lockfile, TypeScript e build são próprios desta pasta. O projeto não usa o workspace de `file360/`. O workflow do GitHub Pages instala e compila o Financeiro360 separadamente, com base `/teste1/financeiro360/`, e publica somente o conteúdo de `dist/` em [Financeiro360](https://alusionbr.github.io/teste1/financeiro360/) quando a branch `main` for implantada. O `rsync` genérico continua excluindo a pasta de fontes, documentos, SQL e exemplos de ambiente; os demais projetos preservam seus caminhos. Se a instalação ou build do Financeiro360 falhar, o workflow emite um aviso e publica os outros projetos; o Financeiro360 pode ficar ausente dessa publicação. O desenvolvimento local continua em `/`.
-
-Para habilitar o cofre privado no site, configure as variáveis do repositório no GitHub Actions `FINANCEIRO360_SUPABASE_URL` e `FINANCEIRO360_SUPABASE_PUBLISHABLE_KEY`, mapeadas no build para `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. São valores públicos incorporados ao JavaScript do navegador; nunca use chave secret ou service role. Sem essas variáveis, o site continua no modo local. O build não envia dados financeiros; salvar no cofre exige login e ação explícita no app.
-
-Veja [docs/ARCHITECTURE-BLUEPRINT.md](docs/ARCHITECTURE-BLUEPRINT.md) para a decisão de arquitetura e os limites do MVP.
-
-O [plano de migração privada](docs/PRIVATE-MIGRATION-PLAN.md) descreve as decisões de acesso e conferência exigidas antes de importar registros históricos reais.
-
-Arquivos privados para migração local devem ficar em `financeiro360/local-data/` ou `financeiro360/private/`, ambos ignorados pelo Git. Nunca inclua dados pessoais no PR.
-
-## Supabase: cofre privado opcional
-
-A [migração `fin_user_vault`](supabase/migrations/20261002212035_financeiro360_user_vault.sql) prepara um cofre **privado por usuário**. Para usar, o projeto correto precisa ter essa migração aplicada e um `.env.local` ignorado pelo Git com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Sem esses dois valores, o app segue em modo local. Nunca coloque chave secret/service role em `VITE_`.
-
-Na aba **Dados**, entre ou crie uma conta por e-mail/senha. Se o Supabase exigir confirmação por e-mail, abra o link recebido e volte manualmente ao endereço do Financeiro360 para entrar; o redirecionamento do projeto compartilhado pode levar ao app Bíblia em Contexto. Não altere a configuração global de Auth por causa deste app. Entrar não envia os lançamentos. **Revisar e salvar cópia** pede confirmação e rejeita se outra gravação alterou a revisão remota. **Revisar cópia para carregar** valida e mostra a prévia; antes de substituir dados locais, o app solicita download de backup e exige que você confirme ter salvo o arquivo. O backup remoto é um JSON completo privado da conta autenticada, sem compartilhamento entre cônjuges. Evite usar a mesma conta ou o mesmo navegador para dados que cada pessoa não deve ver.
-
-O [plano de integração](docs/SUPABASE-INTEGRATION-PLAN.md) registra limites, testes RLS e retorno. A migração do cofre foi aplicada ao projeto Supabase confirmado e a tabela permanece sem dados reais. A integração continua opcional e manual.
+Relatórios CSV usam `descrição;valor;data;categoria;área` e datas AAAA-MM-DD. Importação aceita receitas e despesas; transferências, pagamentos e vínculos bancários devem ser conciliados nos módulos próprios. PDFs e imagens são anexos, sem OCR automático. Não há integração bancária, cobrança ou pagamentos reais. Previsão de estoque depende do consumo informado; sem consumo, o prazo é desconhecido. Uma fatura de cartão compartilhado pode mostrar apenas as compras acessíveis, portanto não equivale necessariamente à fatura do banco. A troca de senha não altera senhas de outros aplicativos, mas reutilizar um usuário Auth no mesmo projeto tem efeitos compartilhados e exige decisão prévia.
