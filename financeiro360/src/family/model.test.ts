@@ -7,6 +7,7 @@ import {
   invoice,
   balance,
   metrics,
+  financialOverview,
   validateEntry,
 } from "./model.ts";
 test("pantry forecast estimates consumption without mutating counted stock", () => {
@@ -87,4 +88,46 @@ test("transfer and card payment require valid targets", () => {
     validateEntry({ ...e, kind: "card_payment", card_id: null }),
   );
   assert.throws(() => validateEntry({ ...e, installments: 49 }));
+});
+
+test("financial overview separates consumption from financial movements", () => {
+  const d = demoData(),
+    m = d.entries[0].date.slice(0, 7),
+    account = d.accounts[0];
+  const personalExpense = d.entries.find((e) => e.area === "personal" && e.kind === "expense")!;
+  d.entries.push(
+    {
+      ...personalExpense,
+      id: "business-expense",
+      area: "business",
+      amount_cents: 20000,
+      description: "Business",
+    },
+    {
+      ...personalExpense,
+      id: "payment-flow",
+      kind: "debt_payment",
+      debt_id: "debt",
+      area: "household",
+      amount_cents: 30000,
+      description: "Debt payment",
+    },
+    {
+      ...personalExpense,
+      id: "internal-flow",
+      kind: "transfer",
+      payment: "cash",
+      account_id: account.id,
+      target_account_id: "target",
+      category: "Transferência interna",
+      amount_cents: 40000,
+      description: "Transfer",
+    },
+  );
+  const o = financialOverview(d, m);
+  assert.equal(o.business, 20000);
+  assert.equal(o.payments, 30000);
+  assert.equal(o.internalTransfers, 40000);
+  assert.equal(o.spend, metrics(d, m).spend);
+  assert.equal(o.result, o.income - o.spend);
 });
