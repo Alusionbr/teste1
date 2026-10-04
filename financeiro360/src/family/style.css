@@ -1584,3 +1584,47 @@ input[type="checkbox"] {
   }
 }
 @media(max-width:640px){.mobile-more{appearance:none;background:#f1f6f3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231b6b55' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 6h14M5 12h14M5 18h14'/%3E%3C/svg%3E") center/19px no-repeat}}
+
+
+/* Financial overview */
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.breakdown-item {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcfb;
+}
+.breakdown-item span,
+.breakdown-item small {
+  display: block;
+}
+.breakdown-item span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+.breakdown-item strong {
+  display: block;
+  font-size: 20px;
+  letter-spacing: -0.5px;
+  margin-bottom: 3px;
+}
+.negative {
+  color: #b45d53 !important;
+}
+@media (max-width: 900px) {
+  .breakdown-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+}
