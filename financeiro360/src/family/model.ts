@@ -262,6 +262,57 @@ export function metrics(data: Data, month: string, date = today()) {
       ),
   };
 }
+export function financialOverview(data: Data, month: string) {
+  const current = data.entries.filter(
+    (e) => e.date.startsWith(month) && e.status !== "pending_review",
+  );
+  const expenses = current.filter((e) => e.kind === "expense");
+  const sum = (rows: Entry[]) =>
+    rows.reduce((total, e) => total + e.amount_cents, 0);
+  const byArea = (area: string) =>
+    sum(expenses.filter((e) => e.area === area));
+  const payments = current.filter(
+    (e) => e.kind === "card_payment" || e.kind === "debt_payment",
+  );
+  const transfers = current.filter((e) => e.kind === "transfer");
+  const investments = transfers.filter((e) =>
+    /investimento|renan/i.test(e.category),
+  );
+  const internalTransfers = transfers.filter((e) =>
+    /transferência interna|estorno de transferência/i.test(e.category),
+  );
+  const unresolvedRows = data.entries.filter(
+    (e) =>
+      e.date.startsWith(month) &&
+      (e.status === "pending_review" || /revisar|confirmar/i.test(e.category)),
+  );
+  const income = sum(current.filter((e) => e.kind === "income"));
+  const spend = sum(expenses);
+  const knownBalances = data.accounts
+    .map((account) => ({ account, value: balance(data, account) }))
+    .filter(
+      (
+        item,
+      ): item is { account: Account; value: number } => item.value !== null,
+    );
+  return {
+    personal: byArea("personal"),
+    household: byArea("household"),
+    business: byArea("business"),
+    payments: sum(payments),
+    transfers: sum(transfers),
+    internalTransfers: sum(internalTransfers),
+    investments: sum(investments),
+    unresolved: sum(unresolvedRows),
+    unresolvedCount: unresolvedRows.length,
+    income,
+    spend,
+    result: income - spend,
+    knownBalance: knownBalances.reduce((total, item) => total + item.value, 0),
+    knownAccountCount: knownBalances.length,
+  };
+}
+
 export function validateEntry(e: Entry) {
   if (
     !e.description.trim() ||
