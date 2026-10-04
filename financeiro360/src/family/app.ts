@@ -4,7 +4,6 @@ import {
   brl,
   today,
   metrics,
-  financialOverview,
   invoice,
   balance,
   forecast,
@@ -17,7 +16,13 @@ import {
   type Permission,
   type Member,
 } from "./model.ts";
-import { dueDate, parseBackup } from "../logic.ts";
+import {
+  addMonths,
+  dueDate,
+  invoiceMonth,
+  installmentAmount,
+  parseBackup,
+} from "../logic.ts";
 const api = new FamilyAPI();
 const root = document.querySelector<HTMLDivElement>("#app")!;
 let page = "overview",
@@ -125,8 +130,7 @@ function login() {
 }
 function summary() {
   const d = api.data!,
-    m = metrics(d, month),
-    overview = financialOverview(d, month);
+    m = metrics(d, month);
   const percent = d.home.budget_cents
     ? Math.round((m.home / d.home.budget_cents) * 100)
     : 0;
@@ -142,26 +146,7 @@ function summary() {
   const trend = previous
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
-  const resultClass = overview.result >= 0 ? "positive" : "negative";
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Seu dinheiro separado entre pessoal, família, empresa e movimentações financeiras." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>
-  <div class="kpi-grid">
-    <article class="kpi"><div><span>Gastos de consumo</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article>
-    <article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Receitas confirmadas; transferências ficam fora</small></article>
-    <article class="kpi"><div><span>Resultado do mês</span>${icon("goals")}</div><strong class="${resultClass}">${brl(overview.result)}</strong><small>Receitas menos despesas de consumo</small></article>
-    <article class="kpi"><div><span>Saldo conhecido</span>${icon("accounts")}</div><strong>${overview.knownAccountCount ? brl(overview.knownBalance) : "Não informado"}</strong><small>${overview.knownAccountCount ? `${overview.knownAccountCount} conta(s) com saldo calculável` : "Cadastre saldo e data-base nas contas"}</small></article>
-  </div>
-  <section class="panel section-gap"><div class="panel-title"><div><span class="eyebrow">RAIO-X DO MÊS</span><h3>O que realmente foi gasto e o que apenas movimentou dinheiro</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>
-    <div class="breakdown-grid">
-      <article class="breakdown-item"><span>Pessoal</span><strong>${brl(overview.personal)}</strong><small>despesas de consumo</small></article>
-      <article class="breakdown-item"><span>Família / casa</span><strong>${brl(overview.household)}</strong><small>despesas do lar</small></article>
-      <article class="breakdown-item"><span>Empresa</span><strong>${brl(overview.business)}</strong><small>custos operacionais</small></article>
-      <article class="breakdown-item"><span>Cartões e dívidas</span><strong>${brl(overview.payments)}</strong><small>pagamentos financeiros, sem duplicar consumo</small></article>
-      <article class="breakdown-item"><span>Transferências</span><strong>${brl(overview.internalTransfers)}</strong><small>entre contas próprias; não são gasto</small></article>
-      <article class="breakdown-item"><span>Investimentos</span><strong>${brl(overview.investments)}</strong><small>movimentações classificadas como investimento</small></article>
-    </div>
-    <p class="fine">Faturas, principal de dívidas e transferências são exibidos à parte para não inflar os gastos. ${overview.unresolvedCount ? `Há ${overview.unresolvedCount} lançamento(s), somando ${brl(overview.unresolved)}, ainda marcados para revisão.` : "Não há lançamentos marcados para revisão neste mês."}</p>
-  </section>
-  <div class="dashboard-grid section-gap"><section class="panel"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section><div class="kpi-grid"><article class="kpi"><div><span>Gastos no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><div class="dashboard-grid"><section class="panel"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -171,16 +156,15 @@ function summary() {
           )
           .join("")}</div>`
       : empty("Seu primeiro gasto conta a história", "add-entry")
-  }</section><section class="panel intelligence"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${cards ? `<article class="insight"><span>${icon("cards")}</span><div><strong>${brl(cards)} em faturas abertas</strong><p>Valor calculado somente a partir das compras de cartão registradas no sistema.</p></div></article>` : ""}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
+  }</section><section class="panel intelligence"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
     low.length
       ? low
           .slice(0, 3)
           .map((p) => esc(p.name))
           .join(", ")
       : "Cadastre consumo diário para estimar reposições."
-  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${overview.unresolvedCount} lançamento(s) para revisar</strong><p>Itens ainda não confirmados continuam sinalizados no raio-X.</p></div></article></section><section class="panel wide-panel"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
+  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
 }
-
 function entryList(rows: Entry[]) {
   return rows.length
     ? `<div class="records">${rows.map((e) => `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${own(e) && api.allowed("entries") ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && own(e) && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && own(e) && api.allowed("entries") ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${own(e) && api.allowed("entries") ? deleteButton("entries", e.id) : ""}</div></article>`).join("")}</div>`
@@ -223,7 +207,7 @@ function cards() {
           .reverse()
           .join(
             "/",
-          )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">${own(c) ? "Fatura baseada nas compras registradas." : "Cartão compartilhado: os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} compra(s) registrada(s)</summary>${lines.map((e) => `<p class="detail-line">${esc(e.description)} <strong>${brl(e.amount_cents)}${e.installments > 1 ? " · " + e.installments + "x" : ""}</strong></p>`).join("")}</details></section>`;
+        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">${own(c) ? "Fatura prevista para o mês escolhido; compras parceladas entram nas faturas dos meses seguintes." : "Cartão compartilhado: os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} compra(s) registrada(s)</summary>${lines.map((e) => { const per = installmentAmount(e.amount_cents, e.installments, 0), first = invoiceMonth(e.date, c.closing_day), end = addMonths(first, e.installments - 1); return `<p class="detail-line">${esc(e.description)} <strong>Total ${brl(e.amount_cents)}${e.installments > 1 ? ` · ${e.installments} parcelas de ${brl(per)} · faturas ${first} a ${end}` : " · 1 fatura"}</strong></p>`; }).join("")}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>`;
@@ -363,7 +347,7 @@ function entryForm(preset: Partial<Entry> = {}) {
     ]
       .map(([v, l]) => opt(v, l, e.status))
       .join("")}</select>`,
-  )}${field("payment", "Forma", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Compra no cartão", e.payment)}</select>`)}${field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`)}${field("installments", "Parcelas da compra", input("installments", "number", e.installments, 'min="1" max="48" required'))}${field("account_id", "Conta de origem", `<select name="account_id">${accountOptions(e.account_id)}</select>`)}${field("target_account_id", "Conta de destino (transferência)", `<select name="target_account_id">${accountOptions(e.target_account_id)}</select>`)}${field("invoice_month", "Mês da fatura a pagar", input("invoice_month", "month", e.invoice_month || month))}${field(
+  )}${field("payment", "Forma", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Compra no cartão", e.payment)}</select>`)}${field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`)}<div class="card-installment-fields wide" id="card-installment-fields">${field("installment_basis", "O valor informado é", `<select name="installment_basis">${opt("total", "Valor total da compra", "total") + opt("each", "Valor de cada parcela", "total")}</select>`)}${field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required'))}<p class="fine wide">Informe o valor total da compra ou o valor de uma parcela. As parcelas serão distribuídas pelas faturas mensais do cartão.</p></div><p class="installment-preview wide" id="installment-preview" aria-live="polite"></p>${field("account_id", "Conta de origem", `<select name="account_id">${accountOptions(e.account_id)}</select>`)}${field("target_account_id", "Conta de destino (transferência)", `<select name="target_account_id">${accountOptions(e.target_account_id)}</select>`)}${field("invoice_month", "Mês da fatura a pagar", input("invoice_month", "month", e.invoice_month || month))}${field(
     "debt_id",
     "Dívida (pagamento de principal)",
     `<select name="debt_id">${
@@ -496,6 +480,7 @@ function render() {
     dialog
       .querySelector<HTMLInputElement>('input:not([type="hidden"])')
       ?.focus();
+    syncInstallmentPreview();
   }
 }
 async function run(work: () => Promise<unknown>, message = "") {
@@ -738,6 +723,8 @@ root.addEventListener("click", (event) => {
   }
 });
 root.addEventListener("change", (event) => {
+  if ((event.target as HTMLInputElement).closest("#entry-form"))
+    syncInstallmentPreview();
   if (modal) return;
   const el = event.target as HTMLInputElement;
   if (el.name === "navigate") {
@@ -759,6 +746,11 @@ root.addEventListener("change", (event) => {
 });
 root.addEventListener("input", (event) => {
   const el = event.target as HTMLInputElement;
+  if (
+    el.closest("#entry-form") &&
+    ["amount", "installments", "date"].includes(el.name)
+  )
+    syncInstallmentPreview();
   if (el.name === "search") {
     const pos = el.selectionStart;
     filter = el.value;
@@ -770,6 +762,52 @@ root.addEventListener("input", (event) => {
 });
 const val = (f: HTMLFormElement, n: string) =>
   String(new FormData(f).get(n) || "").trim();
+function syncInstallmentPreview() {
+  const form = root.querySelector<HTMLFormElement>("#entry-form");
+  if (!form) return;
+  const box = root.querySelector<HTMLElement>("#card-installment-fields");
+  const preview = root.querySelector<HTMLElement>("#installment-preview");
+  const enabled =
+    val(form, "kind") === "expense" && val(form, "payment") === "card";
+  if (box) box.hidden = !enabled;
+  if (preview) preview.hidden = !enabled;
+  if (!enabled || !preview) return;
+  const entered = parseMoney(val(form, "amount"));
+  const count = Number(val(form, "installments"));
+  if (
+    entered === null ||
+    entered <= 0 ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > 48
+  ) {
+    preview.textContent =
+      "Informe o valor e o número de parcelas para ver a previsão.";
+    return;
+  }
+  const total =
+    val(form, "installment_basis") === "each" ? entered * count : entered;
+  if (!Number.isSafeInteger(total)) {
+    preview.textContent = "O valor total ultrapassa o limite permitido.";
+    return;
+  }
+  const card = api.data?.cards.find((c) => c.id === val(form, "card_id"));
+  const date = val(form, "date");
+  const first = card
+    ? invoiceMonth(date, card.closing_day)
+    : date.slice(0, 7);
+  const last = addMonths(first, count - 1);
+  const firstAmount = installmentAmount(total, count, 0);
+  const lastAmount = installmentAmount(total, count, count - 1);
+  const range =
+    firstAmount === lastAmount
+      ? brl(firstAmount)
+      : `${brl(firstAmount)} e ${brl(lastAmount)}`;
+  preview.textContent =
+    val(form, "installment_basis") === "each"
+      ? `Compra total: ${brl(total)}. ${count} parcelas mensais de ${brl(entered)} nas faturas de ${first} a ${last}.`
+      : `${count} parcelas mensais de ${range} nas faturas de ${first} a ${last}. Total da compra: ${brl(total)}.`;
+}
 const cash = (f: HTMLFormElement, n: string, allowZero = false) => {
   const cents = parseMoney(val(f, n));
   if (cents === null || (!allowZero && cents <= 0))
@@ -942,7 +980,17 @@ root.addEventListener("submit", (event) => {
         ...(existing || {}),
         ...(id ? { id } : {}),
         description: val(f, "description"),
-        amount_cents: cash(f, "amount"),
+        amount_cents: (() => {
+          const amount = cash(f, "amount");
+          const count = payment === "card" ? Number(val(f, "installments")) : 1;
+          const total =
+            payment === "card" && val(f, "installment_basis") === "each"
+              ? amount * count
+              : amount;
+          if (!Number.isSafeInteger(total))
+            throw Error("O valor total ultrapassa o limite permitido.");
+          return total;
+        })(),
         date: val(f, "date"),
         due_date: val(f, "due_date") || null,
         kind,
