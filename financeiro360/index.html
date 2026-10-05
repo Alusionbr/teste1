@@ -16,5 +16,22 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/family/app.ts"></script>
+    <script>
+      // GitHub's branch-based Pages publisher may serve this source HTML before
+      // the compiled deployment finishes. Load the last verified public build.
+      if (
+        !["localhost", "127.0.0.1"].includes(location.hostname) &&
+        !document.querySelector('script[type="module"][src*="/assets/"]')
+      ) {
+        const style = document.createElement("link");
+        style.rel = "stylesheet";
+        style.href = "./fallback/app.css";
+        document.head.append(style);
+        const app = document.createElement("script");
+        app.type = "module";
+        app.src = "./fallback/app.js";
+        document.body.append(app);
+      }
+    </script>
   </body>
 </html>

@@ -87,6 +87,7 @@ jobs:
         run: |
           mkdir -p _site/financeiro360
           cp -a financeiro360/dist/. _site/financeiro360/
+          cp -a financeiro360/fallback _site/financeiro360/
 
       - name: Warn if Financeiro360 is unavailable
         if: steps.financeiro_install.outcome != 'success' || steps.financeiro_build.outcome != 'success' || hashFiles('financeiro360/dist/index.html') == ''
