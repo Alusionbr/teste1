@@ -1,8 +1,8 @@
 # Ativação do aplicativo familiar
 
-O proprietário autorizou escolher o servidor em 04/10/2026. A restauração do projeto anterior foi recusada pelo limite gratuito. Foi escolhido o projeto ativo `iowuejrpzoibyidiuvpt`, após conferir que os objetos `fin_*`, o schema privado e as policies de Storage não existiam. Migração e função administrativa estão publicadas, com RLS e bucket privado. Não foram alterados objetos do Quant Futebol nem configurações globais de Auth. A nova conta administrativa não tem vínculo no Quant Futebol e exige confirmação de e-mail antes do acesso. Casa e vínculo administrativo já foram criados, sem despesas fictícias no banco real.
+O proprietário autorizou escolher o servidor em 04/10/2026. A restauração do projeto anterior foi recusada pelo limite gratuito. Foi escolhido o projeto ativo `iowuejrpzoibyidiuvpt`, após conferir que os objetos `fin_*`, o schema privado e as policies de Storage não existiam. Migração e função administrativa estão publicadas, com RLS e bucket privado. Não foram alterados objetos do Quant Futebol nem configurações globais de Auth. A conta administrativa do Financeiro360 não tem vínculo no Quant Futebol. A confirmação de e-mail foi concluída; casa e vínculo administrativo estão ativos. O aplicativo já está em uso. Dados fictícios ficam apenas na demonstração e nos testes.
 
-## Ativação após liberar o destino
+## Instalação em outro destino e conferência operacional
 
 1. Conferir identidade, disponibilidade, tabelas existentes e grants do projeto escolhido. Não alterar configurações globais de Auth nem objetos de outros apps.
 2. Aplicar somente `supabase/migrations/20261004024051_family_app.sql`. Ela adiciona objetos `fin_*`, helpers em `fin_private` e o bucket privado `fin-family-private`; preserva o cofre antigo e os demais objetos. Em projeto dedicado o cofre antigo não é necessário.
@@ -23,6 +23,10 @@ Concluir compra cria uma despesa privada do comprador, repõe produtos vinculado
 
 ## Dados anteriores e retorno
 
-O relatório do usuário não foi fornecido; não há registros reais importados. Antes de migrar, exportar o backup antigo e revisar vínculos, contas, cartões e atrasos. O importador adiciona receitas/despesas privadas em revisão e não substitui histórico. Pagamentos e transferências devem ser conciliados nos módulos próprios.
+O relatório mencionado pelo usuário está em outra conversa e não foi disponibilizado para esta execução. Esta atualização não importa relatórios nem modifica valores reais existentes. `DATA-IMPORT-STATUS.md` descreve uma carga histórica anterior; esse documento não comprova que a carga esteja no banco familiar atual. Antes de migrar, exportar o backup antigo e revisar vínculos, contas, cartões e atrasos. O importador adiciona receitas/despesas privadas em revisão e não substitui histórico. Pagamentos e transferências devem ser conciliados nos módulos próprios.
 
 Para retornar à interface anterior, restaurar `src/main.ts` como entrada em `index.html` e publicar novamente. Os dados do navegador anterior ficam na chave original e não são enviados automaticamente. Para interromper o backend novo, retirar sua configuração e revogar grants somente dos objetos desta migração depois de exportar dados. Não apagar tabelas, usuários Auth, arquivos ou objetos de outros aplicativos. Um usuário Auth compartilhado não deve ser excluído no retorno.
+
+## Evolução da interface
+
+O roteiro aprovado está em [PLANO-EVOLUCAO-CASA.md](PLANO-EVOLUCAO-CASA.md). A execução começa por S01–S03: formulários por tarefa, prévia segura e parcelas no detalhe mensal. Cada lote deve registrar suas verificações e pendências em `EXECUCAO-CASA.md`. Esta fase mantém as chaves internas de competência da fatura; fechamento e vencimento são apresentados separadamente. Congelar cronogramas e permitir ajuste da primeira cobrança exige a etapa S04 antes de alterar a regra em produção.

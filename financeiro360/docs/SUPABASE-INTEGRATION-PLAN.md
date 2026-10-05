@@ -1,5 +1,7 @@
 # Supabase no Financeiro360
 
+> Documento histórico da fase de cofre privado. A aplicação familiar atual usa outro servidor e tabelas por registro; consulte [FAMILY-OPERATIONS.md](FAMILY-OPERATIONS.md) para o destino ativo. Não use este roteiro para configurar ou substituir o backend familiar em produção.
+
 O usuário escolheu o mesmo projeto Supabase do Bíblia em Contexto. Na verificação de leitura, ele estava ativo; as 24 tabelas existentes tinham RLS e nenhuma tabela `fin_*` existia. **A migração vault-only foi aplicada ao projeto confirmado; a tabela está vazia e nenhum dado financeiro real foi enviado.** Nenhuma tabela, função ou política do app Bíblia é alterada pelo código proposto.
 
 ## Primeira fase: cofre privado
