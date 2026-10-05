@@ -66,6 +66,9 @@ try {
   await capture("desktop-parcelas");
   await page.getByRole("button", { name: "Salvar lançamento" }).click();
   await page.getByText("Compra total centavos", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Ver fatura 12/2026" }).click();
+  assert.equal(await page.getByLabel("Mês de referência").inputValue(), "2026-12");
+  assert.match(await page.locator(".card-panel").first().innerText(), /Fatura prevista · 12\/2026/);
   await navigate("cards");
   const firstCard = page.locator(".card-panel").filter({ hasText: "Meu cartão" });
   await firstCard.getByRole("button", { name: "Editar cartão" }).click();
