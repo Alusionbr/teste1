@@ -83,14 +83,14 @@ jobs:
           touch _site/.nojekyll
 
       - name: Stage Financeiro360
-        if: steps.financeiro_build.outcome == 'success' && hashFiles('financeiro360/dist/index.html') != ''
+        if: steps.financeiro_build.outcome == 'success'
         run: |
           mkdir -p _site/financeiro360
           cp -a financeiro360/dist/. _site/financeiro360/
           cp -a financeiro360/fallback _site/financeiro360/
 
       - name: Warn if Financeiro360 is unavailable
-        if: steps.financeiro_install.outcome != 'success' || steps.financeiro_build.outcome != 'success' || hashFiles('financeiro360/dist/index.html') == ''
+        if: steps.financeiro_install.outcome != 'success' || steps.financeiro_build.outcome != 'success'
         run: echo "::warning::Financeiro360 não entrou no artefato Pages; verifique npm ci e build. Os demais projetos serão publicados."
 
       - name: Configure Pages
