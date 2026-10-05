@@ -67,6 +67,17 @@ try {
   await page.getByRole("button", { name: "Salvar lançamento" }).click();
   await page.getByText("Compra total centavos", { exact: true }).waitFor();
   await navigate("cards");
+  const firstCard = page.locator(".card-panel").filter({ hasText: "Meu cartão" });
+  await firstCard.getByRole("button", { name: "Editar cartão" }).click();
+  const cardForm = page.locator("#card-form");
+  assert.equal(await cardForm.locator('[name="closing_day"]').inputValue(), "10");
+  await cardForm.locator('[name="closing_day"]').fill("5");
+  await cardForm.locator('[name="due_day"]').fill("20");
+  await cardForm.locator('[name="limit"]').fill("6.500,00");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await page.getByText("Alteração salva.", { exact: true }).waitFor();
+  await page.getByLabel("Mês de referência").fill("2026-12");
+  assert.match(await firstCard.innerText(), /Fecha dia 5 · vence 20\/12\/2026/);
   for (const [month, number, amount] of [["2026-12", 1, "33,34"], ["2027-01", 2, "33,34"], ["2027-02", 3, "33,33"]]) {
     await page.getByLabel("Mês de referência").fill(month);
     const cardPanel = page.locator(".panel").filter({ has: page.getByText("Compra total centavos", { exact: false }) });
