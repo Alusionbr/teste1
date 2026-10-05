@@ -250,6 +250,11 @@ export function demoData(): Data {
       { id: "demo-task-filter", home_id: HOME, title: "Trocar o filtro de água", notes: "", kind: "maintenance", assignee_id: null,
         due_date: addDays(date, 10), repeat: "none", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
     ],
+    catalog: [
+      // Oferta fictícia só da demonstração, para mostrar como os encartes aparecem.
+      { id: "demo-offer", home_id: HOME, name: "Arroz", brand: "Camil", size: "5 kg", unit: "pacote", category: "mercearia",
+        store: "Atacadão", price_cents: 2490, offer_until: addDays(date, 7), created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+    ],
     pantryEvents: [
       { id: "demo-loss", home_id: HOME, pantry_id: "demo-milk", name: "Leite", kind: "lost", quantity: 1, value_cents: 599,
         actor_id: MEMBER, created_at: new Date().toISOString() },

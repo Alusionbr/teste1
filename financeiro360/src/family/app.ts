@@ -47,6 +47,22 @@ import {
   taskTemplates,
   wasteThisMonth,
 } from "./home.ts";
+import {
+  catalogCards,
+  catalogCategories,
+  catalogStores,
+  catalogUnits,
+  categoryIds,
+  composeName,
+  entryCard,
+  filterCards,
+  offerLabel,
+  parseFlyerText,
+  sortCards,
+  type CatalogCard,
+  type CatalogCategory,
+  type FlyerRow,
+} from "./catalog.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import {
   addMonths,
@@ -73,7 +89,18 @@ let page = "overview",
   pantrySearch = "",
   taskPerson = "all",
   suggestDays = 14,
-  moveKind: PantryEvent["kind"] = "used";
+  moveKind: PantryEvent["kind"] = "used",
+  shopTab = "list",
+  catalogOpen = new Set<string>(),
+  catalogStore = "all",
+  catalogCategory = "all",
+  catalogTerm = "",
+  catalogDraftName = "",
+  flyerDraft = { store: catalogStores[0], until: "", text: "" },
+  flyerRows: FlyerRow[] = [],
+  flyerSkipped = 0,
+  offerMode = false,
+  submitNotice = "Alteração salva.";
 // Carrinho do modo mercado: sobrevive a re-renderizações, atualização automática e falhas de envio.
 const cart = new Map<string, { checked: boolean; qty: string; price: string }>();
 const cartMeta = { total: "", date: "", account: "" };
@@ -360,7 +387,74 @@ function house() {
     .join("")}</div>`;
   return houseTab === "tasks" ? tasksView(tabs) : pantryView(tabs);
 }
+function shopTabs() {
+  const pending = api.data!.shopping.filter((s) => !s.bought).length;
+  return `<div class="segmented" role="group" aria-label="Seções das compras">${[["list", `Minha lista (${pending})`], ["catalog", "Catálogo"], ["flyers", "Encartes"]]
+    .map(([id, label]) => `<button type="button" class="${shopTab === id ? "active" : ""}" aria-pressed="${shopTab === id}" data-action="shop-tab" data-id="${id}">${label}</button>`)
+    .join("")}</div>`;
+}
 function shopping() {
+  const tabs = shopTabs();
+  return shopTab === "catalog" ? catalogView(tabs) : shopTab === "flyers" ? flyersView(tabs) : shoppingList(tabs);
+}
+const catalogBanner = () =>
+  api.catalogReady
+    ? ""
+    : `<div class="hint-banner">${icon("settings")}<div><strong>Itens e encartes guardados só neste aparelho</strong><p>O catálogo pronto funciona normalmente. Os itens e ofertas que você criar ficam neste aparelho até a atualização do banco da família ser ativada; depois disso, passam a aparecer para todos da casa.</p></div></div>`;
+const cardByKey = (key: string) => catalogCards(api.data!.catalog).find((c) => c.key === key);
+function catalogRow(c: CatalogCard) {
+  const cat = catalogCategories[c.category as CatalogCategory];
+  const detail = [
+    c.brands.length ? c.brands.slice(0, 3).join(", ") + (c.brands.length > 3 ? "…" : "") : "",
+    c.sizes.join(" · "),
+  ].filter(Boolean).join(" · ");
+  const mine = c.source !== "builtin";
+  return `<div class="catalog-row"><div class="catalog-info"><strong>${esc(c.name)}</strong><small>${detail ? esc(detail) : `Vendido por ${esc(c.unit)}`}${mine ? ` · ${c.store ? esc(c.store) : "Meu item"}${c.local ? " · só neste aparelho" : ""}` : ""}</small></div>${c.price_cents ? `<span class="catalog-price">${brl(c.price_cents)}</span>` : ""}<span class="row-actions">${api.allowed("shopping") ? button("catalog-pick", icon("plus") + " Adicionar", "secondary", `data-id="${esc(c.key)}" aria-label="Adicionar ${esc(c.name)} à lista"`) : ""}${mine && api.allowed("shopping") ? button("catalog-delete", "Excluir", "text-button danger", `data-id="${esc(c.id)}" aria-label="Excluir ${esc(c.name)} do catálogo"`) : ""}</span><span class="catalog-cat" aria-hidden="true">${cat?.emoji || ""}</span></div>`;
+}
+function catalogView(tabs: string) {
+  const d = api.data!;
+  const filter = { store: catalogStore, category: catalogCategory, term: catalogTerm };
+  const cards = sortCards(filterCards(catalogCards(d.catalog), filter));
+  const offers = cards.filter((c) => c.source === "offer");
+  const rest = cards.filter((c) => c.source !== "offer");
+  const chip = (action: string, id: string, label: string, current: string) =>
+    `<button type="button" class="chip ${current === id ? "active" : ""}" data-action="${action}" data-id="${esc(id)}" aria-pressed="${current === id}">${label}</button>`;
+  // Sem busca nem filtro as categorias começam recolhidas (a lista tem uns 100 itens); com filtro abrem sozinhas.
+  const filtering = Boolean(catalogTerm.trim()) || catalogCategory !== "all";
+  const groups = categoryIds
+    .map((id) => ({ id, rows: rest.filter((c) => c.category === id) }))
+    .filter((g) => g.rows.length)
+    .map((g) => `<details class="catalog-group" data-cat="${g.id}" ${filtering || catalogOpen.has(g.id) ? "open" : ""}><summary>${catalogCategories[g.id].emoji} ${catalogCategories[g.id].label} <span class="badge">${g.rows.length}</span></summary><div class="catalog-list">${g.rows.map(catalogRow).join("")}</div></details>`)
+    .join("");
+  const none = `<div class="empty"><span class="empty-icon" aria-hidden="true">🔎</span><h3>Nada encontrado${catalogTerm ? ` para “${esc(catalogTerm)}”` : ""}</h3><p>Crie o item com a marca e o tamanho que você compra. Ele fica salvo no catálogo.</p>${api.allowed("shopping") ? button("catalog-new-from-term", "Criar este item") : ""}</div>`;
+  return `<section class="page-intro"><div><h2>Catálogo de mercado.</h2><p>Escolha o que precisa sem digitar: itens comuns com marcas e tamanhos já prontos, mais as suas ofertas.</p></div><div class="button-row">${api.allowed("shopping") ? button("catalog-new", icon("plus") + " Criar item") + button("flyer-paste", "Colar encarte", "secondary") : ""}</div></section>${tabs}${catalogBanner()}<div class="filters pantry-filters">${input("catalog_search", "search", catalogTerm, 'placeholder="Buscar item ou marca (ex.: arroz, omo)" aria-label="Buscar no catálogo"')}<div class="chips" role="group" aria-label="Filtrar por mercado">${chip("catalog-store", "all", "Todos os mercados", catalogStore)}${catalogStores.map((s) => chip("catalog-store", s, esc(s), catalogStore)).join("")}</div></div><div class="chips category-chips" role="group" aria-label="Filtrar por categoria">${chip("catalog-cat", "all", "Tudo", catalogCategory)}${categoryIds.map((id) => chip("catalog-cat", id, `${catalogCategories[id].emoji} ${catalogCategories[id].label}`, catalogCategory)).join("")}</div>${offers.length ? `<section class="panel offer-panel"><div class="panel-title"><div><span class="eyebrow">DOS SEUS ENCARTES</span><h3>Em oferta agora</h3></div><span class="badge">${offers.length}</span></div><div class="offer-grid">${offers.map((c) => `<article class="offer-card"><span class="badge shared">${esc(c.store || "Oferta")} · ${esc(offerLabel(c))}</span><strong>${esc(c.name)}${c.brands[0] ? ` ${esc(c.brands[0])}` : ""}${c.sizes[0] ? ` ${esc(c.sizes[0])}` : ""}</strong><b>${brl(c.price_cents || 0)}</b>${api.allowed("shopping") ? button("catalog-pick", "Pôr na lista", "secondary", `data-id="${esc(c.key)}"`) : ""}</article>`).join("")}</div></section>` : ""}${groups || (offers.length ? "" : none)}<p class="fine">Os itens comuns vêm sem preço: o valor é o que você informar. Marcas são sugestões; escolha “sem preferência” ou digite outra.</p>`;
+}
+function flyersView(tabs: string) {
+  const d = api.data!;
+  const cards = d.catalog.map((e) => entryCard(e)).filter((c) => c.source === "offer");
+  const valid = cards.filter((c) => !c.expired);
+  const expired = cards.filter((c) => c.expired);
+  const stores = [...new Set(valid.map((c) => c.store || "Outro mercado"))].sort();
+  const row = (c: CatalogCard) => `<article class="record offer-row"><span class="record-icon" aria-hidden="true">${catalogCategories[c.category as CatalogCategory]?.emoji || "🏷️"}</span><div class="record-info"><strong>${esc(composeName(c.name, c.brands[0], c.sizes[0]))}</strong><small>${esc(offerLabel(c))}${c.local ? " · só neste aparelho" : ""}</small></div><strong>${brl(c.price_cents || 0)}</strong><div class="record-actions">${!c.expired && api.allowed("shopping") ? button("catalog-pick", "Pôr na lista", "secondary", `data-id="${esc(c.key)}"`) : ""}${api.allowed("shopping") ? button("catalog-delete", "Excluir", "text-button danger", `data-id="${esc(c.id)}" aria-label="Excluir oferta ${esc(c.name)}"`) : ""}</div></article>`;
+  return `<section class="page-intro"><div><h2>Encartes e ofertas.</h2><p>Guarde as ofertas do Atacadão, Sam's Club ou outro mercado e ponha na lista com um toque.</p></div><div class="button-row">${api.allowed("shopping") ? button("flyer-paste", "Colar texto do encarte") + button("offer-new", icon("plus") + " Nova oferta", "secondary") : ""}</div></section>${tabs}${catalogBanner()}${stores.length ? stores.map((store) => `<section class="panel task-block"><div class="panel-title"><h3>${esc(store)}</h3><span class="badge">${valid.filter((c) => (c.store || "Outro mercado") === store).length}</span></div><div class="records">${valid.filter((c) => (c.store || "Outro mercado") === store).sort((a, b) => (a.offer_until || "").localeCompare(b.offer_until || "")).map(row).join("")}</div></section>`).join("") : `<div class="empty"><span class="empty-icon" aria-hidden="true">🏷️</span><h3>Nenhuma oferta guardada</h3><p>Abra o encarte no site ou no WhatsApp do mercado, copie o texto e use “Colar texto do encarte”. O app separa produto e preço, você confere e salva. Também dá para cadastrar uma oferta por vez.</p>${api.allowed("shopping") ? button("flyer-paste", "Colar texto do encarte") : ""}</div>`}${expired.length ? `<details class="panel section-gap"><summary>Ofertas vencidas (${expired.length})</summary><div class="records">${expired.map(row).join("")}</div>${api.allowed("shopping") ? `<div class="button-row section-gap">${button("offers-clean", "Remover todas as vencidas", "secondary")}</div>` : ""}</details>` : ""}<p class="fine">Ofertas somem das buscas depois da validade. Os preços valem só para o mercado e a data informados; confira sempre no caixa.</p>`;
+}
+function catalogAddForm(c: CatalogCard) {
+  const brandOptions = opt("", "Sem preferência de marca", c.brands[0] || "") + c.brands.map((b) => opt(b, b, c.brands[0])).join("");
+  const sizeOptions = c.sizes.length ? c.sizes.map((x) => opt(x, x, c.sizes[0])).join("") : opt("", "Sem tamanho definido");
+  return `<form id="catalog-add-form" class="form-grid">${input("key", "hidden", c.key)}<p class="wide"><strong>${esc(c.name)}</strong>${c.store ? ` · ${esc(c.store)}` : ""}${c.offer_until ? ` · ${esc(offerLabel(c))}` : ""}</p>${field("brand", "Marca", `<select name="brand">${brandOptions}</select>`)}${field("size", "Tamanho / embalagem", `<select name="size">${sizeOptions}</select>`)}${field("brand_other", "Outra marca (digite se não estiver na lista)", input("brand_other", "text", "", 'maxlength="60"'))}${field("size_other", "Outro tamanho (opcional)", input("size_other", "text", "", 'maxlength="40" placeholder="Ex.: caixa com 12"'))}${field("quantity", `Quantidade (${esc(c.unit)})`, input("quantity", "number", 1, 'min="0.01" step="0.01" inputmode="decimal" required'))}${field("price", `Preço por ${esc(c.unit)} (R$, se souber)`, moneyInput("price", c.price_cents ? centsText(c.price_cents) : ""))}<p class="fine wide">Se este item já estiver na lista, a quantidade é somada em vez de repetir a linha.</p>${formEnd("Adicionar à lista")}</form>`;
+}
+function catalogNewForm(offer: boolean) {
+  const unitOptions = catalogUnits.map((u) => opt(u, u, "unidade")).join("");
+  return `<form id="catalog-new-form" class="form-grid">${field("name", offer ? "Produto da oferta" : "Nome do item", input("name", "text", catalogDraftName, 'maxlength="120" required placeholder="Ex.: Arroz, Detergente, Papel higiênico"'), true)}${field("brand", "Marca (opcional)", input("brand", "text", "", 'maxlength="60"'))}${field("size", "Tamanho (opcional)", input("size", "text", "", 'maxlength="40" placeholder="Ex.: 5 kg, 12 rolos"'))}${field("category", "Categoria", `<select name="category">${categoryIds.map((id) => opt(id, `${catalogCategories[id].emoji} ${catalogCategories[id].label}`, catalogCategory === "all" ? "mercearia" : catalogCategory)).join("")}</select>`)}${field("unit", "Vendido por", `<select name="unit">${unitOptions}</select>`)}${field("store", "Mercado", `<select name="store">${opt("", "Qualquer mercado") + catalogStores.map((s) => opt(s, s, offer ? flyerDraft.store : "")).join("")}</select>`)}${field("price", offer ? "Preço da oferta (R$)" : "Preço (R$, opcional)", moneyInput("price"))}${field("offer_until", offer ? "Oferta válida até" : "É oferta de encarte? Válida até (opcional)", input("offer_until", "date", offer ? flyerDraft.until : "", offer ? "required" : ""))}<label class="check-row wide"><input type="checkbox" name="add_to_list"> <span>Também colocar na lista de compras agora</span></label>${formEnd("Salvar item")}</form>`;
+}
+function flyerForm() {
+  return `<form id="flyer-form" class="form-grid">${field("store", "Mercado do encarte", `<select name="store" required>${catalogStores.map((s) => opt(s, s, flyerDraft.store)).join("")}</select>`)}${field("until", "Ofertas válidas até", input("until", "date", flyerDraft.until, "required"))}${field("text", "Texto do encarte (uma oferta por linha, com o preço)", `<textarea name="text" rows="9" maxlength="20000" required placeholder="Arroz Tio João 5 kg - R$ 24,90&#10;Feijão carioca Camil 1 kg R$ 7,49&#10;Detergente Ypê 500 ml R$ 2,19">${esc(flyerDraft.text)}</textarea>`, true)}<p class="fine wide">Copie o texto do encarte no site ou no WhatsApp do mercado e cole aqui. O app não lê fotos nem PDF: confira tudo na próxima tela antes de salvar. Linhas sem preço são ignoradas.</p>${formEnd("Ver prévia")}</form>`;
+}
+function flyerPreview() {
+  const rows = flyerRows;
+  return `<form id="flyer-confirm-form" class="form-grid"><p class="wide"><strong>${esc(flyerDraft.store)}</strong> · válido até ${esc(formatDate(flyerDraft.until))} · ${rows.length} oferta(s)${flyerSkipped ? ` · ${flyerSkipped} linha(s) sem preço ignorada(s)` : ""}</p><div class="wide import-list">${rows.map((r, i) => `<label class="flyer-row"><input type="checkbox" name="row" value="${i}" checked aria-label="Salvar ${esc(r.name)}"><span><strong>${esc(r.name)}</strong><small>${catalogCategories[r.category].emoji} ${catalogCategories[r.category].label}</small></span><b>${brl(r.price_cents)}</b></label>`).join("")}</div><p class="fine wide">Desmarque o que não quiser guardar. Para corrigir um nome ou preço, volte e ajuste o texto.</p><div class="form-actions wide">${button("flyer-back", "Voltar e editar", "secondary")}<button class="primary" type="submit" ${busy ? "disabled" : ""}>Salvar ofertas marcadas</button></div></form>`;
+}
+function shoppingList(tabs: string) {
   const d = api.data!,
     items = d.shopping.filter((s) => !s.bought),
     estimate = items.reduce((sum, s) => sum + lineCents(s.quantity, s.estimate_cents), 0),
@@ -373,7 +467,7 @@ function shopping() {
   const list = shoppingGroups(items, d.pantry)
     .map((g) => `<h4 class="group-title">${g.emoji} ${g.label}</h4>${g.items.map(line).join("")}`)
     .join("");
-  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Monte a lista em casa e marque no mercado só o que entrou no carrinho.</p></div><div class="button-row">${api.allowed("shopping") ? `<label class="inline-select"><span>Sugerir para</span><select name="suggest_days">${[7, 14, 30].map((n) => opt(String(n), `${n} dias`, String(suggestDays))).join("")}</select></label>${button("generate-list", "✦ Sugerir lista")}${button("add-shopping", "Adicionar item", "secondary")}` : ""}${items.length ? button("share-list", "Enviar lista", "secondary") : ""}</div></section><div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Modo mercado</h3><span class="badge">${items.length} item(s)</span></div>${
+  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Monte a lista em casa e marque no mercado só o que entrou no carrinho.</p></div><div class="button-row">${api.allowed("shopping") ? `<label class="inline-select"><span>Sugerir para</span><select name="suggest_days">${[7, 14, 30].map((n) => opt(String(n), `${n} dias`, String(suggestDays))).join("")}</select></label>${button("generate-list", "✦ Sugerir lista")}${button("add-shopping", "Adicionar item", "secondary")}` : ""}${items.length ? button("share-list", "Enviar lista", "secondary") : ""}</div></section>${tabs}<div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Modo mercado</h3><span class="badge">${items.length} item(s)</span></div>${
     items.length
       ? `<form id="purchase-form"><p class="fine">Marque o que já está no carrinho. Ajuste quantidade e preço se mudaram. O que não for marcado continua na lista.</p>${list}<div class="cart-summary"><span>No carrinho: <strong id="cart-count">0</strong> item(s)</span><span>Soma dos itens: <strong id="cart-sum">${formatBrl(0)}</strong></span></div><div class="form-grid section-gap">${field("total", "Total pago no caixa (R$)", moneyInput("total", cartMeta.total))}${field("date", "Data da compra", input("date", "date", cartMeta.date || today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions(cartMeta.account)}</select>`, true)}</div><p class="fine" id="cart-diff" aria-live="polite"></p>${canBuy ? `<button class="primary full section-gap" type="submit">Concluir compra dos itens marcados</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>`
       : empty("Sua próxima lista começa aqui", "add-shopping")
@@ -579,6 +673,16 @@ function modalContent() {
     }
     case "task":
       return taskForm(d.tasks.find((t) => t.id === editId));
+    case "catalog-add": {
+      const card = cardByKey(editId);
+      return card ? catalogAddForm(card) : '<p class="fine">Este item não está mais no catálogo.</p>';
+    }
+    case "catalog-new":
+      return catalogNewForm(offerMode);
+    case "flyer":
+      return flyerForm();
+    case "flyer-preview":
+      return flyerPreview();
     case "shopping":
       return `<form id="shopping-form" class="form-grid">${field("name", "Produto", input("name", "text", "", 'maxlength="151" required'), true)}${field("quantity", "Quantidade", input("quantity", "number", 1, 'min="0.01" step="0.01" required'))}${field("unit", "Unidade", input("unit", "text", "unidade", 'maxlength="20" required'))}${field("price", "Preço estimado por unidade (R$)", moneyInput("price"))}${formEnd()}</form>`;
     case "goal":
@@ -638,6 +742,10 @@ function render() {
     pantry: editId ? "Conferir produto" : "Novo produto",
     shopping: "Adicionar à lista",
     "pantry-move": moveKind === "lost" ? "Perdi ou venceu" : "Usei da despensa",
+    "catalog-add": "Adicionar à lista",
+    "catalog-new": offerMode ? "Nova oferta de encarte" : "Criar item no catálogo",
+    flyer: "Colar texto do encarte",
+    "flyer-preview": "Confira as ofertas",
     task: editId ? "Editar tarefa" : "Nova tarefa da casa",
     goal: "Seu próximo objetivo",
     document: "Anexar documento",
@@ -693,7 +801,7 @@ function render() {
       syncEntryForm();
   }
 }
-async function run(work: () => Promise<unknown>, message = "") {
+async function run(work: () => Promise<unknown>, message: string | (() => string) = "") {
   if (busy) return;
   const form = root.querySelector<HTMLFormElement>("dialog form");
   const values = form
@@ -709,7 +817,7 @@ async function run(work: () => Promise<unknown>, message = "") {
     .forEach((b) => (b.disabled = true));
   try {
     await work();
-    notice = message;
+    notice = typeof message === "function" ? message() : message;
   } catch (e) {
     failed = true;
     notice =
@@ -820,6 +928,49 @@ root.addEventListener("click", (event) => {
     "edit-task": "task",
     import: "import",
   };
+  if (a === "shop-tab") {
+    shopTab = id;
+    notice = "";
+    render();
+    return;
+  }
+  if (a === "catalog-store" || a === "catalog-cat") {
+    if (a === "catalog-store") catalogStore = id;
+    else catalogCategory = id;
+    render();
+    return;
+  }
+  if (a === "catalog-pick") {
+    show("catalog-add", id);
+    return;
+  }
+  if (a === "catalog-new" || a === "catalog-new-from-term" || a === "offer-new") {
+    offerMode = a === "offer-new";
+    catalogDraftName = a === "catalog-new-from-term" ? catalogTerm : "";
+    if (offerMode && !flyerDraft.until) flyerDraft.until = today();
+    show("catalog-new");
+    return;
+  }
+  if (a === "flyer-paste") {
+    if (!flyerDraft.until) flyerDraft.until = today();
+    show("flyer");
+    return;
+  }
+  if (a === "flyer-back") {
+    show("flyer");
+    return;
+  }
+  if (a === "catalog-delete") {
+    if (!confirm("Excluir este item do catálogo?")) return;
+    void run(() => api.removeCatalog([id]), "Item excluído do catálogo.");
+    return;
+  }
+  if (a === "offers-clean") {
+    const ids = api.data!.catalog.map((e) => entryCard(e)).filter((c) => c.source === "offer" && c.expired).map((c) => c.id);
+    if (!ids.length || !confirm(`Remover ${ids.length} oferta(s) vencida(s)?`)) return;
+    void run(() => api.removeCatalog(ids), "Ofertas vencidas removidas.");
+    return;
+  }
   if (a === "house-tab" || a === "pantry-place") {
     if (a === "house-tab") houseTab = id;
     else pantryPlace = id;
@@ -1028,6 +1179,16 @@ root.addEventListener("click", (event) => {
     return;
   }
 });
+// "toggle" não borbulha: captura para lembrar quais categorias do catálogo foram abertas.
+root.addEventListener("toggle", (event) => {
+  const group = event.target as HTMLElement;
+  if (!group.classList?.contains("catalog-group")) return;
+  // Com busca ou filtro as categorias abrem sozinhas: isso não conta como escolha da pessoa.
+  if (catalogTerm.trim() || catalogCategory !== "all") return;
+  const id = group.dataset.cat!;
+  if ((group as HTMLDetailsElement).open) catalogOpen.add(id);
+  else catalogOpen.delete(id);
+}, true);
 root.addEventListener("change", (event) => {
   if ((event.target as HTMLInputElement).closest("#entry-form"))
     syncEntryForm();
@@ -1075,9 +1236,10 @@ root.addEventListener("input", (event) => {
     syncCart();
     return;
   }
-  if (el.name === "search" || el.name === "pantry_search") {
+  if (el.name === "search" || el.name === "pantry_search" || el.name === "catalog_search") {
     const pos = el.selectionStart;
     if (el.name === "search") filter = el.value;
+    else if (el.name === "catalog_search") catalogTerm = el.value;
     else pantrySearch = el.value;
     render();
     const next = root.querySelector<HTMLInputElement>(`[name="${el.name}"]`);
@@ -1201,6 +1363,7 @@ const cash = (f: HTMLFormElement, n: string, allowZero = false) => {
 root.addEventListener("submit", (event) => {
   event.preventDefault();
   const f = event.target as HTMLFormElement;
+  submitNotice = "Alteração salva.";
   void run(async () => {
     const id = val(f, "id");
     if (f.getAttribute("id") === "login-form") {
@@ -1228,6 +1391,66 @@ root.addEventListener("submit", (event) => {
     }
     if (f.getAttribute("id") === "budget-form") {
       await api.setBudget(cash(f, "budget", true), val(f, "name"));
+      return;
+    }
+    if (f.getAttribute("id") === "catalog-add-form") {
+      const card = cardByKey(val(f, "key"));
+      if (!card) throw Error("Este item não está mais no catálogo.");
+      const quantity = Number(val(f, "quantity"));
+      const price = val(f, "price") ? parseMoney(val(f, "price")) : 0;
+      if (!(quantity > 0) || price === null) throw Error("Confira a quantidade e o preço.");
+      const name = composeName(card.name, val(f, "brand_other") || val(f, "brand"), val(f, "size_other") || val(f, "size"));
+      const result = await api.addToShopping({ name, unit: card.unit, quantity, estimate_cents: price });
+      submitNotice = result === "somou" ? `${name}: quantidade somada na lista.` : `${name} entrou na lista.`;
+      modal = "";
+      return;
+    }
+    if (f.getAttribute("id") === "catalog-new-form") {
+      const price = val(f, "price") ? parseMoney(val(f, "price")) : null;
+      if (val(f, "price") && price === null) throw Error("Confira o preço.");
+      const draft = {
+        name: val(f, "name"),
+        brand: val(f, "brand"),
+        size: val(f, "size"),
+        unit: val(f, "unit"),
+        category: val(f, "category"),
+        store: val(f, "store"),
+        price_cents: price,
+        offer_until: val(f, "offer_until") || null,
+      };
+      await api.addCatalog([draft]);
+      if (offerMode) flyerDraft = { ...flyerDraft, store: draft.store || flyerDraft.store, until: draft.offer_until || flyerDraft.until };
+      if (new FormData(f).has("add_to_list"))
+        await api.addToShopping({ name: composeName(draft.name, draft.brand, draft.size), unit: draft.unit, quantity: 1, estimate_cents: price || 0 });
+      submitNotice = "Item salvo no catálogo.";
+      offerMode = false;
+      catalogDraftName = "";
+      modal = "";
+      return;
+    }
+    if (f.getAttribute("id") === "flyer-form") {
+      flyerDraft = { store: val(f, "store"), until: val(f, "until"), text: String(new FormData(f).get("text") || "") };
+      if (!validIsoDate(flyerDraft.until)) throw Error("Informe até quando as ofertas valem.");
+      const parsed = parseFlyerText(flyerDraft.text);
+      if (!parsed.rows.length)
+        throw Error("Não encontrei preços no texto. Cada linha precisa ter o produto e o preço, como “Arroz 5 kg - R$ 24,90”.");
+      flyerRows = parsed.rows;
+      flyerSkipped = parsed.skipped;
+      modal = "flyer-preview";
+      return;
+    }
+    if (f.getAttribute("id") === "flyer-confirm-form") {
+      const chosen = new FormData(f).getAll("row").map((i) => flyerRows[Number(i)]).filter(Boolean);
+      if (!chosen.length) throw Error("Marque ao menos uma oferta para salvar.");
+      await api.addCatalog(chosen.map((r) => ({
+        name: r.name, brand: "", size: "", unit: "unidade", category: r.category,
+        store: flyerDraft.store, price_cents: r.price_cents, offer_until: flyerDraft.until,
+      })));
+      submitNotice = `${chosen.length} oferta(s) de ${flyerDraft.store} salva(s).`;
+      flyerDraft = { ...flyerDraft, text: "" };
+      flyerRows = [];
+      shopTab = "flyers";
+      modal = "";
       return;
     }
     if (f.getAttribute("id") === "purchase-form") {
@@ -1504,7 +1727,7 @@ root.addEventListener("submit", (event) => {
         due_date: val(f, "due_date") || null,
       });
     modal = "";
-  }, "Alteração salva.");
+  }, () => submitNotice);
 });
 render();
 void run(async () => {

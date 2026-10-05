@@ -1779,3 +1779,49 @@ h4.group-title { font-size: 12px; margin: 18px 0 4px; color: var(--muted); }
   :root[data-theme="system"] :is(.cart-summary,.market-item.in-cart) { background: #22362f; }
   :root[data-theme="system"] .chip.active, :root[data-theme="system"] .segmented button.active { background: var(--green); color: #fff; }
 }
+/* Catálogo de mercado, ofertas e encartes. */
+.category-chips { margin: -4px 0 18px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 6px; }
+.category-chips .chip { flex: none; }
+.catalog-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.catalog-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); min-height: 60px; }
+.catalog-row:last-child { border-bottom: 0; }
+.catalog-cat { display: none; }
+.catalog-info strong { display: block; font-size: 13px; color: var(--ink); }
+.catalog-info small { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.catalog-price { font-weight: 700; font-size: 13px; color: var(--ink); }
+.row-actions { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.row-actions .secondary { min-height: 44px; }
+.row-actions .text-button { min-height: 44px; }
+.offer-panel { margin-bottom: 22px; border-color: #cfe5d6; }
+.offer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.offer-card { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #f4faf6; }
+.offer-card strong { font-size: 13px; color: var(--ink); }
+.offer-card b { font-size: 20px; color: var(--green); }
+.offer-card .secondary { min-height: 44px; margin-top: auto; }
+.check-row { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px; min-height: 44px; }
+.check-row input { width: 22px; height: 22px; min-height: 22px; accent-color: var(--green); }
+.flyer-row { display: grid !important; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); min-height: 52px; }
+.flyer-row input { width: 22px; height: 22px; min-height: 22px; accent-color: var(--green); }
+.flyer-row small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.form-grid textarea { width: 100%; min-height: 150px; padding: 10px 12px; border: 1px solid #dce6e0; border-radius: 10px; font: inherit; font-size: 13px; }
+@media (max-width: 640px) {
+  .catalog-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .catalog-price { grid-column: 1; }
+  .row-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .row-actions .secondary { flex: 1; }
+}
+:root[data-theme="dark"] :is(.catalog-list,.offer-card) { background: #1d2c27; border-color: #355048; }
+:root[data-theme="dark"] .form-grid textarea { background: #14221d; color: #e5f0e9; border-color: #466157; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] :is(.catalog-list,.offer-card) { background: #1d2c27; border-color: #355048; }
+  :root[data-theme="system"] .form-grid textarea { background: #14221d; color: #e5f0e9; border-color: #466157; }
+}
+.catalog-group { margin-bottom: 10px; }
+.catalog-group > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; cursor: pointer; list-style: none; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-weight: 700; font-size: 14px; color: var(--ink); }
+.catalog-group > summary::-webkit-details-marker { display: none; }
+.catalog-group > summary::after { content: '⌄'; margin-left: auto; color: var(--muted); }
+.catalog-group[open] > summary::after { content: '⌃'; }
+.catalog-group[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.catalog-group > .catalog-list { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+:root[data-theme="dark"] .catalog-group > summary { background: #1d2c27; border-color: #355048; color: #e5f0e9; }
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] .catalog-group > summary { background: #1d2c27; border-color: #355048; color: #e5f0e9; } }

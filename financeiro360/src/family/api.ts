@@ -6,11 +6,14 @@ import {
   type Permission,
   type Entry,
   type PantryEvent,
+  type CatalogEntry,
   type Task,
   forecast,
   validateEntry,
 } from "./model.ts";
 import { nextDue } from "./home.ts";
+import { fold, validateCatalogDraft, type CatalogDraft } from "./catalog.ts";
+const localCatalogKey = (home: string) => `financeiro360:catalog:${home}`;
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
 const table = (collection: keyof Data) =>
@@ -27,6 +30,9 @@ export class FamilyAPI {
   // Falso enquanto a migração da rotina da casa não estiver aplicada no banco:
   // a despensa e as compras continuam funcionando, só a rotina e o histórico ficam indisponíveis.
   householdReady = true;
+  // Falso enquanto a tabela do catálogo não existir no banco: itens e encartes criados
+  // ficam guardados só neste aparelho (localStorage) até a atualização ser aplicada.
+  catalogReady = true;
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL,
       key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -91,6 +97,7 @@ export class FamilyAPI {
         ) as never;
       if (!admin) d.audit = [];
       this.householdReady = true;
+      this.catalogReady = true;
       this.data = d;
       this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
       this.preferencesRevision = 0;
@@ -152,6 +159,7 @@ export class FamilyAPI {
     if (results.some((r) => r.error))
       throw Error("Não foi possível carregar todos os dados. Tente atualizar.");
     const household = await this.loadHousehold(hid);
+    const catalog = await this.loadCatalog(hid);
     const preference = await this.client.from("fin_preferences")
       .select("*")
       .eq("user_id", this.userId)
@@ -175,7 +183,92 @@ export class FamilyAPI {
       recurring: results[11].data!,
       tasks: household.tasks,
       pantryEvents: household.events,
+      catalog,
     } as Data;
+  }
+  private readLocalCatalog(hid: string): CatalogEntry[] {
+    try {
+      const rows = JSON.parse(localStorage.getItem(localCatalogKey(hid)) || "[]");
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+  private writeLocalCatalog(hid: string, rows: CatalogEntry[]) {
+    try {
+      localStorage.setItem(localCatalogKey(hid), JSON.stringify(rows));
+    } catch {
+      throw Error("Não foi possível guardar neste aparelho. Libere espaço no navegador e tente de novo.");
+    }
+  }
+  private async loadCatalog(hid: string): Promise<CatalogEntry[]> {
+    const r = await this.client!.from("fin_catalog").select("*").eq("home_id", hid)
+      .order("created_at", { ascending: false }).limit(1000);
+    if (r.error?.code === "PGRST205" || r.error?.code === "42P01") {
+      this.catalogReady = false;
+      return this.readLocalCatalog(hid);
+    }
+    if (r.error) throw Error("Não foi possível carregar o catálogo de mercado. Tente atualizar.");
+    this.catalogReady = true;
+    return [...(r.data as CatalogEntry[]), ...this.readLocalCatalog(hid)];
+  }
+  // Cria itens próprios ou ofertas de encarte (um lote só: ou entra tudo, ou nada).
+  async addCatalog(drafts: CatalogDraft[]) {
+    if (!drafts.length) throw Error("Não há nada para salvar.");
+    if (drafts.length > 100) throw Error("Salve até 100 itens de cada vez.");
+    const rows = drafts.map(validateCatalogDraft);
+    const hid = this.data!.home.id;
+    if (this.demo) {
+      this.demoStore!.catalog.unshift(...rows.map((r) => ({ ...r, id: crypto.randomUUID(), home_id: hid,
+        created_by: this.userId, created_at: new Date().toISOString() })));
+      await this.load();
+      return;
+    }
+    if (!this.catalogReady) {
+      const local = this.readLocalCatalog(hid);
+      this.writeLocalCatalog(hid, [...rows.map((r) => ({ ...r, id: "local-" + crypto.randomUUID(), home_id: hid,
+        created_by: this.userId, created_at: new Date().toISOString() })), ...local]);
+      await this.load();
+      return;
+    }
+    const { error } = await this.client!.from("fin_catalog").insert(rows.map((r) => ({ ...r, home_id: hid, created_by: this.userId })));
+    if (error)
+      throw Error(error.code === "42501" ? "Você não tem permissão para alterar o catálogo." : "Não foi possível salvar. Nada foi adicionado.");
+    await this.load();
+  }
+  async removeCatalog(ids: string[]) {
+    const hid = this.data!.home.id;
+    if (this.demo) {
+      this.demoStore!.catalog = this.demoStore!.catalog.filter((e) => !ids.includes(e.id));
+      await this.load();
+      return;
+    }
+    const mine = ids.filter((id) => id.startsWith("local-"));
+    const remote = ids.filter((id) => !id.startsWith("local-"));
+    if (mine.length) this.writeLocalCatalog(hid, this.readLocalCatalog(hid).filter((e) => !mine.includes(e.id)));
+    if (remote.length) {
+      const { error } = await this.client!.from("fin_catalog").delete().in("id", remote).eq("home_id", hid);
+      if (error) throw Error("Não foi possível remover. Confira suas permissões.");
+    }
+    await this.load();
+  }
+  // Põe um item na lista de compras. Se já houver o mesmo item pendente, soma a quantidade.
+  async addToShopping(line: { name: string; unit: string; quantity: number; estimate_cents: number }) {
+    const name = line.name.trim().replace(/\s+/g, " ").slice(0, 151);
+    if (!name || !(line.quantity > 0) || !Number.isSafeInteger(line.estimate_cents) || line.estimate_cents < 0)
+      throw Error("Confira o nome, a quantidade e o preço.");
+    const same = this.data!.shopping.find((s) => !s.bought && !s.pantry_id && fold(s.name) === fold(name) && s.unit === line.unit);
+    if (same) {
+      await this.patch("shopping", same.id, {
+        quantity: Math.round((same.quantity + line.quantity) * 1000) / 1000,
+        ...(line.estimate_cents > 0 ? { estimate_cents: line.estimate_cents } : {}),
+      });
+      await this.load();
+      return "somou";
+    }
+    await this.save("shopping", { name, pantry_id: null, quantity: line.quantity, unit: line.unit,
+      estimate_cents: line.estimate_cents, bought: false });
+    return "novo";
   }
   private async loadHousehold(hid: string) {
     const [tasks, events] = await Promise.all([

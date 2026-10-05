@@ -231,6 +231,87 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "market fits on mobile");
   await capture("mobile-mercado");
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Catálogo: item comum sem digitar, soma na lista, item próprio e encarte colado.
+  const until = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  await navigate("shopping");
+  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  await page.getByText("Em oferta agora").waitFor();
+  assert.equal(await page.locator(".catalog-row:visible").count(), 0, "categories start collapsed");
+  await page.locator(".catalog-group > summary", { hasText: "Limpeza" }).click();
+  assert.ok((await page.locator(".catalog-row:visible").count()) > 5);
+  await page.locator(".catalog-group > summary", { hasText: "Limpeza" }).click();
+  assert.equal(await page.locator(".catalog-row:visible").count(), 0);
+  await page.locator('[name="catalog_search"]').fill("arroz");
+  assert.equal(await page.locator(".catalog-row").count(), 1);
+  await page.getByRole("button", { name: "Adicionar Arroz à lista" }).click();
+  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
+  await page.locator('#catalog-add-form [name="size"]').selectOption("5 kg");
+  await page.locator('#catalog-add-form [name="quantity"]').fill("2");
+  await page.locator('#catalog-add-form [name="price"]').fill("24,90");
+  await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
+  await page.getByText("Arroz Camil 5 kg entrou na lista.").waitFor();
+  await page.getByRole("button", { name: "Adicionar Arroz à lista" }).click();
+  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
+  await page.locator('#catalog-add-form [name="size"]').selectOption("5 kg");
+  await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
+  await page.getByText("Arroz Camil 5 kg: quantidade somada na lista.").waitFor();
+  // Oferta guardada vai para a lista com o preço do encarte.
+  await page.locator(".offer-card").getByRole("button", { name: "Pôr na lista" }).click();
+  assert.equal(await page.locator('#catalog-add-form [name="price"]').inputValue(), "24,90");
+  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
+  await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
+  await page.getByText("quantidade somada na lista.").waitFor();
+  await page.getByRole("button", { name: /^Minha lista \(\d+\)$/ }).click();
+  const camil = page.locator(".market-item", { hasText: "Arroz Camil 5 kg" });
+  assert.equal(await camil.count(), 1, "same item is not repeated");
+  assert.equal(await camil.locator('input[name^="qty-"]').inputValue(), "4");
+  assert.equal(await camil.locator('input[name^="price-"]').inputValue(), "24,90");
+  // Criar item que não existe no catálogo e já pôr na lista.
+  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  await page.locator('[name="catalog_search"]').fill("pano de prato xyz");
+  await page.getByRole("button", { name: "Criar este item" }).click();
+  assert.equal(await page.locator('#catalog-new-form [name="name"]').inputValue(), "pano de prato xyz");
+  await page.locator('#catalog-new-form [name="name"]').fill("Pano de prato");
+  await page.locator('#catalog-new-form [name="category"]').selectOption("casa");
+  await page.locator('#catalog-new-form [name="add_to_list"]').check();
+  await page.getByRole("button", { name: "Salvar item" }).click();
+  await page.getByText("Item salvo no catálogo.").waitFor();
+  await page.locator('[name="catalog_search"]').fill("pano");
+  assert.match(await page.locator(".catalog-row").first().innerText(), /Pano de prato[\s\S]*Meu item/);
+  // Encarte colado: o app separa produto e preço; a pessoa confere antes de salvar.
+  await page.getByRole("button", { name: "Encartes", exact: true }).click();
+  await page.getByRole("button", { name: "Colar texto do encarte" }).first().click();
+  await page.locator('#flyer-form [name="store"]').selectOption("Sam's Club");
+  await page.locator('#flyer-form [name="until"]').fill(until);
+  await page.locator('#flyer-form [name="text"]').fill("OFERTAS DA SEMANA\nDetergente Ypê 500 ml - R$ 2,19\nPapel higiênico 30 rolos de R$ 39,90 por R$ 34,90\nCafé Pilão 500 g R$ 18,90\nvalidade 12/10");
+  await page.getByRole("button", { name: "Ver prévia" }).click();
+  await page.getByText("3 oferta(s)").waitFor();
+  await page.getByText("2 linha(s) sem preço ignorada(s)").waitFor();
+  await page.getByRole("checkbox", { name: "Salvar Café Pilão 500 g" }).uncheck();
+  await page.getByRole("button", { name: "Salvar ofertas marcadas" }).click();
+  await page.getByText("2 oferta(s) de Sam's Club salva(s).").waitFor();
+  const sams = page.locator(".task-block", { hasText: "Sam's Club" });
+  assert.match(await sams.innerText(), /Papel higiênico 30 rolos[\s\S]*R\$\s*34,90/);
+  assert.equal(await sams.getByText("Café Pilão").count(), 0);
+  await sams.getByRole("button", { name: "Pôr na lista" }).first().click();
+  await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
+  await page.getByText("entrou na lista.").waitFor();
+  // Filtro por mercado mostra a oferta do Sam's e esconde a do Atacadão.
+  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  await page.locator('[name="catalog_search"]').fill("");
+  assert.equal(await page.locator(".catalog-row:visible").count(), 0, "search-opened categories are not remembered");
+  await page.getByRole("button", { name: "Sam's Club", exact: true }).click();
+  assert.equal(await page.locator(".offer-card", { hasText: "Atacadão" }).count(), 0);
+  assert.equal(await page.locator(".offer-card", { hasText: "Papel higiênico" }).count(), 1);
+  await page.getByRole("button", { name: "Todos os mercados" }).click();
+  assert.equal(await page.locator(".offer-card", { hasText: "Atacadão" }).count(), 1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const tab of ["Catálogo", "Encartes"]) {
+    await page.getByRole("button", { name: tab, exact: true }).click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, tab + " fits on mobile");
+    await capture("mobile-" + tab.toLowerCase().replace("á", "a"));
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByRole("combobox", { name: "Abrir uma seção" })
@@ -265,7 +346,7 @@ try {
   assert.equal(await page.locator("html").getAttribute("data-hide-values"), "false");
   assert.deepEqual(errors, []);
   console.log(
-    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy, partial market purchase, pantry movements and household routine passed.",
+    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy, partial market purchase, pantry movements, household routine, market catalog and flyers passed.",
   );
 } finally {
   await browser.close();

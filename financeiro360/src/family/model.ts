@@ -138,6 +138,21 @@ export interface Shopping {
   estimate_cents: number;
   bought: boolean;
 }
+// Item criado pela casa ou oferta de encarte. Com offer_until é uma oferta e exige preço.
+export interface CatalogEntry {
+  id: string;
+  home_id: string;
+  name: string;
+  brand: string;
+  size: string;
+  unit: string;
+  category: string;
+  store: string;
+  price_cents: number | null;
+  offer_until: string | null;
+  created_by: string;
+  created_at: string;
+}
 export interface Document extends RecordBase {
   name: string;
   path: string;
@@ -176,6 +191,7 @@ export interface Data {
   recurring: Recurring[];
   tasks: Task[];
   pantryEvents: PantryEvent[];
+  catalog: CatalogEntry[];
 }
 export const today = () => {
   const d = new Date();

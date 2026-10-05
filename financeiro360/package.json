@@ -8,8 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/logic.test.ts src/storage.test.ts src/cloud-vault.test.ts src/family/model.test.ts src/family/home.test.ts",
-    "test:db": "node --test tests/family-db.test.mjs tests/preferences-db.test.mjs tests/household-db.test.mjs",
+    "test": "node --test src/logic.test.ts src/storage.test.ts src/cloud-vault.test.ts src/family/model.test.ts src/family/home.test.ts src/family/catalog.test.ts",
+    "test:db": "node --test tests/family-db.test.mjs tests/preferences-db.test.mjs tests/household-db.test.mjs tests/catalog-db.test.mjs",
     "test:browser": "node tests/browser-smoke.mjs"
   },
   "devDependencies": {

@@ -69,3 +69,20 @@ Regras: tarefas são visíveis a todos os membros ativos da casa; apagar exige s
 ### Como continuar em outra sessão ou ferramenta
 
 Leia este arquivo, `PLANO-EVOLUCAO-CASA.md` e `src/family/home.ts`. Regras de negócio novas vão em `home.ts` com teste; regra que precisa valer para todos os aparelhos vai também no banco, em migração nova e aditiva, com teste em `tests/`. Rode `npm test`, `npm run test:db`, `npm run typecheck` e o teste de navegador (`npx vite` + `node tests/browser-smoke.mjs`) antes de publicar. Nunca aplique migração em produção sem autorização explícita do proprietário.
+
+## Catálogo de mercado e encartes — S12 (complemento)
+
+Pedido: montar a lista de compras sem digitar marcas e tamanhos, usando os mercados em que a família compra (Atacadão e Sam's Club), aproveitar encartes e poder criar itens.
+
+O que foi feito:
+
+- `src/family/catalog.ts`: catálogo pronto (itens, categoria, unidade, tamanhos e marcas comuns), busca sem acento, filtro por mercado e categoria, nome composto sem repetir marca/tamanho, validação, adivinhação de categoria e leitor de texto de encarte. Testes em `catalog.test.ts`.
+- A compra **não traz preço nenhum**: preços de encarte mudam por loja, região e data e não foram buscados na internet. O valor é o que a pessoa digita ou o preço da oferta que ela mesma cadastrou.
+- Leitor de encarte: uma oferta por linha; em "de R$ 29,90 por R$ 24,90" vale o último preço; linhas sem preço são só contadas; no máximo 100 ofertas por vez; sempre há prévia com opção de desmarcar. Foto e PDF não são lidos (OCR continua como etapa futura do plano, S21).
+- Banco: migração aditiva `supabase/migrations/20261005190000_market_catalog.sql` (`fin_catalog`), lida por toda a casa e alterada por quem tem a permissão de compras. Teste em `tests/catalog-db.test.mjs` (validação no servidor, lote atômico, permissão, outra casa, suspensão, anônimo).
+- Sem a migração aplicada o aplicativo funciona: o catálogo pronto não usa o banco e itens/ofertas criados ficam **só neste aparelho** (`localStorage`, chave por casa), com aviso na tela. Depois de aplicada, os novos passam a ser compartilhados; os guardados no aparelho continuam visíveis só nele (ainda não há "enviar para a casa").
+- Itens do catálogo entram na lista como avulsos (não atualizam a despensa na compra). Ligar um item do catálogo a um produto da despensa é um próximo passo.
+
+Verificação: `npm test`, `npm run test:db`, typecheck, build e `tests/browser-smoke.mjs` (adicionar sem digitar, somar em vez de repetir, oferta com preço do encarte, criar item, colar encarte com prévia, filtro por mercado, categorias recolhidas e celular 390 px). Dados fictícios (a oferta de arroz da demonstração é inventada).
+
+Pendências: aplicar a migração (com autorização), enviar itens do aparelho para a casa, ligar catálogo e despensa, histórico de preço por mercado e leitura de foto de encarte.
