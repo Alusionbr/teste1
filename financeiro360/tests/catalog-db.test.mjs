@@ -26,6 +26,18 @@ test('market catalog: shared by the home, shopping permission, validation and at
   await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,offer_until,created_by) values('${H}','Oferta sem preço','2026-10-12','${B}')`));
   await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,price_cents,created_by) values('${H}','Preço negativo',-1,'${B}')`));
   await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,created_by) values('${H}','Falsificado','${A}')`));
+  // Products from the open databases carry a barcode; the same product is stored once per home.
+  await db.exec(`insert into fin_catalog(home_id,name,brand,size,barcode,source,created_by) values('${H}','Arroz Tipo 1 Camil 5kg','Camil','5 kg','7896006711155','off','${B}')`);
+  assert.equal((await db.query(`select source from fin_catalog where barcode='7896006711155'`)).rows[0].source,'off');
+  await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,barcode,source,created_by) values('${H}','Duplicado','7896006711155','off','${B}')`));
+  await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,barcode,created_by) values('${H}','Código ruim','123','${B}')`));
+  await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,barcode,created_by) values('${H}','Código com letra','78960067A1155','${B}')`));
+  await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,source,created_by) values('${H}','Origem inventada','scraper','${B}')`));
+  assert.equal((await db.query(`select source from fin_catalog where id='${K}'`)).rows[0].source,'manual');
+  await db.exec(`reset role;insert into fin_catalog(home_id,name,barcode,source,created_by) values('${H2}','Mesmo código em outra casa','7896006711155','off','${C}')`);
+  await asUser(B);
+  await db.exec(`update fin_catalog set name='Arroz Camil Tipo 1 5 kg' where barcode='7896006711155'`);
+  await db.exec(`delete from fin_catalog where barcode='7896006711155'`);
   // One bad row cancels the whole flyer import.
   await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,price_cents,offer_until,created_by) values('${H}','Oferta boa',100,'2026-10-12','${B}'),('${H}','Oferta ruim',null,'2026-10-12','${B}')`));
   assert.equal(await count(),2);
@@ -46,7 +58,8 @@ test('market catalog: shared by the home, shopping permission, validation and at
 
   // Another home sees nothing and cannot write into this one.
   await asUser(C);
-  assert.equal(await count(),0);
+  assert.equal(await count(),1);
+  assert.equal((await db.query(`select * from fin_catalog where home_id='${H}'`)).rows.length,0,'no rows of the other home');
   await assert.rejects(db.exec(`insert into fin_catalog(home_id,name,created_by) values('${H}','Invasão','${C}')`));
   assert.equal((await db.query(`delete from fin_catalog where id='${K}' returning id`)).rows.length,0);
 

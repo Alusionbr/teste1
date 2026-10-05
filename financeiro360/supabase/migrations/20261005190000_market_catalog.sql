@@ -1,4 +1,4 @@
--- Catálogo de mercado da casa: itens criados pela família e ofertas de encarte.
+-- Catálogo de mercado da casa: itens criados pela família, produtos escolhidos das bases abertas e ofertas de encarte.
 -- Aditiva: não altera lançamentos, lista de compras, despensa nem objetos de outros aplicativos.
 -- O catálogo de itens comuns (sem preço) vem pronto no aplicativo e não usa o banco.
 create table public.fin_catalog(
@@ -13,11 +13,16 @@ create table public.fin_catalog(
   store text not null default '' check(length(store)<=40),
   price_cents bigint check(price_cents is null or (price_cents>=0 and price_cents<=9007199254740991)),
   offer_until date,
+  -- Produtos vindos das bases abertas (Open Food Facts e irmãs) guardam o código de barras,
+  -- que permite atualizar nome, marca e tamanho pela API. 'flyer' = oferta colada de encarte.
+  barcode text not null default '' check(barcode='' or barcode ~ '^\d{8,14}$'),
+  source text not null default 'manual' check(source in ('manual','flyer','off')),
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
   check(offer_until is null or price_cents is not null)
 );
 create index on public.fin_catalog(home_id,offer_until);
+create unique index fin_catalog_barcode_once on public.fin_catalog(home_id,barcode) where barcode<>'';
 alter table public.fin_catalog enable row level security;
 revoke all on public.fin_catalog from public,anon,authenticated;
 grant select,insert,update,delete on public.fin_catalog to authenticated;

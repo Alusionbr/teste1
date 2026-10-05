@@ -70,19 +70,38 @@ Regras: tarefas são visíveis a todos os membros ativos da casa; apagar exige s
 
 Leia este arquivo, `PLANO-EVOLUCAO-CASA.md` e `src/family/home.ts`. Regras de negócio novas vão em `home.ts` com teste; regra que precisa valer para todos os aparelhos vai também no banco, em migração nova e aditiva, com teste em `tests/`. Rode `npm test`, `npm run test:db`, `npm run typecheck` e o teste de navegador (`npx vite` + `node tests/browser-smoke.mjs`) antes de publicar. Nunca aplique migração em produção sem autorização explícita do proprietário.
 
-## Catálogo de mercado e encartes — S12 (complemento)
+## Catálogo de mercado, produtos de bases abertas e encartes — S12 (complemento)
 
-Pedido: montar a lista de compras sem digitar marcas e tamanhos, usando os mercados em que a família compra (Atacadão e Sam's Club), aproveitar encartes e poder criar itens.
+Pedido: montar a lista de compras sem digitar marcas e tamanhos (a família compra no Atacadão e no Sam's Club), aproveitar encartes e poder criar itens. Depois: **só cadastrar itens se houver API pública e gratuita por trás**, e usar a mesma API para atualizar.
 
-O que foi feito:
+### Pesquisa de fontes (conferida em 05/10/2026, com `curl -D-`)
 
-- `src/family/catalog.ts`: catálogo pronto (itens, categoria, unidade, tamanhos e marcas comuns), busca sem acento, filtro por mercado e categoria, nome composto sem repetir marca/tamanho, validação, adivinhação de categoria e leitor de texto de encarte. Testes em `catalog.test.ts`.
-- A compra **não traz preço nenhum**: preços de encarte mudam por loja, região e data e não foram buscados na internet. O valor é o que a pessoa digita ou o preço da oferta que ela mesma cadastrou.
-- Leitor de encarte: uma oferta por linha; em "de R$ 29,90 por R$ 24,90" vale o último preço; linhas sem preço são só contadas; no máximo 100 ofertas por vez; sempre há prévia com opção de desmarcar. Foto e PDF não são lidos (OCR continua como etapa futura do plano, S21).
-- Banco: migração aditiva `supabase/migrations/20261005190000_market_catalog.sql` (`fin_catalog`), lida por toda a casa e alterada por quem tem a permissão de compras. Teste em `tests/catalog-db.test.mjs` (validação no servidor, lote atômico, permissão, outra casa, suspensão, anônimo).
-- Sem a migração aplicada o aplicativo funciona: o catálogo pronto não usa o banco e itens/ofertas criados ficam **só neste aparelho** (`localStorage`, chave por casa), com aviso na tela. Depois de aplicada, os novos passam a ser compartilhados; os guardados no aparelho continuam visíveis só nele (ainda não há "enviar para a casa").
-- Itens do catálogo entram na lista como avulsos (não atualizam a despensa na compra). Ligar um item do catálogo a um produto da despensa é um próximo passo.
+| Fonte | Resultado |
+| --- | --- |
+| Open Food Facts (`br.openfoodfacts.org`) | Gratuita, pública, produtos do Brasil com nome, marca, tamanho e código de barras, `access-control-allow-origin: *`. **Usada.** |
+| Open Beauty Facts / Open Products Facts (`br.openbeautyfacts.org`, `br.openproductsfacts.org`) | Mesma API e licença; cobrem higiene e limpeza, com cobertura menor. **Usadas.** |
+| Open Prices (`prices.openfoodfacts.org`) | Existe, mas tinha 73 preços em reais no mundo todo e nenhum do Atacadão ou Sam's Club no Brasil. **Descartada.** |
+| Encartes do Atacadão / Sam's Club | Sem API pública. O preço vem do que a pessoa digita ou cola. |
+| Search-a-licious (`search.openfoodfacts.org`) | Mistura produtos de vários países; o endpoint `cgi/search.pl` dos subdomínios `br.` já filtra o Brasil. **Descartada.** |
 
-Verificação: `npm test`, `npm run test:db`, typecheck, build e `tests/browser-smoke.mjs` (adicionar sem digitar, somar em vez de repetir, oferta com preço do encarte, criar item, colar encarte com prévia, filtro por mercado, categorias recolhidas e celular 390 px). Dados fictícios (a oferta de arroz da demonstração é inventada).
+Regras do serviço (documentação oficial): 10 buscas por minuto e 15 consultas por código por minuto (por aparelho quando chamada do celular); proibido usar a busca para autocompletar; licença ODbL com crédito; User-Agent próprio (navegadores não permitem definir). O serviço fica instável às vezes e devolve uma página HTML com status 503 (visto durante o desenvolvimento).
 
-Pendências: aplicar a migração (com autorização), enviar itens do aparelho para a casa, ligar catálogo e despensa, histórico de preço por mercado e leitura de foto de encarte.
+### O que foi feito
+
+- `src/family/off.ts`: busca por texto e consulta por código, com limitador local (9 buscas e 14 consultas por minuto), cache de uma semana no aparelho, tempo limite de 12 s, uma nova tentativa em erro 5xx, mensagens amigáveis (limite, instabilidade, sem internet, resposta inesperada), normalização (marca em maiúsculas, "5kg" → "5 kg", código de barras válido) e ordenação (nomes que começam pelo que foi buscado vêm antes). A busca só parte de um toque; nunca autocompleta. Só o texto buscado sai do aparelho.
+- `src/family/catalog.ts`: os atalhos genéricos não têm mais marca, tamanho nem preço (antes havia listas escritas de memória, removidas a pedido). Item "embalado" abre a busca; hortifrúti e carnes a granel entram direto.
+- Categoria do produto: etiquetas do banco → categoria do catálogo, ignorando etiquetas genéricas. Um erro real foi achado na API ao vivo (`plant-based-foods-and-beverages` classificava biscoitos como bebidas) e ficou coberto por teste.
+- Banco: migração aditiva `20261005190000_market_catalog.sql` (`fin_catalog`, com `barcode` e `source`, e um mesmo código de barras só uma vez por casa). Sem ela aplicada o app funciona e guarda itens e ofertas só no aparelho.
+- Atualização: "Atualizar dados dos produtos salvos" consulta até 20 produtos por vez (uma a cada 4,5 s) e corrige nome, marca e tamanho que mudaram. Não altera preços, quantidades nem listas.
+- Encartes: colar o texto, conferir a prévia, ofertas por mercado com validade (ver `catalog.ts`, `parseFlyerText`). O app não lê foto nem PDF.
+
+### Verificação
+
+`npm test`, `npm run test:db`, typecheck, build e `tests/browser-smoke.mjs` (com as respostas da API simuladas por `page.route`, para não gastar o limite do serviço público): busca, escolha do produto, cache sem nova chamada, guardar no catálogo, soma na lista, banco irmão de limpeza, atualização com um produto mudado, instabilidade do serviço com saída para criar à mão, encarte colado. Também foi rodado o módulo contra a API real (três bancos e consulta por código).
+
+### Pendências
+
+1. Aplicar as migrações no banco de produção (com autorização do proprietário).
+2. Enviar itens guardados só no aparelho para a casa; ligar catálogo e despensa; histórico de preço por mercado; leitura de foto de encarte.
+3. Cobertura de higiene e limpeza no Brasil é pequena: quando não achar, o app oferece criar o item.
+4. Ao crescer o uso, considerar um projeto próprio no Supabase e baixar o arquivo de exportação do Open Food Facts em vez de consultar a API.

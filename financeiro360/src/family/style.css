@@ -1825,3 +1825,12 @@ h4.group-title { font-size: 12px; margin: 18px 0 4px; color: var(--muted); }
 .catalog-group > .catalog-list { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
 :root[data-theme="dark"] .catalog-group > summary { background: #1d2c27; border-color: #355048; color: #e5f0e9; }
 @media (prefers-color-scheme: dark) { :root[data-theme="system"] .catalog-group > summary { background: #1d2c27; border-color: #355048; color: #e5f0e9; } }
+/* Escolha de produto nas bases abertas e atualização dos itens salvos. */
+.find-results { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; }
+.find-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); min-height: 56px; }
+.find-row .secondary { min-height: 44px; }
+.online-search { margin: -4px 0 14px; }
+.online-search .secondary { min-height: 44px; }
+.refresh-bar { margin: -6px 0 16px; font-size: 12px; color: var(--muted); }
+.refresh-bar .secondary { min-height: 44px; }
+.credit a { color: var(--green); }

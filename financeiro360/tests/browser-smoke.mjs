@@ -231,8 +231,32 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "market fits on mobile");
   await capture("mobile-mercado");
   await page.setViewportSize({ width: 1440, height: 1000 });
-  // Catálogo: item comum sem digitar, soma na lista, item próprio e encarte colado.
+  // Catálogo: produtos reais vêm das bases abertas (aqui simuladas), sem digitar marca nem tamanho.
   const until = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const apiHits = { search: 0, product: 0 };
+  const json = (route, body, status = 200) =>
+    route.fulfill({ status, contentType: "application/json; charset=utf-8", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
+  await page.route(/open(food|beauty|products)facts\.org\//, (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.startsWith("/api/v2/product/")) {
+      apiHits.product++;
+      const code = url.pathname.split("/").pop();
+      if (code === "7896006711155") return json(route, { status: 1, product: { code, product_name: "Arroz Camil Tipo 1 5 kg", brands: "CAMIL", quantity: "5kg" } });
+      return json(route, { status: 1, product: { code, product_name: "Detergente Ypê Clear", brands: "Ype", quantity: "500ml" } });
+    }
+    apiHits.search++;
+    const term = (url.searchParams.get("search_terms") || "").toLowerCase();
+    if (term.includes("feij")) return route.fulfill({ status: 503, contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body: "<!DOCTYPE html><title>Page temporarily unavailable</title>" });
+    if (url.hostname.includes("openproductsfacts") && term.includes("detergente"))
+      return json(route, { products: [{ code: "7891022100372", product_name: "Detergente Ypê Clear", brands: "Ype", quantity: "500 ml" }] });
+    if (term.includes("arroz"))
+      return json(route, { products: [
+        { code: "7896006716464", product_name: "Biscoito de arroz", brands: "Camil" },
+        { code: "7896006711155", product_name: "Arroz Tipo 1 Camil 5kg", brands: "CAMIL", quantity: "5kg", categories_tags: ["en:rices"] },
+        { code: "7893500020110", product_name: "Arroz Tio João 1 Kg", brands: "TIO JOAO", quantity: "1kg" },
+      ] });
+    return json(route, { products: [] });
+  });
   await navigate("shopping");
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
   await page.getByText("Em oferta agora").waitFor();
@@ -241,35 +265,73 @@ try {
   assert.ok((await page.locator(".catalog-row:visible").count()) > 5);
   await page.locator(".catalog-group > summary", { hasText: "Limpeza" }).click();
   assert.equal(await page.locator(".catalog-row:visible").count(), 0);
+  assert.match(await page.locator(".credit").innerText(), /Open Food Facts[\s\S]*ODbL[\s\S]*preços do Brasil/);
+  // Atalho genérico → busca o produto real. Nada de marca ou tamanho escrito à mão no app.
   await page.locator('[name="catalog_search"]').fill("arroz");
   assert.equal(await page.locator(".catalog-row").count(), 1);
-  await page.getByRole("button", { name: "Adicionar Arroz à lista" }).click();
-  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
-  await page.locator('#catalog-add-form [name="size"]').selectOption("5 kg");
+  assert.match(await page.locator(".catalog-row").innerText(), /Toque para escolher a marca e o tamanho/);
+  await page.getByRole("button", { name: "Escolher produto para Arroz" }).click();
+  await page.getByRole("button", { name: "Escolher Arroz Tipo 1 Camil 5kg" }).waitFor();
+  const names = await page.locator(".find-row strong").allInnerTexts();
+  assert.deepEqual(names, ["Arroz Tipo 1 Camil 5kg", "Arroz Tio João 1 Kg", "Biscoito de arroz"], "names starting with the search come first");
+  assert.match(await page.locator(".find-row").first().innerText(), /Camil · 5 kg/);
+  await page.getByRole("button", { name: "Escolher Arroz Tipo 1 Camil 5kg" }).click();
   await page.locator('#catalog-add-form [name="quantity"]').fill("2");
   await page.locator('#catalog-add-form [name="price"]').fill("24,90");
+  assert.equal(await page.locator('#catalog-add-form [name="save_item"]').isChecked(), true);
   await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
-  await page.getByText("Arroz Camil 5 kg entrou na lista.").waitFor();
-  await page.getByRole("button", { name: "Adicionar Arroz à lista" }).click();
-  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
-  await page.locator('#catalog-add-form [name="size"]').selectOption("5 kg");
+  await page.getByText("Arroz Tipo 1 Camil 5kg entrou na lista. Guardado no seu catálogo.").waitFor();
+  assert.equal(apiHits.search, 1);
+  // A mesma busca vem do cache do aparelho e não gasta o limite do serviço; item repetido soma.
+  await page.getByRole("button", { name: "Escolher produto para Arroz" }).click();
+  await page.getByText("Resultado guardado neste aparelho").waitFor();
+  assert.equal(apiHits.search, 1, "cached search does not call the service again");
+  assert.match(await page.locator(".find-row").first().innerText(), /já no seu catálogo/);
+  await page.getByRole("button", { name: "Escolher Arroz Tipo 1 Camil 5kg" }).click();
+  assert.equal(await page.locator('#catalog-add-form [name="save_item"]').count(), 0, "already saved");
+  await page.locator('#catalog-add-form [name="quantity"]').fill("2");
   await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
-  await page.getByText("Arroz Camil 5 kg: quantidade somada na lista.").waitFor();
-  // Oferta guardada vai para a lista com o preço do encarte.
+  await page.getByText("Arroz Tipo 1 Camil 5kg: quantidade somada na lista.").waitFor();
+  // O item guardado aparece no catálogo da casa, achável pela marca, e se adiciona sem internet.
+  await page.locator('[name="catalog_search"]').fill("camil");
+  assert.match(await page.locator(".catalog-row").first().innerText(), /Arroz Tipo 1 Camil 5kg[\s\S]*Da base aberta/);
+  // Oferta de encarte guardada vai para a lista com o preço dela.
+  await page.locator('[name="catalog_search"]').fill("");
   await page.locator(".offer-card").getByRole("button", { name: "Pôr na lista" }).click();
   assert.equal(await page.locator('#catalog-add-form [name="price"]').inputValue(), "24,90");
-  await page.locator('#catalog-add-form [name="brand"]').selectOption("Camil");
   await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
-  await page.getByText("quantidade somada na lista.").waitFor();
+  await page.getByText("Arroz Camil 5 kg entrou na lista.").waitFor();
   await page.getByRole("button", { name: /^Minha lista \(\d+\)$/ }).click();
-  const camil = page.locator(".market-item", { hasText: "Arroz Camil 5 kg" });
+  const camil = page.locator(".market-item", { hasText: "Arroz Tipo 1 Camil 5kg" });
   assert.equal(await camil.count(), 1, "same item is not repeated");
   assert.equal(await camil.locator('input[name^="qty-"]').inputValue(), "4");
   assert.equal(await camil.locator('input[name^="price-"]').inputValue(), "24,90");
+  // Produto de limpeza vem do banco irmão; busca por texto livre também funciona.
+  await page.getByRole("button", { name: "Catálogo", exact: true }).click();
+  await page.locator('[name="catalog_search"]').fill("detergente ype");
+  await page.locator(".online-search").getByRole("button").click();
+  await page.getByRole("button", { name: "Escolher Detergente Ypê Clear" }).click();
+  await page.getByRole("button", { name: "Adicionar à lista", exact: true }).click();
+  await page.getByText("Detergente Ypê Clear 500 ml entrou na lista. Guardado no seu catálogo.").waitFor();
+  // Atualização pela API: um produto mudou na base, o outro não.
+  await page.locator('[name="catalog_search"]').fill("");
+  await page.getByRole("button", { name: "Atualizar dados dos produtos salvos (2)" }).click();
+  await page.getByText("1 produto(s) atualizado(s), 1 sem mudança.").waitFor({ timeout: 30000 });
+  assert.equal(apiHits.product, 2);
+  await page.locator('[name="catalog_search"]').fill("camil");
+  assert.match(await page.locator(".catalog-row").first().innerText(), /Arroz Camil Tipo 1 5 kg/);
+  // Serviço instável: mensagem clara e saída para criar o item à mão.
+  await page.locator('[name="catalog_search"]').fill("feijao");
+  await page.getByRole("button", { name: "Escolher produto para Feijão carioca" }).click();
+  await page.getByText("O serviço de produtos está instável agora").waitFor({ timeout: 15000 });
+  await page.getByRole("button", { name: "Criar “Feijão carioca” manualmente" }).click();
+  assert.equal(await page.locator('#catalog-new-form [name="name"]').inputValue(), "Feijão carioca");
+  await page.getByRole("button", { name: "Cancelar" }).click();
+  await page.locator('[name="catalog_search"]').fill("");
   // Criar item que não existe no catálogo e já pôr na lista.
   await page.getByRole("button", { name: "Catálogo", exact: true }).click();
   await page.locator('[name="catalog_search"]').fill("pano de prato xyz");
-  await page.getByRole("button", { name: "Criar este item" }).click();
+  await page.getByRole("button", { name: "Criar item manualmente" }).click();
   assert.equal(await page.locator('#catalog-new-form [name="name"]').inputValue(), "pano de prato xyz");
   await page.locator('#catalog-new-form [name="name"]').fill("Pano de prato");
   await page.locator('#catalog-new-form [name="category"]').selectOption("casa");
@@ -346,7 +408,7 @@ try {
   assert.equal(await page.locator("html").getAttribute("data-hide-values"), "false");
   assert.deepEqual(errors, []);
   console.log(
-    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy, partial market purchase, pantry movements, household routine, market catalog and flyers passed.",
+    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy, partial market purchase, pantry movements, household routine, market catalog from open product databases, updates and flyers passed.",
   );
 } finally {
   await browser.close();

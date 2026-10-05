@@ -202,38 +202,71 @@ export class FamilyAPI {
     }
   }
   private async loadCatalog(hid: string): Promise<CatalogEntry[]> {
-    const r = await this.client!.from("fin_catalog").select("*").eq("home_id", hid)
-      .order("created_at", { ascending: false }).limit(1000);
-    if (r.error?.code === "PGRST205" || r.error?.code === "42P01") {
-      this.catalogReady = false;
-      return this.readLocalCatalog(hid);
+    const rows: CatalogEntry[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const r = await this.client!.from("fin_catalog").select("*").eq("home_id", hid)
+        .order("created_at", { ascending: false }).order("id").range(offset, offset + 499);
+      if (r.error?.code === "PGRST205" || r.error?.code === "42P01") {
+        this.catalogReady = false;
+        return this.readLocalCatalog(hid);
+      }
+      if (r.error) throw Error("Não foi possível carregar o catálogo de mercado. Tente atualizar.");
+      rows.push(...(r.data as CatalogEntry[]));
+      if (r.data.length < 500) break;
     }
-    if (r.error) throw Error("Não foi possível carregar o catálogo de mercado. Tente atualizar.");
     this.catalogReady = true;
-    return [...(r.data as CatalogEntry[]), ...this.readLocalCatalog(hid)];
+    return [...rows, ...this.readLocalCatalog(hid)];
   }
   // Cria itens próprios ou ofertas de encarte (um lote só: ou entra tudo, ou nada).
   async addCatalog(drafts: CatalogDraft[]) {
     if (!drafts.length) throw Error("Não há nada para salvar.");
     if (drafts.length > 100) throw Error("Salve até 100 itens de cada vez.");
-    const rows = drafts.map(validateCatalogDraft);
+    // O mesmo produto (código de barras) é guardado uma vez só por casa.
+    const known = new Set(this.data!.catalog.map((e) => e.barcode).filter(Boolean));
+    const rows = drafts.map(validateCatalogDraft).filter((r) => !r.barcode || !known.has(r.barcode));
+    if (!rows.length) return 0;
     const hid = this.data!.home.id;
     if (this.demo) {
       this.demoStore!.catalog.unshift(...rows.map((r) => ({ ...r, id: crypto.randomUUID(), home_id: hid,
         created_by: this.userId, created_at: new Date().toISOString() })));
       await this.load();
-      return;
+      return rows.length;
     }
     if (!this.catalogReady) {
       const local = this.readLocalCatalog(hid);
       this.writeLocalCatalog(hid, [...rows.map((r) => ({ ...r, id: "local-" + crypto.randomUUID(), home_id: hid,
         created_by: this.userId, created_at: new Date().toISOString() })), ...local]);
       await this.load();
-      return;
+      return rows.length;
     }
     const { error } = await this.client!.from("fin_catalog").insert(rows.map((r) => ({ ...r, home_id: hid, created_by: this.userId })));
     if (error)
       throw Error(error.code === "42501" ? "Você não tem permissão para alterar o catálogo." : "Não foi possível salvar. Nada foi adicionado.");
+    await this.load();
+    return rows.length;
+  }
+  // Atualiza itens salvos com dados novos das bases abertas (nome, marca, tamanho, categoria).
+  async updateCatalog(patches: { id: string; name: string; brand: string; size: string; category: string }[]) {
+    if (!patches.length) return;
+    const hid = this.data!.home.id;
+    const checked = patches.map((p) => ({ id: p.id, ...validateCatalogDraft({
+      name: p.name, brand: p.brand, size: p.size, category: p.category, unit: "unidade", store: "",
+      price_cents: null, offer_until: null, barcode: "", source: "off" }) }));
+    const fields = (p: (typeof checked)[number]) => ({ name: p.name, brand: p.brand, size: p.size, category: p.category });
+    if (this.demo) {
+      for (const p of checked) Object.assign(this.demoStore!.catalog.find((e) => e.id === p.id) || {}, fields(p));
+    } else {
+      const mine = new Set(checked.filter((p) => p.id.startsWith("local-")).map((p) => p.id));
+      if (mine.size)
+        this.writeLocalCatalog(hid, this.readLocalCatalog(hid).map((e) => {
+          const p = checked.find((x) => x.id === e.id);
+          return p && mine.has(e.id) ? { ...e, ...fields(p) } : e;
+        }));
+      for (const p of checked.filter((x) => !mine.has(x.id))) {
+        const { error } = await this.client!.from("fin_catalog").update(fields(p)).eq("id", p.id).eq("home_id", hid);
+        if (error) throw Error("Não foi possível atualizar um item. Confira suas permissões.");
+      }
+    }
     await this.load();
   }
   async removeCatalog(ids: string[]) {

@@ -16,11 +16,11 @@ import type { CatalogEntry } from "./model.ts";
 
 const entry = (over: Partial<CatalogEntry> = {}): CatalogEntry => ({
   id: "1", home_id: "h", name: "Arroz Tio João 5 kg", brand: "", size: "", unit: "unidade", category: "mercearia",
-  store: "Atacadão", price_cents: 2490, offer_until: "2026-10-12", created_by: "a", created_at: "2026-10-05T10:00:00Z", ...over,
+  store: "Atacadão", price_cents: 2490, offer_until: "2026-10-12", barcode: "", source: "manual", created_by: "a", created_at: "2026-10-05T10:00:00Z", ...over,
 });
 const all = { store: "all", category: "all", term: "" };
 
-test("built-in catalog has unique keys, valid fields and no prices", () => {
+test("built-in shortcuts carry no invented brand, size or price", () => {
   const keys = new Set(builtinItems.map((i) => i.key));
   assert.equal(keys.size, builtinItems.length);
   assert.ok(builtinItems.length >= 90);
@@ -28,6 +28,7 @@ test("built-in catalog has unique keys, valid fields and no prices", () => {
     assert.ok(i.name && i.unit && i.category, i.name);
     assert.equal(i.price_cents, null);
     assert.equal(i.offer_until, null);
+    assert.deepEqual([i.brand, i.size, i.barcode], ["", "", ""], i.name);
   }
 });
 
@@ -35,8 +36,12 @@ test("search ignores accents, case and order, and also finds brands", () => {
   const cards = catalogCards([]);
   const names = (term: string) => filterCards(cards, { ...all, term }).map((c) => c.name);
   assert.ok(names("feijao").includes("Feijão carioca"));
-  assert.deepEqual(names("TIO JOAO arroz"), ["Arroz"]);
-  assert.ok(names("omo").includes("Sabão em pó"));
+  assert.deepEqual(names("TIO JOAO arroz"), [], "brands are not part of the shortcuts");
+  assert.ok(names("ARRÓZ").includes("Arroz"));
+  // Marcas só aparecem nos itens salvos (vindos da API ou criados pela casa), nunca nos atalhos.
+  assert.deepEqual(names("camil"), []);
+  const saved = filterCards(catalogCards([entry({ id: "s", name: "Arroz Tipo 1 5kg", brand: "Camil", size: "5 kg", source: "off", barcode: "7896006711155", offer_until: null, price_cents: null })]), { ...all, term: "camil" });
+  assert.deepEqual(saved.map((c) => c.name), ["Arroz Tipo 1 5kg"]);
   assert.ok(names("limpeza").includes("Detergente líquido"));
   assert.deepEqual(names("zzzz"), []);
   assert.ok(filterCards(cards, { ...all, category: "bebidas" }).every((c) => c.category === "bebidas"));
@@ -80,6 +85,9 @@ test("composed name does not repeat brand or size already written", () => {
   assert.equal(composeName("Arroz", "Camil", "5 kg"), "Arroz Camil 5 kg");
   assert.equal(composeName("Arroz Camil 5 kg", "camil", "5 KG"), "Arroz Camil 5 kg");
   assert.equal(composeName("Ovos", "", "12 un"), "Ovos 12 un");
+  assert.equal(composeName("Arroz Tipo 1 Camil 5kg", "Camil", "5 kg"), "Arroz Tipo 1 Camil 5kg", "5kg equals 5 kg");
+  assert.equal(composeName("Arroz Tipo 1 5kg", "Camil", "5 kg"), "Arroz Tipo 1 5kg Camil");
+  assert.equal(composeName(composeName("Banana", "", ""), "prata"), "Banana prata");
   assert.equal(composeName(" Leite  ", "", ""), "Leite");
 });
 
@@ -129,8 +137,17 @@ test("flyer import is capped at 100 offers", () => {
   assert.equal(parseFlyerText(text).rows.length, 100);
 });
 
+test("shortcuts tell packaged products (searched online) from loose ones (added directly)", () => {
+  const by = (name: string) => builtinItems.find((i) => i.name === name)!;
+  assert.equal(by("Arroz").packaged, true);
+  assert.equal(by("Detergente líquido").packaged, true);
+  assert.equal(by("Banana").packaged, false);
+  assert.equal(by("Carne moída").packaged, false);
+  assert.equal(by("Alface").packaged, false);
+});
+
 test("catalog drafts are validated before reaching the database", () => {
-  const draft = { name: "  Arroz   Camil ", brand: "Camil", size: "5 kg", unit: "pacote", category: "mercearia", store: "Atacadão", price_cents: 2490, offer_until: "2026-10-12" };
+  const draft = { name: "  Arroz   Camil ", brand: "Camil", size: "5 kg", unit: "pacote", category: "mercearia", store: "Atacadão", price_cents: 2490, offer_until: "2026-10-12", barcode: "", source: "manual" };
   assert.equal(validateCatalogDraft(draft).name, "Arroz Camil");
   assert.throws(() => validateCatalogDraft({ ...draft, name: "  " }), /nome/);
   assert.throws(() => validateCatalogDraft({ ...draft, category: "outra" }), /categoria/);
@@ -138,4 +155,7 @@ test("catalog drafts are validated before reaching the database", () => {
   assert.throws(() => validateCatalogDraft({ ...draft, offer_until: "2026-02-30" }), /data/);
   assert.throws(() => validateCatalogDraft({ ...draft, price_cents: -1 }), /preço/);
   assert.doesNotThrow(() => validateCatalogDraft({ ...draft, offer_until: null, price_cents: null }));
+  assert.doesNotThrow(() => validateCatalogDraft({ ...draft, offer_until: null, price_cents: null, barcode: "7896006711155", source: "off" }));
+  assert.throws(() => validateCatalogDraft({ ...draft, barcode: "12ab" }), /barras/);
+  assert.throws(() => validateCatalogDraft({ ...draft, source: "scraper" }), /Origem/);
 });

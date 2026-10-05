@@ -253,7 +253,8 @@ export function demoData(): Data {
     catalog: [
       // Oferta fictícia só da demonstração, para mostrar como os encartes aparecem.
       { id: "demo-offer", home_id: HOME, name: "Arroz", brand: "Camil", size: "5 kg", unit: "pacote", category: "mercearia",
-        store: "Atacadão", price_cents: 2490, offer_until: addDays(date, 7), created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+        store: "Atacadão", price_cents: 2490, offer_until: addDays(date, 7), barcode: "", source: "manual",
+        created_by: ADMIN, created_at: `${date}T08:00:00Z` },
     ],
     pantryEvents: [
       { id: "demo-loss", home_id: HOME, pantry_id: "demo-milk", name: "Leite", kind: "lost", quantity: 1, value_cents: 599,

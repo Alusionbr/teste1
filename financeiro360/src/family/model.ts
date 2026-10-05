@@ -150,6 +150,9 @@ export interface CatalogEntry {
   store: string;
   price_cents: number | null;
   offer_until: string | null;
+  // Código de barras e origem: "off" = produto das bases abertas (pode ser atualizado pela API).
+  barcode: string;
+  source: string;
   created_by: string;
   created_at: string;
 }
