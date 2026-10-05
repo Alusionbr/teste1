@@ -5,7 +5,7 @@ O proprietário autorizou escolher o servidor em 04/10/2026. A restauração do 
 ## Instalação em outro destino e conferência operacional
 
 1. Conferir identidade, disponibilidade, tabelas existentes e grants do projeto escolhido. Não alterar configurações globais de Auth nem objetos de outros apps.
-2. Aplicar somente `supabase/migrations/20261004024051_family_app.sql`. Ela adiciona objetos `fin_*`, helpers em `fin_private` e o bucket privado `fin-family-private`; preserva o cofre antigo e os demais objetos. Em projeto dedicado o cofre antigo não é necessário.
+2. Aplicar, em ordem, `20261004024051_family_app.sql`, `20261005055306_family_preferences.sql` e `20261005180000_household_routine.sql` (rotina da casa e histórico da despensa; aditiva). A primeira adiciona objetos `fin_*`, helpers em `fin_private` e o bucket privado `fin-family-private`; preserva o cofre antigo e os demais objetos. Em projeto dedicado o cofre antigo não é necessário.
 3. Conferir RLS, grants, policies e advisors. `fin_private` deve ficar fora dos schemas da Data API. Clientes anônimos não recebem acesso financeiro; funções de trigger não são executáveis por clientes.
 4. Publicar `supabase/functions/fin-family-admin/index.ts` como `fin-family-admin`. O corpo verifica JWT via `getUser` e vínculo ativo no banco. A chave service role fica somente no ambiente da função. Se necessário para compatibilidade com novos tokens, usar `verify_jwt=false` com a validação obrigatória do corpo preservada.
 5. Executar `scripts/provision-admin.mjs` em ambiente privado com `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FIN_ADMIN_EMAIL` e `FIN_ADMIN_PASSWORD`. Nunca colocar valores em commits ou logs. O script não troca a senha de uma conta Auth existente. Reutilizar usuário de outro app exige decisão explícita; para usar a senha inicial solicitada sem afetar outros aplicativos, preferir projeto dedicado.
@@ -17,7 +17,7 @@ O proprietário autorizou escolher o servidor em 04/10/2026. A restauração do 
 
 Compras são contadas pelo total na data da compra. Parcelas distribuem os centavos nas faturas mensais. Pagamentos de fatura, transferências e principal não viram uma segunda despesa. Juros exigem despesa separada. Compromissos a pagar entram nas previsões pela data; registros em revisão ficam fora dos totais. Saldo inicial desconhecido continua desconhecido.
 
-Contas, cartões, dívidas, lançamentos, recorrências, metas e documentos têm dono e visibilidade. Despensa e lista são compartilhados da casa. O administrador vê tudo; um membro só vê próprios registros e compartilhados. As regras estão no banco. Anexos exigem autorização para o documento e o pai. URLs assinadas duram 60 segundos; bytes já baixados não podem ser revogados.
+Contas, cartões, dívidas, lançamentos, recorrências, metas e documentos têm dono e visibilidade. Despensa, lista, histórico da despensa e rotina doméstica são compartilhados da casa. O administrador vê tudo; um membro só vê próprios registros e compartilhados. As regras estão no banco. Anexos exigem autorização para o documento e o pai. URLs assinadas duram 60 segundos; bytes já baixados não podem ser revogados.
 
 Concluir compra cria uma despesa privada do comprador, repõe produtos vinculados e conclui a seleção de itens em uma transação. O administrador vê essa despesa e decide compartilhá-la. Previsão da despensa depende do consumo informado; não é medição automática. Despesas fixas exigem geração explícita do mês e não fazem pagamentos automáticos.
 

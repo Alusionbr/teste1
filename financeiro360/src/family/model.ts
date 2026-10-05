@@ -97,6 +97,36 @@ export interface Pantry {
   price_cents: number;
   expires_on: string | null;
   updated_at: string;
+  location?: PantryLocation;
+}
+export type PantryLocation = "kitchen" | "fridge" | "freezer" | "cleaning" | "hygiene" | "other";
+export interface PantryEvent {
+  id: string;
+  home_id: string;
+  pantry_id: string | null;
+  name: string;
+  kind: "used" | "lost" | "finished" | "counted";
+  quantity: number;
+  value_cents: number;
+  actor_id: string;
+  created_at: string;
+}
+export type TaskRepeat = "none" | "daily" | "weekly" | "biweekly" | "monthly";
+export type TaskKind = "cleaning" | "laundry" | "kitchen" | "maintenance" | "shopping" | "other";
+export interface Task {
+  id: string;
+  home_id: string;
+  title: string;
+  notes: string;
+  kind: TaskKind;
+  assignee_id: string | null;
+  due_date: string | null;
+  repeat: TaskRepeat;
+  done_at: string | null;
+  done_by: string | null;
+  previous_id: string | null;
+  created_by: string;
+  created_at: string;
 }
 export interface Shopping {
   id: string;
@@ -144,6 +174,8 @@ export interface Data {
   documents: Document[];
   audit: Audit[];
   recurring: Recurring[];
+  tasks: Task[];
+  pantryEvents: PantryEvent[];
 }
 export const today = () => {
   const d = new Date();
@@ -164,6 +196,8 @@ export function forecast(p: Pantry, date = today()) {
     days: p.daily_use > 0 ? Math.floor(stock / p.daily_use) : null,
   };
 }
+// Arredonda para cima em centésimos sem herdar ruído de ponto flutuante (2,1 − 1,2 não vira 0,91).
+export const roundUpHundredths = (n: number) => Math.ceil(Number((n * 100).toFixed(6))) / 100;
 export function recommendations(
   items: Pantry[],
   existing: Shopping[],
@@ -177,7 +211,7 @@ export function recommendations(
       const target = Math.max(p.minimum, p.daily_use * days);
       return {
         p,
-        quantity: Math.ceil(Math.max(0, target - f.stock) * 100) / 100,
+        quantity: roundUpHundredths(Math.max(0, target - f.stock)),
       };
     })
     .filter((x) => x.quantity > 0);

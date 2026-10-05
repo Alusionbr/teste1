@@ -1,4 +1,5 @@
 import { type Data, type Member, today, permissions } from "./model.ts";
+import { addDays } from "./home.ts";
 export const ADMIN = "00000000-0000-4000-8000-000000000001",
   MEMBER = "00000000-0000-4000-8000-000000000002",
   HOME = "00000000-0000-4000-8000-000000000003";
@@ -195,6 +196,7 @@ export function demoData(): Data {
         price_cents: 650,
         expires_on: null,
         updated_at: new Date().toISOString(),
+        location: "kitchen",
       },
       {
         id: "demo-milk",
@@ -207,6 +209,7 @@ export function demoData(): Data {
         price_cents: 599,
         expires_on: date,
         updated_at: new Date().toISOString(),
+        location: "fridge",
       },
       {
         id: "demo-coffee",
@@ -219,11 +222,37 @@ export function demoData(): Data {
         price_cents: 1690,
         expires_on: null,
         updated_at: new Date().toISOString(),
+        location: "kitchen",
+      },
+      {
+        id: "demo-soap",
+        home_id: HOME,
+        name: "Sabão em pó",
+        unit: "caixa",
+        quantity: 1,
+        minimum: 1,
+        daily_use: 0.0333,
+        price_cents: 2290,
+        expires_on: null,
+        updated_at: new Date().toISOString(),
+        location: "cleaning",
       },
     ],
     shopping: [],
     documents: [],
     audit: [],
     recurring: [],
+    tasks: [
+      { id: "demo-task-trash", home_id: HOME, title: "Tirar o lixo", notes: "", kind: "cleaning", assignee_id: MEMBER,
+        due_date: date, repeat: "daily", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+      { id: "demo-task-bath", home_id: HOME, title: "Limpar o banheiro", notes: "Inclui trocar as toalhas.", kind: "cleaning", assignee_id: ADMIN,
+        due_date: addDays(date, -1), repeat: "weekly", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+      { id: "demo-task-filter", home_id: HOME, title: "Trocar o filtro de água", notes: "", kind: "maintenance", assignee_id: null,
+        due_date: addDays(date, 10), repeat: "none", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+    ],
+    pantryEvents: [
+      { id: "demo-loss", home_id: HOME, pantry_id: "demo-milk", name: "Leite", kind: "lost", quantity: 1, value_cents: 599,
+        actor_id: MEMBER, created_at: new Date().toISOString() },
+    ],
   };
 }

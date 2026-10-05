@@ -5,10 +5,16 @@ import {
   type Document,
   type Permission,
   type Entry,
+  type PantryEvent,
+  type Task,
+  forecast,
   validateEntry,
 } from "./model.ts";
+import { nextDue } from "./home.ts";
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
+const table = (collection: keyof Data) =>
+  collection === "pantryEvents" ? "fin_pantry_events" : "fin_" + collection;
 export class FamilyAPI {
   client: ReturnType<typeof createSupabaseClient> | null = null;
   demo = false;
@@ -18,6 +24,9 @@ export class FamilyAPI {
   private demoPreferences = new Map<string, Preferences>();
   preferences: Preferences = defaultPreferences();
   preferencesRevision = 0;
+  // Falso enquanto a migração da rotina da casa não estiver aplicada no banco:
+  // a despensa e as compras continuam funcionando, só a rotina e o histórico ficam indisponíveis.
+  householdReady = true;
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL,
       key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -81,6 +90,7 @@ export class FamilyAPI {
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
       if (!admin) d.audit = [];
+      this.householdReady = true;
       this.data = d;
       this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
       this.preferencesRevision = 0;
@@ -141,6 +151,7 @@ export class FamilyAPI {
     );
     if (results.some((r) => r.error))
       throw Error("Não foi possível carregar todos os dados. Tente atualizar.");
+    const household = await this.loadHousehold(hid);
     const preference = await this.client.from("fin_preferences")
       .select("*")
       .eq("user_id", this.userId)
@@ -162,7 +173,25 @@ export class FamilyAPI {
       documents: results[9].data!,
       audit: results[10].data!,
       recurring: results[11].data!,
+      tasks: household.tasks,
+      pantryEvents: household.events,
     } as Data;
+  }
+  private async loadHousehold(hid: string) {
+    const [tasks, events] = await Promise.all([
+      this.client!.from("fin_tasks").select("*").eq("home_id", hid).order("due_date").limit(1000),
+      this.client!.from("fin_pantry_events").select("*").eq("home_id", hid)
+        .order("created_at", { ascending: false }).limit(500),
+    ]);
+    const missing = (e: { code?: string } | null) => e?.code === "PGRST205" || e?.code === "42P01";
+    if (missing(tasks.error) || missing(events.error)) {
+      this.householdReady = false;
+      return { tasks: [] as Task[], events: [] as PantryEvent[] };
+    }
+    if (tasks.error || events.error)
+      throw Error("Não foi possível carregar a rotina da casa. Tente atualizar.");
+    this.householdReady = true;
+    return { tasks: tasks.data as Task[], events: events.data as PantryEvent[] };
   }
   async savePreferences(next: Partial<Preferences>) {
     const settings = normalizePreferences({ ...this.preferences, ...next });
@@ -191,10 +220,18 @@ export class FamilyAPI {
     this.preferencesRevision = result.data.revision;
   }
   async save(collection: keyof Data, record: Record<string, unknown>) {
+    if ((collection === "tasks" || collection === "pantryEvents") && !this.householdReady)
+      throw Error("A rotina da casa ainda não foi ativada no banco. Peça ao administrador para aplicar a atualização.");
+    if (collection === "pantry" && !this.householdReady) {
+      const { location: _location, ...rest } = record;
+      record = rest;
+    }
     const base =
       collection === "pantry" || collection === "shopping"
         ? { home_id: this.data!.home.id }
-        : { home_id: this.data!.home.id, owner_id: this.userId, shared: false };
+        : collection === "tasks"
+          ? { home_id: this.data!.home.id, created_by: this.userId }
+          : { home_id: this.data!.home.id, owner_id: this.userId, shared: false };
     const previous = record.id
       ? (this.data![collection] as unknown as Record<string, unknown>[]).find(
           (x) => x.id === record.id,
@@ -214,11 +251,11 @@ export class FamilyAPI {
       return;
     }
     const { error } = record.id
-      ? await this.client!.from("fin_" + collection)
+      ? await this.client!.from(table(collection))
           .update(record)
           .eq("id", record.id)
           .eq("home_id", this.data!.home.id)
-      : await this.client!.from("fin_" + collection).insert(payload);
+      : await this.client!.from(table(collection)).insert(payload);
     if (error)
       throw Error(
         error.code === "42501"
@@ -244,7 +281,7 @@ export class FamilyAPI {
       await this.load();
       return;
     }
-    const { error } = await this.client!.from("fin_" + collection)
+    const { error } = await this.client!.from(table(collection))
       .delete()
       .eq("id", id)
       .eq("home_id", this.data!.home.id);
@@ -348,11 +385,94 @@ export class FamilyAPI {
     if (error) throw Error("Documento indisponível ou acesso revogado.");
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
+  // Modo mercado: grava quantidade e preço reais de cada item antes de concluir,
+  // depois lembra o último preço pago no produto da despensa.
+  async purchaseItems(
+    lines: { id: string; quantity: number; unit_cents: number }[],
+    total: number,
+    date: string,
+    account: string | null,
+  ) {
+    const list = this.data!.shopping;
+    for (const line of lines) {
+      const s = list.find((x) => x.id === line.id);
+      if (!s || s.bought) throw Error("A lista mudou. Atualize antes de concluir.");
+      if (!(line.quantity > 0) || !Number.isSafeInteger(line.unit_cents) || line.unit_cents < 0)
+        throw Error(`Confira quantidade e preço de ${s.name}.`);
+      if (s.quantity !== line.quantity || s.estimate_cents !== line.unit_cents)
+        await this.patch("shopping", s.id, { quantity: line.quantity, estimate_cents: line.unit_cents });
+    }
+    await this.purchase(lines.map((l) => l.id), total, date, account, false);
+    // A compra já foi concluída: lembrar o preço é um complemento e não pode parecer falha da compra.
+    for (const line of lines) {
+      const pantryId = list.find((x) => x.id === line.id)?.pantry_id;
+      if (pantryId && line.unit_cents > 0)
+        await this.patch("pantry", pantryId, { price_cents: line.unit_cents }).catch(() => undefined);
+    }
+    await this.load();
+  }
+  private async patch(collection: "shopping" | "pantry", id: string, fields: Record<string, unknown>) {
+    if (this.demo) {
+      const row = (this.demoStore![collection] as unknown as Record<string, unknown>[]).find((x) => x.id === id);
+      if (row) Object.assign(row, fields);
+      return;
+    }
+    const { error } = await this.client!.from("fin_" + collection).update(fields).eq("id", id).eq("home_id", this.data!.home.id);
+    if (error) throw Error("Não foi possível atualizar a lista. Confira suas permissões.");
+  }
+  // Saída da despensa (usei, perdi/venceu, acabou) ou contagem, com histórico quando disponível.
+  async pantryMove(id: string, kind: PantryEvent["kind"], amount: number) {
+    if (!(amount >= 0) || (["used", "lost"].includes(kind) && amount <= 0))
+      throw Error("Informe uma quantidade maior que zero.");
+    if (this.demo) {
+      const p = this.demoStore!.pantry.find((x) => x.id === id)!;
+      const stock = forecast(p).stock;
+      const moved = kind === "counted" ? amount : kind === "finished" ? stock : Math.min(amount, stock);
+      p.quantity = kind === "counted" ? amount : kind === "finished" ? 0 : stock - moved;
+      p.updated_at = new Date().toISOString();
+      this.demoStore!.pantryEvents.unshift({
+        id: crypto.randomUUID(), home_id: p.home_id, pantry_id: p.id, name: p.name, kind, quantity: moved,
+        value_cents: kind === "lost" ? Math.round(moved * p.price_cents) : 0, actor_id: this.userId,
+        created_at: new Date().toISOString(),
+      });
+      await this.load();
+      return;
+    }
+    if (!this.householdReady) {
+      const p = this.data!.pantry.find((x) => x.id === id)!;
+      const stock = forecast(p).stock;
+      const quantity = kind === "counted" ? amount : kind === "finished" ? 0 : Math.max(0, stock - amount);
+      await this.save("pantry", { id, quantity, updated_at: new Date().toISOString() });
+      return;
+    }
+    const { error } = await this.client!.rpc("fin_pantry_move", { item: id, move: kind, amount });
+    if (error) throw Error("Não foi possível atualizar a despensa. Confira suas permissões e atualize.");
+    await this.load();
+  }
+  // Concluir tarefa: repetir o toque não duplica a próxima ocorrência.
+  async completeTask(id: string, doneOn: string) {
+    if (this.demo) {
+      const tasks = this.demoStore!.tasks;
+      const t = tasks.find((x) => x.id === id)!;
+      if (!t.done_at) Object.assign(t, { done_at: new Date().toISOString(), done_by: this.userId });
+      const due = nextDue(t.repeat, doneOn);
+      if (due && !tasks.some((x) => x.previous_id === t.id))
+        tasks.push({ ...t, id: crypto.randomUUID(), due_date: due, done_at: null, done_by: null,
+          previous_id: t.id, created_by: this.userId, created_at: new Date().toISOString() });
+      await this.load();
+      return;
+    }
+    if (!this.householdReady) throw Error("A rotina da casa ainda não foi ativada no banco.");
+    const { error } = await this.client!.rpc("fin_complete_task", { task: id, done_on: doneOn });
+    if (error) throw Error("Não foi possível concluir a tarefa. Atualize e tente novamente.");
+    await this.load();
+  }
   async purchase(
     ids: string[],
     total: number,
     date: string,
     account: string | null,
+    reload = true,
   ) {
     if (this.demo) {
       const list = this.demoStore!.shopping.filter(
@@ -381,11 +501,12 @@ export class FamilyAPI {
         s.bought = true;
         const p = this.demoStore!.pantry.find((p) => p.id === s.pantry_id);
         if (p) {
-          p.quantity += s.quantity;
+          // Mesma regra do banco: parte da quantidade estimada de hoje, não da última contagem.
+          p.quantity = forecast(p).stock + s.quantity;
           p.updated_at = new Date().toISOString();
         }
       }
-      await this.load();
+      if (reload) await this.load();
       return;
     }
     const { error } = await this.client!.rpc("fin_complete_purchase", {
@@ -398,7 +519,7 @@ export class FamilyAPI {
       throw Error(
         "Compra não concluída. Confira as permissões e atualize a lista.",
       );
-    await this.load();
+    if (reload) await this.load();
   }
   async setBudget(budget_cents: number, name: string) {
     if (this.demo) {

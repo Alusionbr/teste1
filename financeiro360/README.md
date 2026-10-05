@@ -10,8 +10,11 @@ Aplicativo doméstico com interface responsiva para computador e celular. O admi
 - Despesas fixas mensais: geração explícita de compromissos a pagar, sem duplicar o mesmo mês e sem pagamentos automáticos.
 - Administração de membros, suspensão de acesso e permissões para lançamentos, cartões/contas, pagamentos, documentos, despensa e compras. Senha alterável em Configurações.
 - Comprovantes e faturas PDF/JPG/PNG/WebP até 10 MB em bucket privado, abertura por URL de 60 segundos. Um anexo de registro privado permanece inacessível mesmo que o documento tenha compartilhamento marcado.
-- Despensa com estoque contado, unidade, consumo diário informado, duração estimada, estoque mínimo, preço e validade. Lista sugerida para 14 dias, sem duplicar itens pendentes.
+- Despensa por local (armário, geladeira, freezer, limpeza, higiene), com quantidade contada ou estimada, "quanto tempo dura 1 unidade" em linguagem simples, aviso de mínimo, último preço pago e validade. Atalhos "Usei", "Acabou", "Perdi / venceu" e "Conferir"; perdas formam o total de desperdício do mês.
+- Lista sugerida para 7, 14 ou 30 dias, com o motivo de cada item e sem duplicar pendentes. Envio da lista por compartilhamento do celular ou cópia.
+- Modo mercado: nada começa marcado; a pessoa marca o que entrou no carrinho, ajusta quantidade e preço, confere a soma contra o total do cupom e conclui. Itens não marcados continuam na lista. O carrinho resiste à atualização automática da tela.
 - Conclusão da compra em uma transação: uma despesa com o total real, reposição de estoque e baixa dos itens selecionados. Repetir o mesmo pedido não duplica compras.
+- Rotina da casa: tarefas com responsável, data, tipo e repetição (diária, semanal, quinzenal, mensal), modelos prontos e registro de quem concluiu. Concluir duas vezes não duplica a próxima ocorrência. O Início mostra tarefas do dia, produtos vencendo e o que repor.
 - Metas com progresso informado, histórico administrativo, exportação dos dados visíveis e importação CSV/JSON de receitas/despesas em revisão, com prévia. O lote é inserido de forma atômica.
 - Aparência por usuário: tema, cores, leitura, modo simples, blocos e atalhos do painel, com armazenamento próprio e revisão de alterações.
 - Manifesto de app instalável e cache somente do shell público. Respostas financeiras, Auth e documentos não entram no cache offline.
@@ -37,7 +40,7 @@ npm run typecheck
 npm run build -- --base /teste1/financeiro360/
 ```
 
-`test:db` executa a migração em PostgreSQL WASM (PGlite), com papéis e schemas Auth/Storage de teste. Cobre acesso cruzado, anonimato, anexos, permissões, suspensão, compras atômicas e recorrência. Não substitui a verificação da configuração real de Auth, Data API, Storage e Edge Functions após ativação.
+`test:db` executa as migrações em PostgreSQL WASM (PGlite), com papéis e schemas Auth/Storage de teste. Cobre acesso cruzado, anonimato, anexos, permissões, suspensão, compras atômicas, recorrência, movimentos da despensa e rotina doméstica. Não substitui a verificação da configuração real de Auth, Data API, Storage e Edge Functions após ativação.
 
 Ver [operações e ativação](docs/FAMILY-OPERATIONS.md) para provisionar o banco, a conta inicial e o retorno. O fluxo anterior local permanece em `src/main.ts`, `logic.ts` e `storage.ts`; os dados do navegador anterior não são enviados automaticamente ao novo aplicativo.
 

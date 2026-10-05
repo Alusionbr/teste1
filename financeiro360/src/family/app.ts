@@ -10,6 +10,7 @@ import {
   balance,
   forecast,
   recommendations,
+  roundUpHundredths,
   parseMoney,
   permissions,
   validIsoDate,
@@ -17,7 +18,35 @@ import {
   type Entry,
   type Permission,
   type Member,
+  type Pantry,
+  type PantryEvent,
+  type Shopping,
+  type Task,
 } from "./model.ts";
+import {
+  attention,
+  dailyUseFromDuration,
+  dueLabel,
+  durationChoices,
+  durationFromDailyUse,
+  expiry,
+  formatDate,
+  formatQuantity,
+  lineCents,
+  locationOf,
+  locationOrder,
+  pantryLocations,
+  pantryStatus,
+  pantryUnits,
+  repeatLabels,
+  shoppingGroups,
+  shoppingText,
+  suggestionReason,
+  taskGroups,
+  taskKinds,
+  taskTemplates,
+  wasteThisMonth,
+} from "./home.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import {
   addMonths,
@@ -38,7 +67,16 @@ let page = "overview",
   status = "all",
   editId = "",
   modal = "",
-  importRows: Partial<Entry>[] = [];
+  importRows: Partial<Entry>[] = [],
+  houseTab = "pantry",
+  pantryPlace = "all",
+  pantrySearch = "",
+  taskPerson = "all",
+  suggestDays = 14,
+  moveKind: PantryEvent["kind"] = "used";
+// Carrinho do modo mercado: sobrevive a re-renderizações, atualização automática e falhas de envio.
+const cart = new Map<string, { checked: boolean; qty: string; price: string }>();
+const cartMeta = { total: "", date: "", account: "" };
 const esc = (v: unknown) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -151,10 +189,9 @@ function summary() {
   const percent = d.home.budget_cents
     ? Math.round((m.home / d.home.budget_cents) * 100)
     : 0;
-  const low = d.pantry.filter((p) => {
-    const f = forecast(p);
-    return f.stock <= p.minimum || (f.days !== null && f.days < 7);
-  });
+  const care = attention(d.pantry);
+  const chores = taskGroups(d.tasks);
+  const choresNow = [...chores.overdue, ...chores.today];
   const cards = d.cards.reduce((s, c) => s + invoice(d, c, month).remaining, 0);
   const picture = monthPicture(d, month);
   const prevMonth = new Date(month + "-01T12:00:00");
@@ -174,14 +211,14 @@ function summary() {
           )
           .join("")}</div>`
       : empty("Seu primeiro gasto conta a história", "add-entry")
-  }</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
-    low.length
-      ? low
+  }</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight ${care.restock.length ? "warning" : ""}"><span>${icon("pantry")}</span><div><strong>${care.restock.length ? `${care.restock.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
+    care.restock.length
+      ? care.restock
           .slice(0, 3)
           .map((p) => esc(p.name))
           .join(", ")
-      : "Cadastre consumo diário para estimar reposições."
-  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
+      : "Informe quanto tempo cada produto dura para prever reposições."
+  }</p>${care.restock.length ? button("nav", "Ver lista de compras", "text-button", 'data-page="shopping"') : ""}</div></article>${care.expiring.length ? `<article class="insight warning"><span>${icon("check")}</span><div><strong>${care.expiring.length} produto(s) vencendo</strong><p>${care.expiring.slice(0, 3).map((p) => `${esc(p.name)} (${esc(expiry(p)!.label.toLocaleLowerCase())})`).join(", ")}. Use primeiro para não desperdiçar.</p>${button("nav", "Ver despensa", "text-button", 'data-page="pantry" data-house="pantry"')}</div></article>` : ""}${api.householdReady ? `<article class="insight ${chores.overdue.length ? "warning" : ""}"><span>${icon("family")}</span><div><strong>${choresNow.length ? `${choresNow.length} tarefa(s) da casa para hoje` : "Rotina da casa em dia"}</strong><p>${choresNow.length ? choresNow.slice(0, 3).map((t) => `${esc(t.title)}${t.assignee_id ? ` · ${esc(names(t.assignee_id))}` : ""}`).join("; ") + (chores.overdue.length ? `. ${chores.overdue.length} atrasada(s).` : ".") : "Nenhuma tarefa atrasada ou marcada para hoje."}</p>${button("nav", "Ver rotina", "text-button", 'data-page="pantry" data-house="tasks"')}</div></article>` : ""}<article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
 }
 function entryList(rows: Entry[]) {
   return rows.length
@@ -253,23 +290,130 @@ function accounts() {
       .join("") || empty("Nenhuma dívida cadastrada", "add-debt")
   }<p class="fine">Juros e taxas devem ser registrados como despesa. Pagamentos de principal não são contados novamente nos gastos.</p></section>`;
 }
-function pantry() {
+const centsText = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
+const statusBadge: Record<string, string> = { out: "danger-badge", expired: "danger-badge", soon: "warning-badge", low: "warning-badge", ok: "" };
+function pantryCard(p: Pantry) {
+  const d = api.data!,
+    s = pantryStatus(p),
+    e = expiry(p),
+    lasts = durationFromDailyUse(p.daily_use),
+    counted = formatDate(p.updated_at.slice(0, 10)),
+    onList = d.shopping.some((x) => !x.bought && x.pantry_id === p.id),
+    place = pantryLocations[locationOf(p)];
+  const actions = api.allowed("pantry")
+    ? (s.stock > 0
+        ? button("pantry-use", "Usei", "secondary", `data-id="${p.id}" aria-label="Registrar uso de ${esc(p.name)}"`) +
+          button("pantry-finish", "Acabou", "text-button", `data-id="${p.id}"`) +
+          button("pantry-lost", "Perdi / venceu", "text-button", `data-id="${p.id}"`)
+        : "") + button("edit-pantry", "Conferir", "text-button", `data-id="${p.id}" aria-label="Conferir quantidade de ${esc(p.name)}"`)
+    : "";
+  const buy = api.allowed("shopping")
+    ? onList ? '<span class="badge">Na lista</span>' : button("shop-item", "Pôr na lista", "text-button", `data-id="${p.id}"`)
+    : "";
+  return `<section class="panel pantry-card level-${s.level}"><div class="panel-title"><span class="pantry-emoji" aria-hidden="true">${place.emoji}</span><span class="badge ${statusBadge[s.level]}">${esc(s.label)}</span></div><h3>${esc(p.name)}</h3><strong class="large-number">${formatQuantity(s.stock)}<small> ${esc(p.unit)}</small></strong><p class="fine">${p.daily_use > 0 ? `Estimativa de hoje · contado em ${counted}` : `Contado em ${counted}`}</p><p class="fine">${lasts ? `1 ${esc(p.unit)} dura ~${lasts} dia(s)${s.days !== null ? ` · acaba em ~${s.days} dia(s)` : ""}` : "Duração não acompanhada"}${e ? ` · ${esc(e.label)}` : ""}</p><div class="bar"><b style="width:${Math.min(100, (s.stock / Math.max(p.minimum * 2, 1)) * 100)}%"></b></div><p class="fine">Mínimo ${formatQuantity(p.minimum)} ${esc(p.unit)}${p.price_cents ? ` · último preço ${brl(p.price_cents)}` : ""}</p><div class="button-row">${actions}${buy}${api.allowed("pantry") ? deleteButton("pantry", p.id) : ""}</div></section>`;
+}
+function pantryView(tabs: string) {
   const d = api.data!;
-  return `<section class="page-intro"><div><h2>Uma despensa bem cuidada.</h2><p>Saiba o que tem, o que acaba e o que precisa comprar.</p></div>${api.allowed("pantry") ? button("add-pantry", icon("plus") + " Cadastrar produto") : ""}</section><div class="hint-banner">${icon("pantry")}<div><strong>Previsões que respeitam sua rotina</strong><p>A quantidade estimada usa o consumo diário cadastrado. Faça uma contagem e ajuste sempre que necessário.</p></div></div><div class="pantry-grid">${
-    d.pantry
-      .map((p) => {
-        const f = forecast(p),
-          low = f.stock <= p.minimum;
-        return `<section class="panel pantry-card"><div class="panel-title"><span class="pantry-emoji">${/leite/i.test(p.name) ? "🥛" : /café/i.test(p.name) ? "☕" : /arroz/i.test(p.name) ? "🍚" : "📦"}</span><span class="badge ${low ? "warning-badge" : ""}">${low ? "Repor em breve" : "Em estoque"}</span></div><h3>${esc(p.name)}</h3><strong class="large-number">${f.stock.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}<small> ${esc(p.unit)}</small></strong><p class="fine">${f.days === null ? "Consumo diário ainda não informado" : `Duração estimada: ${f.days} dia(s)`}${p.expires_on ? " · validade " + p.expires_on : ""}</p><div class="bar"><b style="width:${Math.min(100, (f.stock / Math.max(p.minimum * 2, 1)) * 100)}%"></b></div><p class="fine">Mínimo ${p.minimum} ${esc(p.unit)} · ${brl(p.price_cents)} por unidade</p><div class="button-row">${api.allowed("pantry") ? button("edit-pantry", "Ajustar estoque", "secondary", `data-id="${p.id}"`) : ""}${api.allowed("shopping") ? button("shop-item", "Comprar", "text-button", `data-id="${p.id}"`) : ""}${api.allowed("pantry") ? deleteButton("pantry", p.id) : ""}</div></section>`;
-      })
-      .join("") || empty("Comece pelo que está na sua casa", "add-pantry")
-  }</div>`;
+  const term = pantrySearch.toLocaleLowerCase();
+  const items = d.pantry.filter((p) => (pantryPlace === "all" || locationOf(p) === pantryPlace) && p.name.toLocaleLowerCase().includes(term));
+  const care = attention(d.pantry);
+  const waste = wasteThisMonth(d.pantryEvents, month);
+  const count = (l: string) => d.pantry.filter((p) => l === "all" || locationOf(p) === l).length;
+  const chip = (id: string, label: string) =>
+    `<button type="button" class="chip ${pantryPlace === id ? "active" : ""}" data-action="pantry-place" data-id="${id}" aria-pressed="${pantryPlace === id}">${label} <span>${count(id)}</span></button>`;
+  const groups = locationOrder
+    .map((l) => ({ l, rows: items.filter((p) => locationOf(p) === l) }))
+    .filter((g) => g.rows.length)
+    .map((g) => `<h3 class="group-title">${pantryLocations[g.l].emoji} ${pantryLocations[g.l].label}</h3><div class="pantry-grid">${g.rows.map(pantryCard).join("")}</div>`)
+    .join("");
+  return `<section class="page-intro"><div><h2>Uma casa bem cuidada.</h2><p>O que tem, o que acaba, o que vence e o que precisa ser feito.</p></div>${api.allowed("pantry") ? button("add-pantry", icon("plus") + " Cadastrar produto") : ""}</section>${tabs}<div class="house-stats"><div><span>Para repor</span><strong>${care.restock.length}</strong><small>${care.restock.slice(0, 3).map((p) => esc(p.name)).join(", ") || "Nada urgente"}</small></div><div><span>Vencendo em 7 dias</span><strong>${care.expiring.length}</strong><small>${care.expiring.slice(0, 3).map((p) => esc(p.name)).join(", ") || "Sem validade próxima"}</small></div>${api.householdReady ? `<div><span>Perdas no mês</span><strong>${brl(waste.cents)}</strong><small>${waste.count} registro(s) de “perdi / venceu”</small></div>` : ""}</div>${d.pantry.length ? `<div class="filters pantry-filters">${input("pantry_search", "search", pantrySearch, 'placeholder="Buscar produto" aria-label="Buscar na despensa"')}<div class="chips" role="group" aria-label="Filtrar por local">${chip("all", "Tudo")}${locationOrder.filter((l) => count(l)).map((l) => chip(l, `${pantryLocations[l].emoji} ${pantryLocations[l].label}`)).join("")}</div></div>` : ""}${groups || (d.pantry.length ? '<p class="fine">Nenhum produto com esse filtro.</p>' : empty("Comece pelo que está na sua casa", "add-pantry"))}<p class="fine">“Usei” e “Perdi / venceu” descontam da quantidade estimada de hoje. “Conferir” registra uma nova contagem. A estimativa usa quanto tempo cada unidade costuma durar.</p>`;
+}
+function taskCard(t: Task) {
+  const kind = taskKinds[t.kind] || taskKinds.other;
+  const overdue = t.due_date && t.due_date < today() && !t.done_at;
+  const removable = admin() || t.created_by === api.userId;
+  if (t.done_at)
+    return `<article class="record task done"><span class="record-icon" aria-hidden="true">${kind.emoji}</span><div class="record-info"><strong>${esc(t.title)}</strong><small>Feita por ${esc(names(t.done_by!))} em ${new Date(t.done_at).toLocaleDateString("pt-BR")}</small></div><div class="record-actions">${t.repeat === "none" ? button("task-reopen", "Desfazer", "text-button", `data-id="${t.id}"`) : ""}</div></article>`;
+  return `<article class="record task ${overdue ? "overdue" : ""}"><span class="record-icon" aria-hidden="true">${kind.emoji}</span><div class="record-info"><strong>${esc(t.title)}</strong><small>${esc(dueLabel(t))} · ${t.assignee_id ? esc(names(t.assignee_id)) : "Qualquer pessoa"}${t.repeat !== "none" ? ` · ${repeatLabels[t.repeat]}` : ""}</small>${t.notes ? `<small>${esc(t.notes)}</small>` : ""}</div><div class="record-actions">${button("task-done", icon("check") + " Feito", "secondary", `data-id="${t.id}" aria-label="Marcar ${esc(t.title)} como feita"`)}${button("edit-task", "Editar", "text-button", `data-id="${t.id}"`)}${removable ? deleteButton("tasks", t.id) : ""}</div></article>`;
+}
+function tasksView(tabs: string) {
+  const intro = `<section class="page-intro"><div><h2>A casa em dia, sem cobrança.</h2><p>Cada tarefa com responsável, prazo e repetição. Quem conclui fica registrado.</p></div>${api.householdReady ? button("add-task", icon("plus") + " Nova tarefa") : ""}</section>${tabs}`;
+  if (!api.householdReady)
+    return `${intro}<div class="hint-banner">${icon("settings")}<div><strong>Rotina da casa aguardando ativação</strong><p>Esta função precisa de uma atualização do banco da família. A despensa e as compras continuam funcionando normalmente.</p></div></div>`;
+  const d = api.data!,
+    g = taskGroups(d.tasks, today(), taskPerson);
+  const people = opt("all", "Todas as pessoas", taskPerson) + opt(api.userId, "Só as minhas", taskPerson) +
+    d.members.filter((m) => m.active && m.user_id !== api.userId).map((m) => opt(m.user_id, m.display_name, taskPerson)).join("") +
+    opt("none", "Sem responsável", taskPerson);
+  const block = (title: string, rows: Task[], tone = "") =>
+    rows.length ? `<section class="panel task-block ${tone}"><div class="panel-title"><h3>${title}</h3><span class="badge">${rows.length}</span></div><div class="records">${rows.map(taskCard).join("")}</div></section>` : "";
+  const open = g.overdue.length + g.today.length + g.week.length + g.later.length + g.undated.length;
+  return `${intro}<div class="filters"><select name="task_person" aria-label="Filtrar por responsável">${people}</select></div>${
+    open
+      ? block("Atrasadas", g.overdue, "late") + block("Hoje", g.today) + block("Próximos 7 dias", g.week) + block("Mais adiante", g.later) + block("Sem data", g.undated)
+      : empty("Nenhuma tarefa pendente por aqui", "add-task")
+  }${g.done.length ? `<details class="panel section-gap"><summary>Feitas recentemente (${g.done.length})</summary><div class="records">${g.done.map(taskCard).join("")}</div></details>` : ""}<p class="fine">Tarefas repetidas ganham a próxima data a partir do dia em que foram feitas. Tocar duas vezes em “Feito” não duplica a tarefa.</p>`;
+}
+function house() {
+  const tabs = `<div class="segmented" role="group" aria-label="Seções da casa">${[["pantry", "Despensa"], ["tasks", "Rotina da casa"]]
+    .map(([id, label]) => `<button type="button" class="${houseTab === id ? "active" : ""}" aria-pressed="${houseTab === id}" data-action="house-tab" data-id="${id}">${label}</button>`)
+    .join("")}</div>`;
+  return houseTab === "tasks" ? tasksView(tabs) : pantryView(tabs);
 }
 function shopping() {
   const d = api.data!,
     items = d.shopping.filter((s) => !s.bought),
-    total = items.reduce((s, x) => s + x.estimate_cents * x.quantity, 0);
-  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "Adicionar item", "secondary") : ""}</div></section><div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Próxima ida ao mercado</h3><span class="badge">${items.length} item(s)</span></div>${items.length ? `<form id="purchase-form">${items.map((s) => `<label class="shopping-item"><input type="checkbox" name="items" value="${s.id}" checked><span><strong>${esc(s.name)}</strong><small>${s.quantity} ${esc(s.unit)} · ${brl(s.estimate_cents)} / unidade</small></span><strong>${brl(Math.round(s.estimate_cents * s.quantity))}</strong></label>`).join("")}<div class="form-grid section-gap">${field("total", "Total real pago (R$)", moneyInput("total", (total / 100).toFixed(2).replace(".", ",")))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions()}</select>`, true)}</div>${api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry") ? `<button class="primary full section-gap" type="submit">Concluir compra e atualizar estoque</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>` : empty("Sua próxima lista começa aqui", "add-shopping")}</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da compra</h3><strong class="large-number">${brl(Math.round(total))}</strong><p>O total real será registrado uma única vez como despesa do lar e os produtos serão adicionados ao estoque.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para 14 dias de consumo ou o mínimo que você definiu.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Itens manuais sem produto vinculado não alteram a despensa.</p>${items.map((s) => (api.allowed("shopping") ? `<p class="detail-line">${esc(s.name)} ${deleteButton("shopping", s.id)}</p>` : "")).join("")}</aside></div>`;
+    estimate = items.reduce((sum, s) => sum + lineCents(s.quantity, s.estimate_cents), 0),
+    canBuy = api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry");
+  const line = (s: Shopping) => {
+    const p = d.pantry.find((x) => x.id === s.pantry_id);
+    const c = cart.get(s.id);
+    return `<div class="market-item" data-line="${s.id}"><label class="market-check"><input type="checkbox" name="items" value="${s.id}" ${c?.checked ? "checked" : ""} aria-label="${esc(s.name)} está no carrinho"><span><strong>${esc(s.name)}</strong><small>${p ? `Por quê: ${esc(suggestionReason(p))}` : "Item avulso · não altera a despensa"}</small></span></label><label class="mini"><span>Qtd. (${esc(s.unit)})</span><input name="qty-${s.id}" type="number" min="0.01" step="0.01" inputmode="decimal" value="${esc(c?.qty ?? s.quantity)}"></label><label class="mini"><span>Preço por ${esc(s.unit)}</span>${moneyInput(`price-${s.id}`, c?.price ?? (s.estimate_cents ? centsText(s.estimate_cents) : ""))}</label><strong class="line-total" data-line-total="${s.id}">${brl(lineCents(s.quantity, s.estimate_cents))}</strong>${api.allowed("shopping") ? deleteButton("shopping", s.id) : ""}</div>`;
+  };
+  const list = shoppingGroups(items, d.pantry)
+    .map((g) => `<h4 class="group-title">${g.emoji} ${g.label}</h4>${g.items.map(line).join("")}`)
+    .join("");
+  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Monte a lista em casa e marque no mercado só o que entrou no carrinho.</p></div><div class="button-row">${api.allowed("shopping") ? `<label class="inline-select"><span>Sugerir para</span><select name="suggest_days">${[7, 14, 30].map((n) => opt(String(n), `${n} dias`, String(suggestDays))).join("")}</select></label>${button("generate-list", "✦ Sugerir lista")}${button("add-shopping", "Adicionar item", "secondary")}` : ""}${items.length ? button("share-list", "Enviar lista", "secondary") : ""}</div></section><div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Modo mercado</h3><span class="badge">${items.length} item(s)</span></div>${
+    items.length
+      ? `<form id="purchase-form"><p class="fine">Marque o que já está no carrinho. Ajuste quantidade e preço se mudaram. O que não for marcado continua na lista.</p>${list}<div class="cart-summary"><span>No carrinho: <strong id="cart-count">0</strong> item(s)</span><span>Soma dos itens: <strong id="cart-sum">${formatBrl(0)}</strong></span></div><div class="form-grid section-gap">${field("total", "Total pago no caixa (R$)", moneyInput("total", cartMeta.total))}${field("date", "Data da compra", input("date", "date", cartMeta.date || today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions(cartMeta.account)}</select>`, true)}</div><p class="fine" id="cart-diff" aria-live="polite"></p>${canBuy ? `<button class="primary full section-gap" type="submit">Concluir compra dos itens marcados</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>`
+      : empty("Sua próxima lista começa aqui", "add-shopping")
+  }</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da lista inteira</h3><strong class="large-number">${brl(estimate)}</strong><p>Ao concluir, o total pago vira uma única despesa do lar, os produtos marcados entram na despensa e o preço pago fica guardado para a próxima estimativa.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para ${suggestDays} dias de consumo ou o mínimo definido, e explica o motivo de cada item.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Compra no cartão: registre como gasto em Dinheiro e use “Conferir” na despensa.</p></aside></div>`;
+}
+function syncCart() {
+  const form = root.querySelector<HTMLFormElement>("#purchase-form");
+  if (!form) return;
+  let sum = 0,
+    count = 0;
+  form.querySelectorAll<HTMLElement>("[data-line]").forEach((row) => {
+    const id = row.dataset.line!;
+    const qty = Number(val(form, `qty-${id}`)) || 0;
+    const price = parseMoney(val(form, `price-${id}`)) || 0;
+    const cents = lineCents(qty, price);
+    const checked = row.querySelector<HTMLInputElement>('[name="items"]')!.checked;
+    cart.set(id, { checked, qty: val(form, `qty-${id}`), price: val(form, `price-${id}`) });
+    row.classList.toggle("in-cart", checked);
+    row.querySelector<HTMLElement>("[data-line-total]")!.innerHTML = brl(cents);
+    if (checked) {
+      sum += cents;
+      count++;
+    }
+  });
+  root.querySelector("#cart-count")!.textContent = String(count);
+  root.querySelector<HTMLElement>("#cart-sum")!.innerHTML = brl(sum);
+  const total = form.elements.namedItem("total") as HTMLInputElement;
+  // Total vazio acompanha a soma dos itens; um valor digitado (o do cupom) é mantido.
+  const auto = sum ? centsText(sum) : "";
+  if (!total.value) cartMeta.total = "";
+  else if (total.value !== total.dataset.auto) cartMeta.total = total.value;
+  if (!cartMeta.total) total.value = auto;
+  total.dataset.auto = auto;
+  cartMeta.date = val(form, "date");
+  cartMeta.account = val(form, "account_id");
+  const paid = parseMoney(total.value);
+  const diff = root.querySelector<HTMLElement>("#cart-diff")!;
+  diff.textContent = paid !== null && sum && paid !== sum
+    ? `O total pago difere da soma dos itens em ${formatBrl(Math.abs(paid - sum))} (descontos, itens sem preço ou erro de digitação). Será registrado o total pago.`
+    : "";
 }
 function planning() {
   return `<section class="page-intro"><div><h2>Um mês com menos surpresas.</h2><p>Despesas fixas previstas e limite mensal do lar.</p></div><div class="button-row">${api.allowed("entries") ? button("add-recurring", "Cadastrar despesa fixa") + button("plan-month", "Gerar contas do mês", "secondary") : ""}</div></section><section class="panel"><h3>Contas que se repetem</h3>${api.data!.recurring.map((r) => `<article class="record"><span class="record-icon">${icon("entries")}</span><div class="record-info"><strong>${esc(r.name)}</strong><small>Dia ${r.day} · desde ${r.start_month} · ${esc(names(r.owner_id))}</small></div><strong>${brl(r.amount_cents)}</strong><div class="record-actions">${share("recurring", r)}${own(r) && api.allowed("entries") ? deleteButton("recurring", r.id) : ""}</div></article>`).join("") || empty("Cadastre aluguel, internet e outras contas", "add-recurring")}<p class="fine">Gerar contas cria compromissos a pagar uma única vez por mês. A geração nunca informa um pagamento automaticamente. Contas já geradas permanecem no histórico.</p></section>`;
@@ -385,6 +529,18 @@ function entryForm(preset: Partial<Entry> = {}) {
     }</select>`,
   ))}<p class="fine wide">O registro começa privado e pode ser compartilhado depois.</p>${formEnd("Salvar lançamento")}</form>`;
 }
+function pantryForm(p?: Pantry) {
+  const lasts = p ? durationFromDailyUse(p.daily_use) : 0;
+  const preset = !p || p.daily_use === 0 ? "0" : durationChoices.some(([days]) => days && dailyUseFromDuration(days) === p.daily_use) ? String(lasts) : "advanced";
+  const units = p && !pantryUnits.includes(p.unit) ? [p.unit, ...pantryUnits] : pantryUnits;
+  return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", p ? "Quantidade contada agora" : "Quantidade que você tem", input("quantity", "number", p ? formatQuantity(forecast(p).stock).replace(/\./g, "").replace(",", ".") : 0, 'min="0" step="0.01" inputmode="decimal" required'))}${field("unit", "Unidade", `<select name="unit">${units.map((u) => opt(u, u, p?.unit || "unidade")).join("")}</select>`)}${api.householdReady ? field("location", "Onde fica guardado", `<select name="location">${locationOrder.map((l) => opt(l, `${pantryLocations[l].emoji} ${pantryLocations[l].label}`, p ? locationOf(p) : "kitchen")).join("")}</select>`) : ""}${field("lasts", "Quanto tempo dura 1 unidade?", `<select name="lasts">${durationChoices.map(([days, label]) => opt(String(days), label, preset)).join("")}${opt("advanced", "Informar consumo por dia", preset)}</select>`)}${field("minimum", "Avisar quando chegar a", input("minimum", "number", p?.minimum ?? 1, 'min="0" step="0.01" inputmode="decimal" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p?.price_cents ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<details class="more-details wide" ${preset === "advanced" ? "open" : ""}><summary>Consumo por dia (avançado)</summary><div class="form-grid">${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.0001" inputmode="decimal"'))}<p class="fine wide">Usado só quando “Informar consumo por dia” estiver escolhido. Ex.: 0,5 litro de leite por dia.</p></div></details><p class="fine wide">A duração gera uma estimativa da quantidade. “Não sei” mantém a quantidade fixa até a próxima contagem.</p>${formEnd()}</form>`;
+}
+function taskForm(t?: Task) {
+  const people = opt("", "Qualquer pessoa", t?.assignee_id || "") +
+    api.data!.members.filter((m) => m.active || m.user_id === t?.assignee_id).map((m) => opt(m.user_id, m.display_name, t?.assignee_id || "")).join("");
+  const templates = t ? "" : `<div class="wide template-row"><span class="fine">Modelos (só preenchem o formulário):</span><div class="chips">${taskTemplates.map((x, i) => `<button type="button" class="chip" data-action="task-template" data-id="${i}">${taskKinds[x.kind].emoji} ${esc(x.title)}</button>`).join("")}</div></div>`;
+  return `<form id="task-form" class="form-grid">${input("id", "hidden", t?.id || "")}${templates}${field("title", "O que precisa ser feito", input("title", "text", t?.title || "", 'maxlength="120" required placeholder="Ex.: limpar o banheiro"'), true)}${field("assignee_id", "Quem faz", `<select name="assignee_id">${people}</select>`)}${field("due_date", "Quando", input("due_date", "date", t ? t.due_date || "" : today()))}${field("repeat", "Repetir", `<select name="repeat">${Object.entries(repeatLabels).map(([v, l]) => opt(v, l, t?.repeat || "none")).join("")}</select>`)}${field("kind", "Tipo", `<select name="kind">${Object.entries(taskKinds).map(([v, k]) => opt(v, `${k.emoji} ${k.label}`, t?.kind || "cleaning")).join("")}</select>`)}${field("notes", "Detalhes (opcional)", `<textarea name="notes" maxlength="500" rows="2">${esc(t?.notes || "")}</textarea>`, true)}<p class="fine wide">A rotina é compartilhada com todos da casa. Tarefas repetidas ganham a próxima data quando forem marcadas como feitas.</p>${formEnd(t ? "Salvar tarefa" : "Criar tarefa")}</form>`;
+}
 function modalContent() {
   const d = api.data!;
   const p = d.pantry.find((p) => p.id === editId),
@@ -416,7 +572,13 @@ function modalContent() {
     case "debt":
       return `<form id="debt-form" class="form-grid">${field("name", "Descrição", input("name", "text", "", 'maxlength="160" required'), true)}${field("creditor", "Credor", input("creditor", "text", "", 'maxlength="160" required'))}${field("balance", "Principal devido (R$, opcional)", moneyInput("balance"))}${field("due_date", "Vencimento", input("due_date", "date"))}${field("area", "Área", `<select name="area">${opt("household", "Lar") + opt("personal", "Pessoal") + opt("business", "Empresa")}</select>`)}${formEnd()}</form>`;
     case "pantry":
-      return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", "Estoque contado hoje", input("quantity", "number", p ? forecast(p).stock : 0, 'min="0" step="0.01" required'))}${field("unit", "Unidade", `<select name="unit">${["unidade", "kg", "litro", "pacote", "caixa"].map((u) => opt(u, u, p?.unit)).join("")}</select>`)}${field("minimum", "Estoque mínimo", input("minimum", "number", p?.minimum || 1, 'min="0" step="0.01" required'))}${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.01" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<p class="fine wide">O consumo diário gera uma estimativa. Zero mantém o estoque fixo até a próxima contagem.</p>${formEnd()}</form>`;
+      return pantryForm(p);
+    case "pantry-move": {
+      const stock = p ? forecast(p).stock : 0;
+      return `<form id="move-form" class="form-grid">${input("id", "hidden", p?.id || "")}<p class="wide">${esc(p?.name)}: estimativa de hoje <strong>${formatQuantity(stock)} ${esc(p?.unit)}</strong>.</p>${field("quantity", moveKind === "lost" ? `Quanto foi perdido (${esc(p?.unit)})` : `Quanto foi usado (${esc(p?.unit)})`, input("quantity", "number", stock > 0 && stock < 1 ? formatQuantity(stock).replace(",", ".") : 1, 'min="0.01" step="0.01" inputmode="decimal" required'), true)}<p class="fine wide">${moveKind === "lost" ? "Perdas entram no total de desperdício do mês, pelo último preço conhecido." : "O uso desconta da estimativa de hoje. Para corrigir a quantidade real, use “Conferir”."}</p>${formEnd(moveKind === "lost" ? "Registrar perda" : "Registrar uso")}</form>`;
+    }
+    case "task":
+      return taskForm(d.tasks.find((t) => t.id === editId));
     case "shopping":
       return `<form id="shopping-form" class="form-grid">${field("name", "Produto", input("name", "text", "", 'maxlength="151" required'), true)}${field("quantity", "Quantidade", input("quantity", "number", 1, 'min="0.01" step="0.01" required'))}${field("unit", "Unidade", input("unit", "text", "unidade", 'maxlength="20" required'))}${field("price", "Preço estimado por unidade (R$)", moneyInput("price"))}${formEnd()}</form>`;
     case "goal":
@@ -473,8 +635,10 @@ function render() {
     card: "Novo cartão",
     account: "Nova conta",
     debt: "Nova dívida",
-    pantry: editId ? "Contagem da despensa" : "Novo produto",
+    pantry: editId ? "Conferir produto" : "Novo produto",
     shopping: "Adicionar à lista",
+    "pantry-move": moveKind === "lost" ? "Perdi ou venceu" : "Usei da despensa",
+    task: editId ? "Editar tarefa" : "Nova tarefa da casa",
     goal: "Seu próximo objetivo",
     document: "Anexar documento",
     recurring: "Nova despesa fixa",
@@ -487,7 +651,7 @@ function render() {
     entries,
     cards,
     accounts,
-    pantry,
+    pantry: house,
     shopping,
     planning,
     goals,
@@ -506,6 +670,7 @@ function render() {
     .join(
       "",
     )}</nav></div></div>${modal ? `<dialog open class="modal" aria-labelledby="modal-title"><div class="modal-heading"><h2 id="modal-title">${esc(titles[modal])}</h2><button type="button" class="close" data-action="close" aria-label="Fechar">×</button></div>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}${modalContent()}</dialog><div class="scrim"></div>` : ""}`;
+  syncCart();
   const dashboard = root.querySelector<HTMLElement>(".dashboard-grid");
   if (dashboard) {
     const tiles = new Map(
@@ -584,6 +749,7 @@ root.addEventListener("click", (event) => {
     id = b.dataset.id || "";
   if (a === "nav") {
     page = b.dataset.page!;
+    if (b.dataset.house) houseTab = b.dataset.house;
     notice = "";
     modal = "";
     render();
@@ -650,8 +816,72 @@ root.addEventListener("click", (event) => {
     "add-document": "document",
     "add-recurring": "recurring",
     "add-member": "member",
+    "add-task": "task",
+    "edit-task": "task",
     import: "import",
   };
+  if (a === "house-tab" || a === "pantry-place") {
+    if (a === "house-tab") houseTab = id;
+    else pantryPlace = id;
+    notice = "";
+    render();
+    return;
+  }
+  if (a === "pantry-use" || a === "pantry-lost") {
+    moveKind = a === "pantry-use" ? "used" : "lost";
+    show("pantry-move", id);
+    return;
+  }
+  if (a === "pantry-finish") {
+    const p = api.data!.pantry.find((x) => x.id === id)!;
+    const addToList = api.allowed("shopping") && !api.data!.shopping.some((s) => !s.bought && s.pantry_id === id);
+    if (!confirm(addToList ? `Marcar ${p.name} como acabado e colocar na lista de compras?` : `Marcar ${p.name} como acabado?`)) return;
+    void run(async () => {
+      await api.pantryMove(id, "finished", 0);
+      if (addToList)
+        await api.save("shopping", {
+          name: p.name,
+          pantry_id: p.id,
+          quantity: Math.max(1, p.minimum),
+          unit: p.unit,
+          estimate_cents: p.price_cents,
+          bought: false,
+        });
+    }, addToList ? "Produto zerado e colocado na lista." : "Produto marcado como acabado.");
+    return;
+  }
+  if (a === "task-done") {
+    void run(() => api.completeTask(id, today()), "Tarefa concluída. Obrigado!");
+    return;
+  }
+  if (a === "task-reopen") {
+    void run(() => api.save("tasks", { id, done_at: null, done_by: null }), "Tarefa reaberta.");
+    return;
+  }
+  if (a === "task-template") {
+    const form = root.querySelector<HTMLFormElement>("#task-form");
+    const template = taskTemplates[Number(id)];
+    if (!form || !template) return;
+    (form.elements.namedItem("title") as HTMLInputElement).value = template.title;
+    (form.elements.namedItem("kind") as HTMLSelectElement).value = template.kind;
+    (form.elements.namedItem("repeat") as HTMLSelectElement).value = template.repeat;
+    (form.elements.namedItem("title") as HTMLInputElement).focus();
+    return;
+  }
+  if (a === "share-list") {
+    const d = api.data!;
+    const text = shoppingText(d.shopping.filter((s) => !s.bought), d.pantry, d.home.name);
+    if (navigator.share) {
+      void navigator.share({ title: "Lista de compras", text }).catch(() => undefined);
+      return;
+    }
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => (notice = "Lista copiada. Cole no WhatsApp ou onde preferir."))
+      .catch(() => (notice = "Não foi possível copiar a lista neste navegador."))
+      .finally(render);
+    return;
+  }
   if (map[a]) {
     show(map[a], id);
     return;
@@ -726,7 +956,7 @@ root.addEventListener("click", (event) => {
   }
   if (a === "generate-list") {
     void run(async () => {
-      const suggestions = recommendations(api.data!.pantry, api.data!.shopping);
+      const suggestions = recommendations(api.data!.pantry, api.data!.shopping, suggestDays);
       for (const { p, quantity } of suggestions)
         await api.save("shopping", {
           name: p.name,
@@ -736,7 +966,7 @@ root.addEventListener("click", (event) => {
           estimate_cents: p.price_cents,
           bought: false,
         });
-    }, "Lista sugerida a partir da despensa.");
+    }, `Lista sugerida para ${suggestDays} dias a partir da despensa.`);
     return;
   }
   if (a === "shop-item") {
@@ -751,7 +981,7 @@ root.addEventListener("click", (event) => {
         api.save("shopping", {
           name: p.name,
           pantry_id: p.id,
-          quantity: Math.max(1, p.minimum - forecast(p).stock),
+          quantity: Math.max(1, roundUpHundredths(p.minimum - forecast(p).stock)),
           unit: p.unit,
           estimate_cents: p.price_cents,
           bought: false,
@@ -801,8 +1031,22 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   if ((event.target as HTMLInputElement).closest("#entry-form"))
     syncEntryForm();
+  if ((event.target as HTMLInputElement).closest("#purchase-form")) {
+    syncCart();
+    return;
+  }
   if (modal) return;
   const el = event.target as HTMLInputElement;
+  if (el.name === "suggest_days") {
+    suggestDays = Number(el.value) || 14;
+    render();
+    return;
+  }
+  if (el.name === "task_person") {
+    taskPerson = el.value;
+    render();
+    return;
+  }
   if (el.name === "navigate") {
     page = el.value;
     notice = "";
@@ -827,11 +1071,16 @@ root.addEventListener("input", (event) => {
     ["amount", "installments", "date"].includes(el.name)
   )
     syncEntryForm();
-  if (el.name === "search") {
+  if (el.closest("#purchase-form")) {
+    syncCart();
+    return;
+  }
+  if (el.name === "search" || el.name === "pantry_search") {
     const pos = el.selectionStart;
-    filter = el.value;
+    if (el.name === "search") filter = el.value;
+    else pantrySearch = el.value;
     render();
-    const next = root.querySelector<HTMLInputElement>('[name="search"]');
+    const next = root.querySelector<HTMLInputElement>(`[name="${el.name}"]`);
     next?.focus();
     if (next?.type === "search") next.setSelectionRange(pos, pos);
   }
@@ -983,13 +1232,24 @@ root.addEventListener("submit", (event) => {
     }
     if (f.getAttribute("id") === "purchase-form") {
       const ids = new FormData(f).getAll("items").map(String);
-      if (!ids.length) throw Error("Selecione os produtos comprados.");
-      await api.purchase(
-        ids,
-        cash(f, "total"),
-        val(f, "date"),
-        val(f, "account_id") || null,
-      );
+      if (!ids.length) throw Error("Marque os produtos que estão no carrinho.");
+      const lines = ids.map((id) => {
+        const item = api.data!.shopping.find((s) => s.id === id);
+        const quantity = Number(val(f, `qty-${id}`));
+        const price = val(f, `price-${id}`) ? parseMoney(val(f, `price-${id}`)) : 0;
+        if (!item || !(quantity > 0) || price === null)
+          throw Error(`Confira quantidade e preço de ${item?.name || "um item"}.`);
+        return { id, quantity, unit_cents: price };
+      });
+      await api.purchaseItems(lines, cash(f, "total"), val(f, "date"), val(f, "account_id") || null);
+      cart.clear();
+      Object.assign(cartMeta, { total: "", date: "", account: "" });
+      return;
+    }
+    if (f.getAttribute("id") === "move-form") {
+      const quantity = Number(val(f, "quantity"));
+      await api.pantryMove(id, moveKind, quantity);
+      modal = "";
       return;
     }
     if (f.getAttribute("id") === "member-form") {
@@ -1190,18 +1450,42 @@ root.addEventListener("submit", (event) => {
         due_date: val(f, "due_date") || null,
         area: val(f, "area"),
       });
-    else if (f.getAttribute("id") === "pantry-form")
-      await api.save("pantry", {
-        ...(id ? { id } : {}),
+    else if (f.getAttribute("id") === "pantry-form") {
+      const lasts = val(f, "lasts");
+      const dailyUse = lasts === "advanced" ? Number(val(f, "daily_use")) : dailyUseFromDuration(Number(lasts));
+      const quantity = Number(val(f, "quantity"));
+      if (!(quantity >= 0) || !(Number(val(f, "minimum")) >= 0) || !(dailyUse >= 0))
+        throw Error("Confira quantidade, aviso mínimo e consumo.");
+      const fields = {
         name: val(f, "name"),
-        quantity: Number(val(f, "quantity")),
         unit: val(f, "unit"),
         minimum: Number(val(f, "minimum")),
-        daily_use: Number(val(f, "daily_use")),
+        daily_use: dailyUse,
         price_cents: val(f, "price") ? cash(f, "price", true) : 0,
         expires_on: val(f, "expires_on") || null,
-        updated_at: new Date().toISOString(),
+        ...(val(f, "location") ? { location: val(f, "location") } : {}),
+      };
+      const existing = id ? api.data!.pantry.find((p) => p.id === id) : null;
+      if (existing) {
+        // Conferir: a contagem nova passa pelo histórico; os demais campos são atualizados à parte.
+        const counted = Math.abs(forecast(existing).stock - quantity) > 0.005 || existing.daily_use !== dailyUse;
+        await api.save("pantry", { id, ...fields });
+        if (counted) await api.pantryMove(id, "counted", quantity);
+      } else await api.save("pantry", { ...fields, quantity, updated_at: new Date().toISOString() });
+    } else if (f.getAttribute("id") === "task-form") {
+      const title = val(f, "title");
+      if (!title) throw Error("Diga o que precisa ser feito.");
+      if (val(f, "due_date") && !validIsoDate(val(f, "due_date"))) throw Error("Confira a data da tarefa.");
+      await api.save("tasks", {
+        ...(id ? { id } : {}),
+        title,
+        kind: val(f, "kind"),
+        assignee_id: val(f, "assignee_id") || null,
+        due_date: val(f, "due_date") || null,
+        repeat: val(f, "repeat"),
+        notes: val(f, "notes"),
       });
+    }
     else if (f.getAttribute("id") === "shopping-form")
       await api.save("shopping", {
         name: val(f, "name"),
@@ -1232,7 +1516,8 @@ if ("serviceWorker" in navigator && import.meta.env.PROD)
     .register(`${import.meta.env.BASE_URL}sw.js`)
     .catch(() => {});
 setInterval(() => {
-  if (api.data && !api.demo && !busy && !modal)
+  // Não recarrega enquanto alguém digita no mercado ou em uma busca: a tela seria redesenhada.
+  if (api.data && !api.demo && !busy && !modal && !root.querySelector("input:focus, select:focus"))
     void run(async () => {
       try {
         await api.load();

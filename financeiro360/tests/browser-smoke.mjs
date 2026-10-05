@@ -164,15 +164,73 @@ try {
     0,
   );
   await page.getByRole("button", { name: "Ver como administrador" }).click();
+  // Início mostra o que a casa precisa hoje.
+  await page.getByRole("button", { name: "Início", exact: true }).first().click();
+  await page.getByText("tarefa(s) da casa para hoje", { exact: false }).waitFor();
+  await page.getByText("produto(s) vencendo", { exact: false }).waitFor();
+  // Modo mercado: só o que foi marcado é comprado; o resto fica na lista.
   await navigate("shopping");
-  await page.getByRole("button", { name: "Sugerir para 14 dias" }).click();
-  await page.getByText("Lista sugerida a partir da despensa.").waitFor();
-  assert.equal(await page.locator(".shopping-item").count(), 2);
-  await page
-    .getByRole("button", { name: "Concluir compra e atualizar estoque" })
-    .click();
+  await page.getByRole("button", { name: "✦ Sugerir lista" }).click();
+  await page.getByText("Lista sugerida para 14 dias a partir da despensa.").waitFor();
+  assert.equal(await page.locator(".market-item").count(), 2);
+  assert.equal(await page.locator('.market-item input[name="items"]:checked').count(), 0, "nothing starts in the cart");
+  const rice = page.locator(".market-item", { hasText: "Arroz" });
+  assert.match(await rice.innerText(), /Por quê: abaixo do mínimo/);
+  await rice.getByRole("checkbox").check();
+  await rice.locator('input[name^="price-"]').fill("7,00");
+  assert.equal(await page.locator('#purchase-form [name="total"]').inputValue(), "6,30");
+  // Re-render (changing the horizon) must not lose what is in the cart.
+  await page.locator('[name="suggest_days"]').selectOption("30");
+  assert.equal(await rice.getByRole("checkbox").isChecked(), true);
+  assert.equal(await rice.locator('input[name^="price-"]').inputValue(), "7,00");
+  await page.locator('#purchase-form [name="total"]').fill("6,00");
+  assert.match(await page.locator("#cart-diff").innerText(), /difere da soma/);
+  await page.getByRole("button", { name: "Concluir compra dos itens marcados" }).click();
   await page.getByText("Alteração salva.").waitFor();
-  assert.equal(await page.locator(".shopping-item").count(), 0);
+  assert.equal(await page.locator(".market-item").count(), 1);
+  assert.equal(await page.locator(".market-item", { hasText: "Leite" }).count(), 1);
+  // Despensa: quantidade reposta, último preço lembrado, uso e perda registrados.
+  await navigate("pantry");
+  const riceCard = page.locator(".pantry-card", { hasText: "Arroz" });
+  assert.match(await riceCard.innerText(), /2,1\s*kg/);
+  assert.match(await riceCard.innerText(), /último preço R\$\s*7,00/);
+  await page.getByRole("button", { name: "Registrar uso de Café" }).click();
+  await page.locator('#move-form [name="quantity"]').fill("1");
+  await page.getByRole("button", { name: "Registrar uso", exact: true }).click();
+  await page.getByText("Alteração salva.").waitFor();
+  assert.match(await page.locator(".pantry-card", { hasText: "Café" }).innerText(), /\b2\s*pacote/);
+  await page.locator(".pantry-card", { hasText: "Leite" }).getByRole("button", { name: "Perdi / venceu" }).click();
+  await page.getByRole("button", { name: "Registrar perda", exact: true }).click();
+  await page.getByText("Alteração salva.").waitFor();
+  assert.match(await page.locator(".house-stats").innerText(), /R\$\s*11,98/);
+  await page.getByRole("button", { name: "🧊 Geladeira 1" }).click();
+  assert.equal(await page.locator(".pantry-card").count(), 1);
+  await page.getByRole("button", { name: "Tudo 4" }).click();
+  // Rotina: concluir uma tarefa semanal gera a próxima, sem duplicar.
+  await page.getByRole("button", { name: "Rotina da casa", exact: true }).click();
+  const late = page.locator(".task-block.late");
+  await late.getByRole("button", { name: "Marcar Limpar o banheiro como feita" }).click();
+  await page.getByText("Tarefa concluída. Obrigado!").waitFor();
+  assert.equal(await page.locator(".task-block.late").count(), 0);
+  assert.equal(await page.locator(".task-block", { hasText: "Próximos 7 dias" }).getByText("Limpar o banheiro").count(), 1);
+  await page.getByText("Feitas recentemente (1)").waitFor();
+  await page.getByRole("button", { name: "Nova tarefa", exact: true }).click();
+  await page.locator("#task-form .chip", { hasText: "Regar as plantas" }).click();
+  assert.equal(await page.locator('#task-form [name="title"]').inputValue(), "Regar as plantas");
+  assert.equal(await page.locator('#task-form [name="repeat"]').inputValue(), "weekly");
+  await page.getByRole("button", { name: "Criar tarefa", exact: true }).click();
+  await page.getByText("Alteração salva.").waitFor();
+  assert.equal(await page.locator(".task-block", { hasText: "Hoje" }).getByText("Regar as plantas").count(), 1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const tab of ["Despensa", "Rotina da casa"]) {
+    await page.getByRole("button", { name: tab, exact: true }).click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, tab + " fits on mobile");
+    await capture("mobile-casa-" + (tab === "Despensa" ? "despensa" : "rotina"));
+  }
+  await page.getByRole("button", { name: "Compras", exact: true }).click();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "market fits on mobile");
+  await capture("mobile-mercado");
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByRole("combobox", { name: "Abrir uma seção" })
@@ -207,7 +265,7 @@ try {
   assert.equal(await page.locator("html").getAttribute("data-hide-values"), "false");
   assert.deepEqual(errors, []);
   console.log(
-    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy and shopping passed.",
+    "Desktop/mobile, total/each installments, monthly invoices, pending-card editing, contextual tasks, error drafts, income account, invoice payment, member privacy, partial market purchase, pantry movements and household routine passed.",
   );
 } finally {
   await browser.close();

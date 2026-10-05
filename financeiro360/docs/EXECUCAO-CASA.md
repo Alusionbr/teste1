@@ -33,3 +33,39 @@ A barra inferior e os destinos principais apresentam Início, Dinheiro, Compras,
 O modo simples inicia com gasto, conta a pagar e receita; o modo completo revela transferências e pagamentos avançados. Cada pessoa pode escolher tema, paleta, texto maior, espaçamento e ocultação visual dos valores. No painel, pode marcar, retirar e mudar a ordem de três blocos usando botões acessíveis, além de escolher atalhos. Há uma ação para restaurar o padrão. A demonstração guarda escolhas separadas por participante durante a sessão; contas reais usam `fin_preferences` por usuário com RLS, vínculo ativo e revisão para rejeitar gravação desatualizada.
 
 Migração aditiva `20261005055306_family_preferences.sql`, interface e teste local preparados. O teste com PostgreSQL local confirma que administrador e membro só acessam suas próprias preferências, que suspensão bloqueia o acesso e que uma revisão antiga não substitui outra. Antes de publicar esta etapa, aplicar a migração, conferir grants/RLS no servidor ativo e publicar o frontend correspondente. O projeto ativo é compartilhado; a migração cria somente objetos `fin_*` e função exclusiva em `fin_private`. Para retorno, publicar a interface anterior; a tabela aditiva pode permanecer sem alterar lançamentos.
+
+## Casa: mercado, despensa e rotina — S12, S14 e S16 (implementação local)
+
+Revisão voltada ao uso doméstico. Problemas encontrados e tratados:
+
+- No mercado, todos os itens começavam marcados e a compra partia do total estimado: era fácil registrar como comprado o que ficou na prateleira. Agora nada começa marcado, cada item tem quantidade e preço editáveis e a soma é conferida com o total do cupom.
+- A atualização automática a cada 60 s redesenhava a tela e apagaria o carrinho no meio da compra. O carrinho fica em memória (`cart` em `app.ts`) e a atualização automática espera enquanto há um campo em foco.
+- A sugestão de compra arredondava ruído de ponto flutuante para cima (0,9 kg virava 0,91 kg). Corrigido com `roundUpHundredths` e teste.
+- A despensa só tinha "Ajustar estoque". Agora há locais, atalhos de uso/perda/acabou/conferir, alerta de validade, duração em linguagem simples e total de desperdício.
+- Não existia rotina doméstica. Agora há tarefas compartilhadas com responsável, prazo e repetição.
+
+Arquivos: regras puras em `src/family/home.ts` (testes em `home.test.ts`); telas e eventos em `app.ts`; operações em `api.ts`; migração aditiva `supabase/migrations/20261005180000_household_routine.sql` (teste em `tests/household-db.test.mjs`).
+
+### Banco
+
+A migração adiciona `fin_pantry.location` (padrão `kitchen`), `fin_pantry_events` (histórico, só leitura e inserção), `fin_tasks` e as funções `fin_pantry_move` e `fin_complete_task`. Não altera lançamentos, faturas, preferências nem objetos de outros aplicativos.
+
+Enquanto a migração não for aplicada, o aplicativo publicado continua funcionando: `api.householdReady` fica falso, a rotina mostra "aguardando ativação", o campo de local não é enviado e "Usei/Acabou/Perdi" atualizam a quantidade sem histórico. Depois de aplicar, recarregar a página ativa tudo.
+
+Regras: tarefas são visíveis a todos os membros ativos da casa; apagar exige ser quem criou ou o administrador; concluir registra quem fez; a próxima data conta a partir do dia em que foi feita (mensal ajusta para o último dia de meses curtos); `previous_id` único impede duplicar a próxima ocorrência; responsável suspenso não é levado para a próxima. Perda vale quantidade × último preço conhecido.
+
+### Verificação
+
+`npm test` (36), `npm run test:db` (3 suítes, incluindo a nova), `npm run typecheck`, build e `tests/browser-smoke.mjs` em desktop e celular 390 px: compra parcial, carrinho preservado após re-renderização, diferença com o cupom, último preço, uso, perda, filtro por local, conclusão de tarefa semanal e criação por modelo. Dados fictícios da demonstração. Não foi testado com o banco real nem com duas pessoas usando ao mesmo tempo.
+
+### Pendências e próximos passos
+
+1. Aplicar a migração no banco de produção (decisão do proprietário) e conferir RLS/advisors.
+2. Concluir compra no cartão: `fin_complete_purchase` só registra pagamento à vista; exige nova versão da função com parcelas.
+3. Consumo medido: usar `fin_pantry_events` para sugerir a duração real de cada produto.
+4. Lotes com validades diferentes (S14 completo) e comparação de preço por kg/litro (S15).
+5. Refeições e receitas ligadas à despensa (S18) e lembretes/notificações de tarefas (S20).
+
+### Como continuar em outra sessão ou ferramenta
+
+Leia este arquivo, `PLANO-EVOLUCAO-CASA.md` e `src/family/home.ts`. Regras de negócio novas vão em `home.ts` com teste; regra que precisa valer para todos os aparelhos vai também no banco, em migração nova e aditiva, com teste em `tests/`. Rode `npm test`, `npm run test:db`, `npm run typecheck` e o teste de navegador (`npx vite` + `node tests/browser-smoke.mjs`) antes de publicar. Nunca aplique migração em produção sem autorização explícita do proprietário.
