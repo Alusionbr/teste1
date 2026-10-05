@@ -232,8 +232,9 @@ function accounts() {
   const d = api.data!;
   return `<section class="page-intro"><div><h2>Cada conta, cada compromisso.</h2><p>Saldos conhecidos, transferências e pagamentos de principal.</p></div><div class="button-row">${api.allowed("cards") ? button("add-account", "Nova conta") : ""}${api.allowed("entries") ? button("add-debt", "Nova dívida", "secondary") : ""}</div></section><div class="card-grid">${d.accounts
     .map((a) => {
-      const b = balance(d, a);
-      return `<section class="panel"><span class="eyebrow">${esc(a.area === "business" ? "EMPRESA" : a.area === "household" ? "LAR" : "PESSOAL")}</span><h3>${esc(a.name)}</h3><strong class="large-number">${b === null ? "Saldo desconhecido" : brl(b)}</strong><p class="fine">${a.balance_date ? `Base em ${a.balance_date}. ${own(a) ? "Movimentos posteriores informados." : "Movimentos privados podem não estar incluídos."}` : "Informe saldo e data-base para calcular movimentos."}</p><div class="button-row">${share("accounts", a)}${own(a) && api.allowed("cards") ? deleteButton("accounts", a.id) : ""}</div></section>`;
+      const canSeeBalance = own(a) || admin() || (a.shared && a.share_balance);
+      const b = canSeeBalance ? balance(d, a) : null;
+      return `<section class="panel"><span class="eyebrow">${esc(a.area === "business" ? "EMPRESA" : a.area === "household" ? "LAR" : "PESSOAL")}</span><h3>${esc(a.name)}</h3><strong class="large-number">${!canSeeBalance ? "Saldo privado" : b === null ? "Saldo desconhecido" : brl(b)}</strong><p class="fine">${!canSeeBalance ? "O titular não compartilhou o saldo desta conta." : a.balance_date ? `Base em ${a.balance_date}. Pagamentos, receitas e transferências posteriores já entram no saldo.` : "Informe saldo e data-base para calcular movimentos."}</p><div class="button-row">${share("accounts", a)}${admin() && a.shared ? button("share-balance", a.share_balance ? "Ocultar saldo da família" : "Compartilhar saldo com a família", "text-button", `data-id="${a.id}"`) : ""}${own(a) && api.allowed("cards") ? button("edit-account", "Editar conta ou saldo-base", "text-button", `data-id="${a.id}"`) + deleteButton("accounts", a.id) : ""}</div></section>`;
     })
     .join(
       "",
@@ -353,7 +354,7 @@ function entryForm(preset: Partial<Entry> = {}) {
       .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
       .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
       .join("")}</select>`,
-  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
+  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -411,8 +412,10 @@ function modalContent() {
       });
     case "card":
       return `<form id="card-form" class="form-grid">${field("name", "Nome do cartão", input("name", "text", "", 'maxlength="160" required'), true)}${field("limit", "Limite (R$, opcional)", moneyInput("limit"))}${field("closing_day", "Dia de fechamento", input("closing_day", "number", 10, 'min="1" max="31" required'))}${field("due_day", "Dia de vencimento", input("due_day", "number", 17, 'min="1" max="31" required'))}${formEnd()}</form>`;
-    case "account":
-      return `<form id="account-form" class="form-grid">${field("name", "Nome", input("name", "text", "", 'maxlength="160" required'), true)}${field("area", "Área", `<select name="area">${opt("personal", "Pessoal") + opt("household", "Lar") + opt("business", "Empresa")}</select>`)}${field("opening", "Saldo inicial (R$, opcional)", moneyInput("opening"))}${field("date", "Data-base do saldo", input("date", "date", today()))}<p class="fine wide">Em branco significa desconhecido. A base representa o saldo ao fim do dia informado.</p>${formEnd()}</form>`;
+    case "account": {
+      const a = d.accounts.find((item) => item.id === editId);
+      return `<form id="account-form" class="form-grid">${input("id", "hidden", a?.id || "")}${field("name", "Nome", input("name", "text", a?.name || "", 'maxlength="160" required'), true)}${field("area", "Área", `<select name="area">${opt("personal", "Pessoal", a?.area) + opt("household", "Lar", a?.area) + opt("business", "Empresa", a?.area)}</select>`)}${field("opening", "Saldo ao fim da data-base (R$, opcional)", moneyInput("opening", a?.opening_cents == null ? "" : (a.opening_cents / 100).toFixed(2).replace(".", ",")))}${field("date", "Data-base do saldo", input("date", "date", a?.balance_date || today()))}<p class="fine wide">Pagamentos, receitas e transferências após essa data atualizam o saldo. Ao alterar a data-base, informe o saldo que havia no fim daquele dia.</p>${formEnd()}</form>`;
+    }
     case "debt":
       return `<form id="debt-form" class="form-grid">${field("name", "Descrição", input("name", "text", "", 'maxlength="160" required'), true)}${field("creditor", "Credor", input("creditor", "text", "", 'maxlength="160" required'))}${field("balance", "Principal devido (R$, opcional)", moneyInput("balance"))}${field("due_date", "Vencimento", input("due_date", "date"))}${field("area", "Área", `<select name="area">${opt("household", "Lar") + opt("personal", "Pessoal") + opt("business", "Empresa")}</select>`)}${formEnd()}</form>`;
     case "pantry":
@@ -640,6 +643,7 @@ root.addEventListener("click", (event) => {
     "add-card": "card",
     "card-payment": "card-payment",
     "add-account": "account",
+    "edit-account": "account",
     "add-debt": "debt",
     "debt-payment": "debt-payment",
     "add-pantry": "pantry",
@@ -666,6 +670,11 @@ root.addEventListener("click", (event) => {
         ),
       "Visibilidade atualizada.",
     );
+    return;
+  }
+  if (a === "share-balance") {
+    const account = api.data!.accounts.find((item) => item.id === id)!;
+    void run(() => api.save("accounts", { id, share_balance: !account.share_balance }), "Compartilhamento do saldo atualizado.");
     return;
   }
   if (a === "delete") {
@@ -824,7 +833,7 @@ root.addEventListener("input", (event) => {
   const el = event.target as HTMLInputElement;
   if (
     el.closest("#entry-form") &&
-    ["amount", "installments", "date"].includes(el.name)
+    ["amount", "installments", "date", "first_invoice_month"].includes(el.name)
   )
     syncEntryForm();
   if (el.name === "search") {
@@ -880,6 +889,7 @@ function syncEntryForm() {
     card: enabled || kind === "card_payment",
     "installment-basis": enabled,
     installments: enabled,
+    "first-invoice": enabled,
     "due-date": kind === "payable" || (kind === "expense" && !enabled && raw("status") === "pending"),
     account: !enabled,
     "target-account": kind === "transfer",
@@ -934,14 +944,19 @@ function syncEntryForm() {
     preview.textContent = "Informe a data completa da compra para ver a previsão.";
     return;
   }
-  const first = invoiceMonth(date, card.closing_day);
+  const manualFirst = raw("first_invoice_month");
+  if (manualFirst && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(manualFirst) || manualFirst < date.slice(0, 7))) {
+    preview.textContent = "A primeira fatura deve ser no mês da compra ou depois.";
+    return;
+  }
+  const first = manualFirst || invoiceMonth(date, card.closing_day);
   const last = addMonths(first, count - 1);
   const schedule = Array.from({ length: count }, (_, index) => ({
     number: index + 1,
     month: addMonths(first, index),
     amount: installmentAmount(total, count, index),
   }));
-  preview.innerHTML = `<strong>Total da compra: ${brl(total)}</strong><span>Primeira competência pela regra atual: ${first}; última: ${last}.</span><ol>${schedule.map((item) => `<li><span>Parcela ${item.number}/${count} · ${item.month.split("-").reverse().join("/")}</span><strong>${brl(item.amount)}</strong></li>`).join("")}</ol>`;
+  preview.innerHTML = `<strong>Total da compra: ${brl(total)}</strong><span>Primeira fatura: ${first}; última: ${last}.</span><ol>${schedule.map((item) => `<li><span>Parcela ${item.number}/${count} · ${item.month.split("-").reverse().join("/")}</span><strong>${brl(item.amount)}</strong></li>`).join("")}</ol>`;
 }
 const cash = (f: HTMLFormElement, n: string, allowZero = false) => {
   const cents = parseMoney(val(f, n));
@@ -1150,6 +1165,7 @@ root.addEventListener("submit", (event) => {
           kind === "transfer" ? val(f, "target_account_id") || null : null,
         debt_id: kind === "debt_payment" ? val(f, "debt_id") || null : null,
         installments: payment === "card" ? Number(val(f, "installments")) : 1,
+        first_invoice_month: payment === "card" ? val(f, "first_invoice_month") || null : null,
         invoice_month:
           kind === "card_payment" ? val(f, "invoice_month") || null : null,
         source_ref: val(f, "source_ref") || null,
@@ -1177,6 +1193,7 @@ root.addEventListener("submit", (event) => {
       const cents = raw ? parseMoney(negative ? raw.slice(1) : raw) : null;
       if (raw && cents === null) throw Error("Saldo inicial inválido.");
       await api.save("accounts", {
+        ...(id ? { id } : {}),
         name: val(f, "name"),
         area: val(f, "area"),
         opening_cents: cents === null ? null : negative ? -cents : cents,

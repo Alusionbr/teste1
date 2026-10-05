@@ -5,6 +5,7 @@ import {
   type Document,
   type Permission,
   type Entry,
+  balance,
   validateEntry,
 } from "./model.ts";
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
@@ -81,6 +82,13 @@ export class FamilyAPI {
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
       if (!admin) d.audit = [];
+      if (!admin) d.accounts = d.accounts.map((account) => ({
+        ...account,
+        current_balance_cents: account.owner_id === this.userId || account.share_balance
+          ? balance(this.demoStore!, account) : null,
+        opening_cents: account.owner_id === this.userId ? account.opening_cents : null,
+        balance_date: account.owner_id === this.userId ? account.balance_date : null,
+      }));
       this.data = d;
       this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
       this.preferencesRevision = 0;
@@ -119,6 +127,10 @@ export class FamilyAPI {
       tables.map(async (t) => {
         if (t === "fin_homes")
           return this.client!.from(t).select("*").eq("id", hid);
+        if (t === "fin_accounts") {
+          const accounts = await this.client!.rpc("fin_account_overview", { p_home: hid });
+          return accounts;
+        }
         if (t === "fin_audit")
           return this.client!.from(t)
             .select("*")
@@ -232,7 +244,7 @@ export class FamilyAPI {
   async share(collection: keyof Data, id: string, shared: boolean) {
     if (this.me.role !== "admin")
       throw Error("Somente o administrador pode compartilhar.");
-    await this.save(collection, { id, shared });
+    await this.save(collection, { id, shared, ...(collection === "accounts" && !shared ? { share_balance: false } : {}) });
   }
   async remove(collection: keyof Data, id: string) {
     if (this.demo) {

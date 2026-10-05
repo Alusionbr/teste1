@@ -1,0 +1,28 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const A='00000000-0000-4000-8000-000000000001',H='00000000-0000-4000-8000-000000000002',C='00000000-0000-4000-8000-000000000003',E='00000000-0000-4000-8000-000000000004',LEG='00000000-0000-4000-8000-000000000005';
+test('new card purchases freeze their first invoice; old records are left untouched',async t=>{
+ const db=new PGlite();t.after(()=>db.close());
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,delete on storage.objects to authenticated;`);
+ const initial=readFileSync(new URL('../supabase/migrations/20261004024051_family_app.sql',import.meta.url),'utf8');await db.exec(initial);
+ await db.exec(`insert into auth.users values('${A}');insert into fin_homes(id,name,owner_id) values('${H}','Synthetic','${A}');insert into fin_members(home_id,user_id,display_name,role) values('${H}','${A}','Admin','admin');insert into fin_cards(id,home_id,owner_id,name,closing_day,due_day) values('${C}','${H}','${A}','Synthetic card',10,17);`);
+ await db.exec(`set request.jwt.claim.sub='${A}';set role authenticated;insert into fin_entries(id,home_id,owner_id,description,amount_cents,date,kind,category,area,status,payment,card_id,installments) values('${LEG}','${H}','${A}','Legacy purchase',10001,'2026-12-11','expense','Test','personal','pending','card','${C}',3);`);
+ await db.exec('reset role');
+ await db.exec(readFileSync(new URL('../supabase/migrations/20261005140612_family_installment_schedule.sql',import.meta.url),'utf8'));
+ assert.equal((await db.query(`select first_invoice_month from fin_entries where id='${LEG}'`)).rows[0].first_invoice_month,null);
+ await db.exec(`set request.jwt.claim.sub='${A}';set role authenticated;`);
+ await db.exec(`insert into fin_entries(id,home_id,owner_id,description,amount_cents,date,kind,category,area,status,payment,card_id,installments) values('${E}','${H}','${A}','New purchase',10001,'2026-12-11','expense','Test','personal','pending','card','${C}',3);`);
+ const first=async()=> (await db.query(`select first_invoice_month from fin_entries where id='${E}'`)).rows[0].first_invoice_month;
+ assert.equal(await first(),'2027-01');
+ await db.exec(`update fin_cards set closing_day=20 where id='${C}'`);
+ assert.equal(await first(),'2027-01','changing card settings must not move the saved schedule');
+ await db.exec(`update fin_entries set description='Edited description' where id='${E}'`);
+ assert.equal(await first(),'2027-01');
+ await db.exec(`update fin_entries set date='2026-12-09' where id='${E}'`);
+ assert.equal(await first(),'2026-12','editing purchase date intentionally recalculates the start');
+ await db.exec(`update fin_entries set first_invoice_month='2027-02' where id='${E}'`);
+ assert.equal(await first(),'2027-02','manual first month is allowed after purchase');
+ await assert.rejects(db.exec(`update fin_entries set first_invoice_month='2026-11' where id='${E}'`));
+});

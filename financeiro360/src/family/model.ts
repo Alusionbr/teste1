@@ -48,6 +48,8 @@ export interface Account extends RecordBase {
   area: string;
   opening_cents: number | null;
   balance_date: string | null;
+  share_balance?: boolean;
+  current_balance_cents?: number | null;
 }
 export interface Card extends RecordBase {
   name: string;
@@ -71,6 +73,7 @@ export interface Entry extends RecordBase {
   debt_id: string | null;
   installments: number;
   invoice_month: string | null;
+  first_invoice_month?: string | null;
   source_ref: string | null;
 }
 export interface Debt extends RecordBase {
@@ -207,7 +210,7 @@ export function invoiceInstallments(entries: Entry[], c: Card, month: string) {
       e.installments < 1
     )
       continue;
-    const first = invoiceMonth(e.date, c.closing_day);
+    const first = e.first_invoice_month || invoiceMonth(e.date, c.closing_day);
     for (let i = 0; i < e.installments; i++)
       if (addMonths(first, i) === month)
         lines.push({
@@ -236,6 +239,7 @@ export function invoice(data: Data, c: Card, month: string) {
   return { total, paid, remaining: Math.max(0, total - paid) };
 }
 export function balance(data: Data, a: Account) {
+  if ("current_balance_cents" in a) return a.current_balance_cents ?? null;
   if (a.opening_cents === null || !a.balance_date) return null;
   return data.entries
     .filter((e) => e.status === "paid" && e.date > a.balance_date!)
@@ -377,6 +381,10 @@ export function validateEntry(e: Entry) {
     throw Error("Confira descrição, valor, data e parcelas.");
   if (e.payment === "card" && (e.kind !== "expense" || !e.card_id))
     throw Error("Compra no cartão exige um cartão cadastrado.");
+  if (e.first_invoice_month &&
+      (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.first_invoice_month) ||
+        e.first_invoice_month < e.date.slice(0, 7)))
+    throw Error("A primeira fatura deve ser no mês da compra ou depois.");
   if (
     e.kind === "card_payment" &&
     (!e.card_id ||

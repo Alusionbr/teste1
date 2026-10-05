@@ -52,6 +52,9 @@ try {
   await form.locator('[name="date"]').fill("");
   assert.match(await page.locator("#installment-preview").innerText(), /data completa/);
   await form.locator('[name="date"]').fill("2026-12-01");
+  await form.locator('[name="first_invoice_month"]').fill("2027-01");
+  assert.match(await page.locator("#installment-preview").innerText(), /Primeira fatura: 2027-01/);
+  await form.locator('[name="first_invoice_month"]').fill("");
   await form.locator('[name="description"]').fill("Compra total centavos");
   await form.locator('[name="kind"]').selectOption("income");
   assert.equal(await form.locator('[name="payment"]').isVisible(), false);
@@ -163,6 +166,21 @@ try {
     await page.getByText("Renda do mês", { exact: true }).count(),
     0,
   );
+  await page.getByRole("button", { name: "Ver como administrador" }).click();
+  await navigate("accounts");
+  const personalAccount = page.locator(".panel").filter({ has: page.getByRole("heading", { name: "Conta pessoal" }) });
+  await personalAccount.getByRole("button", { name: "Compartilhar com a família", exact: true }).click();
+  await personalAccount.getByRole("button", { name: "Compartilhar saldo com a família" }).waitFor();
+  await page.getByRole("button", { name: "Ver como esposa" }).click();
+  await navigate("accounts");
+  assert.match(await personalAccount.innerText(), /Saldo privado/);
+  await page.getByRole("button", { name: "Ver como administrador" }).click();
+  await navigate("accounts");
+  await personalAccount.getByRole("button", { name: "Compartilhar saldo com a família" }).click();
+  await personalAccount.getByRole("button", { name: "Ocultar saldo da família" }).waitFor();
+  await page.getByRole("button", { name: "Ver como esposa" }).click();
+  await navigate("accounts");
+  assert.doesNotMatch(await personalAccount.innerText(), /Saldo privado/);
   await page.getByRole("button", { name: "Ver como administrador" }).click();
   await navigate("shopping");
   await page.getByRole("button", { name: "Sugerir para 14 dias" }).click();
