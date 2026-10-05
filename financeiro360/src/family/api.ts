@@ -10,6 +10,7 @@ import {
 } from "./model.ts";
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
+import { invoiceMonth } from "../logic.ts";
 export class FamilyAPI {
   client: ReturnType<typeof createSupabaseClient> | null = null;
   demo = false;
@@ -220,6 +221,22 @@ export class FamilyAPI {
         unknown
       >[];
       const index = list.findIndex((x) => x.id === record.id);
+      if (collection === "cards" && index >= 0) {
+        const previousCard = list[index] as unknown as Data["cards"][number];
+        const nextCard = payload as unknown as Data["cards"][number];
+        if (previousCard.closing_day !== nextCard.closing_day)
+          this.demoStore!.entries.forEach((entry) => {
+            if (entry.card_id === previousCard.id && entry.kind === "expense" && entry.payment === "card" && !entry.first_invoice_month)
+              entry.first_invoice_month = invoiceMonth(entry.date, previousCard.closing_day);
+          });
+      }
+      if (collection === "entries") {
+        const entry = payload as unknown as Entry;
+        if (entry.kind === "expense" && entry.payment === "card" && !entry.first_invoice_month) {
+          const card = this.demoStore!.cards.find((item) => item.id === entry.card_id);
+          if (card) entry.first_invoice_month = invoiceMonth(entry.date, card.closing_day);
+        }
+      }
       if (index >= 0) list[index] = { ...list[index], ...payload };
       else list.push({ id: crypto.randomUUID(), ...payload });
       await this.load();
