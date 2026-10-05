@@ -183,21 +183,47 @@ export function recommendations(
     .filter((x) => x.quantity > 0);
 }
 export function installments(e: Entry, c: Card, month: string) {
-  if (
-    e.kind !== "expense" ||
-    e.payment !== "card" ||
-    e.card_id !== c.id ||
-    e.status === "pending_review"
-  )
-    return 0;
-  const first = invoiceMonth(e.date, c.closing_day);
-  for (let i = 0; i < e.installments; i++)
-    if (addMonths(first, i) === month)
-      return installmentAmount(e.amount_cents, e.installments, i);
-  return 0;
+  return invoiceInstallments([e], c, month)[0]?.amount_cents || 0;
+}
+
+export interface InvoiceInstallment {
+  entry: Entry;
+  number: number;
+  total: number;
+  amount_cents: number;
+}
+
+export function invoiceInstallments(entries: Entry[], c: Card, month: string) {
+  const lines: InvoiceInstallment[] = [];
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return lines;
+  for (const e of entries) {
+    if (
+      e.kind !== "expense" ||
+      e.payment !== "card" ||
+      e.card_id !== c.id ||
+      e.status === "pending_review" ||
+      !validIsoDate(e.date) ||
+      !Number.isInteger(e.installments) ||
+      e.installments < 1
+    )
+      continue;
+    const first = invoiceMonth(e.date, c.closing_day);
+    for (let i = 0; i < e.installments; i++)
+      if (addMonths(first, i) === month)
+        lines.push({
+          entry: e,
+          number: i + 1,
+          total: e.installments,
+          amount_cents: installmentAmount(e.amount_cents, e.installments, i),
+        });
+  }
+  return lines;
 }
 export function invoice(data: Data, c: Card, month: string) {
-  const total = data.entries.reduce((s, e) => s + installments(e, c, month), 0);
+  const total = invoiceInstallments(data.entries, c, month).reduce(
+    (sum, line) => sum + line.amount_cents,
+    0,
+  );
   const paid = data.entries
     .filter(
       (e) =>
@@ -311,6 +337,29 @@ export function financialOverview(data: Data, month: string) {
     knownBalance: knownBalances.reduce((total, item) => total + item.value, 0),
     knownAccountCount: knownBalances.length,
   };
+}
+
+export function monthPicture(data: Data, month: string) {
+  const visible = data.entries.filter((e) => e.status !== "pending_review");
+  const purchased = visible
+    .filter((e) => e.kind === "expense" && e.date.startsWith(month))
+    .reduce((sum, e) => sum + e.amount_cents, 0);
+  const cashDue = visible
+    .filter((e) => e.kind === "expense" && e.payment === "cash" &&
+      e.status === "pending" && (e.due_date || e.date).startsWith(month))
+    .reduce((sum, e) => sum + e.amount_cents, 0);
+  const cardDue = data.cards.reduce((sum, card) => {
+    const cycles = [month, addMonths(month, -1)];
+    return sum + cycles
+      .filter((cycle) => (card.due_day <= card.closing_day ? addMonths(cycle, 1) : cycle) === month)
+      .reduce((subtotal, cycle) => subtotal + invoice(data, card, cycle).remaining, 0);
+  }, 0);
+  const cashOut = visible
+    .filter((e) => e.status === "paid" && e.payment === "cash" &&
+      e.date.startsWith(month) &&
+      (e.kind === "expense" || e.kind === "card_payment" || e.kind === "debt_payment"))
+    .reduce((sum, e) => sum + e.amount_cents, 0);
+  return { purchased, due: cashDue + cardDue, cashDue, cardDue, cashOut };
 }
 
 export function validateEntry(e: Entry) {

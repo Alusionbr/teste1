@@ -1,10 +1,12 @@
 import "./style.css";
 import { FamilyAPI } from "./api.ts";
 import {
-  brl,
+  brl as formatBrl,
   today,
   metrics,
   invoice,
+  monthPicture,
+  invoiceInstallments,
   balance,
   forecast,
   recommendations,
@@ -16,6 +18,7 @@ import {
   type Permission,
   type Member,
 } from "./model.ts";
+import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import {
   addMonths,
   dueDate,
@@ -44,6 +47,7 @@ const esc = (v: unknown) =>
         c
       ]!,
   );
+const brl = (cents: number) => `<span class="private-amount">${formatBrl(cents)}</span>`;
 const icon = (name: string) => {
   const paths: Record<string, string> = {
     overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
@@ -67,18 +71,26 @@ const icon = (name: string) => {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ? `<path d="${paths[name]}"/>` : '<circle cx="12" cy="12" r="9"/>'}</svg>`;
 };
 const nav = [
-  ["overview", "Visão geral"],
-  ["entries", "Lançamentos"],
+  ["overview", "Início"],
+  ["entries", "Dinheiro"],
+  ["shopping", "Compras"],
+  ["pantry", "Casa"],
+  ["settings", "Perfil"],
   ["cards", "Cartões e faturas"],
   ["accounts", "Contas e dívidas"],
-  ["pantry", "Despensa"],
-  ["shopping", "Lista de compras"],
   ["planning", "Planejamento"],
   ["goals", "Metas"],
   ["documents", "Comprovantes"],
   ["family", "Família e acesso"],
-  ["settings", "Configurações"],
 ];
+const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
+const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) ? "<i></i>" : ""}</button>`;
+function sidebarNav() {
+  const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
+  const other = nav.filter(([id]) => !primaryNav.has(id)).map(navButton).join("");
+  const expanded = !api.preferences.simple_mode || !primaryNav.has(page);
+  return `${primary}<details class="sidebar-more" ${expanded ? "open" : ""}><summary>Mais seções</summary><div>${other}</div></details>`;
+}
 const names = (id: string) =>
   api.data?.members.find((m) => m.user_id === id)?.display_name || "Membro";
 const admin = () => api.me?.role === "admin";
@@ -126,7 +138,12 @@ const deleteButton = (table: string, id: string) =>
     `data-table="${table}" data-id="${esc(id)}"`,
   );
 function login() {
-  return `<main class="login"><section class="login-story"><a class="brand"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><div class="story-content"><span class="eyebrow">SUA CASA. SEU EQUILÍBRIO.</span><h1>Cuide do dinheiro.<br><em>Viva melhor em família.</em></h1><p>Finanças organizadas, uma despensa planejada e mais tranquilidade para o que realmente importa.</p><div class="story-cards"><article><span>${icon("cards")}</span><strong>Tudo no lugar</strong><small>Gastos, faturas e comprovantes</small></article><article><span>${icon("family")}</span><strong>Privacidade com controle</strong><small>Cada pessoa vê o que deve ver</small></article><article><span>${icon("pantry")}</span><strong>Uma casa mais inteligente</strong><small>Menos desperdício, compras melhores</small></article></div></div><small>Organização começa com pequenos hábitos.</small></section><section class="login-form"><div class="welcome-mark">${icon("overview")}</div><span class="eyebrow">BEM-VINDO À SUA CASA</span><h2>Vamos organizar o dia?</h2><p>Acesse seu espaço seguro da família.</p>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}<form id="login-form">${field("email", "Seu e-mail", input("email", "email", "", 'autocomplete="username" required'))}${field("password", "Sua senha", input("password", "password", "", 'autocomplete="current-password" required'))}<button class="primary full" type="submit" ${busy ? "disabled" : ""}>${busy ? "Entrando…" : "Entrar no meu painel"} ${icon("arrow")}</button></form><div class="divider"><span>CONHEÇA O APP</span></div>${button("demo", "Explorar demonstração", "secondary full")}<p class="fine">A demonstração usa dados fictícios e não guarda informações. Sua conta real depende da ativação do banco familiar.</p></section></main>`;
+  return `<main class="login"><section class="login-story"><a class="brand"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><div class="story-content"><span class="eyebrow">SUA CASA. SEU EQUILÍBRIO.</span><h1>Cuide do dinheiro.<br><em>Viva melhor em família.</em></h1><p>Finanças organizadas, uma despensa planejada e mais tranquilidade para o que realmente importa.</p><div class="story-cards"><article><span>${icon("cards")}</span><strong>Tudo no lugar</strong><small>Gastos, faturas e comprovantes</small></article><article><span>${icon("family")}</span><strong>Privacidade com controle</strong><small>Cada pessoa vê o que deve ver</small></article><article><span>${icon("pantry")}</span><strong>Uma casa mais inteligente</strong><small>Menos desperdício, compras melhores</small></article></div></div><small>Organização começa com pequenos hábitos.</small></section><section class="login-form"><div class="welcome-mark">${icon("overview")}</div><span class="eyebrow">BEM-VINDO À SUA CASA</span><h2>Vamos organizar o dia?</h2><p>Acesse seu espaço seguro da família.</p>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}<form id="login-form">${field("email", "Seu e-mail", input("email", "email", "", 'autocomplete="username" required'))}${field("password", "Sua senha", input("password", "password", "", 'autocomplete="current-password" required'))}<button class="primary full" type="submit" ${busy ? "disabled" : ""}>${busy ? "Entrando…" : "Entrar no meu painel"} ${icon("arrow")}</button></form><div class="divider"><span>CONHEÇA O APP</span></div>${button("demo", "Explorar demonstração", "secondary full")}<p class="fine">A demonstração usa dados fictícios e não guarda informações. Para acessar seus dados reais, use a conta cadastrada pelo administrador.</p></section></main>`;
+}
+function quickPanel() {
+  const allowed: Record<QuickAction, boolean> = { expense: api.allowed("entries"), cards: true, shopping: true, pantry: true };
+  const visible = api.preferences.quick_actions.filter((id) => allowed[id]);
+  return visible.length ? `<nav class="quick-panel" aria-label="Seus atalhos">${visible.map((id) => button(id === "expense" ? "add-entry" : "nav", actionNames[id], "secondary", id === "expense" ? "" : `data-page="${id === "cards" ? "cards" : id === "shopping" ? "shopping" : "pantry"}"`)).join("")}</nav>` : "";
 }
 function summary() {
   const d = api.data!,
@@ -139,6 +156,7 @@ function summary() {
     return f.stock <= p.minimum || (f.days !== null && f.days < 7);
   });
   const cards = d.cards.reduce((s, c) => s + invoice(d, c, month).remaining, 0);
+  const picture = monthPicture(d, month);
   const prevMonth = new Date(month + "-01T12:00:00");
   prevMonth.setMonth(prevMonth.getMonth() - 1);
   const pm = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -146,7 +164,7 @@ function summary() {
   const trend = previous
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section><div class="kpi-grid"><article class="kpi"><div><span>Gastos no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><div class="dashboard-grid"><section class="panel"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -156,14 +174,14 @@ function summary() {
           )
           .join("")}</div>`
       : empty("Seu primeiro gasto conta a história", "add-entry")
-  }</section><section class="panel intelligence"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
+  }</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
     low.length
       ? low
           .slice(0, 3)
           .map((p) => esc(p.name))
           .join(", ")
       : "Cadastre consumo diário para estimar reposições."
-  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
+  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
 }
 function entryList(rows: Entry[]) {
   return rows.length
@@ -189,9 +207,7 @@ function cards() {
     d.cards
       .map((c, i) => {
         const f = invoice(d, c, month),
-          lines = d.entries.filter(
-            (e) => e.card_id === c.id && e.kind === "expense",
-          );
+          lines = invoiceInstallments(d.entries, c, month);
         return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><div class="invoice-stats"><div><span>Fatura prevista</span><strong>${brl(f.total)}</strong></div><div><span>A pagar</span><strong>${brl(f.remaining)}</strong></div></div><p class="fine">Fecha dia ${c.closing_day} · vence ${dueDate(
           month,
           {
@@ -207,7 +223,7 @@ function cards() {
           .reverse()
           .join(
             "/",
-        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">${own(c) ? "Fatura prevista para o mês escolhido; compras parceladas entram nas faturas dos meses seguintes." : "Cartão compartilhado: os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} compra(s) registrada(s)</summary>${lines.map((e) => { const per = installmentAmount(e.amount_cents, e.installments, 0), first = invoiceMonth(e.date, c.closing_day), end = addMonths(first, e.installments - 1); return `<p class="detail-line">${esc(e.description)} <strong>Total ${brl(e.amount_cents)}${e.installments > 1 ? ` · ${e.installments} parcelas de ${brl(per)} · faturas ${first} a ${end}` : " · 1 fatura"}</strong></p>`; }).join("")}</details></section>`;
+        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">Competência ${month.split("-").reverse().join("/")} · ciclo definido pelo fechamento dia ${c.closing_day} · vencimento acima. ${own(c) ? "Compras feitas após o fechamento entram na competência seguinte." : "Os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} parcela(s) nesta fatura</summary>${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>Total da compra: ${brl(line.entry.amount_cents)}</small></p>`).join("") : '<p class="fine">Nenhuma parcela prevista para esta competência.</p>'}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>`;
@@ -301,8 +317,14 @@ function family() {
       : ""
   }`;
 }
+const widgetNames: Record<DashboardWidget, string> = { categories: "Gastos por categoria", insights: "Próximos passos", recent: "Últimos lançamentos" };
+const actionNames: Record<QuickAction, string> = { expense: "Registrar gasto", cards: "Ver cartões", shopping: "Lista de compras", pantry: "Despensa" };
+function appearanceSettings() {
+  const pref = api.preferences;
+  return `<section class="panel appearance-settings"><h3>Aparência e atalhos</h3><p>Estas escolhas pertencem somente à sua conta.</p><form id="preferences-form" class="form-grid">${field("theme", "Tema", `<select name="theme">${opt("system", "Acompanhar aparelho", pref.theme) + opt("light", "Claro", pref.theme) + opt("dark", "Escuro", pref.theme)}</select>`)}${field("palette", "Cor", `<select name="palette">${opt("forest", "Verde", pref.palette) + opt("ocean", "Azul", pref.palette) + opt("plum", "Ameixa", pref.palette)}</select>`)}${field("text_size", "Tamanho do texto", `<select name="text_size">${opt("standard", "Padrão", pref.text_size) + opt("large", "Maior", pref.text_size)}</select>`)}<div class="preference-checks wide"><label><input type="checkbox" name="comfortable" ${pref.comfortable ? "checked" : ""}> Mais espaço entre elementos</label><label><input type="checkbox" name="simple_mode" ${pref.simple_mode ? "checked" : ""}> Modo simples</label><label><input type="checkbox" name="hide_values" ${pref.hide_values ? "checked" : ""}> Ocultar valores na tela</label></div><fieldset class="wide preference-list"><legend>Blocos do painel</legend><p>Marque o que deseja ver. Use as setas para mudar a ordem.</p>${pref.dashboard_order.concat(dashboardWidgets.filter((item) => !pref.dashboard_order.includes(item))).map((id) => `<div class="preference-row"><label><input type="checkbox" name="widget" value="${id}" ${pref.dashboard_order.includes(id) ? "checked" : ""}> ${widgetNames[id]}</label><span>${button("widget-up", "↑", "secondary", `data-id="${id}" aria-label="Subir ${widgetNames[id]}"`)}${button("widget-down", "↓", "secondary", `data-id="${id}" aria-label="Descer ${widgetNames[id]}"`)}</span></div>`).join("")}</fieldset><fieldset class="wide preference-list"><legend>Atalhos do início</legend>${quickActions.map((id) => `<label><input type="checkbox" name="quick_action" value="${id}" ${pref.quick_actions.includes(id) ? "checked" : ""}> ${actionNames[id]}</label>`).join("")}</fieldset><div class="button-row wide"><button type="submit" class="primary">Salvar aparência</button>${button("reset-preferences", "Restaurar padrão", "secondary")}</div></form></section>`;
+}
 function settings() {
-  return `<section class="page-intro"><div><h2>Do seu jeito.</h2><p>Segurança, planejamento e dados bem cuidados.</p></div></section><div class="card-grid">${admin() ? `<section class="panel"><h3>Planejamento da casa</h3><form id="budget-form" class="form-grid">${field("name", "Nome da casa", input("name", "text", api.data!.home.name, 'maxlength="80" required'), true)}${field("budget", "Orçamento mensal do lar (R$)", moneyInput("budget", (api.data!.home.budget_cents / 100).toFixed(2).replace(".", ",")), true)}<button type="submit" class="primary wide">Salvar planejamento</button></form></section>` : ""}<section class="panel"><h3>Trocar minha senha</h3>${api.me.password_change_required ? '<p class="notice">Sua conta usa uma senha inicial. Defina sua senha pessoal aqui.</p>' : ""}<form id="password-form" class="form-grid">${field("current", "Senha atual", input("current", "password", "", 'autocomplete="current-password" required'), true)}${field("password", "Nova senha", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}${field("confirm", "Repita a nova senha", input("confirm", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}<button type="submit" class="primary wide">Atualizar senha</button></form></section><section class="panel"><h3>Seus dados</h3><p>O backup inclui apenas os registros que sua conta pode acessar. O arquivo contém informações financeiras.</p>${button("export", "Exportar backup JSON", "secondary full")}${admin() ? button("import", "Importar relatório ou backup", "secondary full section-gap") : ""}<p class="fine">A importação mostra uma prévia e adiciona registros em revisão. Nenhum histórico é substituído automaticamente.</p></section><section class="panel"><h3>Como os números funcionam</h3><p>Gastos entram pelo valor total na data da compra. Parcelas aparecem nas faturas seguintes. Pagamentos de faturas, transferências e principal de dívidas não criam nova despesa.</p><p>Saldo inicial desconhecido permanece desconhecido. Registros em revisão ficam fora dos cálculos.</p></section></div>`;
+  return `<section class="page-intro"><div><h2>Do seu jeito.</h2><p>Segurança, planejamento e dados bem cuidados.</p></div></section>${appearanceSettings()}<div class="card-grid">${admin() ? `<section class="panel"><h3>Planejamento da casa</h3><form id="budget-form" class="form-grid">${field("name", "Nome da casa", input("name", "text", api.data!.home.name, 'maxlength="80" required'), true)}${field("budget", "Orçamento mensal do lar (R$)", moneyInput("budget", (api.data!.home.budget_cents / 100).toFixed(2).replace(".", ",")), true)}<button type="submit" class="primary wide">Salvar planejamento</button></form></section>` : ""}<section class="panel"><h3>Trocar minha senha</h3>${api.me.password_change_required ? '<p class="notice">Sua conta usa uma senha inicial. Defina sua senha pessoal aqui.</p>' : ""}<form id="password-form" class="form-grid">${field("current", "Senha atual", input("current", "password", "", 'autocomplete="current-password" required'), true)}${field("password", "Nova senha", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}${field("confirm", "Repita a nova senha", input("confirm", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}<button type="submit" class="primary wide">Atualizar senha</button></form></section><section class="panel"><h3>Seus dados</h3><p>O backup inclui apenas os registros que sua conta pode acessar. O arquivo contém informações financeiras.</p>${button("export", "Exportar backup JSON", "secondary full")}${admin() ? button("import", "Importar relatório ou backup", "secondary full section-gap") : ""}<p class="fine">A importação mostra uma prévia e adiciona registros em revisão. Nenhum histórico é substituído automaticamente.</p></section><section class="panel"><h3>Como os números funcionam</h3><p>Gastos entram pelo valor total na data da compra. Parcelas aparecem nas faturas seguintes. Pagamentos de faturas, transferências e principal de dívidas não criam nova despesa.</p><p>Saldo inicial desconhecido permanece desconhecido. Registros em revisão ficam fora dos cálculos.</p></section></div>`;
 }
 function entryForm(preset: Partial<Entry> = {}) {
   const e = {
@@ -315,19 +337,23 @@ function entryForm(preset: Partial<Entry> = {}) {
     installments: 1,
     ...preset,
   };
+  const conditional = (name: string, content: string, wide = false) =>
+    `<div class="conditional-field ${wide ? "wide" : ""}" data-entry-field="${name}">${content}</div>`;
   return `<form id="entry-form" class="form-grid">${input("id", "hidden", e.id || "")}${field(
     "kind",
-    "Tipo",
+    "O que você quer registrar?",
     `<select name="kind">${[
-      ["expense", "Despesa"],
+      ["expense", "Registrar gasto"],
+      ["payable", "Conta a pagar"],
       ["income", "Receita"],
       ["card_payment", "Pagamento de fatura"],
       ["transfer", "Transferência"],
       ["debt_payment", "Pagamento de principal"],
     ]
-      .map(([v, l]) => opt(v, l, e.kind))
+      .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
+      .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
       .join("")}</select>`,
-  )}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data", input("date", "date", e.date, "required"))}${field("due_date", "Vencimento (opcional)", input("due_date", "date", e.due_date || ""))}${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
+  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -337,7 +363,7 @@ function entryForm(preset: Partial<Entry> = {}) {
     ]
       .map(([v, l]) => opt(v, l, e.area))
       .join("")}</select>`,
-  )}${field(
+  )}${conditional("status", field(
     "status",
     "Situação",
     `<select name="status">${[
@@ -347,7 +373,7 @@ function entryForm(preset: Partial<Entry> = {}) {
     ]
       .map(([v, l]) => opt(v, l, e.status))
       .join("")}</select>`,
-  )}${field("payment", "Forma", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Compra no cartão", e.payment)}</select>`)}${field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`)}<div class="card-installment-fields wide" id="card-installment-fields">${field("installment_basis", "O valor informado é", `<select name="installment_basis">${opt("total", "Valor total da compra", "total") + opt("each", "Valor de cada parcela", "total")}</select>`)}${field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required'))}<p class="fine wide">Informe o valor total da compra ou o valor de uma parcela. As parcelas serão distribuídas pelas faturas mensais do cartão.</p></div><p class="installment-preview wide" id="installment-preview" aria-live="polite"></p>${field("account_id", "Conta de origem", `<select name="account_id">${accountOptions(e.account_id)}</select>`)}${field("target_account_id", "Conta de destino (transferência)", `<select name="target_account_id">${accountOptions(e.target_account_id)}</select>`)}${field("invoice_month", "Mês da fatura a pagar", input("invoice_month", "month", e.invoice_month || month))}${field(
+  ))}${conditional("source", field("source_ref", "Referência / origem", input("source_ref", "text", e.source_ref || "", 'maxlength="160"'), true))}</div></details><p class="installment-preview wide" id="installment-preview" aria-live="polite"></p>${conditional("account", field("account_id", "Conta usada", `<select name="account_id">${accountOptions(e.account_id)}</select>`))}${conditional("target-account", field("target_account_id", "Conta de destino", `<select name="target_account_id">${accountOptions(e.target_account_id)}</select>`))}${conditional("invoice-month", field("invoice_month", "Competência da fatura paga", input("invoice_month", "month", e.invoice_month || month)))}${conditional("debt", field(
     "debt_id",
     "Dívida (pagamento de principal)",
     `<select name="debt_id">${
@@ -357,7 +383,7 @@ function entryForm(preset: Partial<Entry> = {}) {
         .map((d) => opt(d.id, d.name, e.debt_id))
         .join("")
     }</select>`,
-  )}${field("source_ref", "Referência / origem (opcional)", input("source_ref", "text", e.source_ref || "", 'maxlength="160"'), true)}<p class="fine wide">Novos registros ficam privados. Você pode compartilhar depois. Para registrar o pagamento de uma fatura, escolha esse tipo e a conta usada.</p>${formEnd("Salvar lançamento")}</form>`;
+  ))}<p class="fine wide">O registro começa privado e pode ser compartilhado depois.</p>${formEnd("Salvar lançamento")}</form>`;
 }
 function modalContent() {
   const d = api.data!;
@@ -429,6 +455,13 @@ function modalContent() {
   }
 }
 function render() {
+  const pref = api.data ? api.preferences : defaultPreferences();
+  const surface = document.documentElement;
+  surface.dataset.theme = pref.theme;
+  surface.dataset.palette = pref.palette;
+  surface.dataset.textSize = pref.text_size;
+  surface.dataset.comfortable = String(pref.comfortable);
+  surface.dataset.hideValues = String(pref.hide_values);
   if (!api.data) {
     root.innerHTML = login();
     return;
@@ -462,7 +495,7 @@ function render() {
     family,
     settings,
   };
-  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${nav.map(([id, label]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) ? "<i></i>" : ""}</button>`).join("")}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
+  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
     .filter(([id]) =>
       ["overview", "entries", "pantry", "shopping", "settings"].includes(id),
     )
@@ -472,7 +505,19 @@ function render() {
     )
     .join(
       "",
-    )}</nav></div></div>${modal ? `<dialog open class="modal" aria-labelledby="modal-title"><div class="modal-heading"><h2 id="modal-title">${esc(titles[modal])}</h2><button type="button" class="close" data-action="close" aria-label="Fechar">×</button></div>${modalContent()}</dialog><div class="scrim"></div>` : ""}`;
+    )}</nav></div></div>${modal ? `<dialog open class="modal" aria-labelledby="modal-title"><div class="modal-heading"><h2 id="modal-title">${esc(titles[modal])}</h2><button type="button" class="close" data-action="close" aria-label="Fechar">×</button></div>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}${modalContent()}</dialog><div class="scrim"></div>` : ""}`;
+  const dashboard = root.querySelector<HTMLElement>(".dashboard-grid");
+  if (dashboard) {
+    const tiles = new Map(
+      Array.from(dashboard.querySelectorAll<HTMLElement>("[data-widget]"))
+        .map((tile) => [tile.dataset.widget!, tile]),
+    );
+    for (const id of pref.dashboard_order) {
+      const tile = tiles.get(id);
+      if (tile) dashboard.append(tile);
+    }
+    for (const [id, tile] of tiles) if (!pref.dashboard_order.includes(id as DashboardWidget)) tile.hidden = true;
+  }
   if (modal) {
     const dialog = root.querySelector<HTMLDialogElement>("dialog")!;
     dialog.removeAttribute("open");
@@ -480,13 +525,18 @@ function render() {
     dialog
       .querySelector<HTMLInputElement>('input:not([type="hidden"])')
       ?.focus();
-    syncInstallmentPreview();
+      syncEntryForm();
   }
 }
 async function run(work: () => Promise<unknown>, message = "") {
   if (busy) return;
   const form = root.querySelector<HTMLFormElement>("dialog form");
-  const values = form ? new FormData(form) : null;
+  const values = form
+    ? Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("[name]"))
+        .filter((control) => control.type !== "file")
+        .map((control) => ({ name: control.name, value: control.value, checked: control instanceof HTMLInputElement ? control.checked : false }))
+    : null;
+  const openDetails = form ? Array.from(form.querySelectorAll("details")).map((details) => details.open) : [];
   let failed = false;
   busy = true;
   root
@@ -505,16 +555,24 @@ async function run(work: () => Promise<unknown>, message = "") {
     busy = false;
     render();
     if (failed && values && modal) {
-      root
-        .querySelectorAll<HTMLInputElement | HTMLSelectElement>("dialog [name]")
-        .forEach((el) => {
-          const value = values.get(el.name);
-          if (typeof value === "string" && el.type !== "file") el.value = value;
+      Array.from(root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("dialog [name]"))
+        .filter((control) => control.type !== "file")
+        .forEach((control, index) => {
+          const saved = values[index];
+          if (saved && saved.name === control.name) {
+            control.value = saved.value;
+            if (control instanceof HTMLInputElement) control.checked = saved.checked;
+          }
         });
+      root.querySelectorAll<HTMLDetailsElement>("dialog details").forEach((details, index) => {
+        details.open = openDetails[index] || false;
+      });
+      syncEntryForm();
     }
   }
 }
 function show(type: string, id = "") {
+  notice = "";
   modal = type;
   editId = id;
   render();
@@ -556,6 +614,24 @@ root.addEventListener("click", (event) => {
   }
   if (a === "reload") {
     void run(() => api.load(), "Dados atualizados.");
+    return;
+  }
+  if (a === "toggle-values") {
+    void run(() => api.savePreferences({ hide_values: !api.preferences.hide_values }), "Aparência salva.");
+    return;
+  }
+  if (a === "reset-preferences") {
+    void run(() => api.savePreferences(defaultPreferences()), "Aparência padrão restaurada.");
+    return;
+  }
+  if (a === "widget-up" || a === "widget-down") {
+    const form = root.querySelector<HTMLFormElement>("#preferences-form");
+    const row = b.closest<HTMLElement>(".preference-row");
+    const sibling = a === "widget-up" ? row?.previousElementSibling : row?.nextElementSibling;
+    if (!form || !row || !sibling?.classList.contains("preference-row")) return;
+    if (a === "widget-up") sibling.before(row);
+    else sibling.after(row);
+    void run(() => api.savePreferences(readPreferenceForm(form)), "Ordem do painel salva.");
     return;
   }
   const map: Record<string, string> = {
@@ -724,7 +800,7 @@ root.addEventListener("click", (event) => {
 });
 root.addEventListener("change", (event) => {
   if ((event.target as HTMLInputElement).closest("#entry-form"))
-    syncInstallmentPreview();
+    syncEntryForm();
   if (modal) return;
   const el = event.target as HTMLInputElement;
   if (el.name === "navigate") {
@@ -750,7 +826,7 @@ root.addEventListener("input", (event) => {
     el.closest("#entry-form") &&
     ["amount", "installments", "date"].includes(el.name)
   )
-    syncInstallmentPreview();
+    syncEntryForm();
   if (el.name === "search") {
     const pos = el.selectionStart;
     filter = el.value;
@@ -762,21 +838,71 @@ root.addEventListener("input", (event) => {
 });
 const val = (f: HTMLFormElement, n: string) =>
   String(new FormData(f).get(n) || "").trim();
-function syncInstallmentPreview() {
+function readPreferenceForm(form: HTMLFormElement) {
+  const data = new FormData(form);
+  return {
+    theme: val(form, "theme") as typeof api.preferences.theme,
+    palette: val(form, "palette") as typeof api.preferences.palette,
+    text_size: val(form, "text_size") as typeof api.preferences.text_size,
+    comfortable: data.has("comfortable"),
+    simple_mode: data.has("simple_mode"),
+    hide_values: data.has("hide_values"),
+    dashboard_order: Array.from(form.querySelectorAll<HTMLInputElement>('[name="widget"]'))
+      .filter((item) => item.checked)
+      .map((item) => item.value as DashboardWidget),
+    quick_actions: data.getAll("quick_action").map((item) => String(item) as QuickAction),
+  };
+}
+function syncEntryForm() {
   const form = root.querySelector<HTMLFormElement>("#entry-form");
   if (!form) return;
-  const box = root.querySelector<HTMLElement>("#card-installment-fields");
   const preview = root.querySelector<HTMLElement>("#installment-preview");
+  const raw = (name: string) =>
+    form.elements.namedItem(name) instanceof HTMLInputElement ||
+    form.elements.namedItem(name) instanceof HTMLSelectElement
+      ? (form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement).value
+      : "";
+  const kind = raw("kind");
+  const category = form.elements.namedItem("category");
+  const suggestedCategory: Record<string, string> = {
+    expense: "Mercado", payable: "Moradia", income: "Salário",
+    transfer: "Transferência", card_payment: "Fatura", debt_payment: "Dívidas",
+  };
+  const previousKind = form.dataset.lastKind;
+  if (previousKind && previousKind !== kind && category instanceof HTMLInputElement &&
+      category.value === suggestedCategory[previousKind])
+    category.value = suggestedCategory[kind] || "Outros";
+  form.dataset.lastKind = kind;
   const enabled =
-    val(form, "kind") === "expense" && val(form, "payment") === "card";
+    kind === "expense" && raw("payment") === "card";
+  const visibility: Record<string, boolean> = {
+    payment: kind === "expense",
+    card: enabled || kind === "card_payment",
+    "installment-basis": enabled,
+    installments: enabled,
+    "due-date": kind === "payable" || (kind === "expense" && !enabled && raw("status") === "pending"),
+    account: !enabled,
+    "target-account": kind === "transfer",
+    "invoice-month": kind === "card_payment",
+    debt: kind === "debt_payment",
+    source: true,
+    status: kind !== "payable",
+  };
+  form.querySelectorAll<HTMLElement>("[data-entry-field]").forEach((field) => {
+    const visible = visibility[field.dataset.entryField || ""] ?? false;
+    field.hidden = !visible;
+    field.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")
+      .forEach((control) => (control.disabled = !visible));
+  });
+  const dateLabel = form.querySelector<HTMLElement>('[name="date"]')?.closest("label")?.querySelector("span");
+  if (dateLabel) dateLabel.textContent = kind === "expense" ? "Data da compra" : kind === "income" ? "Data da receita" : kind === "payable" ? "Data do registro" : "Data da operação";
   const amountLabel = root.querySelector<HTMLElement>("#amount-label");
   if (amountLabel)
     amountLabel.textContent = enabled
-      ? val(form, "installment_basis") === "each"
+      ? raw("installment_basis") === "each"
         ? "Valor de cada parcela (R$)"
         : "Valor total da compra (R$)"
       : "Valor (R$)";
-  if (box) box.hidden = !enabled;
   if (preview) preview.hidden = !enabled;
   if (!enabled || !preview) return;
   const entered = parseMoney(val(form, "amount"));
@@ -793,27 +919,29 @@ function syncInstallmentPreview() {
     return;
   }
   const total =
-    val(form, "installment_basis") === "each" ? entered * count : entered;
+    raw("installment_basis") === "each" ? entered * count : entered;
   if (!Number.isSafeInteger(total)) {
     preview.textContent = "O valor total ultrapassa o limite permitido.";
     return;
   }
-  const card = api.data?.cards.find((c) => c.id === val(form, "card_id"));
+  const card = api.data?.cards.find((c) => c.id === raw("card_id"));
   const date = val(form, "date");
-  const first = card
-    ? invoiceMonth(date, card.closing_day)
-    : date.slice(0, 7);
+  if (!card) {
+    preview.textContent = "Selecione o cartão para conferir as competências.";
+    return;
+  }
+  if (!validIsoDate(date)) {
+    preview.textContent = "Informe a data completa da compra para ver a previsão.";
+    return;
+  }
+  const first = invoiceMonth(date, card.closing_day);
   const last = addMonths(first, count - 1);
-  const firstAmount = installmentAmount(total, count, 0);
-  const lastAmount = installmentAmount(total, count, count - 1);
-  const range =
-    firstAmount === lastAmount
-      ? brl(firstAmount)
-      : `${brl(firstAmount)} e ${brl(lastAmount)}`;
-  preview.textContent =
-    val(form, "installment_basis") === "each"
-      ? `Compra total: ${brl(total)}. ${count} parcelas mensais de ${brl(entered)} nas faturas de ${first} a ${last}.`
-      : `${count} parcelas mensais de ${range} nas faturas de ${first} a ${last}. Total da compra: ${brl(total)}.`;
+  const schedule = Array.from({ length: count }, (_, index) => ({
+    number: index + 1,
+    month: addMonths(first, index),
+    amount: installmentAmount(total, count, index),
+  }));
+  preview.innerHTML = `<strong>Total da compra: ${brl(total)}</strong><span>Primeira competência pela regra atual: ${first}; última: ${last}.</span><ol>${schedule.map((item) => `<li><span>Parcela ${item.number}/${count} · ${item.month.split("-").reverse().join("/")}</span><strong>${brl(item.amount)}</strong></li>`).join("")}</ol>`;
 }
 const cash = (f: HTMLFormElement, n: string, allowZero = false) => {
   const cents = parseMoney(val(f, n));
@@ -828,6 +956,10 @@ root.addEventListener("submit", (event) => {
     const id = val(f, "id");
     if (f.getAttribute("id") === "login-form") {
       await api.login(val(f, "email"), val(f, "password"));
+      return;
+    }
+    if (f.getAttribute("id") === "preferences-form") {
+      await api.savePreferences(readPreferenceForm(f));
       return;
     }
     if (f.getAttribute("id") === "password-form") {
@@ -980,8 +1112,12 @@ root.addEventListener("submit", (event) => {
       return;
     }
     if (f.getAttribute("id") === "entry-form") {
-      const kind = val(f, "kind") as Entry["kind"],
-        payment = val(f, "payment") as Entry["payment"];
+      const task = val(f, "kind"),
+        kind = (task === "payable" ? "expense" : task) as Entry["kind"],
+        payment: Entry["payment"] =
+          task === "expense" && val(f, "payment") === "card"
+            ? "card"
+            : "cash";
       const existing = id ? api.data!.entries.find((e) => e.id === id) : null;
       await api.save("entries", {
         ...(existing || {}),
@@ -1003,7 +1139,7 @@ root.addEventListener("submit", (event) => {
         kind,
         category: val(f, "category"),
         area: val(f, "area"),
-        status: val(f, "status"),
+        status: task === "payable" ? "pending" : val(f, "status"),
         payment,
         card_id:
           payment === "card" || kind === "card_payment"

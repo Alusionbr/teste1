@@ -8,12 +8,16 @@ import {
   validateEntry,
 } from "./model.ts";
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
+import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
 export class FamilyAPI {
   client: ReturnType<typeof createSupabaseClient> | null = null;
   demo = false;
   userId = "";
   data: Data | null = null;
   private demoStore: Data | null = null;
+  private demoPreferences = new Map<string, Preferences>();
+  preferences: Preferences = defaultPreferences();
+  preferencesRevision = 0;
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL,
       key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -78,6 +82,8 @@ export class FamilyAPI {
         ) as never;
       if (!admin) d.audit = [];
       this.data = d;
+      this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
+      this.preferencesRevision = 0;
       return;
     }
     if (!this.client) throw Error("Banco indisponível.");
@@ -135,6 +141,14 @@ export class FamilyAPI {
     );
     if (results.some((r) => r.error))
       throw Error("Não foi possível carregar todos os dados. Tente atualizar.");
+    const preference = await this.client.from("fin_preferences")
+      .select("*")
+      .eq("user_id", this.userId)
+      .maybeSingle();
+    if (preference.error)
+      throw Error("Não foi possível carregar sua aparência pessoal. Tente atualizar.");
+    this.preferences = normalizePreferences(preference.data || {});
+    this.preferencesRevision = preference.data?.revision || 0;
     this.data = {
       home: results[0].data![0],
       members: results[1].data!,
@@ -149,6 +163,32 @@ export class FamilyAPI {
       audit: results[10].data!,
       recurring: results[11].data!,
     } as Data;
+  }
+  async savePreferences(next: Partial<Preferences>) {
+    const settings = normalizePreferences({ ...this.preferences, ...next });
+    if (this.demo) {
+      this.demoPreferences.set(this.userId, settings);
+      this.preferences = settings;
+      return;
+    }
+    if (!this.client || !this.userId) throw Error("Entre na sua conta para salvar a aparência.");
+    const result = this.preferencesRevision
+      ? await this.client.from("fin_preferences")
+          .update(settings)
+          .eq("user_id", this.userId)
+          .eq("revision", this.preferencesRevision)
+          .select("revision")
+          .maybeSingle()
+      : await this.client.from("fin_preferences")
+          .insert({ user_id: this.userId, ...settings })
+          .select("revision")
+          .single();
+    if (result.error || !result.data)
+      throw Error(result.error?.code === "23505"
+        ? "A aparência foi alterada em outro dispositivo. Atualize antes de salvar novamente."
+        : result.error?.message || "A aparência mudou em outro dispositivo. Atualize antes de salvar novamente.");
+    this.preferences = settings;
+    this.preferencesRevision = result.data.revision;
   }
   async save(collection: keyof Data, record: Record<string, unknown>) {
     const base =
@@ -445,5 +485,8 @@ export class FamilyAPI {
     this.userId = "";
     this.demo = false;
     this.demoStore = null;
+    this.demoPreferences.clear();
+    this.preferences = defaultPreferences();
+    this.preferencesRevision = 0;
   }
 }

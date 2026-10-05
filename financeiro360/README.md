@@ -13,6 +13,7 @@ Aplicativo doméstico com interface responsiva para computador e celular. O admi
 - Despensa com estoque contado, unidade, consumo diário informado, duração estimada, estoque mínimo, preço e validade. Lista sugerida para 14 dias, sem duplicar itens pendentes.
 - Conclusão da compra em uma transação: uma despesa com o total real, reposição de estoque e baixa dos itens selecionados. Repetir o mesmo pedido não duplica compras.
 - Metas com progresso informado, histórico administrativo, exportação dos dados visíveis e importação CSV/JSON de receitas/despesas em revisão, com prévia. O lote é inserido de forma atômica.
+- Aparência por usuário: tema, cores, leitura, modo simples, blocos e atalhos do painel, com armazenamento próprio e revisão de alterações.
 - Manifesto de app instalável e cache somente do shell público. Respostas financeiras, Auth e documentos não entram no cache offline.
 
 ## Estado da entrega
