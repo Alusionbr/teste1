@@ -207,3 +207,18 @@ test("invoice closing boundary preserves current competence over year change", (
   const reviewed = { ...atClosing, status: "pending_review" as const };
   assert.deepEqual(invoiceInstallments([reviewed], card, "2026-12"), []);
 });
+
+test("saved first invoice stays fixed when the card closing day changes", () => {
+  const d = demoData();
+  const card = { ...d.cards[0], closing_day: 20 };
+  const purchase = {
+    ...d.entries[0], id: "frozen", kind: "expense" as const,
+    payment: "card" as const, card_id: card.id, date: "2026-12-11",
+    amount_cents: 10001, installments: 3, status: "paid" as const,
+    first_invoice_month: "2027-01",
+  };
+  assert.equal(invoiceInstallments([purchase], card, "2027-01")[0].amount_cents, 3334);
+  assert.equal(invoiceInstallments([purchase], card, "2027-03")[0].amount_cents, 3333);
+  assert.deepEqual(invoiceInstallments([purchase], card, "2026-12"), []);
+  assert.throws(() => validateEntry({ ...purchase, first_invoice_month: "2026-11" }));
+});
