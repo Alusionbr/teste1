@@ -1733,3 +1733,19 @@ input[type="checkbox"] {
 .number-explanations strong { font-size: 19px; margin: 5px 0; }
 .number-explanations p { margin-bottom: 0; }
 @media (max-width: 720px) { .number-explanations { grid-template-columns: 1fr; } }
+
+.card-category-breakdown { margin: 14px 0; padding: 14px; border-radius: 14px; background: var(--surface-soft, #f4f8f5); }
+.card-category-breakdown h4 { margin: 0 0 12px; }
+.detail-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.detail-line small { flex-basis: 100%; color: var(--muted); }
+.quick-grocery-panel { margin: 18px 0; }
+.quick-grocery-list { display: flex; flex-wrap: wrap; gap: 9px; }
+.quick-grocery-list button { min-height: 44px; }
+.reminder-banner { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 16px 0; border-color: color-mix(in srgb, var(--green) 28%, var(--line)); }
+.reminder-banner p { line-height: 1.7; margin: 8px 0 0; }
+.reminder-record { gap: 12px; }
+.reminder-late { color: #b44739; font-weight: 700; }
+.reminder-history { margin-top: 18px; }
+.reminder-history > summary { cursor: pointer; font-weight: 700; }
+@media(max-width:640px) { .quick-grocery-list { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; } .quick-grocery-list button { flex: 0 0 auto; } .reminder-banner { align-items: flex-start; flex-direction: column; } .reminder-record { align-items: flex-start; flex-wrap: wrap; } }
+:root[data-theme="dark"] .card-category-breakdown { background: #17251f; }
