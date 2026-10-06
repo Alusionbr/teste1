@@ -7,6 +7,7 @@ import {
   type Entry,
   balance,
   validateEntry,
+  entryVisibleTo,
 } from "./model.ts";
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
@@ -82,6 +83,12 @@ export class FamilyAPI {
         d[key] = d[key].filter(
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
+      d.entries = d.entries.filter((entry) => entryVisibleTo(
+        entry,
+        this.userId,
+        admin ? "admin" : "member",
+        d.members,
+      ));
       if (!admin) d.audit = [];
       if (!admin) d.accounts = d.accounts.map((account) => ({
         ...account,
@@ -123,6 +130,7 @@ export class FamilyAPI {
       "fin_documents",
       "fin_audit",
       "fin_recurring",
+      "fin_reminders",
     ];
     const results = await Promise.all(
       tables.map(async (t) => {
@@ -175,6 +183,7 @@ export class FamilyAPI {
       documents: results[9].data!,
       audit: results[10].data!,
       recurring: results[11].data!,
+      reminders: results[12].data!,
     } as Data;
   }
   async savePreferences(next: Partial<Preferences>) {
@@ -204,16 +213,19 @@ export class FamilyAPI {
     this.preferencesRevision = result.data.revision;
   }
   async save(collection: keyof Data, record: Record<string, unknown>) {
-    const base =
-      collection === "pantry" || collection === "shopping"
-        ? { home_id: this.data!.home.id }
+    const base = collection === "pantry" || collection === "shopping"
+      ? { home_id: this.data!.home.id }
+      : collection === "reminders"
+        ? { home_id: this.data!.home.id, owner_id: this.userId }
         : { home_id: this.data!.home.id, owner_id: this.userId, shared: false };
     const previous = record.id
       ? (this.data![collection] as unknown as Record<string, unknown>[]).find(
           (x) => x.id === record.id,
         )
       : null;
-    const payload = { ...(previous || base), ...record };
+    const payload: Record<string, unknown> = { ...(previous || base), ...record };
+    if (collection === "entries" && this.me?.role === "member" && payload.area !== "personal")
+      payload.shared = true;
     if (collection === "entries") validateEntry(payload as unknown as Entry);
     if (this.demo) {
       const list = this.demoStore![collection] as unknown as Record<
@@ -259,8 +271,13 @@ export class FamilyAPI {
     await this.load();
   }
   async share(collection: keyof Data, id: string, shared: boolean) {
-    if (this.me.role !== "admin")
-      throw Error("Somente o administrador pode compartilhar.");
+    if (this.me.role !== "admin") {
+      const entry = collection === "entries"
+        ? this.data!.entries.find((item) => item.id === id)
+        : undefined;
+      if (collection !== "entries" || !entry || entry.owner_id !== this.userId || entry.area !== "personal")
+        throw Error("Essa opção só está disponível para seus gastos pessoais.");
+    }
     await this.save(collection, { id, shared, ...(collection === "accounts" && !shared ? { share_balance: false } : {}) });
   }
   async remove(collection: keyof Data, id: string) {
