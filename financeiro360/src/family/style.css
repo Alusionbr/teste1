@@ -1752,3 +1752,32 @@ input[type="checkbox"] {
 .shopping-row { display: flex; align-items: center; gap: 8px; }
 .shopping-row .shopping-item { flex: 1; min-width: 0; }
 .shopping-row > button { flex: 0 0 auto; }
+
+.calendar-panel { margin-bottom: 18px; }
+.calendar-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.calendar-toolbar h3 { flex: 1; margin: 0; text-transform: capitalize; text-align: center; }
+.calendar-toolbar button { min-width: 44px; min-height: 44px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.calendar-weekdays { margin-bottom: 5px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 700; }
+.calendar-day { position: relative; min-width: 0; min-height: 62px; padding: 8px 4px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; }
+.calendar-day:hover { background: color-mix(in srgb, var(--green) 8%, transparent); }
+.calendar-day.outside { pointer-events: none; }
+.calendar-day.today .calendar-day-number { color: var(--green); font-weight: 800; }
+.calendar-day.selected { background: color-mix(in srgb, var(--green) 12%, transparent); border-color: var(--green); }
+.calendar-day.has-events .calendar-day-number { font-weight: 800; }
+.calendar-day-events { min-height: 8px; display: flex; justify-content: center; align-items: center; gap: 3px; }
+.calendar-day-events i, .calendar-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+.calendar-day-events i.done, .calendar-legend i.done { background: #b7c4be; }
+.calendar-day-events small { font-size: 9px; color: var(--muted); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 14px; padding-top: 14px; color: var(--muted); font-size: 12px; }
+.calendar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.calendar-agenda { margin-bottom: 20px; }
+.calendar-event { border-bottom: 1px solid var(--line); }
+:root[data-theme="dark"] .calendar-day { color: var(--ink); }
+@media(max-width:640px) {
+  .calendar-grid { gap: 2px; }
+  .calendar-day { min-height: 52px; padding: 6px 1px; border-radius: 9px; }
+  .calendar-day-number { font-size: 13px; }
+  .calendar-toolbar { gap: 5px; }
+  .calendar-toolbar h3 { font-size: 15px; }
+}
