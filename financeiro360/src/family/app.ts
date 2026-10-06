@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 22790)
+Total output lines: 1396
+
 import "./style.css";
 import { FamilyAPI } from "./api.ts";
 import {
@@ -17,6 +20,7 @@ import {
   type Entry,
   type Permission,
   type Member,
+  type Reminder,
 } from "./model.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import {
@@ -58,6 +62,7 @@ const icon = (name: string) => {
     shopping: "M3 3h2l3 13h11l2-9H7 M9 21h1 M18 21h1",
     goals: "M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 12l9-9 M17 3h4v4",
     documents: "M7 3h9l4 4v14H4V3z M9 12l3-3 3 3 M12 9v9",
+    reminders: "M12 8v4l3 2 M12 3a9 9 0 1 0 9 9 M12 3v2 M21 12h-2",
     family:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4",
     settings:
@@ -77,6 +82,7 @@ const nav = [
   ["pantry", "Casa"],
   ["settings", "Perfil"],
   ["cards", "Cartões e faturas"],
+  ["reminders", "Avisos e lembretes"],
   ["accounts", "Contas e dívidas"],
   ["planning", "Planejamento"],
   ["goals", "Metas"],
@@ -84,7 +90,7 @@ const nav = [
   ["family", "Família e acesso"],
 ];
 const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
-const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) ? "<i></i>" : ""}</button>`;
+const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || id === "reminders" && api.data!.reminders.some((r) => !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
 function sidebarNav() {
   const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
   const other = nav.filter(([id]) => !primaryNav.has(id)).map(navButton).join("");
@@ -111,6 +117,41 @@ const cardOptions = (current?: string | null) =>
     .data!.cards.filter(own)
     .map((c) => opt(c.id, c.name, current))
     .join("");
+const commonCategories = [
+  "Mercado", "Moradia", "Contas da casa", "Delivery", "Restaurantes",
+  "Transporte", "Combustível", "Saúde", "Farmácia", "Educação",
+  "Crianças", "Pets", "Roupas", "Cuidados pessoais", "Lazer",
+  "Assinaturas", "Impostos", "Salário", "Investimentos", "Dívidas",
+  "Fatura", "Transferência", "Outros",
+];
+const categoryList = () => `<datalist id="categories">${Array.from(new Set([
+  ...commonCategories,
+  ...(api.data?.entries || []).map((entry) => entry.category),
+  ...(api.data?.recurring || []).map((entry) => entry.category),
+])).filter(Boolean).map((category) => `<option value="${esc(category)}"></option>`).join("")}</datalist>`;
+const quickGroceries = [
+  ["Arroz", "pacote"], ["Feijão", "pacote"], ["Leite", "litro"],
+  ["Ovos", "dúzia"], ["Pão", "pacote"], ["Café", "pacote"],
+  ["Banana", "kg"], ["Frango", "kg"], ["Óleo", "garrafa"],
+  ["Papel higiênico", "pacote"], ["Detergente", "unidade"], ["Sabão em pó", "pacote"],
+] as const;
+const daysFromToday = (date: string) => Math.floor(
+  (Date.parse(`${date}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 86400000,
+);
+const reminderTiming = (date: string) => {
+  const days = daysFromToday(date);
+  return days < 0 ? `Atrasado há ${Math.abs(days)} dia(s)` : days === 0 ? "Hoje" : days === 1 ? "Amanhã" : `Em ${days} dias`;
+};
+const nextReminderDate = (reminder: Reminder) => {
+  if (reminder.recurrence === "weekly")
+    return new Date(Date.parse(`${reminder.due_on}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10);
+  const months = reminder.recurrence === "yearly" ? 12 : 1;
+  const targetMonth = addMonths(reminder.due_on.slice(0, 7), months);
+  const [year, month] = targetMonth.split("-").map(Number);
+  const day = Number(reminder.due_on.slice(8, 10));
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${targetMonth}-${String(Math.min(day, last)).padStart(2, "0")}`;
+};
 const field = (_name: string, label: string, input: string, wide = false) =>
   `<label class="${wide ? "wide" : ""}"><span>${label}</span>${input}</label>`;
 const input = (name: string, type = "text", value: unknown = "", extra = "") =>
@@ -121,15 +162,26 @@ const empty = (text: string, action?: string) =>
   `<div class="empty"><span class="empty-icon">${icon(page)}</span><h3>${text}</h3><p>Um passo de cada vez. Comece com o que você já sabe.</p>${action ? button(action, "Adicionar agora") : ""}</div>`;
 const formEnd = (label = "Salvar") =>
   `<div class="form-actions wide"><button class="secondary" type="button" data-action="close">Cancelar</button><button class="primary" type="submit" ${busy ? "disabled" : ""}>${busy ? "Salvando…" : label}</button></div>`;
-const share = (collection: string, r: { id: string; shared: boolean }) =>
-  admin()
-    ? button(
-        "share",
-        r.shared ? "Compartilhado" : "Privado",
-        r.shared ? "badge shared" : "badge private",
-        `data-table="${collection}" data-id="${esc(r.id)}" data-shared="${r.shared}" aria-label="${r.shared ? "Tornar privado" : "Compartilhar com a família"}"`,
-      )
-    : `<span class="badge ${r.shared ? "shared" : "private"}">${r.shared ? "Compartilhado" : "Seu registro"}</span>`;
+const share = (collection: string, r: { id: string; shared: boolean; owner_id?: string; area?: string }) => {
+  const isOwner = r.owner_id === api.userId;
+  const canToggle = admin() && !(collection === "entries" && !isOwner && r.area === "personal") ||
+    (!admin() && collection === "entries" && isOwner && r.area === "personal");
+  if (canToggle) {
+    const label = collection === "entries" && !admin()
+      ? r.shared ? "Compartilhado" : "Compartilhar com a família"
+      : r.shared ? "Compartilhado" : "Privado";
+    return button(
+      "share",
+      label,
+      collection === "entries" && !admin() ? (r.shared ? "badge shared" : "secondary") : r.shared ? "badge shared" : "badge private",
+      `data-table="${collection}" data-id="${esc(r.id)}" data-shared="${r.shared}" aria-label="${r.shared ? "Remover compartilhamento" : "Compartilhar com a família"}"`,
+    );
+  }
+  const label = collection === "entries" && r.area === "household"
+    ? "Gasto da casa"
+    : r.shared ? "Compartilhado" : "Seu registro";
+  return `<span class="badge ${r.shared ? "shared" : "private"}">${label}</span>`;
+};
 const deleteButton = (table: string, id: string) =>
   button(
     "delete",
@@ -164,7 +216,8 @@ function summary() {
   const trend = previous
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  const dueReminders = d.reminders.filter((r) => !r.completed && daysFromToday(r.due_on) <= 7).sort((a, b) => a.due_on.localeCompare(b.due_on));
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${esc(r.title)}</strong> · ${reminderTiming(r.due_on)}`).join("<br>")}</p></div>${button("nav", "Ver lembretes", "secondary", 'data-page="reminders"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -216,7 +269,10 @@ function cards() {
       .map((c, i) => {
         const f = invoice(d, c, month),
           openMonth = invoiceMonth(today(), c.closing_day),
-          lines = invoiceInstallments(d.entries, c, month);
+          lines = invoiceInstallments(d.entries, c, month),
+          categoryTotals = Array.from(lines.reduce((totals, line) =>
+            totals.set(line.entry.category, (totals.get(line.entry.category) || 0) + line.amount_cents),
+          new Map<string, number>()).entries()).sort((a, b) => b[1] - a[1]);
         return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><p class="invoice-open-hint">Compras feitas agora entram na fatura de <strong>${openMonth.split("-").reverse().join("/")}</strong> ${month !== openMonth ? button("open-invoice", "Abrir fatura em aberto", "text-button", `data-month="${openMonth}"`) : ""}</p><div class="invoice-stats"><div><span>Fatura prevista · ${month.split("-").reverse().join("/")}</span><strong>${brl(f.total)}</strong></div><div><span>A pagar</span><strong>${brl(f.remaining)}</strong></div></div><p class="fine">Fecha dia ${c.closing_day} · vence ${dueDate(
           month,
           {
@@ -232,7 +288,7 @@ function cards() {
           .reverse()
           .join(
             "/",
-        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} parcela(s) nesta fatura</summary>${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>Total da compra: ${brl(line.entry.amount_cents)}</small></p>`).join("") : '<p class="fine">Nenhuma parcela prevista para esta competência.</p>'}</details></section>`;
+        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + deleteButton("cards", c.id) : ""}</div><details><summary>Ver ${lines.length} compra(s) e categorias</summary>${categoryTotals.length ? `<div class="card-category-breakdown"><h4>Gastos por categoria</h4><div class="category-chart">${categoryTotals.map(([category, amount], index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(category)}</span><strong>${brl(amount)}</strong><div class="bar"><b style="width:${f.total ? Math.round((amount / f.total) * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div></div>` : '<p class="fine">Ainda não há compras nesta fatura.</p>'}${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>${esc(line.entry.category)} · compra em ${line.entry.date.split("-").reverse().join("/")}</small></p>`).join("") : ""}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>`;
@@ -279,237 +335,7 @@ function shopping() {
   const d = api.data!,
     items = d.shopping.filter((s) => !s.bought),
     total = items.reduce((s, x) => s + x.estimate_cents * x.quantity, 0);
-  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "Adicionar item", "secondary") : ""}</div></section><div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Próxima ida ao mercado</h3><span class="badge">${items.length} item(s)</span></div>${items.length ? `<form id="purchase-form">${items.map((s) => `<label class="shopping-item"><input type="checkbox" name="items" value="${s.id}" checked><span><strong>${esc(s.name)}</strong><small>${s.quantity} ${esc(s.unit)} · ${brl(s.estimate_cents)} / unidade</small></span><strong>${brl(Math.round(s.estimate_cents * s.quantity))}</strong></label>`).join("")}<div class="form-grid section-gap">${field("total", "Total real pago (R$)", moneyInput("total", (total / 100).toFixed(2).replace(".", ",")))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions()}</select>`, true)}</div>${api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry") ? `<button class="primary full section-gap" type="submit">Concluir compra e atualizar estoque</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>` : empty("Sua próxima lista começa aqui", "add-shopping")}</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da compra</h3><strong class="large-number">${brl(Math.round(total))}</strong><p>O total real será registrado uma única vez como despesa do lar e os produtos serão adicionados ao estoque.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para 14 dias de consumo ou o mínimo que você definiu.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Itens manuais sem produto vinculado não alteram a despensa.</p>${items.map((s) => (api.allowed("shopping") ? `<p class="detail-line">${esc(s.name)} ${deleteButton("shopping", s.id)}</p>` : "")).join("")}</aside></div>`;
-}
-function planning() {
-  return `<section class="page-intro"><div><h2>Um mês com menos surpresas.</h2><p>Despesas fixas previstas e limite mensal do lar.</p></div><div class="button-row">${api.allowed("entries") ? button("add-recurring", "Cadastrar despesa fixa") + button("plan-month", "Gerar contas do mês", "secondary") : ""}</div></section><section class="panel"><h3>Contas que se repetem</h3>${api.data!.recurring.map((r) => `<article class="record"><span class="record-icon">${icon("entries")}</span><div class="record-info"><strong>${esc(r.name)}</strong><small>Dia ${r.day} · desde ${r.start_month} · ${esc(names(r.owner_id))}</small></div><strong>${brl(r.amount_cents)}</strong><div class="record-actions">${share("recurring", r)}${own(r) && api.allowed("entries") ? deleteButton("recurring", r.id) : ""}</div></article>`).join("") || empty("Cadastre aluguel, internet e outras contas", "add-recurring")}<p class="fine">Gerar contas cria compromissos a pagar uma única vez por mês. A geração nunca informa um pagamento automaticamente. Contas já geradas permanecem no histórico.</p></section>`;
-}
-function goals() {
-  return `<section class="page-intro"><div><h2>Planos que ganham forma.</h2><p>Acompanhe sua reserva e os objetivos da família.</p></div>${api.allowed("entries") ? button("add-goal", "Nova meta") : ""}</section><div class="card-grid">${api.data!.goals.map((g) => `<section class="panel"><span class="record-icon">${icon("goals")}</span><h3>${esc(g.name)}</h3><strong class="large-number">${brl(g.saved_cents)}</strong><p>de ${brl(g.target_cents)}${g.due_date ? " · até " + g.due_date : ""}</p><div class="bar"><b style="width:${Math.min(100, (g.saved_cents / g.target_cents) * 100)}%"></b></div><p class="fine">${Math.round((g.saved_cents / g.target_cents) * 100)}% da meta · progresso informado manualmente</p><div class="button-row">${share("goals", g)}${own(g) && api.allowed("entries") ? button("edit-goal", "Atualizar progresso", "secondary", `data-id="${g.id}"`) + deleteButton("goals", g.id) : ""}</div></section>`).join("") || empty("Dê um nome ao seu próximo objetivo", "add-goal")}</div>`;
-}
-function documents() {
-  const d = api.data!;
-  return `<section class="page-intro"><div><h2>Comprovantes sempre à mão.</h2><p>Recibos, faturas e documentos protegidos por acesso.</p></div>${api.allowed("documents") ? button("add-document", "Anexar documento") : ""}</section><section class="panel">${d.documents.length ? d.documents.map((doc) => `<article class="record"><span class="record-icon">${icon("documents")}</span><div class="record-info"><strong>${esc(doc.name)}</strong><small>${Math.ceil(doc.size / 1024)} KB · ${esc(names(doc.owner_id))}</small></div><div class="record-actions">${share("documents", doc)}${button("open-document", "Abrir", "secondary", `data-id="${doc.id}"`)}${own(doc) && api.allowed("documents") ? deleteButton("documents", doc.id) : ""}</div></article>`).join("") : empty("Tudo organizado desde o primeiro recibo", "add-document")}<p class="fine">PDF, JPG, PNG ou WebP até 10 MB. Documentos vinculados a um gasto privado continuam privados mesmo que você marque o documento como compartilhado.</p></section>`;
-}
-function family() {
-  const d = api.data!;
-  return `<section class="page-intro"><div><h2>Uma família. Acessos diferentes.</h2><p>Seu espaço é pessoal. Compartilhe o que faz sentido.</p></div>${admin() ? button("add-member", "Criar usuário") : ""}</section><div class="hint-banner">${icon("family")}<div><strong>Privacidade desde o primeiro lançamento</strong><p>O administrador vê todos os registros. Cada membro vê seus próprios dados e o que foi compartilhado. Tipos de conta e áreas não concedem acesso.</p></div></div><div class="card-grid">${d.members
-    .map(
-      (m) =>
-        `<section class="panel member-panel"><div class="avatar">${esc(m.display_name.slice(0, 1))}</div><h3>${esc(m.display_name)}</h3><span class="badge ${m.active ? "shared" : "warning-badge"}">${m.role === "admin" ? "Administrador" : m.active ? "Membro ativo" : "Acesso suspenso"}</span>${
-          m.role === "admin"
-            ? "<p>Visão completa e controle das permissões e do compartilhamento.</p>"
-            : `<form id="permissions-form" data-id="${m.user_id}"><div class="permission-list">${Object.entries(
-                permissions,
-              )
-                .map(
-                  ([key, label]) =>
-                    `<label><input type="checkbox" name="${key}" ${m.permissions[key as Permission] ? "checked" : ""} ${admin() ? "" : "disabled"}><span>${label}</span></label>`,
-                )
-                .join(
-                  "",
-                )}</div>${admin() ? `<button type="submit" class="primary full">Salvar permissões</button>` : ""}</form>${admin() ? button("toggle-member", m.active ? "Suspender acesso" : "Reativar acesso", "text-button section-gap", `data-id="${m.user_id}"`) : ""}`
-        }</section>`,
-    )
-    .join("")}</div>${
-    admin()
-      ? `<section class="panel section-gap"><h3>Histórico de alterações</h3>${
-          d.audit.length
-            ? `<div class="audit-list">${d.audit
-                .slice(0, 20)
-                .map(
-                  (a) =>
-                    `<p><span>${esc(names(a.actor_id))} · ${esc(a.action)} · ${esc(a.table_name.replace("fin_", ""))}</span><small>${new Date(a.created_at).toLocaleString("pt-BR")}</small></p>`,
-                )
-                .join("")}</div>`
-            : '<p class="fine">As alterações reais serão registradas aqui, sem copiar valores privados para o histórico.</p>'
-        }</section>`
-      : ""
-  }`;
-}
-const widgetNames: Record<DashboardWidget, string> = { categories: "Gastos por categoria", insights: "Próximos passos", recent: "Últimos lançamentos" };
-const actionNames: Record<QuickAction, string> = { expense: "Registrar gasto", cards: "Ver cartões", shopping: "Lista de compras", pantry: "Despensa" };
-function appearanceSettings() {
-  const pref = api.preferences;
-  return `<section class="panel appearance-settings"><h3>Aparência e atalhos</h3><p>Estas escolhas pertencem somente à sua conta.</p><form id="preferences-form" class="form-grid">${field("theme", "Tema", `<select name="theme">${opt("system", "Acompanhar aparelho", pref.theme) + opt("light", "Claro", pref.theme) + opt("dark", "Escuro", pref.theme)}</select>`)}${field("palette", "Cor", `<select name="palette">${opt("forest", "Verde", pref.palette) + opt("ocean", "Azul", pref.palette) + opt("plum", "Ameixa", pref.palette)}</select>`)}${field("text_size", "Tamanho do texto", `<select name="text_size">${opt("standard", "Padrão", pref.text_size) + opt("large", "Maior", pref.text_size)}</select>`)}<div class="preference-checks wide"><label><input type="checkbox" name="comfortable" ${pref.comfortable ? "checked" : ""}> Mais espaço entre elementos</label><label><input type="checkbox" name="simple_mode" ${pref.simple_mode ? "checked" : ""}> Modo simples</label><label><input type="checkbox" name="hide_values" ${pref.hide_values ? "checked" : ""}> Ocultar valores na tela</label></div><fieldset class="wide preference-list"><legend>Blocos do painel</legend><p>Marque o que deseja ver. Use as setas para mudar a ordem.</p>${pref.dashboard_order.concat(dashboardWidgets.filter((item) => !pref.dashboard_order.includes(item))).map((id) => `<div class="preference-row"><label><input type="checkbox" name="widget" value="${id}" ${pref.dashboard_order.includes(id) ? "checked" : ""}> ${widgetNames[id]}</label><span>${button("widget-up", "↑", "secondary", `data-id="${id}" aria-label="Subir ${widgetNames[id]}"`)}${button("widget-down", "↓", "secondary", `data-id="${id}" aria-label="Descer ${widgetNames[id]}"`)}</span></div>`).join("")}</fieldset><fieldset class="wide preference-list"><legend>Atalhos do início</legend>${quickActions.map((id) => `<label><input type="checkbox" name="quick_action" value="${id}" ${pref.quick_actions.includes(id) ? "checked" : ""}> ${actionNames[id]}</label>`).join("")}</fieldset><div class="button-row wide"><button type="submit" class="primary">Salvar aparência</button>${button("reset-preferences", "Restaurar padrão", "secondary")}</div></form></section>`;
-}
-function settings() {
-  return `<section class="page-intro"><div><h2>Do seu jeito.</h2><p>Segurança, planejamento e dados bem cuidados.</p></div></section>${appearanceSettings()}<div class="card-grid">${admin() ? `<section class="panel"><h3>Planejamento da casa</h3><form id="budget-form" class="form-grid">${field("name", "Nome da casa", input("name", "text", api.data!.home.name, 'maxlength="80" required'), true)}${field("budget", "Orçamento mensal do lar (R$)", moneyInput("budget", (api.data!.home.budget_cents / 100).toFixed(2).replace(".", ",")), true)}<button type="submit" class="primary wide">Salvar planejamento</button></form></section>` : ""}<section class="panel"><h3>Trocar minha senha</h3>${api.me.password_change_required ? '<p class="notice">Sua conta usa uma senha inicial. Defina sua senha pessoal aqui.</p>' : ""}<form id="password-form" class="form-grid">${field("current", "Senha atual", input("current", "password", "", 'autocomplete="current-password" required'), true)}${field("password", "Nova senha", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}${field("confirm", "Repita a nova senha", input("confirm", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}<button type="submit" class="primary wide">Atualizar senha</button></form></section><section class="panel"><h3>Seus dados</h3><p>O backup inclui apenas os registros que sua conta pode acessar. O arquivo contém informações financeiras.</p>${button("export", "Exportar backup JSON", "secondary full")}${admin() ? button("import", "Importar relatório ou backup", "secondary full section-gap") : ""}<p class="fine">A importação mostra uma prévia e adiciona registros em revisão. Nenhum histórico é substituído automaticamente.</p></section><section class="panel"><h3>Como os números funcionam</h3><p>Gastos entram pelo valor total na data da compra. Parcelas aparecem nas faturas seguintes. Pagamentos de faturas, transferências e principal de dívidas não criam nova despesa.</p><p>Saldo inicial desconhecido permanece desconhecido. Registros em revisão ficam fora dos cálculos.</p></section></div>`;
-}
-function entryForm(preset: Partial<Entry> = {}) {
-  const e = {
-    kind: "expense",
-    date: today(),
-    category: "Mercado",
-    area: "household",
-    status: "paid",
-    payment: "cash",
-    installments: 1,
-    ...preset,
-  };
-  const conditional = (name: string, content: string, wide = false) =>
-    `<div class="conditional-field ${wide ? "wide" : ""}" data-entry-field="${name}">${content}</div>`;
-  return `<form id="entry-form" class="form-grid">${input("id", "hidden", e.id || "")}${field(
-    "kind",
-    "O que você quer registrar?",
-    `<select name="kind">${[
-      ["expense", "Registrar gasto"],
-      ["payable", "Conta a pagar"],
-      ["income", "Receita"],
-      ["card_payment", "Pagamento de fatura"],
-      ["transfer", "Transferência"],
-      ["debt_payment", "Pagamento de principal"],
-    ]
-      .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
-      .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
-      .join("")}</select>`,
-  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + '<datalist id="categories">' + ["Mercado", "Moradia", "Transporte", "Saúde", "Educação", "Lazer", "Salário", "Outros"].map((c) => `<option>${c}</option>`).join("") + "</datalist>")}${field(
-    "area",
-    "Área",
-    `<select name="area">${[
-      ["household", "Lar / família"],
-      ["personal", "Pessoal"],
-      ["business", "Empresa"],
-    ]
-      .map(([v, l]) => opt(v, l, e.area))
-      .join("")}</select>`,
-  )}${conditional("status", field(
-    "status",
-    "Situação",
-    `<select name="status">${[
-      ["paid", "Confirmado / pago"],
-      ["pending", "A pagar"],
-      ["pending_review", "Em revisão"],
-    ]
-      .map(([v, l]) => opt(v, l, e.status))
-      .join("")}</select>`,
-  ))}${conditional("source", field("source_ref", "Referência / origem", input("source_ref", "text", e.source_ref || "", 'maxlength="160"'), true))}</div></details><p class="installment-preview wide" id="installment-preview" aria-live="polite"></p>${conditional("account", field("account_id", "Conta usada", `<select name="account_id">${accountOptions(e.account_id)}</select>`))}${conditional("target-account", field("target_account_id", "Conta de destino", `<select name="target_account_id">${accountOptions(e.target_account_id)}</select>`))}${conditional("invoice-month", field("invoice_month", "Competência da fatura paga", input("invoice_month", "month", e.invoice_month || month)))}${conditional("debt", field(
-    "debt_id",
-    "Dívida (pagamento de principal)",
-    `<select name="debt_id">${
-      opt("", "Sem dívida") +
-      api
-        .data!.debts.filter(own)
-        .map((d) => opt(d.id, d.name, e.debt_id))
-        .join("")
-    }</select>`,
-  ))}<p class="fine wide">O registro começa privado e pode ser compartilhado depois.</p>${formEnd("Salvar lançamento")}</form>`;
-}
-function modalContent() {
-  const d = api.data!;
-  const p = d.pantry.find((p) => p.id === editId),
-    g = d.goals.find((g) => g.id === editId);
-  switch (modal) {
-    case "entry":
-      return entryForm(editId ? d.entries.find((e) => e.id === editId) : {});
-    case "card-payment":
-      return entryForm({
-        kind: "card_payment",
-        card_id: editId,
-        invoice_month: month,
-        description: "Pagamento de fatura",
-        category: "Fatura",
-        amount_cents: invoice(d, d.cards.find((c) => c.id === editId)!, month)
-          .remaining,
-      });
-    case "debt-payment":
-      return entryForm({
-        kind: "debt_payment",
-        debt_id: editId,
-        description: "Pagamento de principal",
-        category: "Dívidas",
-      });
-    case "card": {
-      const card = d.cards.find((item) => item.id === editId);
-      return `<form id="card-form" class="form-grid">${input("id", "hidden", card?.id || "")}${field("name", "Nome do cartão", input("name", "text", card?.name || "", 'maxlength="160" required'), true)}${field("limit", "Limite (R$, opcional)", moneyInput("limit", card?.limit_cents == null ? "" : (card.limit_cents / 100).toFixed(2).replace(".", ",")))}${field("closing_day", "Dia de fechamento", input("closing_day", "number", card?.closing_day ?? 10, 'min="1" max="31" required'))}${field("due_day", "Dia de vencimento", input("due_day", "number", card?.due_day ?? 17, 'min="1" max="31" required'))}${card ? '<p class="fine wide">Ao mudar o fechamento, as compras antigas mantêm a primeira fatura que já era exibida.</p>' : '<p class="fine wide">Sugestão padrão: fechamento dia 10 e vencimento dia 17. Ajuste conforme a fatura do cartão. Não informe número completo nem código de segurança.</p>'}${formEnd()}</form>`;
-    }
-    case "account": {
-      const a = d.accounts.find((item) => item.id === editId);
-      return `<form id="account-form" class="form-grid">${input("id", "hidden", a?.id || "")}${field("name", "Nome", input("name", "text", a?.name || "", 'maxlength="160" required'), true)}${field("area", "Área", `<select name="area">${opt("personal", "Pessoal", a?.area) + opt("household", "Lar", a?.area) + opt("business", "Empresa", a?.area)}</select>`)}${field("opening", "Saldo ao fim da data-base (R$, opcional)", moneyInput("opening", a?.opening_cents == null ? "" : (a.opening_cents / 100).toFixed(2).replace(".", ",")))}${field("date", "Data-base do saldo", input("date", "date", a?.balance_date || today()))}<p class="fine wide">Pagamentos, receitas e transferências após essa data atualizam o saldo. Ao alterar a data-base, informe o saldo que havia no fim daquele dia.</p>${formEnd()}</form>`;
-    }
-    case "debt":
-      return `<form id="debt-form" class="form-grid">${field("name", "Descrição", input("name", "text", "", 'maxlength="160" required'), true)}${field("creditor", "Credor", input("creditor", "text", "", 'maxlength="160" required'))}${field("balance", "Principal devido (R$, opcional)", moneyInput("balance"))}${field("due_date", "Vencimento", input("due_date", "date"))}${field("area", "Área", `<select name="area">${opt("household", "Lar") + opt("personal", "Pessoal") + opt("business", "Empresa")}</select>`)}${formEnd()}</form>`;
-    case "pantry":
-      return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", "Estoque contado hoje", input("quantity", "number", p ? forecast(p).stock : 0, 'min="0" step="0.01" required'))}${field("unit", "Unidade", `<select name="unit">${["unidade", "kg", "litro", "pacote", "caixa"].map((u) => opt(u, u, p?.unit)).join("")}</select>`)}${field("minimum", "Estoque mínimo", input("minimum", "number", p?.minimum || 1, 'min="0" step="0.01" required'))}${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.01" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<p class="fine wide">O consumo diário gera uma estimativa. Zero mantém o estoque fixo até a próxima contagem.</p>${formEnd()}</form>`;
-    case "shopping":
-      return `<form id="shopping-form" class="form-grid">${field("name", "Produto", input("name", "text", "", 'maxlength="151" required'), true)}${field("quantity", "Quantidade", input("quantity", "number", 1, 'min="0.01" step="0.01" required'))}${field("unit", "Unidade", input("unit", "text", "unidade", 'maxlength="20" required'))}${field("price", "Preço estimado por unidade (R$)", moneyInput("price"))}${formEnd()}</form>`;
-    case "goal":
-      return `<form id="goal-form" class="form-grid">${input("id", "hidden", g?.id || "")}${field("name", "Nome da meta", input("name", "text", g?.name || "", 'maxlength="160" required'), true)}${field("target", "Objetivo (R$)", moneyInput("target", g ? (g.target_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("saved", "Valor guardado (R$)", moneyInput("saved", g ? (g.saved_cents / 100).toFixed(2).replace(".", ",") : "0,00"))}${field("due_date", "Data desejada", input("due_date", "date", g?.due_date || ""))}${formEnd()}</form>`;
-    case "document":
-      return `<form id="document-form" class="form-grid">${field("file", "Arquivo (até 10 MB)", `<input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required>`, true)}${field(
-        "entry_id",
-        "Vincular a lançamento",
-        `<select name="entry_id">${
-          opt("", "Sem lançamento") +
-          d.entries
-            .filter(own)
-            .map((e) => opt(e.id, e.description))
-            .join("")
-        }</select>`,
-        true,
-      )}${field("card_id", "Ou vincular a cartão", `<select name="card_id">${cardOptions()}</select>`, true)}${formEnd("Enviar documento")}</form>`;
-    case "recurring":
-      return `<form id="recurring-form" class="form-grid">${field("name", "Descrição", input("name", "text", "", 'maxlength="160" required'), true)}${field("amount", "Valor previsto (R$)", moneyInput("amount"))}${field("day", "Dia do vencimento", input("day", "number", 5, 'min="1" max="31" required'))}${field("start_month", "A partir do mês", input("start_month", "month", month, "required"))}${field("category", "Categoria", input("category", "text", "Moradia", 'maxlength="80" required'))}${field("area", "Área", `<select name="area">${opt("household", "Lar") + opt("personal", "Pessoal") + opt("business", "Empresa")}</select>`)}${formEnd()}</form>`;
-    case "member":
-      return `<form id="member-form" class="form-grid">${field("name", "Nome", input("name", "text", "", 'maxlength="80" required'), true)}${field("email", "E-mail", input("email", "email", "", 'autocomplete="off" required'), true)}${field("password", "Senha inicial", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}<p class="fine wide">Envie a senha inicial à pessoa de forma privada. Ela poderá trocá-la no próprio painel. O usuário começa com permissões de gastos, cartões, pagamentos, anexos, despensa e compras.</p>${formEnd("Criar usuário")}</form>`;
-    case "import":
-      return `<form id="import-form" class="form-grid">${field("file", "Relatório CSV ou backup JSON", `<input type="file" name="file" accept=".csv,.json" required>`, true)}<p class="fine wide">CSV: descrição;valor;data;categoria;área. Data no formato AAAA-MM-DD. Cada registro entra como pendente de revisão. PDFs e imagens podem ser anexados, mas não são interpretados automaticamente.</p>${formEnd("Ver prévia")}</form>`;
-    case "import-preview":
-      return `<div><p>${importRows.length} registro(s). Serão adicionados ao seu usuário como privados e em revisão.</p><div class="import-list">${importRows
-        .slice(0, 30)
-        .map(
-          (e) =>
-            `<p>${esc(e.date)} · ${esc(e.description)} · <strong>${brl(e.amount_cents!)}</strong></p>`,
-        )
-        .join(
-          "",
-        )}</div><p class="fine">Confirme os valores e a origem. Possíveis duplicatas são bloqueadas pela prévia.</p><div class="form-actions">${button("close", "Cancelar", "secondary")}${button("confirm-import", "Adicionar para revisão")}</div></div>`;
-    default:
-      return "";
-  }
-}
-function render() {
-  const pref = api.data ? api.preferences : defaultPreferences();
-  const surface = document.documentElement;
-  surface.dataset.theme = pref.theme;
-  surface.dataset.palette = pref.palette;
-  surface.dataset.textSize = pref.text_size;
-  surface.dataset.comfortable = String(pref.comfortable);
-  surface.dataset.hideValues = String(pref.hide_values);
-  if (!api.data) {
-    root.innerHTML = login();
-    return;
-  }
-  const titles: Record<string, string> = {
-    entry: "Novo lançamento",
-    "card-payment": "Pagamento de fatura",
-    "debt-payment": "Pagamento de principal",
-    card: editId ? "Editar cartão" : "Novo cartão",
-    account: "Nova conta",
-    debt: "Nova dívida",
-    pantry: editId ? "Contagem da despensa" : "Novo produto",
-    shopping: "Adicionar à lista",
-    goal: "Seu próximo objetivo",
-    document: "Anexar documento",
-    recurring: "Nova despesa fixa",
-    member: "Novo usuário da família",
-    import: "Importar relatório",
-    "import-preview": "Confira antes de importar",
-  };
-  const views: Record<string, () => string> = {
-    overview: summary,
-    entries,
-    cards,
-    accounts,
-    pantry,
-    shopping,
-    planning,
-    goals,
-    documents,
-    family,
-    settings,
-  };
-  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
+  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "…7790 tokens truncated…id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
     .filter(([id]) =>
       ["overview", "entries", "pantry", "shopping", "settings"].includes(id),
     )
@@ -682,6 +508,8 @@ root.addEventListener("click", (event) => {
     "add-pantry": "pantry",
     "edit-pantry": "pantry",
     "add-shopping": "shopping",
+    "add-reminder": "reminder",
+    "edit-reminder": "reminder",
     "add-goal": "goal",
     "edit-goal": "goal",
     "add-document": "document",
@@ -701,8 +529,24 @@ root.addEventListener("click", (event) => {
           id,
           b.dataset.shared !== "true",
         ),
-      "Visibilidade atualizada.",
+      "Compartilhamento atualizado.",
     );
+    return;
+  }
+  if (a === "quick-shop") {
+    const name = b.dataset.name || "";
+    const preset = quickGroceries.find(([n]) => n === name);
+    if (api.data!.shopping.some((item) => !item.bought && item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      notice = "Este item já está na lista.";
+      render();
+      return;
+    }
+    void run(() => api.save("shopping", { name, pantry_id: null, quantity: 1, unit: preset?.[1] || "unidade", estimate_cents: 0, bought: false }), "Item adicionado à lista.");
+    return;
+  }
+  if (a === "finish-reminder") {
+    const reminder = api.data!.reminders.find((item) => item.id === id)!;
+    void run(() => api.save("reminders", reminder.recurrence === "once" ? { id, completed: true } : { id, due_on: nextReminderDate(reminder), completed: false }), reminder.recurrence === "once" ? "Lembrete concluído." : "Próximo aviso atualizado.");
     return;
   }
   if (a === "share-balance") {
@@ -1187,6 +1031,7 @@ root.addEventListener("submit", (event) => {
         kind,
         category: val(f, "category"),
         area: val(f, "area"),
+        shared: admin() ? (existing?.shared ?? false) : val(f, "area") !== "personal" ? true : (existing?.area === "personal" ? existing.shared : false),
         status: task === "payable" ? "pending" : val(f, "status"),
         payment,
         card_id:
@@ -1253,6 +1098,8 @@ root.addEventListener("submit", (event) => {
         expires_on: val(f, "expires_on") || null,
         updated_at: new Date().toISOString(),
       });
+    else if (f.getAttribute("id") === "reminder-form")
+      await api.save("reminders", { ...(id ? { id } : {}), title: val(f, "title"), due_on: val(f, "due_on"), recurrence: val(f, "recurrence"), completed: false });
     else if (f.getAttribute("id") === "shopping-form")
       await api.save("shopping", {
         name: val(f, "name"),
