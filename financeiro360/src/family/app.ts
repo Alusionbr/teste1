@@ -32,6 +32,8 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 let page = "overview",
   month = today().slice(0, 7),
   calendarSelectedDate = today(),
+  calendarFilter: "all" | "reminder" | "due_date" = "all",
+  newReminderKind: Reminder["kind"] = "reminder",
   notice = "",
   busy = false,
   filter = "",
@@ -90,7 +92,7 @@ const nav = [
   ["family", "Família e acesso"],
 ];
 const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
-const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || (id === "reminders" || id === "calendar") && api.data!.reminders.some((r) => !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
+const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || (id === "reminders" || id === "calendar") && api.data!.reminders.some((r) => r.kind !== "post_it" && r.due_on && !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
 function sidebarNav() {
   const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
   const other = nav.filter(([id]) => !primaryNav.has(id)).map(navButton).join("");
@@ -142,7 +144,7 @@ const reminderTiming = (date: string) => {
   const days = daysFromToday(date);
   return days < 0 ? `Atrasado há ${Math.abs(days)} dia(s)` : days === 0 ? "Hoje" : days === 1 ? "Amanhã" : `Em ${days} dias`;
 };
-const nextReminderDate = (reminder: Reminder) => {
+const nextReminderDate = (reminder: Reminder & { due_on: string }) => {
   if (reminder.recurrence === "weekly")
     return new Date(Date.parse(`${reminder.due_on}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10);
   const months = reminder.recurrence === "yearly" ? 12 : 1;
@@ -153,6 +155,7 @@ const nextReminderDate = (reminder: Reminder) => {
   return `${targetMonth}-${String(Math.min(day, last)).padStart(2, "0")}`;
 };
 const reminderDatesInMonth = (reminder: Reminder, monthKey: string) => {
+  if (!reminder.due_on || reminder.kind === "post_it") return [];
   const dates: string[] = [];
   const [year, monthNumber] = monthKey.split("-").map(Number);
   const start = `${monthKey}-01`;
@@ -240,8 +243,8 @@ function summary() {
   const trend = previous
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
-  const dueReminders = d.reminders.filter((r) => !r.completed && daysFromToday(r.due_on) <= 7).sort((a, b) => a.due_on.localeCompare(b.due_on));
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${esc(r.title)}</strong> · ${reminderTiming(r.due_on)}`).join("<br>")}</p></div>${button("nav", "Ver calendário", "secondary", 'data-page="calendar"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  const dueReminders = d.reminders.filter((r) => r.kind !== "post_it" && r.due_on && !r.completed && daysFromToday(r.due_on) <= 7).sort((a, b) => a.due_on!.localeCompare(b.due_on!));
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${r.kind === "due_date" ? "Vencimento: " : ""}${esc(r.title)}</strong> · ${reminderTiming(r.due_on!)}`).join("<br>")}</p></div>${button("nav", "Ver calendário", "secondary", 'data-page="calendar"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -370,6 +373,7 @@ function calendar() {
   const weeks = Math.ceil((offset + count) / 7);
   const events = new Map<string, { reminder: Reminder; occurrence: string }[]>();
   for (const reminder of d.reminders) {
+    if (calendarFilter !== "all" && reminder.kind !== calendarFilter) continue;
     for (const occurrence of reminderDatesInMonth(reminder, month)) {
       const list = events.get(occurrence) || [];
       list.push({ reminder, occurrence });
@@ -381,20 +385,23 @@ function calendar() {
     if (day < 1 || day > count) return '<div class="calendar-day outside" aria-hidden="true"></div>';
     const date = `${month}-${String(day).padStart(2, "0")}`;
     const rows = events.get(date) || [];
-    return `<button type="button" class="calendar-day ${date === today() ? "today" : ""} ${date === calendarSelectedDate ? "selected" : ""} ${rows.length ? "has-events" : ""}" data-action="calendar-day" data-date="${date}" aria-label="${day} de ${month.split("-")[1]}: ${rows.length} aviso(s)"><span class="calendar-day-number">${day}</span>${rows.length ? `<span class="calendar-day-events">${rows.slice(0, 2).map(({ reminder }) => `<i class="${reminder.completed ? "done" : ""}"></i>`).join("")}${rows.length > 2 ? `<small>+${rows.length - 2}</small>` : ""}</span>` : ""}</button>`;
+    return `<button type="button" class="calendar-day ${date === today() ? "today" : ""} ${date === calendarSelectedDate ? "selected" : ""} ${rows.length ? "has-events" : ""}" data-action="calendar-day" data-date="${date}" aria-label="${day} de ${month.split("-")[1]}: ${rows.length} aviso(s)"><span class="calendar-day-number">${day}</span>${rows.length ? `<span class="calendar-day-events">${rows.slice(0, 2).map(({ reminder }) => `<i class="${reminder.completed ? "done" : ""} ${reminder.kind === "due_date" ? "due-dot" : ""}"></i>`).join("")}${rows.length > 2 ? `<small>+${rows.length - 2}</small>` : ""}</span>` : ""}</button>`;
   }).join("");
   const selectedEvents = events.get(calendarSelectedDate) || [];
-  const eventRow = ({ reminder }: { reminder: Reminder; occurrence: string }) => `<article class="record reminder-record calendar-event"><span class="record-icon">${icon("reminders")}</span><div class="record-info"><strong>${esc(reminder.title)}</strong><small>${reminder.recurrence === "once" ? "Aviso" : ({ weekly: "Semanal", monthly: "Mensal", yearly: "Anual" }[reminder.recurrence])} · ${esc(names(reminder.owner_id))}${reminder.completed ? " · Concluído" : ""}</small></div>${!reminder.completed && own(reminder) ? button("finish-reminder", reminder.recurrence === "once" ? "Concluir" : "Feito", "secondary", `data-id="${reminder.id}"`) : ""}${own(reminder) ? button("edit-reminder", "Editar", "text-button", `data-id="${reminder.id}"`) : ""}</article>`;
-  return `<section class="page-intro"><div><h2>Calendário da família</h2><p>Compromissos e lembretes compartilhados em um só lugar.</p></div>${api.allowed("entries") ? button("add-reminder-day", icon("plus") + " Criar aviso", "primary", `data-date="${calendarSelectedDate}"`) : ""}</section><section class="panel calendar-panel"><div class="calendar-toolbar"><button type="button" class="secondary" data-action="calendar-shift" data-step="-1" aria-label="Mês anterior">‹</button><h3>${monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}</h3><button type="button" class="secondary" data-action="calendar-shift" data-step="1" aria-label="Próximo mês">›</button>${button("calendar-today", "Hoje", "text-button")}</div><div class="calendar-grid calendar-weekdays">${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-grid">${days}</div><div class="calendar-legend"><span><i></i> Aviso agendado</span><span><i class="done"></i> Lembrete concluído</span></div></section><section class="panel calendar-agenda"><div class="panel-title"><div><span class="eyebrow">AGENDA DO DIA</span><h3>${calendarSelectedDate.split("-").reverse().join("/")}</h3></div>${api.allowed("entries") ? button("add-reminder-day", "Adicionar aviso neste dia", "secondary", `data-date="${calendarSelectedDate}"`) : ""}</div>${selectedEvents.length ? selectedEvents.map(eventRow).join("") : `<p class="fine">Nenhum aviso neste dia. ${api.allowed("entries") ? "Adicione um para manter a família em dia." : "Os avisos compartilhados aparecerão aqui."}</p>`}<p class="fine">Os avisos ficam compartilhados com os membros ativos da família. Os lembretes recorrentes aparecem em cada data prevista.</p></section>`;
+  const eventRow = ({ reminder }: { reminder: Reminder; occurrence: string }) => `<article class="record reminder-record calendar-event ${reminder.kind === "due_date" ? "due-date-event" : ""}"><span class="record-icon">${icon(reminder.kind === "due_date" ? "debt" : "reminders")}</span><div class="record-info"><strong>${esc(reminder.title)}</strong><small>${reminder.kind === "due_date" ? "Vencimento" : "Lembrete"}${reminder.recurrence !== "once" ? ` · ${({ weekly: "Semanal", monthly: "Mensal", yearly: "Anual" }[reminder.recurrence])}` : ""} · ${esc(names(reminder.owner_id))}${reminder.note ? ` · ${esc(reminder.note)}` : ""}${reminder.completed ? " · Concluído" : ""}</small></div>${!reminder.completed && own(reminder) ? button("finish-reminder", reminder.recurrence === "once" ? "Concluir" : "Feito", "secondary", `data-id="${reminder.id}"`) : ""}${own(reminder) ? button("edit-reminder", "Editar", "text-button", `data-id="${reminder.id}"`) : ""}</article>`;
+  return `<section class="page-intro"><div><h2>Calendário da família</h2><p>Compromissos e lembretes compartilhados em um só lugar.</p></div>${api.allowed("entries") ? button("add-reminder-day", icon("plus") + " Criar aviso", "primary", `data-date="${calendarSelectedDate}"`) : ""}</section><section class="panel calendar-panel"><div class="calendar-toolbar"><button type="button" class="secondary" data-action="calendar-shift" data-step="-1" aria-label="Mês anterior">‹</button><h3>${monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}</h3><button type="button" class="secondary" data-action="calendar-shift" data-step="1" aria-label="Próximo mês">›</button>${button("calendar-today", "Hoje", "text-button")}</div><div class="calendar-filters"><button type="button" class="${calendarFilter === "all" ? "active" : ""}" data-action="calendar-filter" data-filter="all">Todos</button><button type="button" class="${calendarFilter === "reminder" ? "active" : ""}" data-action="calendar-filter" data-filter="reminder">Lembretes</button><button type="button" class="${calendarFilter === "due_date" ? "active" : ""}" data-action="calendar-filter" data-filter="due_date">Vencimentos</button></div><div class="calendar-grid calendar-weekdays">${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-grid">${days}</div><div class="calendar-legend"><span><i></i> Aviso agendado</span><span><i class="done"></i> Lembrete concluído</span></div></section><section class="panel calendar-agenda"><div class="panel-title"><div><span class="eyebrow">AGENDA DO DIA</span><h3>${calendarSelectedDate.split("-").reverse().join("/")}</h3></div>${api.allowed("entries") ? button("add-reminder-day", "Adicionar aviso neste dia", "secondary", `data-date="${calendarSelectedDate}"`) : ""}</div>${selectedEvents.length ? selectedEvents.map(eventRow).join("") : `<p class="fine">Nenhum aviso neste dia. ${api.allowed("entries") ? "Adicione um para manter a família em dia." : "Os avisos compartilhados aparecerão aqui."}</p>`}<p class="fine">Os avisos ficam compartilhados com os membros ativos da família. Os lembretes recorrentes aparecem em cada data prevista.</p></section>`;
 }
 function reminders() {
   const d = api.data!;
-  const active = d.reminders.filter((item) => !item.completed)
-    .sort((a, b) => a.due_on.localeCompare(b.due_on));
-  const completed = d.reminders.filter((item) => item.completed)
-    .sort((a, b) => b.due_on.localeCompare(a.due_on));
-  const row = (item: Reminder) => `<article class="record reminder-record"><span class="record-icon">${icon("reminders")}</span><div class="record-info"><strong>${esc(item.title)}</strong><small><span class="${daysFromToday(item.due_on) < 0 ? "reminder-late" : ""}">${reminderTiming(item.due_on)}</span> · ${item.due_on.split("-").reverse().join("/")}${item.recurrence !== "once" ? ` · ${({weekly:"Toda semana",monthly:"Todo mês",yearly:"Todo ano"}[item.recurrence])}` : ""} · ${esc(names(item.owner_id))}</small></div>${!item.completed && own(item) ? button("finish-reminder", item.recurrence === "once" ? "Concluir" : "Feito, lembrar depois", "secondary", `data-id="${item.id}"`) : ""}${own(item) ? button("edit-reminder", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("reminders", item.id) : ""}</article>`;
-  return `<section class="page-intro"><div><h2>Pequenos lembretes, casa em dia.</h2><p>Avisos simples de tarefas e datas da família.</p></div><div class="button-row">${button("nav", "Abrir calendário", "secondary", 'data-page="calendar"')}${api.allowed("entries") ? button("add-reminder", icon("plus") + " Novo lembrete") : ""}</div></section><section class="panel"><div class="panel-title"><h3>Por fazer</h3><span class="badge">${active.length}</span></div>${active.map(row).join("") || empty("Sem lembretes pendentes", "add-reminder")}<p class="fine">Os avisos aparecem no painel quando você abrir o app. Lembretes recorrentes avançam para a próxima data ao concluir.</p></section><details class="panel reminder-history"><summary>Concluídos (${completed.length})</summary>${completed.map(row).join("") || '<p class="fine">Nenhum lembrete concluído ainda.</p>'}</details>`;
+  const dated = d.reminders.filter((item) => item.kind !== "post_it" && item.due_on);
+  const active = dated.filter((item) => !item.completed).sort((a, b) => a.due_on!.localeCompare(b.due_on!));
+  const completed = dated.filter((item) => item.completed).sort((a, b) => b.due_on!.localeCompare(a.due_on!));
+  const dueDates = active.filter((item) => item.kind === "due_date");
+  const tasks = active.filter((item) => item.kind === "reminder");
+  const notes = d.reminders.filter((item) => item.kind === "post_it");
+  const row = (item: Reminder) => `<article class="record reminder-record ${item.kind === "due_date" ? "due-date-event" : ""}"><span class="record-icon">${icon(item.kind === "due_date" ? "debt" : "reminders")}</span><div class="record-info"><strong>${esc(item.title)}</strong><small>${item.due_on ? `<span class="${daysFromToday(item.due_on) < 0 ? "reminder-late" : ""}">${reminderTiming(item.due_on)}</span> · ${item.due_on.split("-").reverse().join("/")}` : "Post-it"}${item.kind === "due_date" ? " · Vencimento" : " · Lembrete"}${item.recurrence !== "once" ? ` · ${({weekly:"Toda semana",monthly:"Todo mês",yearly:"Todo ano"}[item.recurrence])}` : ""} · ${esc(names(item.owner_id))}${item.note ? `<br>${esc(item.note)}` : ""}</small></div>${!item.completed && own(item) ? button("finish-reminder", item.recurrence === "once" ? "Concluir" : "Feito, lembrar depois", "secondary", `data-id="${item.id}"`) : ""}${own(item) ? button("edit-reminder", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("reminders", item.id) : ""}</article>`;
+  const postIt = (item: Reminder) => `<article class="post-it post-it-${item.color}" role="note"><div><span class="badge">Post-it</span>${own(item) ? `<span class="post-it-actions">${button("edit-reminder", "Editar", "text-button", `data-id="${item.id}"`)}${deleteButton("reminders", item.id)}</span>` : ""}</div><h3>${esc(item.title)}</h3>${item.note ? `<p>${esc(item.note)}</p>` : ""}<small>${esc(names(item.owner_id))}</small></article>`;
+  return `<section class="page-intro"><div><h2>Lembretes e avisos da família</h2><p>Datas, vencimentos e recados compartilhados num só lugar.</p></div><div class="button-row">${button("nav", "Abrir calendário", "secondary", 'data-page="calendar"')}${api.allowed("entries") ? button("add-reminder", icon("plus") + " Novo lembrete") + button("add-due-date", "Novo vencimento", "secondary") + button("add-post-it", "Novo post-it", "secondary") : ""}</div></section><section class="panel"><div class="panel-title"><div><span class="eyebrow">DATAS IMPORTANTES</span><h3>Lembretes</h3></div><span class="badge">${tasks.length}</span></div>${tasks.map(row).join("") || '<p class="fine">Nenhum lembrete pendente.</p>'}</section><section class="panel section-gap due-date-panel"><div class="panel-title"><div><span class="eyebrow">CONTAS E COMPROMISSOS</span><h3>Vencimentos</h3></div><span class="badge">${dueDates.length}</span></div>${dueDates.map(row).join("") || '<p class="fine">Nenhum vencimento pendente.</p>'}</section><section class="panel section-gap post-it-board"><div class="panel-title"><div><span class="eyebrow">RECADOS RÁPIDOS</span><h3>Post-its da família</h3></div>${api.allowed("entries") ? button("add-post-it", "Adicionar post-it", "secondary") : ""}</div><div class="post-it-grid">${notes.map(postIt).join("") || '<p class="fine">O mural está vazio. Adicione um recado para todos verem.</p>'}</div></section><details class="panel reminder-history section-gap"><summary>Concluídos (${completed.length})</summary>${completed.map(row).join("") || '<p class="fine">Nenhum item concluído ainda.</p>'}</details>`;
 }
 function planning() {
   return `<section class="page-intro"><div><h2>Um mês com menos surpresas.</h2><p>Despesas fixas previstas e limite mensal do lar.</p></div><div class="button-row">${api.allowed("entries") ? button("add-recurring", "Cadastrar despesa fixa") + button("plan-month", "Gerar contas do mês", "secondary") : ""}</div></section><section class="panel"><h3>Contas que se repetem</h3>${api.data!.recurring.map((r) => `<article class="record"><span class="record-icon">${icon("entries")}</span><div class="record-info"><strong>${esc(r.name)}</strong><small>Dia ${r.day} · desde ${r.start_month} · ${esc(names(r.owner_id))}</small></div><strong>${brl(r.amount_cents)}</strong><div class="record-actions">${share("recurring", r)}${own(r) && api.allowed("entries") ? deleteButton("recurring", r.id) : ""}</div></article>`).join("") || empty("Cadastre aluguel, internet e outras contas", "add-recurring")}<p class="fine">Gerar contas cria compromissos a pagar uma única vez por mês. A geração nunca informa um pagamento automaticamente. Contas já geradas permanecem no histórico.</p></section>`;
@@ -548,7 +555,9 @@ function modalContent() {
       return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", "Estoque contado hoje", input("quantity", "number", p ? forecast(p).stock : 0, 'min="0" step="0.01" required'))}${field("unit", "Unidade", `<select name="unit">${["unidade", "kg", "litro", "pacote", "caixa"].map((u) => opt(u, u, p?.unit)).join("")}</select>`)}${field("minimum", "Estoque mínimo", input("minimum", "number", p?.minimum || 1, 'min="0" step="0.01" required'))}${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.01" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<p class="fine wide">O consumo diário gera uma estimativa. Zero mantém o estoque fixo até a próxima contagem.</p>${formEnd()}</form>`;
     case "reminder": {
       const r = d.reminders.find((item) => item.id === editId);
-      return `<form id="reminder-form" class="form-grid">${input("id", "hidden", r?.id || "")}${field("title", "O que lembrar?", input("title", "text", r?.title || "", 'maxlength="120" placeholder="Ex.: pagar conta de luz" required'), true)}${field("due_on", "Data", input("due_on", "date", r?.due_on || (page === "calendar" ? calendarSelectedDate : today()), "required"))}${field("recurrence", "Repetir", `<select name="recurrence">${opt("once", "Só uma vez", r?.recurrence || "once") + opt("weekly", "Toda semana", r?.recurrence) + opt("monthly", "Todo mês", r?.recurrence) + opt("yearly", "Todo ano", r?.recurrence)}</select>`) }<p class="fine wide">Os lembretes ficam visíveis para a família e aparecem no painel perto da data.</p>${formEnd()}</form>`;
+      const kind = r?.kind || newReminderKind;
+      const postIt = kind === "post_it";
+      return `<form id="reminder-form" class="form-grid">${input("id", "hidden", r?.id || "")}${field("kind", "Tipo de aviso", `<select name="kind">${opt("reminder", "Lembrete com data", kind) + opt("due_date", "Vencimento", kind) + opt("post_it", "Post-it compartilhado", kind)}</select>`, true)}${field("title", postIt ? "Título do post-it" : kind === "due_date" ? "O que vence?" : "O que lembrar?", input("title", "text", r?.title || "", 'maxlength="120" placeholder="Ex.: pagar conta de luz" required'), true)}<label class="wide"><span>Detalhes ou recado (opcional)</span><textarea name="note" maxlength="3000" rows="3" placeholder="Escreva um recado curto para a família">${esc(r?.note || "")}</textarea></label><div data-reminder-field="date" ${postIt ? "hidden" : ""}>${field("due_on", kind === "due_date" ? "Data de vencimento" : "Data", input("due_on", "date", r?.due_on || (postIt ? "" : page === "calendar" ? calendarSelectedDate : today()), postIt ? "" : "required"))}</div><div data-reminder-field="recurrence" ${postIt ? "hidden" : ""}>${field("recurrence", "Repetir", `<select name="recurrence">${opt("once", "Só uma vez", r?.recurrence || "once") + opt("weekly", "Toda semana", r?.recurrence) + opt("monthly", "Todo mês", r?.recurrence) + opt("yearly", "Todo ano", r?.recurrence)}</select>`)}</div><div data-reminder-field="color" ${postIt ? "" : "hidden"}>${field("color", "Cor do post-it", `<select name="color">${opt("yellow", "Amarelo", r?.color || "yellow") + opt("blue", "Azul", r?.color) + opt("pink", "Rosa", r?.color) + opt("green", "Verde", r?.color)}</select>`)}</div><p class="fine wide">Lembretes, vencimentos e post-its ficam visíveis para os membros ativos da família.</p>${formEnd("Salvar aviso")}</form>`;
     }
     case "shopping": {
       const item = d.shopping.find((row) => row.id === editId);
@@ -749,6 +758,7 @@ root.addEventListener("click", (event) => {
   if (a === "add-reminder-day") {
     const date = b.dataset.date || calendarSelectedDate;
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) calendarSelectedDate = date;
+    newReminderKind = "reminder";
     show("reminder");
     return;
   }
@@ -817,6 +827,18 @@ root.addEventListener("click", (event) => {
     void run(() => api.savePreferences(readPreferenceForm(form)), "Ordem do painel salva.");
     return;
   }
+  if (a === "add-due-date" || a === "add-post-it") {
+    newReminderKind = a === "add-due-date" ? "due_date" : "post_it";
+    show("reminder");
+    return;
+  }
+  if (a === "calendar-filter") {
+    const filter = b.dataset.filter;
+    if (filter === "all" || filter === "reminder" || filter === "due_date") calendarFilter = filter;
+    render();
+    return;
+  }
+  if (a === "add-reminder") newReminderKind = "reminder";
   const map: Record<string, string> = {
     "add-entry": "entry",
     "edit-entry": "entry",
@@ -869,7 +891,8 @@ root.addEventListener("click", (event) => {
   }
   if (a === "finish-reminder") {
     const reminder = api.data!.reminders.find((item) => item.id === id)!;
-    void run(() => api.save("reminders", reminder.recurrence === "once" ? { id, completed: true } : { id, due_on: nextReminderDate(reminder), completed: false }), reminder.recurrence === "once" ? "Lembrete concluído." : "Próximo aviso atualizado.");
+    if (!reminder.due_on) return;
+    void run(() => api.save("reminders", reminder.recurrence === "once" ? { id, completed: true } : { id, due_on: nextReminderDate(reminder as Reminder & { due_on: string }), completed: false }), reminder.kind === "due_date" ? "Vencimento concluído." : reminder.recurrence === "once" ? "Lembrete concluído." : "Próximo aviso atualizado.");
     return;
   }
   if (a === "share-balance") {
@@ -1008,8 +1031,8 @@ root.addEventListener("click", (event) => {
   }
 });
 root.addEventListener("change", (event) => {
-  if ((event.target as HTMLInputElement).closest("#entry-form"))
-    syncEntryForm();
+  if ((event.target as HTMLInputElement).closest("#entry-form")) syncEntryForm();
+  if ((event.target as HTMLInputElement).name === "kind" && (event.target as HTMLInputElement).closest("#reminder-form")) syncReminderForm();
   if (modal) return;
   const el = event.target as HTMLInputElement;
   if (el.name === "navigate") {
@@ -1064,6 +1087,25 @@ function readPreferenceForm(form: HTMLFormElement) {
       .map((item) => item.value as DashboardWidget),
     quick_actions: data.getAll("quick_action").map((item) => String(item) as QuickAction),
   };
+}
+function syncReminderForm() {
+  const form = root.querySelector<HTMLFormElement>("#reminder-form");
+  if (!form) return;
+  const kind = (form.elements.namedItem("kind") as HTMLSelectElement).value as Reminder["kind"];
+  const isPostIt = kind === "post_it";
+  const titleLabel = form.querySelector<HTMLElement>('[name="title"]')?.closest("label")?.querySelector("span");
+  if (titleLabel) titleLabel.textContent = isPostIt ? "Título do post-it" : kind === "due_date" ? "O que vence?" : "O que lembrar?";
+  const dateLabel = form.querySelector<HTMLElement>('[name="due_on"]')?.closest("label")?.querySelector("span");
+  if (dateLabel) dateLabel.textContent = kind === "due_date" ? "Data de vencimento" : "Data";
+  for (const [field, visible] of [["date", !isPostIt], ["recurrence", !isPostIt], ["color", isPostIt]] as const) {
+    const wrap = form.querySelector<HTMLElement>(`[data-reminder-field="${field}"]`);
+    if (!wrap) continue;
+    wrap.hidden = !visible;
+    wrap.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input,select").forEach((el) => {
+      el.disabled = !visible;
+      if (el.name === "due_on") el.required = visible;
+    });
+  }
 }
 function syncEntryForm() {
   const form = root.querySelector<HTMLFormElement>("#entry-form");
@@ -1424,12 +1466,16 @@ root.addEventListener("submit", (event) => {
         expires_on: val(f, "expires_on") || null,
         updated_at: new Date().toISOString(),
       });
-    else if (f.getAttribute("id") === "reminder-form")
-      await api.save("reminders", { ...(id ? { id } : {}), title: val(f, "title"), due_on: val(f, "due_on"), recurrence: val(f, "recurrence"), completed: false });
-      if (page === "calendar") {
-        calendarSelectedDate = val(f, "due_on");
-        month = calendarSelectedDate.slice(0, 7);
+    else if (f.getAttribute("id") === "reminder-form") {
+      const kind = val(f, "kind") as Reminder["kind"];
+      const dueOn = kind === "post_it" ? null : val(f, "due_on");
+      await api.save("reminders", { ...(id ? { id } : {}), kind, title: val(f, "title"), note: val(f, "note"), color: val(f, "color") || "yellow", due_on: dueOn, recurrence: kind === "post_it" ? "once" : val(f, "recurrence"), completed: false });
+      if (page === "calendar" && dueOn) {
+        calendarSelectedDate = dueOn;
+        month = dueOn.slice(0, 7);
       }
+      newReminderKind = "reminder";
+    }
     else if (f.getAttribute("id") === "shopping-form")
       await api.save("shopping", {
         name: val(f, "name"),
