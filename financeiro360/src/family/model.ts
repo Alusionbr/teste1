@@ -139,8 +139,11 @@ export interface Reminder {
   home_id: string;
   owner_id: string;
   title: string;
-  due_on: string;
+  due_on: string | null;
   recurrence: "once" | "weekly" | "monthly" | "yearly";
+  kind: "reminder" | "due_date" | "post_it";
+  note: string;
+  color: "yellow" | "blue" | "pink" | "green";
   completed: boolean;
   created_at?: string;
 }
