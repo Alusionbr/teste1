@@ -134,6 +134,16 @@ export interface Recurring extends RecordBase {
   day: number;
   start_month: string;
 }
+export interface Reminder {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  title: string;
+  due_on: string;
+  recurrence: "once" | "weekly" | "monthly" | "yearly";
+  completed: boolean;
+  created_at?: string;
+}
 export interface Data {
   home: Home;
   members: Member[];
@@ -147,6 +157,16 @@ export interface Data {
   documents: Document[];
   audit: Audit[];
   recurring: Recurring[];
+  reminders: Reminder[];
+}
+export function entryVisibleTo(
+  entry: Entry,
+  viewerId: string,
+  viewerRole: Member["role"],
+  members: Member[],
+) {
+  return entry.owner_id === viewerId || entry.shared ||
+    (viewerRole === "admin" && members.some((member) => member.user_id === entry.owner_id && member.role === "admin"));
 }
 export const today = () => {
   const d = new Date();
