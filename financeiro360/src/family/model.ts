@@ -64,6 +64,7 @@ export interface Entry extends RecordBase {
   due_date: string | null;
   kind: "expense" | "income" | "card_payment" | "transfer" | "debt_payment";
   category: string;
+  subcategory?: string | null;
   area: string;
   status: "paid" | "pending" | "pending_review";
   payment: "cash" | "card";
@@ -393,6 +394,9 @@ export function validateEntry(e: Entry) {
   if (
     !e.description.trim() ||
     e.description.length > 160 ||
+    !e.category.trim() ||
+    e.category.length > 80 ||
+    (e.subcategory != null && e.subcategory.length > 80) ||
     !Number.isSafeInteger(e.amount_cents) ||
     e.amount_cents <= 0 ||
     !validIsoDate(e.date) ||
