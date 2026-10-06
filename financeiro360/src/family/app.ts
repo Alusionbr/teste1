@@ -120,17 +120,42 @@ const cardOptions = (current?: string | null) =>
     .map((c) => opt(c.id, c.name, current))
     .join("");
 const commonCategories = [
-  "Mercado", "Moradia", "Contas da casa", "Delivery", "Restaurantes",
-  "Transporte", "Combustível", "Saúde", "Farmácia", "Educação",
-  "Crianças", "Pets", "Roupas", "Cuidados pessoais", "Lazer",
-  "Assinaturas", "Impostos", "Salário", "Investimentos", "Dívidas",
-  "Fatura", "Transferência", "Outros",
+  "Mercado", "Moradia", "Contas da casa", "Alimentação fora", "Transporte",
+  "Saúde", "Educação", "Família e filhos", "Pets", "Vestuário",
+  "Cuidados pessoais", "Lazer", "Assinaturas", "Impostos", "Salário",
+  "Investimentos", "Dívidas", "Fatura", "Transferência", "Outros",
 ];
-const categoryList = () => `<datalist id="categories">${Array.from(new Set([
+const subcategorySuggestions: Record<string, string[]> = {
+  Mercado: ["Supermercado", "Hortifruti", "Açougue", "Padaria", "Mercearia", "Feira"],
+  Moradia: ["Aluguel", "Prestação", "Condomínio", "Manutenção", "Móveis"],
+  "Contas da casa": ["Água", "Energia", "Gás", "Internet", "Telefone", "Limpeza"],
+  "Alimentação fora": ["Restaurante", "Delivery", "Lanche", "Café"],
+  Transporte: ["Combustível", "Aplicativo", "Transporte público", "Estacionamento", "Manutenção", "Pedágio"],
+  Saúde: ["Consulta", "Exames", "Medicamentos", "Vacinas", "Dentista", "Terapia", "Plano de saúde", "Óculos"],
+  Educação: ["Mensalidade", "Material escolar", "Uniforme", "Curso", "Atividade"],
+  "Família e filhos": ["Creche", "Cuidados infantis", "Mesada", "Atividade infantil", "Presente", "Ajuda à família"],
+  Pets: ["Ração", "Veterinário", "Medicamentos", "Banho e tosa", "Acessórios"],
+  Vestuário: ["Roupas", "Calçados", "Acessórios"],
+  "Cuidados pessoais": ["Cabelo", "Barbearia", "Higiene", "Cosméticos"],
+  Lazer: ["Passeios", "Viagem", "Cinema", "Brinquedos", "Esporte"],
+  Assinaturas: ["Streaming", "Aplicativos", "Serviços digitais"],
+  Impostos: ["IPTU", "IPVA", "Taxas", "Multas"],
+  Salário: ["Salário", "Benefício", "Reembolso", "Venda", "Renda extra"],
+  Investimentos: ["Aporte", "Rendimento", "Resgate"],
+  Dívidas: ["Empréstimo", "Financiamento", "Juros"],
+  Fatura: ["Pagamento de cartão"],
+  Transferência: ["Entre contas", "Retirada", "Depósito"],
+  Outros: ["A confirmar"],
+};
+const categoryOptions = (current: string) => Array.from(new Set([
   ...commonCategories,
   ...(api.data?.entries || []).map((entry) => entry.category),
   ...(api.data?.recurring || []).map((entry) => entry.category),
-])).filter(Boolean).map((category) => `<option value="${esc(category)}"></option>`).join("")}</datalist>`;
+])).filter(Boolean).map((category) => opt(category, category, current)).join("");
+const subcategoryList = (category: string) => `<datalist id="subcategories">${Array.from(new Set([
+  ...(subcategorySuggestions[category] || []),
+  ...(api.data?.entries || []).filter((entry) => entry.category === category).map((entry) => entry.subcategory || ""),
+])).filter(Boolean).map((subcategory) => `<option value="${esc(subcategory)}"></option>`).join("")}</datalist>`;
 const quickGroceries = [
   ["Arroz", "pacote"], ["Feijão", "pacote"], ["Leite", "litro"],
   ["Ovos", "dúzia"], ["Pão", "pacote"], ["Café", "pacote"],
@@ -272,7 +297,7 @@ function entryList(rows: Entry[]) {
           : null;
         const invoiceLabel = invoice ? ` · ${esc(card!.name)} · fatura ${invoice.split("-").reverse().join("/")}` : "";
         const canManage = (admin() || own(e)) && api.allowed("entries");
-        return `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}${invoiceLabel}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${invoice ? button("entry-invoice", `Ver fatura ${invoice.split("-").reverse().join("/")}`, "text-button", `data-id="${e.id}"`) : ""}${canManage ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${canManage ? deleteButton("entries", e.id) : ""}</div></article>`;
+        return `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)}${e.subcategory ? ` › ${esc(e.subcategory)}` : ""} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}${invoiceLabel}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${invoice ? button("entry-invoice", `Ver fatura ${invoice.split("-").reverse().join("/")}`, "text-button", `data-id="${e.id}"`) : ""}${canManage ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${canManage ? deleteButton("entries", e.id) : ""}</div></article>`;
       }).join("")}</div>`
     : empty("Nenhum lançamento por aqui", "add-entry");
 }
@@ -283,11 +308,11 @@ function entries() {
       (area === "all" || e.area === area) &&
       (owner === "all" || e.owner_id === owner) &&
       (status === "all" || e.status === status) &&
-      `${e.description} ${e.category}`
+      `${e.description} ${e.category} ${e.subcategory || ""}`
         .toLocaleLowerCase()
         .includes(filter.toLocaleLowerCase()),
   );
-  return `<section class="page-intro"><div><h2>O dia a dia, registrado.</h2><p>Gastos, receitas e pagamentos com clareza.</p></div>${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</section><section class="panel"><div class="filters">${input("search", "search", filter, 'placeholder="Buscar descrição ou categoria" aria-label="Buscar lançamentos"')}<select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Lar", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todos os responsáveis", owner) + api.data!.members.map((m) => opt(m.user_id, m.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select></div>${entryList(rows)}</section>`;
+  return `<section class="page-intro"><div><h2>O dia a dia, registrado.</h2><p>Gastos, receitas e pagamentos com clareza.</p></div>${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</section><section class="panel"><div class="filters">${input("search", "search", filter, 'placeholder="Buscar descrição, categoria ou subcategoria" aria-label="Buscar lançamentos"')}<select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Lar", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todos os responsáveis", owner) + api.data!.members.map((m) => opt(m.user_id, m.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select></div>${entryList(rows)}</section>`;
 }
 function cards() {
   const d = api.data!;
@@ -462,7 +487,7 @@ function entryForm(preset: Partial<Entry> = {}) {
   const e = {
     kind: "expense",
     date: today(),
-    category: "Mercado",
+    category: "",
     area: "household",
     status: "paid",
     payment: "cash",
@@ -485,7 +510,7 @@ function entryForm(preset: Partial<Entry> = {}) {
       .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
       .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
       .join("")}</select>`,
-  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field("category", "Categoria", input("category", "text", e.category, 'list="categories" maxlength="80" required') + categoryList())}${field(
+  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Selecione uma categoria", e.category)}${categoryOptions(e.category)}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", e.subcategory || "", 'list="subcategories" maxlength="80" placeholder="Ex.: vacinas"') + subcategoryList(e.category))}<p class="fine wide">Escolha uma categoria e, se ajudar, detalhe o tipo do gasto. Ex.: Saúde → Vacinas. Você pode digitar outra subcategoria.</p>${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -1119,13 +1144,21 @@ function syncEntryForm() {
   const kind = raw("kind");
   const category = form.elements.namedItem("category");
   const suggestedCategory: Record<string, string> = {
-    expense: "Mercado", payable: "Moradia", income: "Salário",
+    expense: "", payable: "Moradia", income: "Salário",
     transfer: "Transferência", card_payment: "Fatura", debt_payment: "Dívidas",
   };
   const previousKind = form.dataset.lastKind;
-  if (previousKind && previousKind !== kind && category instanceof HTMLInputElement &&
+  if (previousKind && previousKind !== kind && category instanceof HTMLSelectElement &&
       category.value === suggestedCategory[previousKind])
-    category.value = suggestedCategory[kind] || "Outros";
+    category.value = suggestedCategory[kind] || "";
+  const subcategory = form.elements.namedItem("subcategory");
+  if (category instanceof HTMLSelectElement && subcategory instanceof HTMLInputElement) {
+    const list = form.querySelector<HTMLDataListElement>("#subcategories");
+    if (list) list.innerHTML = Array.from(new Set([
+      ...(subcategorySuggestions[category.value] || []),
+      ...(api.data?.entries || []).filter((entry) => entry.category === category.value).map((entry) => entry.subcategory || ""),
+    ])).filter(Boolean).map((item) => `<option value="${esc(item)}"></option>`).join("");
+  }
   form.dataset.lastKind = kind;
   const enabled =
     kind === "expense" && raw("payment") === "card";
@@ -1398,6 +1431,7 @@ root.addEventListener("submit", (event) => {
         due_date: val(f, "due_date") || null,
         kind,
         category: val(f, "category"),
+        subcategory: val(f, "subcategory") || null,
         area: val(f, "area"),
         shared: admin() ? (existing?.shared ?? false) : val(f, "area") !== "personal" ? true : (existing?.area === "personal" ? existing.shared : false),
         status: task === "payable" ? "pending" : val(f, "status"),
