@@ -31,6 +31,7 @@ const api = new FamilyAPI();
 const root = document.querySelector<HTMLDivElement>("#app")!;
 let page = "overview",
   month = today().slice(0, 7),
+  calendarSelectedDate = today(),
   notice = "",
   busy = false,
   filter = "",
@@ -60,6 +61,7 @@ const icon = (name: string) => {
     goals: "M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 12l9-9 M17 3h4v4",
     documents: "M7 3h9l4 4v14H4V3z M9 12l3-3 3 3 M12 9v9",
     reminders: "M12 8v4l3 2 M12 3a9 9 0 1 0 9 9 M12 3v2 M21 12h-2",
+    calendar: "M7 3v3 M17 3v3 M4 9h16 M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1z M8 13h2 M14 13h2 M8 17h2",
     family:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4",
     settings:
@@ -79,6 +81,7 @@ const nav = [
   ["pantry", "Casa"],
   ["settings", "Perfil"],
   ["cards", "Cartões e faturas"],
+  ["calendar", "Calendário familiar"],
   ["reminders", "Avisos e lembretes"],
   ["accounts", "Contas e dívidas"],
   ["planning", "Planejamento"],
@@ -87,7 +90,7 @@ const nav = [
   ["family", "Família e acesso"],
 ];
 const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
-const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || id === "reminders" && api.data!.reminders.some((r) => !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
+const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || (id === "reminders" || id === "calendar") && api.data!.reminders.some((r) => !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
 function sidebarNav() {
   const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
   const other = nav.filter(([id]) => !primaryNav.has(id)).map(navButton).join("");
@@ -148,6 +151,30 @@ const nextReminderDate = (reminder: Reminder) => {
   const day = Number(reminder.due_on.slice(8, 10));
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${targetMonth}-${String(Math.min(day, last)).padStart(2, "0")}`;
+};
+const reminderDatesInMonth = (reminder: Reminder, monthKey: string) => {
+  const dates: string[] = [];
+  const [year, monthNumber] = monthKey.split("-").map(Number);
+  const start = `${monthKey}-01`;
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const end = `${monthKey}-${String(lastDay).padStart(2, "0")}`;
+  let date = reminder.due_on;
+  if (reminder.recurrence === "once") return date >= start && date <= end ? [date] : [];
+  if (reminder.recurrence === "monthly" || reminder.recurrence === "yearly") {
+    const [dueYear, dueMonth] = reminder.due_on.slice(0, 7).split("-").map(Number);
+    if (reminder.recurrence === "yearly" && (dueMonth !== monthNumber || dueYear > year)) return [];
+    if (reminder.recurrence === "monthly" && reminder.due_on.slice(0, 7) > monthKey) return [];
+    const day = Number(reminder.due_on.slice(8, 10));
+    const actual = Math.min(day, lastDay);
+    date = `${monthKey}-${String(actual).padStart(2, "0")}`;
+    return date >= reminder.due_on ? [date] : [];
+  }
+  while (date < start) date = new Date(Date.parse(`${date}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10);
+  while (date <= end) {
+    dates.push(date);
+    date = new Date(Date.parse(`${date}T00:00:00Z`) + 7 * 86400000).toISOString().slice(0, 10);
+  }
+  return dates;
 };
 const field = (_name: string, label: string, input: string, wide = false) =>
   `<label class="${wide ? "wide" : ""}"><span>${label}</span>${input}</label>`;
@@ -214,7 +241,7 @@ function summary() {
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
   const dueReminders = d.reminders.filter((r) => !r.completed && daysFromToday(r.due_on) <= 7).sort((a, b) => a.due_on.localeCompare(b.due_on));
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${esc(r.title)}</strong> · ${reminderTiming(r.due_on)}`).join("<br>")}</p></div>${button("nav", "Ver lembretes", "secondary", 'data-page="reminders"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${esc(r.title)}</strong> · ${reminderTiming(r.due_on)}`).join("<br>")}</p></div>${button("nav", "Ver calendário", "secondary", 'data-page="calendar"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -334,6 +361,32 @@ function shopping() {
     total = items.reduce((s, x) => s + x.estimate_cents * x.quantity, 0);
   return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "Adicionar item", "secondary") : ""}</div></section>${api.allowed("shopping") ? `<section class="panel quick-grocery-panel"><div class="panel-title"><div><h3>Adicionar item rápido</h3><p>Toque em um produto para colocar uma unidade na lista. Ajuste quantidade e preço depois.</p></div></div><div class="quick-grocery-list">${quickGroceries.map(([name]) => button("quick-shop", name, "secondary", `data-name="${esc(name)}"`)).join("")}</div></section>` : ""}<div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Próxima ida ao mercado</h3><span class="badge">${items.length} item(s)</span></div>${items.length ? `<form id="purchase-form">${items.map((s) => `<div class="shopping-row"><label class="shopping-item"><input type="checkbox" name="items" value="${s.id}" checked><span><strong>${esc(s.name)}</strong><small>${s.quantity} ${esc(s.unit)} · ${brl(s.estimate_cents)} / unidade</small></span><strong>${brl(Math.round(s.estimate_cents * s.quantity))}</strong></label>${api.allowed("shopping") ? button("edit-shopping", "Editar", "text-button", `data-id="${s.id}"`) : ""}</div>`).join("")}<div class="form-grid section-gap">${field("total", "Total real pago (R$)", moneyInput("total", (total / 100).toFixed(2).replace(".", ",")))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions()}</select>`, true)}</div>${api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry") ? `<button class="primary full section-gap" type="submit">Concluir compra e atualizar estoque</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>` : empty("Sua próxima lista começa aqui", "add-shopping")}</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da compra</h3><strong class="large-number">${brl(Math.round(total))}</strong><p>O total real será registrado uma única vez como despesa do lar e os produtos serão adicionados ao estoque.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para 14 dias de consumo ou o mínimo que você definiu.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Itens manuais sem produto vinculado não alteram a despensa.</p>${items.map((s) => (api.allowed("shopping") ? `<p class="detail-line">${esc(s.name)} ${deleteButton("shopping", s.id)}</p>` : "")).join("")}</aside></div>`;
 }
+function calendar() {
+  const d = api.data!;
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = new Date(Date.UTC(year, monthNumber - 1, 1));
+  const offset = (monthStart.getUTCDay() + 6) % 7;
+  const count = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const weeks = Math.ceil((offset + count) / 7);
+  const events = new Map<string, { reminder: Reminder; occurrence: string }[]>();
+  for (const reminder of d.reminders) {
+    for (const occurrence of reminderDatesInMonth(reminder, month)) {
+      const list = events.get(occurrence) || [];
+      list.push({ reminder, occurrence });
+      events.set(occurrence, list);
+    }
+  }
+  const days = Array.from({ length: weeks * 7 }, (_, index) => {
+    const day = index - offset + 1;
+    if (day < 1 || day > count) return '<div class="calendar-day outside" aria-hidden="true"></div>';
+    const date = `${month}-${String(day).padStart(2, "0")}`;
+    const rows = events.get(date) || [];
+    return `<button type="button" class="calendar-day ${date === today() ? "today" : ""} ${date === calendarSelectedDate ? "selected" : ""} ${rows.length ? "has-events" : ""}" data-action="calendar-day" data-date="${date}" aria-label="${day} de ${month.split("-")[1]}: ${rows.length} aviso(s)"><span class="calendar-day-number">${day}</span>${rows.length ? `<span class="calendar-day-events">${rows.slice(0, 2).map(({ reminder }) => `<i class="${reminder.completed ? "done" : ""}"></i>`).join("")}${rows.length > 2 ? `<small>+${rows.length - 2}</small>` : ""}</span>` : ""}</button>`;
+  }).join("");
+  const selectedEvents = events.get(calendarSelectedDate) || [];
+  const eventRow = ({ reminder }: { reminder: Reminder; occurrence: string }) => `<article class="record reminder-record calendar-event"><span class="record-icon">${icon("reminders")}</span><div class="record-info"><strong>${esc(reminder.title)}</strong><small>${reminder.recurrence === "once" ? "Aviso" : ({ weekly: "Semanal", monthly: "Mensal", yearly: "Anual" }[reminder.recurrence])} · ${esc(names(reminder.owner_id))}${reminder.completed ? " · Concluído" : ""}</small></div>${!reminder.completed && own(reminder) ? button("finish-reminder", reminder.recurrence === "once" ? "Concluir" : "Feito", "secondary", `data-id="${reminder.id}"`) : ""}${own(reminder) ? button("edit-reminder", "Editar", "text-button", `data-id="${reminder.id}"`) : ""}</article>`;
+  return `<section class="page-intro"><div><h2>Calendário da família</h2><p>Compromissos e lembretes compartilhados em um só lugar.</p></div>${api.allowed("entries") ? button("add-reminder-day", icon("plus") + " Criar aviso", "primary", `data-date="${calendarSelectedDate}"`) : ""}</section><section class="panel calendar-panel"><div class="calendar-toolbar"><button type="button" class="secondary" data-action="calendar-shift" data-step="-1" aria-label="Mês anterior">‹</button><h3>${monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}</h3><button type="button" class="secondary" data-action="calendar-shift" data-step="1" aria-label="Próximo mês">›</button>${button("calendar-today", "Hoje", "text-button")}</div><div class="calendar-grid calendar-weekdays">${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-grid">${days}</div><div class="calendar-legend"><span><i></i> Aviso agendado</span><span><i class="done"></i> Lembrete concluído</span></div></section><section class="panel calendar-agenda"><div class="panel-title"><div><span class="eyebrow">AGENDA DO DIA</span><h3>${calendarSelectedDate.split("-").reverse().join("/")}</h3></div>${api.allowed("entries") ? button("add-reminder-day", "Adicionar aviso neste dia", "secondary", `data-date="${calendarSelectedDate}"`) : ""}</div>${selectedEvents.length ? selectedEvents.map(eventRow).join("") : `<p class="fine">Nenhum aviso neste dia. ${api.allowed("entries") ? "Adicione um para manter a família em dia." : "Os avisos compartilhados aparecerão aqui."}</p>`}<p class="fine">Os avisos ficam compartilhados com os membros ativos da família. Os lembretes recorrentes aparecem em cada data prevista.</p></section>`;
+}
 function reminders() {
   const d = api.data!;
   const active = d.reminders.filter((item) => !item.completed)
@@ -341,7 +394,7 @@ function reminders() {
   const completed = d.reminders.filter((item) => item.completed)
     .sort((a, b) => b.due_on.localeCompare(a.due_on));
   const row = (item: Reminder) => `<article class="record reminder-record"><span class="record-icon">${icon("reminders")}</span><div class="record-info"><strong>${esc(item.title)}</strong><small><span class="${daysFromToday(item.due_on) < 0 ? "reminder-late" : ""}">${reminderTiming(item.due_on)}</span> · ${item.due_on.split("-").reverse().join("/")}${item.recurrence !== "once" ? ` · ${({weekly:"Toda semana",monthly:"Todo mês",yearly:"Todo ano"}[item.recurrence])}` : ""} · ${esc(names(item.owner_id))}</small></div>${!item.completed && own(item) ? button("finish-reminder", item.recurrence === "once" ? "Concluir" : "Feito, lembrar depois", "secondary", `data-id="${item.id}"`) : ""}${own(item) ? button("edit-reminder", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("reminders", item.id) : ""}</article>`;
-  return `<section class="page-intro"><div><h2>Pequenos lembretes, casa em dia.</h2><p>Avisos simples de tarefas e datas da família.</p></div>${api.allowed("entries") ? button("add-reminder", icon("plus") + " Novo lembrete") : ""}</section><section class="panel"><div class="panel-title"><h3>Por fazer</h3><span class="badge">${active.length}</span></div>${active.map(row).join("") || empty("Sem lembretes pendentes", "add-reminder")}<p class="fine">Os avisos aparecem no painel quando você abrir o app. Lembretes recorrentes avançam para a próxima data ao concluir.</p></section><details class="panel reminder-history"><summary>Concluídos (${completed.length})</summary>${completed.map(row).join("") || '<p class="fine">Nenhum lembrete concluído ainda.</p>'}</details>`;
+  return `<section class="page-intro"><div><h2>Pequenos lembretes, casa em dia.</h2><p>Avisos simples de tarefas e datas da família.</p></div><div class="button-row">${button("nav", "Abrir calendário", "secondary", 'data-page="calendar"')}${api.allowed("entries") ? button("add-reminder", icon("plus") + " Novo lembrete") : ""}</div></section><section class="panel"><div class="panel-title"><h3>Por fazer</h3><span class="badge">${active.length}</span></div>${active.map(row).join("") || empty("Sem lembretes pendentes", "add-reminder")}<p class="fine">Os avisos aparecem no painel quando você abrir o app. Lembretes recorrentes avançam para a próxima data ao concluir.</p></section><details class="panel reminder-history"><summary>Concluídos (${completed.length})</summary>${completed.map(row).join("") || '<p class="fine">Nenhum lembrete concluído ainda.</p>'}</details>`;
 }
 function planning() {
   return `<section class="page-intro"><div><h2>Um mês com menos surpresas.</h2><p>Despesas fixas previstas e limite mensal do lar.</p></div><div class="button-row">${api.allowed("entries") ? button("add-recurring", "Cadastrar despesa fixa") + button("plan-month", "Gerar contas do mês", "secondary") : ""}</div></section><section class="panel"><h3>Contas que se repetem</h3>${api.data!.recurring.map((r) => `<article class="record"><span class="record-icon">${icon("entries")}</span><div class="record-info"><strong>${esc(r.name)}</strong><small>Dia ${r.day} · desde ${r.start_month} · ${esc(names(r.owner_id))}</small></div><strong>${brl(r.amount_cents)}</strong><div class="record-actions">${share("recurring", r)}${own(r) && api.allowed("entries") ? deleteButton("recurring", r.id) : ""}</div></article>`).join("") || empty("Cadastre aluguel, internet e outras contas", "add-recurring")}<p class="fine">Gerar contas cria compromissos a pagar uma única vez por mês. A geração nunca informa um pagamento automaticamente. Contas já geradas permanecem no histórico.</p></section>`;
@@ -495,7 +548,7 @@ function modalContent() {
       return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", "Estoque contado hoje", input("quantity", "number", p ? forecast(p).stock : 0, 'min="0" step="0.01" required'))}${field("unit", "Unidade", `<select name="unit">${["unidade", "kg", "litro", "pacote", "caixa"].map((u) => opt(u, u, p?.unit)).join("")}</select>`)}${field("minimum", "Estoque mínimo", input("minimum", "number", p?.minimum || 1, 'min="0" step="0.01" required'))}${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.01" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<p class="fine wide">O consumo diário gera uma estimativa. Zero mantém o estoque fixo até a próxima contagem.</p>${formEnd()}</form>`;
     case "reminder": {
       const r = d.reminders.find((item) => item.id === editId);
-      return `<form id="reminder-form" class="form-grid">${input("id", "hidden", r?.id || "")}${field("title", "O que lembrar?", input("title", "text", r?.title || "", 'maxlength="120" placeholder="Ex.: pagar conta de luz" required'), true)}${field("due_on", "Data", input("due_on", "date", r?.due_on || today(), "required"))}${field("recurrence", "Repetir", `<select name="recurrence">${opt("once", "Só uma vez", r?.recurrence || "once") + opt("weekly", "Toda semana", r?.recurrence) + opt("monthly", "Todo mês", r?.recurrence) + opt("yearly", "Todo ano", r?.recurrence)}</select>`) }<p class="fine wide">Os lembretes ficam visíveis para a família e aparecem no painel perto da data.</p>${formEnd()}</form>`;
+      return `<form id="reminder-form" class="form-grid">${input("id", "hidden", r?.id || "")}${field("title", "O que lembrar?", input("title", "text", r?.title || "", 'maxlength="120" placeholder="Ex.: pagar conta de luz" required'), true)}${field("due_on", "Data", input("due_on", "date", r?.due_on || (page === "calendar" ? calendarSelectedDate : today()), "required"))}${field("recurrence", "Repetir", `<select name="recurrence">${opt("once", "Só uma vez", r?.recurrence || "once") + opt("weekly", "Toda semana", r?.recurrence) + opt("monthly", "Todo mês", r?.recurrence) + opt("yearly", "Todo ano", r?.recurrence)}</select>`) }<p class="fine wide">Os lembretes ficam visíveis para a família e aparecem no painel perto da data.</p>${formEnd()}</form>`;
     }
     case "shopping": {
       const item = d.shopping.find((row) => row.id === editId);
@@ -570,6 +623,7 @@ function render() {
     entries,
     cards,
     reminders,
+    calendar,
     accounts,
     pantry,
     shopping,
@@ -581,7 +635,7 @@ function render() {
   };
   root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
     .filter(([id]) =>
-      ["overview", "entries", "pantry", "shopping", "settings"].includes(id),
+      ["overview", "entries", "calendar", "shopping", "settings"].includes(id),
     )
     .map(
       ([id, label]) =>
@@ -672,6 +726,30 @@ root.addEventListener("click", (event) => {
     modal = "";
     render();
     window.scrollTo(0, 0);
+    return;
+  }
+  if (a === "calendar-day") {
+    const date = b.dataset.date || "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) calendarSelectedDate = date;
+    render();
+    return;
+  }
+  if (a === "calendar-shift") {
+    month = addMonths(month, Number(b.dataset.step || 0));
+    calendarSelectedDate = `${month}-01`;
+    render();
+    return;
+  }
+  if (a === "calendar-today") {
+    month = today().slice(0, 7);
+    calendarSelectedDate = today();
+    render();
+    return;
+  }
+  if (a === "add-reminder-day") {
+    const date = b.dataset.date || calendarSelectedDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) calendarSelectedDate = date;
+    show("reminder");
     return;
   }
   if (a === "open-invoice") {
@@ -941,7 +1019,10 @@ root.addEventListener("change", (event) => {
     return;
   }
   if (el.name === "month") {
-    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(el.value)) month = el.value;
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(el.value)) {
+      month = el.value;
+      calendarSelectedDate = `${month}-01`;
+    }
     render();
   }
   if (["area", "owner", "status"].includes(el.name)) {
@@ -1345,6 +1426,10 @@ root.addEventListener("submit", (event) => {
       });
     else if (f.getAttribute("id") === "reminder-form")
       await api.save("reminders", { ...(id ? { id } : {}), title: val(f, "title"), due_on: val(f, "due_on"), recurrence: val(f, "recurrence"), completed: false });
+      if (page === "calendar") {
+        calendarSelectedDate = val(f, "due_on");
+        month = calendarSelectedDate.slice(0, 7);
+      }
     else if (f.getAttribute("id") === "shopping-form")
       await api.save("shopping", {
         name: val(f, "name"),
