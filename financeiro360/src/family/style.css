@@ -1749,3 +1749,6 @@ input[type="checkbox"] {
 .reminder-history > summary { cursor: pointer; font-weight: 700; }
 @media(max-width:640px) { .quick-grocery-list { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; } .quick-grocery-list button { flex: 0 0 auto; } .reminder-banner { align-items: flex-start; flex-direction: column; } .reminder-record { align-items: flex-start; flex-wrap: wrap; } }
 :root[data-theme="dark"] .card-category-breakdown { background: #17251f; }
+.shopping-row { display: flex; align-items: center; gap: 8px; }
+.shopping-row .shopping-item { flex: 1; min-width: 0; }
+.shopping-row > button { flex: 0 0 auto; }
