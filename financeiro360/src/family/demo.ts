@@ -225,5 +225,6 @@ export function demoData(): Data {
     documents: [],
     audit: [],
     recurring: [],
+    reminders: [],
   };
 }
