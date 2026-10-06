@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test src/logic.test.ts src/storage.test.ts src/cloud-vault.test.ts src/family/model.test.ts",
-    "test:db": "node --test tests/family-db.test.mjs tests/preferences-db.test.mjs tests/installment-schedule-db.test.mjs tests/account-balances-db.test.mjs tests/card-closing-edit-db.test.mjs",
+    "test:db": "node --test tests/family-db.test.mjs tests/preferences-db.test.mjs tests/installment-schedule-db.test.mjs tests/account-balances-db.test.mjs tests/card-closing-edit-db.test.mjs tests/family-sharing-reminders-db.test.mjs",
     "test:browser": "node tests/browser-smoke.mjs"
   },
   "devDependencies": {
