@@ -1,9 +1,21 @@
 "use strict";
 function renderMissingLyrics(song,message){
-  const catalogOnly=(song.sources||[]).includes("Apple")||song.source==="Apple";
-  const title=catalogOnly?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
-  const detail=catalogOnly?"A faixa foi identificada no catálogo, porém nenhuma das fontes de letras devolveu conteúdo para esta versão. Tente outra versão, a busca por trecho ou cole a letra.":message;
-  $("paper").innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail||"")}</small></div>`;
+  const catalogSources=(song.sources||[]).some(source=>["Apple","Deezer","MusicBrainz"].includes(source))||["Apple","Deezer","MusicBrainz"].includes(song.source);
+  const title=catalogSources?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
+  const down=sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"";
+  const isJubilo=/jubil|tribo de juda/.test(fold(song.title));
+  const isMedley=/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(song.title||"");
+  const hint=isJubilo?(isMedley?"Este resultado é o medley pedido, mas nenhuma fonte de texto retornou sua letra.":"Se você procura a combinação com “Ele é o Leão da Tribo de Judá”, escolha um resultado marcado como medley."):"Tente outra versão ou cole uma letra sua.";
+  const detail=catalogSources
+    ?`O catálogo identifica a gravação, mas não fornece letra. As fontes de texto consultadas não encontraram esta versão.${down} ${hint}`
+    :`${message||"Nenhuma fonte devolveu texto para esta versão."}${down}`;
+  const paper=$("paper");paper.innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail)}</small></div>`;
+  const actions=document.createElement("div");actions.className="missingActions";
+  const retry=document.createElement("button");retry.type="button";retry.textContent="Buscar outras versões";
+  retry.onclick=()=>{$("searchInput").value=song.title||"";state.source="smart";$("searchForm").requestSubmit();if(matchMedia("(max-width:900px)").matches)toggleSidebar()};
+  const paste=document.createElement("button");paste.type="button";paste.textContent="Colar minha letra";
+  paste.onclick=()=>{$("pasteTitle").value=song.title||"";$("pasteArtist").value=song.artist||"";$("pasteText").value="";$("pasteDialog").showModal()};
+  actions.append(retry,paste);paper.querySelector(".emptyPaper").appendChild(actions);
   const links=[],vagUrl=safeUrl(song.vagUrl),catalogUrl=safeUrl(song.catalogUrl);if(vagUrl)links.push(`<a href="${esc(vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(catalogUrl)links.push(`<a href="${esc(catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
 }
 let openSongRequest=0;

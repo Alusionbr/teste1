@@ -37,7 +37,9 @@ function renderList(){
       if(m.local)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · sua biblioteca":"na sua biblioteca"}</span>`);
       else if(m.acervo)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · acervo":"acervo do site"}</span>`);
       else if(m.lyrics&&!m.synced)tags.push('<span class="tag">com letra</span>');
+      else if(!m.synced&&!m.instrumental)tags.push('<span class="tag catalogOnly">sem letra nesta fonte</span>');
     }
+    if(/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(m.title||""))tags.push('<span class="tag">medley</span>');
     if(m.arrangementName)tags.push(`<span class="tag arrangement">${esc(m.arrangementName)}</span>`);
     if(m.status)tags.push(`<span class="tag status ${m.status}">${EstanteDomain.STATUS_LABELS[m.status]||m.status}</span>`);
     if(m.key)tags.push(`<span class="tag key">tom ${m.key>0?"+":""}${m.key}</span>`);if(m.capo)tags.push(`<span class="tag key">capo ${m.capo}</span>`);if(m.auto)tags.push('<span class="tag key">auto</span>');if(m.synced)tags.push('<span class="tag sync">sincro</span>');if(m.duration)tags.push(`<span class="tag">${fmt(m.duration)}</span>`);if(m.revision>1)tags.push(`<span class="tag">rev. ${m.revision}</span>`);

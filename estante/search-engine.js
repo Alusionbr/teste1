@@ -7,7 +7,27 @@ const searchFold=fold; // mesma normaliza\u00e7\u00e3o usada para identificar m\
 function cleanEdition(s){return String(s||"").replace(/[\[(][^\])]*(?:ao vivo|live|remaster|remix|acoustic|acústic|official|video|audio|version|versão)[^\])]*[\])]/gi," ").replace(EDITION_WORDS," ").replace(/\s+/g," ").trim()}
 function searchTokens(s){return new Set(searchFold(s).split(" ").filter(x=>x.length>1))}
 function overlapScore(a,b){const A=searchTokens(a),B=searchTokens(b);if(!A.size||!B.size)return 0;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/Math.max(A.size,B.size)}
-function candidateScore(m,q){const qf=searchFold(q),tf=searchFold(m.title),af=searchFold(m.artist),hay=(tf+" "+af).trim();let score=overlapScore(q,hay)*100;if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;if(m.synced)score+=12;else if(m.lyrics)score+=8;if((m.sources||[]).includes("Vagalume"))score+=4;if((m.sources||[]).includes("Apple"))score+=3;if((m.sources||[]).includes("Deezer"))score+=2;if((m.sources||[]).includes("MusicBrainz"))score+=2;return score}
+function titleSimilarity(a,b){
+  const x=searchFold(a).replace(/ /g,""),y=searchFold(b).replace(/ /g,"");
+  if(!x||!y||x.length>120||y.length>120)return 0;
+  let previous=Array.from({length:y.length+1},(_,i)=>i);
+  for(let i=1;i<=x.length;i++){
+    const row=[i];
+    for(let j=1;j<=y.length;j++)row[j]=Math.min(row[j-1]+1,previous[j]+1,previous[j-1]+(x[i-1]===y[j-1]?0:1));
+    previous=row;
+  }
+  return 1-previous[y.length]/Math.max(x.length,y.length);
+}
+function candidateScore(m,q){
+  const qf=searchFold(q),tf=searchFold(m.title),af=searchFold(m.artist),hay=(tf+" "+af).trim();
+  let score=overlapScore(q,hay)*100;
+  const titleMatch=titleSimilarity(q,m.title);
+  if(titleMatch>=.72)score+=titleMatch*100;
+  if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;
+  if(m.synced)score+=12;else if(m.lyrics)score+=8;
+  if((m.sources||[]).includes("Vagalume"))score+=4;if((m.sources||[]).includes("Apple"))score+=3;if((m.sources||[]).includes("Deezer"))score+=2;if((m.sources||[]).includes("MusicBrainz"))score+=2;
+  return score;
+}
 // Versões como "ao vivo", "acústica" e "remix" não são equivalentes.
 // A busca antiga apagava essas marcas e podia juntar letra/duração de gravações
 // diferentes. Só removemos ruído editorial e usamos álbum/duração quando há.
@@ -88,7 +108,19 @@ function withLocalFirst(locais,remotos){
   const vistos=new Set(locais.map(songIdentity));
   return[...locais,...(remotos||[]).filter(m=>!vistos.has(songIdentity(m)))];
 }
-async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const first=await Promise.allSettled([searchLrclib(q),searchVagalumeAdvanced(q),searchItunes(q),searchDeezer(q),searchMusicBrainz(q)]);first.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});let merged=mergeSongs(rows,q);if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
+async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const first=await Promise.allSettled([searchLrclib(q),searchVagalumeAdvanced(q),searchItunes(q),searchDeezer(q),searchMusicBrainz(q)]);first.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});let merged=mergeSongs(rows,q);
+  // Uma busca pode juntar dois títulos de um medley. Catálogos frequentemente
+  // ignoram a consulta completa e devolvem só o segundo título; nesse caso
+  // procurar também o início resgata a gravação combinada. Só fazemos isso
+  // quando nenhum título já corresponde bem à frase completa.
+  const words=q.trim().split(/\s+/).filter(Boolean);
+  if(words.length>=7&&!merged.some(x=>titleSimilarity(q,x.title)>=.78)){
+    const prefix=words.slice(0,3).join(" ");
+    const more=await Promise.allSettled([searchDeezer(prefix),searchItunes(prefix)]);
+    more.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});
+    merged=mergeSongs(rows,q);
+  }
+  if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
 searchMusic=async function(q){if(state.source==="smart")return smartSearchMusic(q);return legacySearchMusic(q)};
 fetchLrclibSong=async function(song){

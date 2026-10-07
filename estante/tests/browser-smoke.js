@@ -26,6 +26,29 @@ let browser;
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&state.setlists.length);
   assert.equal(await page.evaluate(()=>state.workspace.version),4);
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
+  const searchRegression=await page.evaluate(()=>{
+    const ranked=mergeSongs([
+      {title:"Fuego",artist:"Jubilo",source:"MusicBrainz"},
+      {title:"Ouve-se o Júbilo",artist:"Silvério Peres",source:"Deezer"},
+      {title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho",source:"Deezer"}
+    ],"ouvisse o jubilo");
+    state.results=ranked;state.tab="results";renderList();
+    const solo=ranked.findIndex(x=>x.title==="Ouve-se o Júbilo");
+    const unrelated=ranked.findIndex(x=>x.title==="Fuego");
+    const medleyTag=[...document.querySelectorAll(".listRow")].some(row=>row.textContent.includes("Leão da Tribo de Judá")&&row.textContent.includes("medley"));
+    markSource("vagalume",false,503);
+    renderMissingLyrics({title:"Ouve-se o Júbilo",artist:"Silvério Peres",source:"Deezer",sources:["Deezer"]},"Sem letra");
+    return{solo,unrelated,medleyTag,explanation:document.querySelector("#paper").textContent,actions:[...document.querySelectorAll(".missingActions button")].map(x=>x.textContent)};
+  });
+  assert.ok(searchRegression.solo<searchRegression.unrelated);
+  assert.equal(searchRegression.medleyTag,true);
+  const combinedRank=await page.evaluate(()=>mergeSongs([
+    {title:"Ele é o Leão da Tribo de Judá",artist:"Samuel Souza",source:"Deezer"},
+    {title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho",source:"Deezer"}
+  ],"ouvisse o jubilo ele é o leão da tribo de Judá")[0].title);
+  assert.match(combinedRank,/Ouve-se o Júbilo \/ Leão/);
+  assert.match(searchRegression.explanation,/O Vagalume está indisponível/);
+  assert.deepEqual(searchRegression.actions,["Buscar outras versões","Colar minha letra"]);
   assert.deepEqual(await page.locator(".tab").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
 
   await page.click("#setlistNew");
