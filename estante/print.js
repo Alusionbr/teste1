@@ -12,7 +12,7 @@ function printRow(song){
   const row=document.createElement("li");
   const head=document.createElement("div");
   head.className="printSong";
-  head.innerHTML=`<strong>${esc(song.title)}</strong><span>${esc(song.artist||"sem artista")}</span>`;
+  head.innerHTML=song.kind==="note"?`<strong>${esc(song.title)}</strong><span>marcação do repertório</span>`:`<strong>${esc(song.title)}</strong><span>${esc(song.artist||"sem artista")}</span>`;
 
   const marks=[];
   if(song.key)marks.push(`tom ${song.key>0?"+":""}${song.key}`);
@@ -44,13 +44,14 @@ function buildPrintArea(withLyrics){
   const songs=state.setlist;
 
   const header=document.createElement("header");
-  header.innerHTML=`<h1>${esc(set?set.name:"Repertório")}</h1><p>${songs.length} música${songs.length===1?"":"s"} · ${esc(durationLabel(songs))}</p>`;
+  const musicas=songs.filter(x=>x.kind!=="note").length;
+  header.innerHTML=`<h1>${esc(set?set.name:"Repertório")}</h1><p>${musicas} música${musicas===1?"":"s"} · ${esc(durationLabel(songs))}</p>`;
   area.appendChild(header);
 
   const list=document.createElement("ol");
   songs.forEach(s=>{
     const row=printRow(s);
-    if(withLyrics&&(s.lyrics||s.synced))row.appendChild(printLyrics(s));
+    if(withLyrics&&s.kind!=="note"&&(s.lyrics||s.synced))row.appendChild(printLyrics(s));
     list.appendChild(row);
   });
   area.appendChild(list);

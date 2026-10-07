@@ -1,6 +1,6 @@
 # Estante — letras e cifras no palco
 
-Leitor de letras e cifras feito para tocar: repertórios salvos no aparelho, busca em várias fontes, rolagem automática, sincronia com letras temporizadas, transposição, capotraste e anotações por música.
+Organizador de ensaios e repertórios feito para tocar: biblioteca de arranjos reutilizáveis, sessões de ensaio, repertórios salvos no aparelho, busca em várias fontes, rolagem automática, sincronia, transposição e anotações.
 
 Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 
@@ -10,15 +10,18 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 |---|---|
 | **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer, Apple e MusicBrainz em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
 | **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
-| **Busca no aparelho** | Toda busca procura antes no repertório salvo e no acervo do site — inclusive **dentro do texto da letra**. Responde na hora, funciona offline e é a única busca por trecho que não depende do Vagalume. O que já está no aparelho vem primeiro, com a sua letra e os seus ajustes. |
+| **Busca no aparelho** | Toda busca mostra primeiro a biblioteca local e depois incorpora o acervo e as fontes online. Pedidos antigos são descartados quando uma busca mais nova começa. Também procura **dentro do texto da letra** e funciona offline. |
 | **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
 | **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) não abre mais vazia: o app tenta o acervo do site e depois a `lyrics.ovh`, que não pede chave. |
-| **Repertórios** | Vários repertórios, um por show. Criar, renomear, duplicar, apagar e trocar pela barra da aba Repertório. Mostra quantas músicas e a duração estimada. |
-| **Ajustes por música** | Tom, capotraste, velocidade de rolagem e anotações ficam salvos em cada música do repertório. O tamanho da letra é global. |
+| **Biblioteca e arranjos** | Uma música pode ter vários arranjos, com letra/cifra, tom, capo, velocidade, vídeo, notas e histórico próprios. A edição escolhe entre atualizar o arranjo reutilizado ou criar uma versão só para o repertório atual. |
+| **Repertórios** | Criar, renomear, duplicar, arquivar, imprimir e mover para a lixeira. Músicas entram em lote pela Biblioteca; a ordem aceita arrastar e também botões ↑/↓. Pausas e trocas de instrumento podem fazer parte da ordem. |
+| **Ensaio** | Cada música passa por **A aprender**, **Em ensaio** e **Pronta**. Iniciar/encerrar cria um histórico com data, estados e resumo da sessão. |
+| **Prontidão offline** | O resumo mostra quantas músicas já têm letra/cifra ou são instrumentais. Assim a banda vê o que ainda depende da rede antes de sair para o ensaio ou show. |
+| **Salvamento e recuperação** | O cabeçalho mostra Salvando/Salvo/Falha. Remoções têm Desfazer e ficam na Lixeira; o banco principal é IndexedDB, com cópia local de recuperação e proteção contra alterações em outra aba. |
 | **Rolar / Sincro** | Rolagem contínua com velocidade ajustável; em letras `.lrc` a sincronia acompanha o relógio. Encostar na letra **pausa**; para começar de outro ponto, **toque duas vezes** na linha. |
 | **Velocidade automática** | O botão **auto** calcula a velocidade pela duração da música, para a letra terminar junto com ela. Recalcula sozinho ao mudar o tamanho da letra ou girar a tela; mexer no −/+ volta ao manual. Se a versão não tiver duração, o app pergunta. |
-| **Editar letra** | Corrige verso errado, apaga lixo da fonte e guarda o arranjo da banda, sem perder tom, capotraste, velocidade nem anotações. |
-| **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` escritos na letra viram botões acima do texto: um toque e a letra rola até lá. Funciona também em letra sincronizada, e com a rolagem ligada o salto é imediato — com a sincronia, o relógio vai junto. |
+| **Editar letra** | Corrige verso errado e salva uma revisão. O editor deixa claro se a mudança vale para todos os repertórios que usam o arranjo ou somente para a lista atual. |
+| **Atalhos de seção** | `[Refrão]`, `[Solo]` e `[Final]` viram atalhos e aceitam anotações próprias. Funciona também em letra sincronizada. |
 | **Modo palco** | Fundo escuro de alto contraste e tela sempre acesa (wake lock). |
 | **Imprimir** | Ordem do show em papel ou PDF, só a lista ou com as letras (uma música por página). |
 | **Compartilhar** | Gera um link com o repertório. **Com as letras** (padrão) o show inteiro abre no aparelho de quem recebeu, sem internet; **só a ordem** faz um link curto que exige buscar cada letra. O app mostra o tamanho dos dois antes e avisa quando o link fica longo demais para colar. Quem recebe escolhe juntar ao repertório aberto ou criar um novo. |
@@ -119,12 +122,14 @@ cadastro no Google. Fica anotado para uma versão futura.
 ```txt
 index.html         estrutura da tela e diálogos
 styles.css         visual, modo palco e folha de impressão
-core.js            estado, armazenamento, versão do app e fontes de letra
+domain.js          modelo v4, migração, arranjos, revisões, prontidão e sessões
+storage.js         IndexedDB, cópia de recuperação, estado de gravação e multiaba
+core.js            estado de execução, versão do app e fontes de letra
 search-engine.js   busca inteligente: várias fontes, variações, ranqueamento e busca no repertório
 acervo.js          acervo do site: letras que moram no repositório
 acervo.json        conteúdo do acervo (vem vazio; ver acervo.md)
-library.js         lista, ordenação do repertório, LRC, cifras, transposição e seções
-setlists.js        vários repertórios: criar, trocar, migrar e persistir
+library.js         biblioteca, seleção em lote, lista, ordem, LRC, cifras e seções
+setlists.js        repertórios, arranjos, lixeira, ensaios e persistência
 song-prefs.js      tom, capotraste, velocidade e anotações por música
 autoscroll.js      velocidade de rolagem calculada pela duração
 player.js          abrir música, desenhar a letra, rolagem, sincronia e arquivos
@@ -141,19 +146,21 @@ sw.js              cache do app para funcionar offline
 
 | Chave | Conteúdo |
 |---|---|
-| `estante:v3:setlists` | `{version:3, activeId, setlists:[{id, name, date, songs}]}` |
+| IndexedDB `estante/workspace/current` | workspace v4: biblioteca, repertórios, lixeira, sessões e revisão global |
+| `estante:v4:workspace` | cópia de recuperação/compatibilidade do mesmo workspace |
 | `estante:v2:prefs` | fonte de busca, velocidade padrão, tamanho da letra, modo palco, chave do Vagalume, chave do YouTube e atraso da caixa Bluetooth |
-| `estante:v2:setlist` | formato antigo (um repertório só); migrado automaticamente e mantido como backup |
+| `estante:v3:setlists` / `estante:v2:setlist` | formatos antigos, migrados automaticamente e mantidos como backup |
 
 Campos de cada música:
 
 ```js
-{ title, artist, album, duration, lyrics, synced, instrumental, source, vagUrl,
+{ id, songId, arrangementId, arrangementName, revision, history,
+  title, artist, album, duration, lyrics, synced, instrumental, source, vagUrl,
   key,    // transposição em semitons
   capo,   // casa do capotraste (só muda a exibição das cifras)
   speed,  // velocidade de rolagem desta música
   auto,   // true = velocidade calculada pela duração, ignorando speed
-  notes,  // anotação de palco
+  notes, sectionNotes, status, tags,
   videoId,      // id do vídeo do YouTube usado no karaokê desta música
   videoOffset } // segundos: posição no VÍDEO onde a letra começa (introdução)
 ```
@@ -199,19 +206,16 @@ O link carrega o repertório inteiro no `#` da URL. Duas marcas:
 | `#setlistz=` | JSON compactado com `deflate-raw` (`CompressionStream`, do próprio navegador — não é biblioteca) |
 | `#setlist=` | JSON sem compactar, para navegador sem `CompressionStream` |
 
-O formato `v:2` leva `lyrics`, `synced`, `instrumental`, `source` e `notes` além
-de título, artista, álbum, duração, tom e capotraste. A opção "só a ordem" omite
-letra e anotações, mas **mantém tom e capotraste**: são dois números e a banda
-precisa deles. Links `v:1` (versões anteriores, sem letra) continuam abrindo.
+O formato `v:4` leva IDs estáveis, nome e revisão do arranjo, estado de ensaio,
+notas e conteúdo offline. A opção "só a ordem" omite letra/cifra, mas mantém os
+ajustes necessários para a banda. Links `v:1` e `v:2` continuam abrindo.
 
 ## Gravação
 
-Ajuste que se repete (tom, capotraste, velocidade) **não** grava a cada clique: a
-escrita é adiada em `saveSoon()` (`core.js`) e fechada por `flushSaves()` ao sair
-da página. Gravar serializa todos os repertórios com letra e tudo — fazer isso a
-cada toque travava a rolagem no meio da música. O que não pode se perder
-(adicionar, remover, mover, trocar de repertório, editar letra) continua gravando
-na hora.
+Ajuste que se repete (tom, capotraste, velocidade) usa `saveSoon()`; ações
+estruturais gravam na hora. A escrita entra numa fila para não inverter revisões,
+vai ao IndexedDB e mantém uma cópia de recuperação. `BroadcastChannel` avisa
+quando outra aba gravou uma revisão mais nova, evitando sobrescrita silenciosa.
 
 ## Ao alterar o código
 
@@ -219,6 +223,8 @@ na hora.
 2. Se acrescentar um arquivo, inclua-o na lista `SHELL` de `sw.js`.
 3. Sirva por HTTP para testar (`python3 -m http.server`): service worker não funciona em `file://`.
 4. Rode o roteiro de `checklist-manual.md`.
+5. Rode `node --test estante/tests/*.test.js` e, com um servidor local ativo,
+   `node estante/tests/browser-smoke.js`.
 
 ## Fontes
 

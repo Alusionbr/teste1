@@ -8,7 +8,15 @@ function cleanEdition(s){return String(s||"").replace(/[\[(][^\])]*(?:ao vivo|li
 function searchTokens(s){return new Set(searchFold(s).split(" ").filter(x=>x.length>1))}
 function overlapScore(a,b){const A=searchTokens(a),B=searchTokens(b);if(!A.size||!B.size)return 0;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/Math.max(A.size,B.size)}
 function candidateScore(m,q){const qf=searchFold(q),tf=searchFold(m.title),af=searchFold(m.artist),hay=(tf+" "+af).trim();let score=overlapScore(q,hay)*100;if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;if(m.synced)score+=12;else if(m.lyrics)score+=8;if((m.sources||[]).includes("Vagalume"))score+=4;if((m.sources||[]).includes("Apple"))score+=3;if((m.sources||[]).includes("Deezer"))score+=2;if((m.sources||[]).includes("MusicBrainz"))score+=2;return score}
-function songKey(m){return searchFold(cleanEdition(m.title))+"|"+searchFold(String(m.artist||"").replace(/\b(feat\.?|ft\.?|com)\b.*$/i,""))}
+// Versões como "ao vivo", "acústica" e "remix" não são equivalentes.
+// A busca antiga apagava essas marcas e podia juntar letra/duração de gravações
+// diferentes. Só removemos ruído editorial e usamos álbum/duração quando há.
+function songKey(m){
+  const title=String(m.title||"").replace(/\b(official(?: audio| video)?|lyrics?|letra|video|audio)\b/gi," ");
+  const artist=String(m.artist||"").replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"");
+  const album=searchFold(m.album||""),bucket=m.duration?Math.round(Number(m.duration)/5)*5:"";
+  return `${searchFold(title)}|${searchFold(artist)}|${album}|${bucket}`;
+}
 function mergeSongs(rows,q){const map=new Map();for(const raw of rows){if(!raw||!raw.title)continue;const k=songKey(raw);const old=map.get(k);if(!old){const x={...raw,sources:[...(raw.sources||[raw.source].filter(Boolean))]};map.set(k,x);continue}const src=new Set([...(old.sources||[]),...(raw.sources||[raw.source].filter(Boolean))]);old.sources=[...src];for(const f of ["lyrics","synced","vagId","vagUrl","catalogUrl","appleId","album","duration"]){if(!old[f]&&raw[f])old[f]=raw[f]}if((raw.synced||raw.lyrics)&&!(old.synced||old.lyrics)){old.lyrics=raw.lyrics||"";old.synced=raw.synced||""}}
   const all=[...map.values()];for(const m of all){m.source=m.sources.join(" + ");m._score=candidateScore(m,q)}return all.sort((a,b)=>b._score-a._score||String(a.title).localeCompare(String(b.title))).slice(0,35)}
 function queryVariants(q){const out=[q];const clean=cleanEdition(q);if(searchFold(clean)!==searchFold(q)&&clean.length>2)out.push(clean);const noFeat=clean.replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"").trim();if(noFeat.length>2&&!out.some(x=>searchFold(x)===searchFold(noFeat)))out.push(noFeat);const dash=q.split(/\s[-–—]\s/).map(x=>x.trim()).filter(x=>x.length>2);for(const x of dash)if(!out.some(v=>searchFold(v)===searchFold(x)))out.push(x);return out.slice(0,3)}
@@ -62,14 +70,15 @@ function searchDeezer(q){return jsonp(`https://api.deezer.com/search?q=${encodeU
 function searchLocal(q){
   const alvo=searchFold(q);if(!alvo)return[];
   const achados=[],vistos=new Set();
-  (state.setlists||[]).forEach(set=>{(set.songs||[]).forEach(song=>{
+  libraryItems().forEach(song=>{
+    if(song.kind==="note")return;
     const cabeca=searchFold(`${song.title} ${song.artist}`);
     const corpo=searchFold(`${song.lyrics||""} ${song.synced||""}`);
     const noTitulo=cabeca.includes(alvo),naLetra=corpo.includes(alvo);
     if(!noTitulo&&!naLetra)return;
-    const k=songIdentity(song);if(vistos.has(k))return;vistos.add(k);
-    achados.push({...song,source:"Repertório",sources:["Repertório"],local:true,localSetlist:set.name,matchedLyrics:!noTitulo&&naLetra});
-  })});
+    const k=song.arrangementId||songIdentity(song);if(vistos.has(k))return;vistos.add(k);
+    achados.push({...song,source:"Biblioteca",sources:["Biblioteca"],local:true,matchedLyrics:!noTitulo&&naLetra});
+  });
   return achados;
 }
 // O que já está no aparelho vem primeiro: tem a letra baixada, as correções que
