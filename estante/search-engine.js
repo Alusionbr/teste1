@@ -141,12 +141,50 @@ fetchLrclibSong=async function(song){
     // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
     // não havia mais nada a tentar.
     // O acervo do site vem primeiro: é conteúdo próprio, conferido, e responde
-    // sem rede. Depois a lyrics.ovh, que não pede chave e tem CORS aberto.
+    // sem rede. Depois LiriQo e lyrics.ovh, que dispensam chave e aceitam CORS.
     try{const daCasa=await fetchFromAcervo(song);if(daCasa)return daCasa}catch{}
+    try{const achou=await fetchLiriqoSong(song);if(achou)return achou}catch{}
     try{const achou=await fetchLyricsOvh(song);if(achou)return achou}catch{}
     throw first;
   }
 };
+// Uma fonte adicional com CORS. Aceitar somente metadados iguais evita que a
+// busca do provedor associe uma letra de outra gravação a este resultado.
+async function fetchLiriqoExact(title,artist){
+  const params=new URLSearchParams({title,artist});
+  const r=await fetchSafe(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000);
+  if(!r.ok)return null;
+  const data=await r.json();
+  if(fold(cleanEdition(data?.metadata?.title))!==fold(cleanEdition(title))||fold(data?.metadata?.artist)!==fold(artist))return null;
+  const text=String(data?.primary?.plain||"").trim();
+  return text.length>=40?text.replace(/\r\n/g,"\n"):null;
+}
+async function fetchLiriqoSong(song){
+  if(!song.title||!song.artist)return null;
+  try{
+    const exact=await fetchLiriqoExact(song.title,song.artist);
+    if(exact){song.lyrics=exact;song.synced="";song.source="LiriQo";markSource("liriqo",true);return song}
+  }catch{}
+  // Alguns medleys não têm transcrição da gravação completa. Para ensaio,
+  // juntar duas gravações conhecidas é útil, mas a origem deve ficar explícita.
+  const title=fold(song.title);
+  if(!title.includes("jubilo")||!title.includes("leao")||!title.includes("tribo")||!title.includes("juda"))return null;
+  const parts=[
+    {title:"Ouve-se o Júbilo",artist:"Marcos Góes"},
+    {title:"Ele É o Leão da Tribo de Judá",artist:"Corinhos Evangélicos"}
+  ];
+  try{
+    const texts=await Promise.all(parts.map(part=>fetchLiriqoExact(part.title,part.artist)));
+    if(texts.some(text=>!text))return null;
+    song.lyrics=parts.map((part,i)=>`[${part.title} — ${part.artist}]\n${texts[i]}`).join("\n\n");
+    song.synced="";
+    song.source="LiriQo";
+    song.lyricNote="Versão de ensaio montada de duas gravações; confira a ordem e as repetições do seu medley.";
+    song.lyricSources=parts.map(part=>`${part.title} — ${part.artist}`);
+    markSource("liriqo",true);
+    return song;
+  }catch{return null}
+}
 // Só letra simples: nada de cifra nem de marcação de tempo. Serve para não
 // deixar a música sem texto nenhum quando as outras fontes falham.
 //

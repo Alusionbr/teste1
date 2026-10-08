@@ -49,6 +49,43 @@ let browser;
   assert.match(combinedRank,/Ouve-se o Júbilo \/ Leão/);
   assert.match(searchRegression.explanation,/O Vagalume está indisponível/);
   assert.deepEqual(searchRegression.actions,["Buscar outras versões","Colar minha letra"]);
+  const lyricsFallback=await page.evaluate(async()=>{
+    const original=fetchSafe;
+    fetchSafe=async url=>{
+      const params=new URL(url).searchParams;
+      const title=params.get("title"),artist=params.get("artist");
+      const known=title==="Ouve-se o Júbilo"&&artist==="Marcos Góes"||title==="Ele É o Leão da Tribo de Judá"&&artist==="Corinhos Evangélicos";
+      return{ok:true,json:async()=>({metadata:known?{title,artist}:{title:"Música errada",artist:"Outro cantor"},primary:{plain:`Letra de teste para ${title} com bastante texto para ensaio.`}})};
+    };
+    try{
+      const song={title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho"};
+      await fetchLiriqoSong(song);
+      const mismatch=await fetchLiriqoExact("Outra Música","Outro Artista");
+      const saved=EstanteDomain.normalizeSong(song);
+      return{source:song.source,note:song.lyricNote,text:song.lyrics,mismatch,savedNote:saved.lyricNote,savedSources:saved.lyricSources};
+    }finally{fetchSafe=original}
+  });
+  assert.equal(lyricsFallback.source,"LiriQo");
+  assert.match(lyricsFallback.note,/Versão de ensaio/);
+  assert.match(lyricsFallback.text,/Ouve-se o Júbilo/);
+  assert.match(lyricsFallback.text,/Ele É o Leão da Tribo de Judá/);
+  assert.equal(lyricsFallback.mismatch,null);
+  assert.equal(lyricsFallback.savedNote,lyricsFallback.note);
+  assert.equal(lyricsFallback.savedSources.length,2);
+  if(process.env.ESTANTE_LIVE_LYRICS==="1"){
+    const live=await page.evaluate(async()=>{
+      const song={title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho"};
+      await fetchLiriqoSong(song);
+      return{source:song.source,note:song.lyricNote,hasFirst:/ouve-se o júbilo/i.test(song.lyrics||""),hasSecond:/ele é o leão da tribo de judá/i.test(song.lyrics||"")};
+    });
+    assert.equal(live.source,"LiriQo");
+    assert.match(live.note,/Versão de ensaio/);
+    assert.equal(live.hasFirst,true);
+    assert.equal(live.hasSecond,true);
+    await page.evaluate(async()=>openSong({title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho",source:"Deezer",sources:["Deezer"]}));
+    assert.match(await page.locator("#paper").textContent(),/Ele É o Leão da Tribo de Judá/);
+    assert.match(await page.locator("#credits").textContent(),/Versão de ensaio montada de duas gravações/);
+  }
   assert.deepEqual(await page.locator(".tab").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
 
   await page.click("#setlistNew");
