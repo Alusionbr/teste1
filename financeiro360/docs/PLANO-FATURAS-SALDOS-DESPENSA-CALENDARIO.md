@@ -8,7 +8,7 @@ Este ciclo aprofunda o [plano geral](PLANO-EVOLUCAO-CASA.md) nas quatro necessid
 
 | Área | Existe no código atual | Falta para o uso pedido |
 | --- | --- | --- |
-| Cartões | Cartão com fechamento e vencimento, parcelas por mês e pagamentos | Informar o total real da fatura, reconciliar diferenças e distinguir valor previsto de valor confirmado |
+| Cartões | Cartão com fechamento e vencimento, parcelas por mês e pagamentos | Informar o total da fatura até uma data de corte e somar as compras posteriores da mesma fatura |
 | Contas | Saldo base com data, movimentos posteriores e escolha de compartilhar o saldo | Conferir novos saldos sem apagar o histórico anterior e explicar divergências |
 | Mercado | Lista, 12 atalhos de produtos, conclusão da compra e atualização do estoque | Catálogo pesquisável de itens comuns, novos itens da família, variantes e compra parcial fácil |
 | Despensa | Estoque, mínimo, consumo estimado e validade | Entrada e saída simples, histórico de correções, ligação consistente com o catálogo e alertas úteis |
@@ -27,7 +27,7 @@ Direção visual: superfícies claras com verde e azul petróleo, contraste fort
 | Tela no celular | Primeiro conteúdo | Ação principal |
 | --- | --- | --- |
 | Início | Hoje, vencimentos próximos e quatro resumos que abrem os detalhes | Adicionar |
-| Cartão | Fatura selecionada, total informado, diferença e pagamentos | Informar valor da fatura |
+| Cartão | Fatura selecionada, valor alinhado, novas compras e pagamentos | Alinhar valor da fatura |
 | Conta | Saldo conferido, movimentos posteriores e eventual divergência | Conferir saldo |
 | Compras | Busca do catálogo sobre a lista atual | Adicionar ao carrinho / Concluir compra |
 | Despensa | Itens a repor ou vencer antes da lista completa | Conferir quantidade |
@@ -37,17 +37,21 @@ Cada tela mantém seus detalhes em uma segunda camada, sem esconder a informaç�
 
 ## 1. Faturas alinhadas ao banco
 
-Na tela de cada cartão, a pessoa escolhe o mês e toca em **Informar valor da fatura**. Ela informa o total mostrado pelo banco, a data de vencimento se estiver diferente, a data de conferência e, opcionalmente, anexa a fatura. Pode marcar o valor como **provisório** enquanto a fatura está aberta e como **confirmado** após o fechamento. Não precisa criar compras fictícias.
+Na tela de cada cartão, a pessoa escolhe o mês e toca em **Alinhar valor da fatura**. Ela informa o total acumulado mostrado pelo banco **até aquele momento**, a data de corte, o vencimento se estiver diferente e, opcionalmente, anexa a fatura. O campo explica que o valor é o total antes de abater pagamentos já lançados. O alinhamento cobre compras esquecidas até o corte; não exige criá-las como compras fictícias. Enquanto a fatura está aberta, o valor é provisório; após o fechamento, pode ser confirmado.
 
-A tela apresenta quatro linhas distintas: **compras cadastradas**, **diferença ainda sem detalhamento**, **total informado** e **já pago / falta pagar**. O valor informado é a referência para o compromisso; se não houver valor informado, permanece a previsão calculada com as parcelas. A diferença é calculada, pode ser positiva ou negativa e nunca vira um segundo gasto automaticamente. Uma diferença negativa pede revisão de crédito, estorno, desconto ou compra lançada no mês errado.
+A tela apresenta **valor alinhado até a data de corte**, **compras novas desta fatura**, **total atualizado**, **já pago** e **falta pagar**. No detalhe do alinhamento, mostra quanto já estava cadastrado até o corte e quanto ficou sem detalhamento. Essa diferença histórica não é um segundo gasto. Se ela for negativa, o app pede revisão de crédito, estorno, desconto ou compra lançada no mês errado.
 
-Exemplo ilustrativo: compras registradas somam R$ 300 e a fatura informada é R$ 700. A tela mostra R$ 400 sem detalhamento. Depois de um pagamento de R$ 250, faltam R$ 450. Se uma compra de R$ 100 for cadastrada nessa mesma fatura, a diferença cai para R$ 300 e o total informado permanece R$ 700. O pagamento debita somente a conta bancária selecionada.
+Exemplo ilustrativo: até 08/10, compras cadastradas somam R$ 300 e o banco mostra R$ 700 nessa fatura. O alinhamento guarda R$ 700 como base e indica R$ 400 antigos sem detalhamento. Uma compra de R$ 100 feita em 09/10 e atribuída à mesma fatura **eleva o total para R$ 800**; a diferença antiga continua R$ 400. Com um pagamento de R$ 250, faltam R$ 550. O pagamento debita somente a conta bancária selecionada.
+
+Regra de cálculo: **total atual = valor alinhado no corte + parcelas das compras feitas depois do corte que pertencem a esta fatura + ajustes posteriores explícitos**. **Falta pagar = total atual − pagamentos ligados à fatura**, limitado a zero; eventual pagamento a maior aparece separadamente como crédito ou divergência. Uma compra depois do fechamento segue a regra do cartão e entra na fatura seguinte.
+
+Se uma compra antiga for cadastrada com atraso e sua data for anterior ao corte, o app considera que ela já estava no valor alinhado: ela reduz apenas a parte histórica sem detalhamento. Para compra no mesmo dia do corte, ou quando houver dúvida, o formulário pergunta **“Este gasto já estava no valor informado?”**. A resposta fica registrada para evitar soma dupla. Um novo alinhamento em data posterior substitui a base daquele ciclo e preserva o histórico dos alinhamentos anteriores.
 
 Pagamentos parciais e múltiplos continuam ligados à competência do cartão. Se o pagamento exceder o devido, o app mostra um crédito ou divergência para revisar; não apresenta saldo negativo como dívida. A fatura compartilhada só revela o valor integral a quem pode vê-lo segundo as permissões do cartão e do lar. Uma pessoa com visão parcial recebe um rótulo de visão parcial.
 
-**Dados propostos:** registro por `cartão + competência`, com total informado em centavos, estado provisório/confirmado, vencimento, data de conferência, autoria e versão; documento ligado ao registro. A leitura da fatura passa por uma única função de cálculo usada no painel, no calendário e no pagamento. Histórico de alterações evita perder um valor anterior.
+**Dados propostos:** registro por `cartão + competência`, com valor base em centavos, data e hora do corte, estado provisório/confirmado, vencimento, autoria e versão; documento ligado ao registro. Compras do dia do corte ou lançadas retroativamente guardam a decisão sobre inclusão na base. A leitura da fatura passa por uma única função de cálculo usada no painel, no calendário e no pagamento. Histórico de alinhamentos evita perder um valor anterior.
 
-**Concluído quando:** é possível informar uma fatura sem compras; cadastrar compras depois reduz apenas a diferença; pagamentos parciais reduzem o devido e a conta vinculada uma vez; compras e pagamento não duplicam os gastos do mês.
+**Concluído quando:** é possível alinhar uma fatura sem cadastrar compras passadas; uma compra posterior da mesma fatura aumenta seu total; uma compra antiga já incluída reduz só o valor sem detalhamento; pagamentos parciais reduzem o devido e a conta vinculada uma vez; compras e pagamentos não duplicam os gastos do mês.
 
 ## 2. Saldos bancários que podem ser conferidos
 
@@ -92,7 +96,7 @@ Rotinas opcionais incluem troca de filtro, limpeza, remédio, consulta, escola e
 | Etapa | Entrega | Dependência | Verificação principal |
 | --- | --- | --- | --- |
 | 0 | Confirmar estado publicado, mapear dados existentes e desenhar telas móveis dos quatro fluxos | — | Protótipos mostram entrada, revisão e erro sem perder dados |
-| 1 | Fatura informada, diferença calculada e pagamento por conta | 0 | Exemplo de R$ 700 acima fecha em todas as telas |
+| 1 | Alinhamento com data de corte, compras posteriores somadas e pagamento por conta | 0 | Exemplo de R$ 700 → R$ 800 → R$ 550 fecha em todas as telas |
 | 2 | Histórico de conferências de saldo e divergências | 1 | Conta e fatura concordam após pagamento e transferência |
 | 3 | Catálogo da família, busca, novo produto e vínculo com despensa/lista | 0 | Produtos antigos continuam acessíveis; novos não duplicam facilmente |
 | 4 | Modo mercado e movimentos de estoque | 3 | Compra parcial, reenvio e dois celulares mantêm um único resultado |
