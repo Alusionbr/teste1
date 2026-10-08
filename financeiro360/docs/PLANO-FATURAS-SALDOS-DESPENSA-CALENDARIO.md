@@ -24,6 +24,17 @@ O início responde a quatro perguntas: **o que vence**, **quanto há nas contas 
 
 Direção visual: superfícies claras com verde e azul petróleo, contraste forte para valores e estados, cartões compactos, números legíveis, ícones acompanhados de texto e animações discretas. Tema escuro e tamanho de texto continuam preferências individuais. O formulário preserva o que foi digitado quando ocorre erro.
 
+| Tela no celular | Primeiro conteúdo | Ação principal |
+| --- | --- | --- |
+| Início | Hoje, vencimentos próximos e quatro resumos que abrem os detalhes | Adicionar |
+| Cartão | Fatura selecionada, total informado, diferença e pagamentos | Informar valor da fatura |
+| Conta | Saldo conferido, movimentos posteriores e eventual divergência | Conferir saldo |
+| Compras | Busca do catálogo sobre a lista atual | Adicionar ao carrinho / Concluir compra |
+| Despensa | Itens a repor ou vencer antes da lista completa | Conferir quantidade |
+| Calendário | Data selecionada e agenda logo abaixo | Criar compromisso |
+
+Cada tela mantém seus detalhes em uma segunda camada, sem esconder a informação que determina a próxima ação. Botões e controles terão área de toque adequada, foco visível, contraste suficiente e texto que não dependa apenas de cor ou ícone.
+
 ## 1. Faturas alinhadas ao banco
 
 Na tela de cada cartão, a pessoa escolhe o mês e toca em **Informar valor da fatura**. Ela informa o total mostrado pelo banco, a data de vencimento se estiver diferente, a data de conferência e, opcionalmente, anexa a fatura. Pode marcar o valor como **provisório** enquanto a fatura está aberta e como **confirmado** após o fechamento. Não precisa criar compras fictícias.
