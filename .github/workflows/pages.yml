@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: custom-pages-build
   cancel-in-progress: true
 
 jobs:
@@ -48,13 +48,50 @@ jobs:
           NEXT_PUBLIC_PRODUCTION: "true"
         run: pnpm build
 
+      - name: Install Financeiro360
+        id: financeiro_install
+        continue-on-error: true
+        working-directory: financeiro360
+        run: npm ci
+
+      - name: Validate Financeiro360
+        id: financeiro_validation
+        if: steps.financeiro_install.outcome == 'success'
+        continue-on-error: true
+        working-directory: financeiro360
+        run: |
+          npm test
+          npm run test:db
+
+      - name: Build Financeiro360
+        id: financeiro_build
+        if: steps.financeiro_install.outcome == 'success' && steps.financeiro_validation.outcome == 'success'
+        continue-on-error: true
+        working-directory: financeiro360
+        env:
+          # Public browser configuration; financial access is enforced by RLS.
+          VITE_SUPABASE_URL: https://iowuejrpzoibyidiuvpt.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_RJisxh4p6IAXX_nPVtkMeQ__-QcfB8p
+        run: npm run build -- --base /teste1/financeiro360/
+
       - name: Stage site
         run: |
           mkdir _site
-          rsync -a --exclude='.git' --exclude='_site' --exclude='file360' ./ _site/
+          rsync -a --exclude='.git' --exclude='_site' --exclude='file360' --exclude='financeiro360' ./ _site/
           mkdir -p _site/file360
           cp -a file360/out/. _site/file360/
           touch _site/.nojekyll
+
+      - name: Stage Financeiro360
+        if: steps.financeiro_build.outcome == 'success'
+        run: |
+          mkdir -p _site/financeiro360
+          cp -a financeiro360/dist/. _site/financeiro360/
+          cp -a financeiro360/fallback _site/financeiro360/
+
+      - name: Warn if Financeiro360 is unavailable
+        if: steps.financeiro_install.outcome != 'success' || steps.financeiro_build.outcome != 'success'
+        run: echo "::warning::Financeiro360 não entrou no artefato Pages; verifique npm ci e build. Os demais projetos serão publicados."
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
