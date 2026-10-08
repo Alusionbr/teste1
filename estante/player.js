@@ -2,7 +2,7 @@
 function renderMissingLyrics(song,message){
   const catalogSources=(song.sources||[]).some(source=>["Apple","Deezer","MusicBrainz"].includes(source))||["Apple","Deezer","MusicBrainz"].includes(song.source);
   const title=catalogSources?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
-  const down=sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"";
+  const down=[sourceDown("lrclib")?` LRCLIB indisponível${sourceStatus.lrclib.detail?` (${sourceStatus.lrclib.detail})`:""}.`:"",sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"",sourceDown("liriqo")?" LiriQo indisponível no momento.":""] .join("");
   const isJubilo=/jubil|tribo de juda/.test(fold(song.title));
   const isMedley=/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(song.title||"");
   const hint=isJubilo?(isMedley?"Este resultado é o medley pedido, mas nenhuma fonte de texto retornou sua letra.":"Se você procura a combinação com “Ele é o Leão da Tribo de Judá”, escolha um resultado marcado como medley."):"Tente outra versão ou cole uma letra sua.";

@@ -49,6 +49,14 @@ let browser;
   assert.match(combinedRank,/Ouve-se o Júbilo \/ Leão/);
   assert.match(searchRegression.explanation,/O Vagalume está indisponível/);
   assert.deepEqual(searchRegression.actions,["Buscar outras versões","Colar minha letra"]);
+  const unavailableSources=await page.evaluate(()=>{
+    markSource("lrclib",false,503);markSource("vagalume",false,503);
+    renderMissingLyrics({title:"Leão da Tribo",artist:"Masterix",source:"Apple",sources:["Apple"]},"Sem letra");
+    return{message:document.querySelector("#paper").textContent,actions:[...document.querySelectorAll(".missingActions button")].map(button=>button.textContent)};
+  });
+  assert.match(unavailableSources.message,/LRCLIB indisponível \(503\)/);
+  assert.match(unavailableSources.message,/Vagalume está indisponível/);
+  assert.deepEqual(unavailableSources.actions,["Buscar outras versões","Colar minha letra"]);
   const brasilFallback=await page.evaluate(async()=>{
     const originals={fetchRetrying,searchLrclib,searchItunes,searchDeezer,searchMusicBrainz};
     state.source="vagalume";
