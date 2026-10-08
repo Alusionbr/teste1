@@ -39,8 +39,6 @@
   });
 
   function announceUpdate(worker) {
-    notify('Nova versão do Estante disponível. <button type="button" id="reloadApp">Atualizar</button>', true);
-    const btn = document.getElementById("reloadApp");
-    if (btn) btn.onclick = () => worker.postMessage("skipWaiting");
+    notify("Nova versão do Estante disponível.", true, {label:"Atualizar",run:()=>worker.postMessage("skipWaiting")});
   }
 })();

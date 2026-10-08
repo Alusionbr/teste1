@@ -2,7 +2,11 @@
 // A busca e os chips de fonte são ligados em search-ui.js, que é carregado
 // depois deste arquivo. Aqui ficam apenas os controles de palco e repertório.
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderList()});
-$("menuBtn").onclick=()=>$("sidebar").classList.toggle("open");$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
+function closeSidebar(){$("sidebar").classList.remove("open");$("menuBtn").setAttribute("aria-expanded","false")}
+function toggleSidebar(){const open=$("sidebar").classList.toggle("open");$("menuBtn").setAttribute("aria-expanded",String(open))}
+$("menuBtn").onclick=toggleSidebar;
+$("sidebarCloseBtn").onclick=closeSidebar;
+$("stage").addEventListener("click",e=>{if(e.target!==$("menuBtn")&&$("sidebar").classList.contains("open"))closeSidebar()});$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
 document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>changeSpeed(Number(b.dataset.speed)));
 // Mudar o tamanho da letra muda a altura do texto: o automático recalcula.
 document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();applyAutoSpeed();updatePrefsSoon()});
@@ -20,7 +24,7 @@ $("notesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")re
 $("stageBtn").onclick=()=>{state.stage=!state.stage;if(state.stage)keepAwake();else releaseAwake();updateControls();updatePrefs()};$("fullscreenBtn").onclick=fullscreen;$("pasteBtn").onclick=()=>$("pasteDialog").showModal();$("sourcesBtn").onclick=()=>{$("vagalumeKey").value=state.keyVag;$("sourcesDialog").showModal()};$("themeBtn").onclick=()=>$("themeDialog").showModal();$("helpBtn").onclick=()=>$("helpDialog").showModal();
 document.querySelectorAll("#themeDialog [data-theme]").forEach(b=>b.onclick=()=>applyTheme(b.dataset.theme));
 $("pasteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;const text=$("pasteText").value;if(!text.trim()){e.preventDefault();return $("pasteText").focus()}const sync=hasLRC(text);openSong({title:$("pasteTitle").value.trim()||"Letra colada",artist:$("pasteArtist").value.trim(),lyrics:sync?"":text,synced:sync?text:"",source:"colado"});$("pasteDialog").close();e.preventDefault()});
-$("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;state.keyVag=$("vagalumeKey").value.trim();updatePrefs();$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true);e.preventDefault()});
+$("sourcesForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();const previous=state.keyVag;state.keyVag=$("vagalumeKey").value.trim();if(!updatePrefs()){state.keyVag=previous;$("vagalumeKey").value=previous;return}$("sourcesDialog").close();notify(state.keyVag?"Chave salva neste aparelho.":"Chave removida.",true)});
 $("exportBtn").onclick=exportSetlist;$("importBtn").onclick=()=>$("importFile").click();$("importFile").onchange=e=>{if(e.target.files[0])importSetlist(e.target.files[0]);e.target.value=""};
 
 // --- Karaokê ---
@@ -63,7 +67,7 @@ $("karaokeForm").addEventListener("submit",e=>{
   notify("Vídeo salvo nesta música.",true);
   // Confirmação do título é só cortesia, e não bloqueia o resto: o oEmbed pode
   // falhar (vídeo particular, removido) sem que o vídeo salvo deixe de tocar.
-  fetchVideoTitle(id).then(info=>notify(`Vídeo confirmado: ${esc(info.title)}${info.author?" · "+esc(info.author):""}`,true)).catch(err=>notify(err.message||"Não consegui confirmar este vídeo — confira se o link está certo."));
+  fetchVideoTitle(id).then(info=>notify(`Vídeo confirmado: ${info.title}${info.author?" · "+info.author:""}`,true)).catch(err=>notify(err.message||"Não consegui confirmar este vídeo — confira se o link está certo."));
   if(state.karaoke)karaokeOnSongChange();
 });
 $("karaokeRemoveBtn").onclick=()=>{
@@ -77,7 +81,7 @@ $("karaokeRemoveBtn").onclick=()=>{
 document.querySelectorAll("[data-video-offset]").forEach(b=>b.onclick=()=>karaokeNudgeOffset(Number(b.dataset.videoOffset)));
 document.querySelectorAll("[data-audio-delay]").forEach(b=>b.onclick=()=>karaokeNudgeDelay(Number(b.dataset.audioDelay)));
 
-// --- Repertórios (criar, renomear, duplicar, apagar, trocar) ---
+// --- Repertórios (criar, renomear, duplicar, arquivar, recuperar e trocar) ---
 // O mesmo diálogo serve para nomear em qualquer um desses casos.
 let setlistAction="new";
 function askSetlistName(action,title,valor){
@@ -91,12 +95,13 @@ $("setlistSelect").onchange=e=>{switchSetlist(e.target.value);renderList();updat
 $("setlistNew").onclick=()=>askSetlistName("new","Novo repertório","");
 $("setlistRename").onclick=()=>{const s=activeSetlist();if(s)askSetlistName("rename","Renomear repertório",s.name)};
 $("setlistCopy").onclick=()=>{duplicateSetlist(state.activeSetlistId);renderList();updateSaveButton();notify("Repertório duplicado.",true)};
+$("setlistArchive").onclick=()=>{const s=activeSetlist();if(!s)return;if(!archiveSetlist(s.id)){renderList();return}renderList();updateSaveButton();notify(s.archived?"Repertório arquivado.":"Repertório desarquivado.",true)};
 $("setlistDelete").onclick=()=>{
   const s=activeSetlist();if(!s)return;
   const ultimo=state.setlists.length===1;
-  const pergunta=ultimo?`Esvaziar "${s.name}"? As ${s.songs.length} músicas salvas serão apagadas.`:`Apagar o repertório "${s.name}" com ${s.songs.length} música(s)?`;
+  const pergunta=ultimo?`Esvaziar "${s.name}"? Os itens poderão ser restaurados pela lixeira.`:`Mover o repertório "${s.name}" com ${s.songs.length} item(ns) para a lixeira?`;
   if(!confirm(pergunta))return;
-  deleteSetlist(s.id);renderList();updateSaveButton();notify(ultimo?"Repertório esvaziado.":"Repertório apagado.",true);
+  if(!deleteSetlist(s.id)){renderList();return}renderList();updateSaveButton();notify(ultimo?"Repertório esvaziado.":"Repertório movido para a lixeira.",true);
 };
 $("setlistForm").addEventListener("submit",e=>{
   if(e.submitter?.value==="cancel")return;
@@ -105,6 +110,26 @@ $("setlistForm").addEventListener("submit",e=>{
   if(setlistAction==="rename")renameSetlist(state.activeSetlistId,nome);else createSetlist(nome);
   $("setlistDialog").close();renderList();updateSaveButton();e.preventDefault();
 });
+$("libraryAddSelected").onclick=addSelectedLibrary;
+$("setlistNote").onclick=()=>{$("setlistNoteTitle").value="Pausa";$("setlistNoteDuration").value="";$("setlistNoteText").value="";$("setlistNoteDialog").showModal()};
+$("setlistNoteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();addSetlistNote($("setlistNoteTitle").value.trim()||"Pausa",parseClock($("setlistNoteDuration").value),$("setlistNoteText").value.trim());$("setlistNoteDialog").close()});
+$("rehearsalStart").onclick=()=>{beginRehearsal();notify("Ensaio iniciado. Atualize o estado de cada música.",true)};
+$("rehearsalFinish").onclick=()=>{$("rehearsalNotes").value="";$("rehearsalDialog").showModal()};
+$("rehearsalForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();endRehearsal($("rehearsalNotes").value.trim());$("rehearsalDialog").close();notify("Sessão de ensaio salva no histórico.",true)});
+function openRehearsalHistory(){
+  const list=$("rehearsalHistoryList"),sessions=rehearsalHistory();list.textContent="";
+  if(!sessions.length)list.innerHTML='<div class="empty">Nenhum ensaio encerrado para este repertório.</div>';
+  sessions.forEach(session=>{const row=document.createElement("article");row.className="historyRow";const counts={learning:0,rehearsing:0,ready:0};session.items.forEach(item=>counts[item.status]=(counts[item.status]||0)+1);const started=new Date(session.startedAt),ended=session.endedAt?new Date(session.endedAt):null;const body=document.createElement("div");body.innerHTML=`<strong>${Number.isNaN(started.getTime())?"Ensaio":started.toLocaleString("pt-BR")}</strong><small>${counts.learning} a aprender · ${counts.rehearsing} em ensaio · ${counts.ready} prontas${ended&&!Number.isNaN(ended.getTime())?` · encerrado ${ended.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:""}</small>`;if(session.notes){const notes=document.createElement("p");notes.textContent=session.notes;body.appendChild(notes)}row.appendChild(body);list.appendChild(row)});
+  $("rehearsalHistoryDialog").showModal();
+}
+$("rehearsalHistoryBtn").onclick=openRehearsalHistory;$("rehearsalHistoryCloseBtn").onclick=()=>$("rehearsalHistoryDialog").close();
+function openTrash(){
+  const list=$("trashList");list.textContent="";
+  if(!state.trash.length)list.innerHTML='<div class="empty">A lixeira está vazia.</div>';
+  state.trash.slice().reverse().forEach(entry=>{const row=document.createElement("div");row.className="trashRow";const item=entry.item||{};const label=document.createElement("span");label.textContent=`${item.kind==="setlist"?"Repertório: ":""}${item.name||item.title||"Item"} · ${new Date(entry.removedAt).toLocaleDateString("pt-BR")}`;const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.onclick=()=>{restoreTrash(entry.id);openTrash()};row.append(label,restore);list.appendChild(row)});
+  $("trashDialog").showModal();
+}
+$("trashBtn").onclick=openTrash;$("trashCloseBtn").onclick=()=>$("trashDialog").close();
 
 $("printBtn").onclick=()=>{if(!state.setlist.length)return notify("Adicione músicas ao repertório antes de imprimir.");$("printDialog").showModal()};
 $("printCloseBtn").onclick=()=>$("printDialog").close();
@@ -128,14 +153,7 @@ function b64urlToBytes(text){let s=text.replace(/-/g,"+").replace(/_/g,"/");whil
  * deles); letra, sincronia e anotações só na versão completa.
  */
 function sharedSongs(comLetras){
-  return state.setlist.map(s=>{
-    // videoId/videoOffset vão nas duas formas pelo mesmo motivo de tom e capo:
-    // são 11 caracteres e um número, e o repertório recebido deve chegar pronto
-    // para tocar. A chave da API nunca vai — ela é do aparelho.
-    const base={title:s.title,artist:s.artist||"",album:s.album||"",duration:s.duration||0,key:s.key||0,capo:s.capo||0,videoId:s.videoId||"",videoOffset:s.videoOffset||0};
-    if(!comLetras)return base;
-    return Object.assign(base,{lyrics:s.lyrics||"",synced:s.synced||"",instrumental:!!s.instrumental,source:s.source||"",notes:s.notes||""});
-  });
+  return EstanteDomain.packageSetlist(activeSetlist(),comLetras).setlist.songs;
 }
 /*
  * Compactação: `deflate-raw` é do próprio navegador (CompressionStream), não é
@@ -164,7 +182,7 @@ async function unpackShare(hash){
 }
 async function makeShareUrl(comLetras){
   const set=activeSetlist();
-  return location.origin+location.pathname+await packShare({v:2,name:set?set.name:"",comLetras:!!comLetras,songs:sharedSongs(comLetras)});
+  return location.origin+location.pathname+await packShare({v:4,name:set?set.name:"",setlistId:set?set.id:"",revision:state.workspace?.revision||0,comLetras:!!comLetras,songs:sharedSongs(comLetras)});
 }
 async function copyText(text){try{await navigator.clipboard.writeText(text);return true}catch{}const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch{}ta.remove();return ok}
 // Acima disso vários aplicativos de mensagem cortam o link ao colar. Não é um
@@ -180,8 +198,8 @@ async function openShareDialog(){
   $("shareDialog").showModal();
   const [completo,simples]=await Promise.all([makeShareUrl(true),makeShareUrl(false)]);
   linkCompleto=completo;linkSimples=simples;
-  const comLetra=state.setlist.filter(s=>s.lyrics||s.synced).length;
-  $("shareSummary").textContent=`${state.setlist.length} música${state.setlist.length===1?"":"s"}, ${comLetra} com letra guardada. Com as letras o link fica com ${tamanhoLink(completo)} e abre sem internet; só a ordem fica com ${tamanhoLink(simples)} e quem receber precisa buscar cada letra.`;
+  const musicas=state.setlist.filter(s=>s.kind!=="note"),comLetra=musicas.filter(s=>s.lyrics||s.synced||s.instrumental).length;
+  $("shareSummary").textContent=`${musicas.length} música${musicas.length===1?"":"s"}, ${comLetra} pronta${comLetra===1?"":"s"} offline. Com o conteúdo o link fica com ${tamanhoLink(completo)}; só a ordem fica com ${tamanhoLink(simples)}.`;
   $("shareFullBtn").disabled=false;
   if(completo.length>LINK_LONGO){
     $("shareWarn").hidden=false;
@@ -192,7 +210,7 @@ let linkCompleto="",linkSimples="";
 async function shareSetlist(comLetras){
   $("shareDialog").close();
   const url=comLetras?linkCompleto:linkSimples;if(!url)return;
-  const title=`Repertório Estante · ${state.setlist.length} músicas`,text=comLetras?`Repertório com ${state.setlist.length} músicas e as letras — abre sem internet.`:`Repertório com ${state.setlist.length} músicas na ordem do show.`;
+  const total=state.setlist.filter(x=>x.kind!=="note").length,title=`Repertório Estante · ${total} músicas`,text=comLetras?`Repertório com ${total} músicas e conteúdo offline.`:`Repertório com ${total} músicas na ordem do show.`;
   if(navigator.share){try{await navigator.share({title,text,url});notify("Repertório compartilhado.",true);return}catch(e){if(e?.name==="AbortError")return}}
   const ok=await copyText(url);notify(ok?"Link do repertório copiado. Cole no WhatsApp ou onde quiser.":"Não consegui copiar automaticamente. Use Exportar como alternativa.",ok)
 }
@@ -201,7 +219,7 @@ async function readSharedLink(){
   if(!hash.startsWith(SHARE_PLAIN)&&!hash.startsWith(SHARE_ZIP))return null;
   try{
     const data=await unpackShare(hash);
-    if(!(data?.v===1||data?.v===2)||!Array.isArray(data.songs)||!data.songs.length)throw Error("Este link de repertório não está num formato que eu conheça.");
+    if(![1,2,4].includes(data?.v)||!Array.isArray(data.songs)||!data.songs.length)throw Error("Este link de repertório não está num formato que eu conheça.");
     incomingName=String(data.name||"").slice(0,60);
     return data.songs.map(normalizeSong).slice(0,150);
   }catch(e){notify(e.message||"Não consegui ler este link de repertório.");return null}
@@ -223,8 +241,9 @@ function finishSharedImport(mode){
   if(!incomingSetlist)return;
   if(mode==="new")createSetlist(incomingName||"Repertório recebido",incomingSetlist);
   else{
-    const existing=new Set(state.setlist.map(songIdentity));
-    incomingSetlist.forEach(x=>{const k=songIdentity(x);if(!existing.has(k)){state.setlist.push(storedSong(x));existing.add(k)}});
+    const existing=new Set(state.setlist.map(x=>x.arrangementId||songIdentity(x)));
+    incomingSetlist.forEach(x=>{const k=x.arrangementId||songIdentity(x);if(!existing.has(k)){const item=storedSong(x);item.id=EstanteDomain.uid("item");state.setlist.push(item);existing.add(k)}});
+    state.library=EstanteDomain.rebuildLibrary(state.setlists,state.library);
     saveSetlists();
   }
   state.tab="setlist";state.currentIndex=-1;renderList();updateSaveButton();$("sharedDialog").close();history.replaceState(null,"",location.pathname+location.search);
@@ -236,7 +255,7 @@ $("sharedCloseBtn").onclick=()=>{$("sharedDialog").close();history.replaceState(
 
 window.addEventListener("online",updateNetwork);window.addEventListener("offline",updateNetwork);
 // Gravação adiada não pode morrer com a aba: fecha a conta ao sair ou esconder.
-window.addEventListener("pagehide",flushSaves);
+window.addEventListener("pagehide",()=>{flushSaves();EstanteStorage.flush()});
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"){
     // O relógio da rolagem recomeça agora: sem isso o primeiro quadro na volta
@@ -245,7 +264,7 @@ document.addEventListener("visibilitychange",()=>{
     // seguiu tocando enquanto você olhava outra coisa.)
     lastFrame=performance.now();
     if(state.stage||state.scrolling||state.syncing||state.karaoke)keepAwake();
-  }else flushSaves();
+  }else{flushSaves();EstanteStorage.flush()}
 });
 /*
  * No karaokê, Espaço/Enter/↑↓ mudam de sentido: velocidade de rolagem não
@@ -267,7 +286,7 @@ document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.ta
       case"Escape":if(state.videoPlaying)karaokePlayPause();else exitKaraoke();return;
     }
   }
-  switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":stopAll();break}});
+  switch(e.key){case" ":e.preventDefault();if(e.shiftKey&&state.lrc.length)toggleSync();else toggleScroll();break;case"ArrowUp":e.preventDefault();changeSpeed(2);break;case"ArrowDown":e.preventDefault();changeSpeed(-2);break;case"ArrowLeft":jumpSong(-1);break;case"ArrowRight":jumpSong(1);break;case"PageDown":e.preventDefault();$("paperViewport").scrollBy({top:$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"PageUp":e.preventDefault();$("paperViewport").scrollBy({top:-$("paperViewport").clientHeight*.5,behavior:"smooth"});break;case"p":case"P":$("stageBtn").click();break;case"f":case"F":fullscreen();break;case"Escape":if($("sidebar").classList.contains("open"))closeSidebar();else stopAll();break}});
 // Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
 // antes seguia correndo enquanto o toque reposicionava a música sem avisar.
 $("paperViewport").addEventListener("pointerdown",()=>{
@@ -280,4 +299,10 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
 
-(function init(){const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};loadSetlists();state.source=(p.source==="trecho"?"excerpt":p.source)||"lrclib";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();readSharedLink().then(incoming=>{if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus()})})();
+(async function init(){
+  const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};
+  await loadSetlists();
+  state.source=(p.source==="trecho"?"excerpt":p.source)||"smart";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;
+  document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();
+  const incoming=await readSharedLink();if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus();
+})();

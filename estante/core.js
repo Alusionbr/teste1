@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="3.12.0";
+const APP_VERSION="4.0.3";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -16,8 +16,8 @@ const $=id=>document.getElementById(id);
  *
  * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
  */
-const state={results:[],setlist:[],setlists:[],activeSetlistId:"",tab:"results",source:"lrclib",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,theme:"neon-palco",keyVag:"",keyYT:"",audioDelay:0};
-const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",prefs:"estante:v2:prefs"};
+const state={workspace:null,results:[],library:[],setlist:[],setlists:[],trash:[],sessions:[],activeSession:null,activeSetlistId:"",selectedLibrary:new Set(),tab:"results",source:"smart",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,theme:"neon-palco",keyVag:"",keyYT:"",audioDelay:0};
+const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",workspace:"estante:v4:workspace",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
 let raf=null,lastFrame=0,pixelRest=0,syncStart=0,syncOffset=0,lastActive=-1,installPrompt=null,wakeLock=null;
@@ -62,9 +62,16 @@ function flushSaves(){const jobs=[...pendingSaves.values()];pendingSaves.clear()
 // duplicata entre "Cotidiano" e "COTIDIANO " vindos de fontes diferentes.
 function fold(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," e ").replace(/[^a-z0-9]+/g," ").trim()}
 function songIdentity(m){return fold(m&&m.title)+"|"+fold(m&&m.artist)}
-function sameSong(a,b){return songIdentity(a)===songIdentity(b)}
+function sameSong(a,b){if(a&&b&&a.arrangementId&&b.arrangementId)return a.arrangementId===b.arrangementId;return songIdentity(a)===songIdentity(b)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function notify(msg,ok=false){$("notice").innerHTML=msg?`<div class="notice ${ok?"ok":""}">${msg}</div>`:""}
+function safeUrl(value){try{const url=new URL(String(value||""),location.href);return["http:","https:"].includes(url.protocol)?url.href:""}catch{return""}}
+function notify(msg,ok=false,action=null){
+  const host=$("notice");host.textContent="";
+  if(!msg)return;
+  const box=document.createElement("div");box.className=`notice ${ok?"ok":""}`;box.textContent=msg;
+  if(action&&action.label&&action.run){const button=document.createElement("button");button.type="button";button.textContent=action.label;button.onclick=action.run;box.append(" ",button)}
+  host.appendChild(box);
+}
 function fmt(sec){if(!sec)return"";const m=Math.floor(sec/60),s=Math.floor(sec%60);return `${m}:${String(s).padStart(2,"0")}`}
 // Lê "3:45", "3.45" ou "225" e devolve segundos. 0 quando não dá para entender.
 function parseClock(text){const t=String(text||"").trim();if(!t)return 0;const m=t.match(/^(\d+)\s*[:.']\s*(\d{1,2})$/);if(m)return +m[1]*60+Math.min(59,+m[2]);const n=t.match(/^\d+$/);return n?+t:0}
@@ -72,7 +79,7 @@ function updateNetwork(){const n=$("network"),on=navigator.onLine;n.textContent=
 // `audioDelay` é do APARELHO, não da música: é o atraso da caixa Bluetooth
 // daquele lugar. `keyYT`, como a chave do Vagalume, fica só aqui — nunca no
 // link compartilhado, nunca enviada a outro serviço.
-function updatePrefs(){save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,theme:state.theme,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
+function updatePrefs(){return save(KEYS.prefs,{source:state.source,speed:state.speedGlobal,font:state.font,stage:state.stage,theme:state.theme,keyVag:state.keyVag,keyYT:state.keyYT,audioDelay:state.audioDelay})}
 function updatePrefsSoon(){saveSoon("prefs",updatePrefs)}
 // Rolar e Sincro ficam desabilitados durante o karaokê: os três escreveriam no
 // mesmo scrollTop/relógio ao mesmo tempo se pudessem ligar juntos. Sair do
@@ -134,8 +141,13 @@ async function fetchLrclibSong(song){
 // é o caminho dos ajustes da pedaleira, que se repetem muito.
 function persistCurrent(fields){
   if(!state.current)return;
-  const i=state.setlist.findIndex(x=>sameSong(x,state.current));if(i<0)return;
-  if(fields){fields.forEach(f=>{state.setlist[i][f]=state.current[f]});saveSetlistsSoon()}
-  else{state.setlist[i]=storedSong(state.current);saveSetlists()}
+  const i=state.setlist.findIndex(x=>x.id&&x.id===state.current.id||sameSong(x,state.current));if(i<0)return;
+  if(fields){
+    fields.forEach(f=>{state.setlist[i][f]=state.current[f]});
+    const arrangementId=state.setlist[i].arrangementId;
+    state.setlists.forEach(setlist=>setlist.songs.forEach(item=>{if(item.kind!=="note"&&item.arrangementId===arrangementId)fields.forEach(field=>item[field]=state.current[field])}));
+    syncArrangement(state.setlist[i],fields);saveSetlistsSoon();
+  }
+  else{state.current=updateArrangementEverywhere(state.current,state.setlist[i],"Conteúdo atualizado");bindActiveSetlist();saveSetlists()}
 }
-function updateSaveButton(){if(!state.current){$("saveBtn").disabled=true;$("saveBtn").textContent="+ Repertório";return}const exists=state.setlist.some(x=>sameSong(x,state.current));$("saveBtn").disabled=exists;$("saveBtn").textContent=exists?"✓ Repertório":"+ Repertório"}
+function updateSaveButton(){if(!state.current){$("saveBtn").disabled=true;$("saveBtn").textContent="+ Repertório";return}const exists=state.setlist.some(x=>x.kind!=="note"&&sameSong(x,state.current));$("saveBtn").disabled=exists;$("saveBtn").textContent=exists?"✓ Repertório":"+ Repertório"}

@@ -87,7 +87,7 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 /* Atalhos para as seções da música */
 .sectionBar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px clamp(20px,5vw,60px);max-width:900px;margin:0 auto;width:100%;background:var(--panel);border-bottom:1px solid var(--line)}
 .sectionBar::-webkit-scrollbar{display:none}
-.sectionBar button{flex:0 0 auto;background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--muted);padding:6px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.sectionShortcut{display:flex;flex:0 0 auto}.sectionBar button{flex:0 0 auto;background:transparent;border:1px solid var(--line);border-radius:999px;color:var(--muted);padding:6px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.sectionShortcut>button:first-child{border-radius:999px 0 0 999px}.sectionShortcut .sectionEdit{border-left:0;border-radius:0 999px 999px 0;padding-inline:8px}
 .sectionBar button:hover{color:var(--accent);border-color:var(--accent)}
 
 /* Aviso do que a importação vai apagar */
@@ -113,3 +113,26 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
   .printNotes{margin:3px 0 0;font:10pt system-ui,sans-serif;font-style:italic;color:#333}
   .printLyrics{margin:8px 0 0;font:10.5pt/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap}
 }
+
+.sidebarClose{display:none}
+@media(max-width:900px){.sidebarClose{display:block;margin-left:auto;background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted);min-width:40px;min-height:40px;font-size:22px}}
+
+/* Fluxos de biblioteca, repertório e ensaio */
+.brand .saveState{margin-left:0;text-transform:none}
+.brand .saveState[data-state="saving"]{color:#e8c36c;border-color:#6b5422}
+.brand .saveState[data-state="saved"]{color:#9ed8b0;border-color:#315f40}
+.brand .saveState[data-state="error"]{color:#efb6b6;border-color:#6b3131}
+.tabs{overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{flex:0 0 auto;padding-inline:8px;font-size:10px}
+.contextTools{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px}
+.contextTools button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--muted);padding:7px 9px}.contextTools button:hover{color:var(--accent);border-color:var(--accent)}
+.listRow[draggable="true"]{cursor:grab}.listRow[draggable="true"]:active{cursor:grabbing}
+.listRow:has(.libraryPick){grid-template-columns:auto minmax(0,1fr) auto;align-items:center}.libraryPick{width:18px;height:18px;accent-color:var(--accent)}
+.rowActions .addOne{font-size:20px;color:var(--accent)}
+.noteRow{border:1px dashed var(--line);border-radius:7px}.noteItem{cursor:grab}.noteItem strong{font-family:system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--muted)}
+.statusSelect{align-self:center;max-width:112px;background:var(--bg);border:1px solid var(--line);border-radius:5px;color:var(--muted);padding:7px 5px;font-size:11px}
+.tag.status.learning{color:#e8c36c}.tag.status.rehearsing{color:#8dc7ee}.tag.status.ready{color:#9ed8b0}.tag.arrangement{color:color-mix(in oklch,var(--accent) 70%,var(--text))}
+.tag.catalogOnly{color:#e8c36c}.missingActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.missingActions button{background:transparent;border:1px solid var(--weak);border-radius:6px;color:var(--ink);padding:9px 12px;font:600 12px system-ui,sans-serif}.missingActions button:hover{border-color:var(--accent);color:var(--accent)}
+.modal select{display:block;width:100%;margin-top:5px;padding:10px 11px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--text)}
+.trashList{display:grid;gap:7px;padding:14px 18px}.trashRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:6px}.trashRow span{min-width:0;overflow:hidden;text-overflow:ellipsis}.trashRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
+.historyList{display:grid;gap:7px;padding:14px 18px}.historyRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:6px}.historyRow>div{min-width:0}.historyRow strong,.historyRow small{display:block}.historyRow small{margin-top:3px;color:var(--muted);font-size:11px}.historyRow p{margin:7px 0 0;color:var(--text);white-space:pre-wrap}.historyRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
+@media(max-width:520px){.contextTools{grid-template-columns:1fr}.setlistBar{align-items:stretch;flex-direction:column}.setlistActions{overflow-x:auto}.setlistActions button{flex:0 0 auto}.brand span{display:none}}

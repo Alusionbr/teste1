@@ -1,12 +1,26 @@
 "use strict";
 function renderMissingLyrics(song,message){
-  const catalogOnly=(song.sources||[]).includes("Apple")||song.source==="Apple";
-  const title=catalogOnly?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
-  const detail=catalogOnly?"A faixa foi identificada no catálogo, porém nenhuma das fontes de letras devolveu conteúdo para esta versão. Tente outra versão, a busca por trecho ou cole a letra.":message;
-  $("paper").innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail||"")}</small></div>`;
-  const links=[];if(song.vagUrl)links.push(`<a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(song.catalogUrl)links.push(`<a href="${esc(song.catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
+  const catalogSources=(song.sources||[]).some(source=>["Apple","Deezer","MusicBrainz"].includes(source))||["Apple","Deezer","MusicBrainz"].includes(song.source);
+  const title=catalogSources?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
+  const down=sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"";
+  const isJubilo=/jubil|tribo de juda/.test(fold(song.title));
+  const isMedley=/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(song.title||"");
+  const hint=isJubilo?(isMedley?"Este resultado é o medley pedido, mas nenhuma fonte de texto retornou sua letra.":"Se você procura a combinação com “Ele é o Leão da Tribo de Judá”, escolha um resultado marcado como medley."):"Tente outra versão ou cole uma letra sua.";
+  const detail=catalogSources
+    ?`O catálogo identifica a gravação, mas não fornece letra. As fontes de texto consultadas não encontraram esta versão.${down} ${hint}`
+    :`${message||"Nenhuma fonte devolveu texto para esta versão."}${down}`;
+  const paper=$("paper");paper.innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail)}</small></div>`;
+  const actions=document.createElement("div");actions.className="missingActions";
+  const retry=document.createElement("button");retry.type="button";retry.textContent="Buscar outras versões";
+  retry.onclick=()=>{$("searchInput").value=song.title||"";state.source="smart";$("searchForm").requestSubmit();if(matchMedia("(max-width:900px)").matches)toggleSidebar()};
+  const paste=document.createElement("button");paste.type="button";paste.textContent="Colar minha letra";
+  paste.onclick=()=>{$("pasteTitle").value=song.title||"";$("pasteArtist").value=song.artist||"";$("pasteText").value="";$("pasteDialog").showModal()};
+  actions.append(retry,paste);paper.querySelector(".emptyPaper").appendChild(actions);
+  const links=[],vagUrl=safeUrl(song.vagUrl),catalogUrl=safeUrl(song.catalogUrl);if(vagUrl)links.push(`<a href="${esc(vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(catalogUrl)links.push(`<a href="${esc(catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
 }
+let openSongRequest=0;
 async function openSong(song){
+  const requestId=++openSongRequest;
   stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
   // Troca o vídeo já aqui, antes da busca de letra que pode esperar até 12s de
   // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
@@ -15,12 +29,16 @@ async function openSong(song){
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
-      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
+      if(requestId!==openSongRequest)return;
+      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{if(requestId===openSongRequest)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
     }
+    if(requestId!==openSongRequest)return;
     persistCurrent();
   }
+  if(requestId!==openSongRequest)return;
   renderCurrentLyrics();updateSaveButton();
-  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.vagUrl&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(song.vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
+  const vagUrl=safeUrl(song.vagUrl);
+  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.lyricNote)$("credits").textContent=`${song.lyricNote} Fontes: ${(song.lyricSources||[]).join("; ")} via ${song.source}. Direitos reservados aos autores e editoras.`;else if(vagUrl&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
 }
 // Redesenha a letra da música aberta a partir do que está em state.current.
 // Serve para abrir a música e também depois de editar a letra, sem consultar a
@@ -131,12 +149,16 @@ function tick(){raf=requestAnimationFrame(tick);const now=performance.now(),dt=M
  */
 function atScrollEnd(){return $("paperViewport").scrollTop>=scrollDistance()-4}
 
-// Exporta todos os repertórios (versão 3). A chave "setlist" continua saindo
-// com o repertório ativo para que arquivos novos ainda abram em versões antigas.
-function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,setlists:state.setlists,setlist:state.setlist};const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="estante-repertorio.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)}
+// Exporta o workspace v4 completo. A chave "setlist" continua saindo com o
+// repertório ativo para que arquivos novos ainda abram em versões antigas.
+function exportSetlist(){
+  const data=workspaceSnapshot();data.exportedAt=new Date().toISOString();data.setlist=state.setlist;
+  const a=document.createElement("a"),blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  a.href=URL.createObjectURL(blob);a.download=`estante-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
 /*
- * Importação. Aceita o formato novo (vários repertórios) e os antigos (um
- * repertório só ou um array puro de músicas).
+ * Importação. Aceita workspace v4, pacote compartilhado e os formatos antigos
+ * (um repertório só ou um array puro de músicas).
  *
  * Nunca escreve direto: até a versão anterior, importar substituía todos os
  * repertórios do aparelho em silêncio — bastava tocar em Importar por engano
@@ -146,16 +168,17 @@ function exportSetlist(){const data={version:3,activeId:state.activeSetlistId,se
 let incomingImport=null;
 function importSetlist(file){const r=new FileReader();r.onload=()=>{try{
   const d=JSON.parse(r.result);
-  if(d&&Array.isArray(d.setlists)&&d.setlists.length)askImportMode(d.setlists.map(normalizeSetlist),d.activeId);
+  if(d&&Array.isArray(d.setlists)&&d.setlists.length)askImportMode(d.setlists.map(normalizeSetlist),d.activeId,d);
+  else if(d&&d.kind==="estante-setlist"&&d.setlist&&Array.isArray(d.setlist.songs))askImportMode([normalizeSetlist(d.setlist)],d.setlist.id,d);
   else{
     const raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw 0;
     askImportMode([makeSetlist("Repertório importado",raw.map(normalizeSong))],"");
   }
 }catch{notify("Arquivo de repertório inválido.")}};r.readAsText(file)}
 
-function askImportMode(setlists,activeId){
-  incomingImport={setlists,activeId};
-  const musicas=setlists.reduce((t,s)=>t+s.songs.length,0);
+function askImportMode(setlists,activeId,workspace=null){
+  incomingImport={setlists,activeId,workspace};
+  const musicas=setlists.reduce((t,s)=>t+s.songs.filter(x=>x.kind!=="note").length,0);
   const aqui=state.setlists.length,musicasAqui=state.setlists.reduce((t,s)=>t+s.songs.length,0);
   $("importSummary").textContent=`O arquivo tem ${setlists.length} repertório${setlists.length===1?"":"s"} e ${musicas} música${musicas===1?"":"s"}: ${setlists.map(s=>s.name).slice(0,3).join(", ")}${setlists.length>3?"…":""}.`;
   $("importWarning").textContent=`Substituir apaga o que está neste aparelho: ${aqui} repertório${aqui===1?"":"s"} e ${musicasAqui} música${musicasAqui===1?"":"s"}.`;
@@ -163,15 +186,17 @@ function askImportMode(setlists,activeId){
 }
 function finishImport(mode){
   if(!incomingImport)return;
-  const{setlists,activeId}=incomingImport;
+  const{setlists,activeId,workspace}=incomingImport;
   if(mode==="replace"){
-    state.setlists=setlists;
-    state.activeSetlistId=setlists.some(s=>s.id===activeId)?activeId:setlists[0].id;
+    const migrated=EstanteDomain.migrate(workspace||{setlists,activeId});
+    state.setlists=migrated.setlists;state.library=migrated.library;state.trash=migrated.trash;state.sessions=migrated.sessions;
+    state.activeSetlistId=state.setlists.some(s=>s.id===migrated.activeId)?migrated.activeId:state.setlists[0].id;
   }else{
     // Entram como repertórios novos, com id próprio para não colidir com os que
     // já estão no aparelho.
-    setlists.forEach(s=>{s.id=newSetlistId();state.setlists.push(s)});
+    setlists.forEach(s=>{s.id=newSetlistId();s.songs.forEach(item=>item.id=EstanteDomain.uid("item"));state.setlists.push(s)});
     state.activeSetlistId=setlists[0].id;
+    state.library=EstanteDomain.rebuildLibrary(state.setlists,state.library);
   }
   state.currentIndex=-1;bindActiveSetlist();saveSetlists();
   state.tab="setlist";renderList();updateSaveButton();$("importDialog").close();

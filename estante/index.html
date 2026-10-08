@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d1117">
-  <meta name="description" content="Estante: letras e cifras para palco, repertório salvo no aparelho, busca inteligente, rolagem automática, sincronia e transposição.">
+  <meta name="description" content="Estante: organize arranjos e repertórios, acompanhe ensaios e leve letras e cifras offline para o palco.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Estante — letras e cifras no palco</title>
+  <title>Estante — ensaios e repertórios</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=3.12.0">
+  <link rel="stylesheet" href="./styles.css?v=4.0.3">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -18,7 +18,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <header class="brand"><strong>ESTANTE</strong><span>letras e cifras</span><i id="network">rede</i></header>
+    <header class="brand"><strong>ESTANTE</strong><span>ensaio e repertório</span><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
 
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
@@ -35,8 +35,10 @@
     <div id="notice" aria-live="polite"></div>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="results">Resultados</button>
-      <button class="tab" data-tab="setlist">Repertório <b id="setlistCount">0</b></button>
+      <button class="tab active" data-tab="results">Início</button>
+      <button class="tab" data-tab="library">Biblioteca <b id="libraryCount">0</b></button>
+      <button class="tab" data-tab="setlist">Repertórios <b id="setlistCount">0</b></button>
+      <button class="tab" data-tab="rehearsal">Ensaio</button>
     </nav>
 
     <div class="setlistBar" id="setlistBar" hidden>
@@ -45,9 +47,22 @@
         <button id="setlistNew" type="button" title="Novo repertório" aria-label="Novo repertório">+</button>
         <button id="setlistRename" type="button" title="Renomear repertório" aria-label="Renomear repertório">✎</button>
         <button id="setlistCopy" type="button" title="Duplicar repertório" aria-label="Duplicar repertório">⧉</button>
+        <button id="setlistArchive" type="button" title="Arquivar repertório">Arquivar</button>
         <button id="printBtn" type="button" title="Imprimir repertório" aria-label="Imprimir repertório">⎙</button>
         <button id="setlistDelete" type="button" class="remove" title="Apagar repertório" aria-label="Apagar repertório">×</button>
       </div>
+    </div>
+
+    <div id="libraryTools" class="contextTools" hidden>
+      <span id="librarySelection">Selecione arranjos para adicionar</span>
+      <button id="libraryAddSelected" type="button">Adicionar selecionadas</button>
+    </div>
+    <div id="rehearsalTools" class="contextTools" hidden>
+      <span id="rehearsalSummary"></span>
+      <button id="rehearsalStart" type="button">Iniciar ensaio</button>
+      <button id="rehearsalFinish" type="button" hidden>Encerrar ensaio</button>
+      <button id="rehearsalHistoryBtn" type="button">Histórico</button>
+      <button id="setlistNote" type="button">+ Pausa/nota</button>
     </div>
 
     <div id="list" class="list"></div>
@@ -60,6 +75,7 @@
       <button id="shareBtn">Compartilhar</button>
       <button id="exportBtn">Exportar</button>
       <button id="importBtn">Importar</button>
+      <button id="trashBtn">Lixeira</button>
       <button id="helpBtn">Ajuda</button>
     </footer>
   </aside>
@@ -67,7 +83,7 @@
   <main class="stage" id="stage">
     <div id="karaokeFrame" aria-hidden="true"></div>
     <header class="songHeader">
-      <button class="menu" id="menuBtn" aria-label="Abrir repertório">☰</button>
+      <button class="menu" id="menuBtn" aria-label="Abrir repertório" aria-expanded="false" aria-controls="sidebar">☰</button>
       <div class="songMeta">
         <h1 id="songTitle">Nenhuma música aberta</h1>
         <p id="songArtist">Busque uma música ou cole sua própria letra</p>
@@ -123,7 +139,7 @@
     <header><h2>Fontes</h2><button value="cancel">×</button></header>
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
     <p><b>Inteligente</b> consulta em paralelo o LRCLIB, o Vagalume, o Deezer, o catálogo da Apple e o MusicBrainz, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
-    <p>Letra vem do LRCLIB (a única com sincronia), do Vagalume, do acervo deste site e, como reserva, da lyrics.ovh. Deezer, Apple e MusicBrainz não têm letra: servem para identificar a faixa e descobrir álbum e duração — é o que permite às outras acharem a letra certa.</p>
+    <p>Letra vem do LRCLIB (a única com sincronia), do Vagalume, do acervo deste site e, como reserva, do LiriQo e da lyrics.ovh. Deezer, Apple e MusicBrainz não têm letra: servem para identificar a faixa e descobrir álbum e duração — é o que permite às outras acharem a letra certa. Quando um medley não tem transcrição completa, uma versão de ensaio pode combinar gravações identificadas e mostrar esse aviso.</p>
     <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho. Procurar por um pedaço da letra depende dele: as outras fontes comparam título, artista e álbum, nunca o texto. Nesse caso o app ainda procura no seu repertório e no acervo, que guardam a letra inteira.</p>
     <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
@@ -170,14 +186,15 @@
     <p><b>Busca inteligente:</b> procure por título, artista ou versão. O Estante consulta várias bases, corrige variações comuns e ordena por relevância. É o modo mais confiável quando alguma fonte está fora do ar.</p>
     <p><b>Busca no que já é seu:</b> toda busca procura antes no seu repertório e no acervo do site, inclusive <b>dentro da letra</b> — dá para achar a música por um verso. Funciona sem internet e vem sempre primeiro na lista.</p>
     <p><b>Rolar:</b> desce a letra automaticamente. Ajuste a velocidade na pedaleira ou toque em <b>auto</b>: o Estante calcula a velocidade pela duração da música para a letra terminar junto. Mexer no −/+ volta para o manual.</p>
-    <p><b>Editar letra:</b> conserta o que a fonte trouxe errado e guarda o arranjo da banda. Escreva <b>[Refrão]</b>, <b>[Solo]</b> ou <b>[Final]</b> numa linha e essas seções viram atalhos acima da letra.</p>
+    <p><b>Editar arranjo:</b> dê um nome à versão e escolha se a mudança vale para todos os repertórios vinculados ou apenas para o atual. Cada salvamento cria uma revisão restaurável em <b>Versões</b>. <b>[Refrão]</b>, <b>[Solo]</b> e <b>[Final]</b> viram atalhos com anotações próprias.</p>
     <p><b>Sincro:</b> em letras temporizadas, toque junto com a primeira nota. Encostar na letra <b>pausa</b>; para começar de outro ponto, dê <b>dois toques</b> na linha — assim apoiar o dedo no tablet não faz a música saltar.</p>
     <p><b>Compartilhar:</b> o link pode levar as letras junto, e aí o show inteiro abre no aparelho de quem recebeu mesmo sem internet. O app mostra o tamanho antes: se o link ficar longo demais para colar, use <b>Exportar</b> e mande o arquivo.</p>
-    <p><b>Repertório:</b> use ↑/↓ para montar a ordem do show e × para remover. Na barra do repertório dá para ter uma lista por show: criar, renomear, duplicar, apagar e imprimir.</p>
+    <p><b>Biblioteca:</b> reúne músicas e arranjos reutilizáveis. Selecione vários para adicionar ao repertório de uma vez.</p>
+    <p><b>Repertórios:</b> arraste ou use ↑/↓ para montar a ordem. Remoções podem ser desfeitas e ficam na Lixeira. Também é possível duplicar, arquivar, imprimir e inserir pausas ou notas entre músicas.</p>
+    <p><b>Ensaio:</b> marque cada música como A aprender, Em ensaio ou Pronta. Iniciar e encerrar guarda o resumo e os estados no Histórico.</p>
     <p><b>Tom, capo, velocidade e anotações</b> ficam salvos em cada música do repertório: ao voltar nela no próximo show, tudo volta como você deixou.</p>
     <p><b>Imprimir:</b> gera a ordem do show em papel ou PDF, só a lista ou com as letras.</p>
-    <p><b>Sem internet:</b> depois da primeira abertura o app funciona offline e pode ser instalado no celular. A busca precisa de rede; o repertório salvo, não.</p>
-    <p><b>Compartilhar:</b> envia um link com a ordem do repertório. Quem abrir pode adicionar ou substituir o repertório atual.</p>
+    <p><b>Sem internet:</b> o resumo mostra quantas músicas estão prontas offline. Depois da primeira abertura o app pode ser instalado; a busca online precisa de rede, o conteúdo salvo não.</p>
     <p><b>Importar:</b> mostra o que vem no arquivo antes de mexer em qualquer coisa. <b>Adicionar</b> mantém o que já está no aparelho; <b>Substituir</b> troca tudo.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
@@ -197,9 +214,51 @@
     <p>Corrija o que a fonte trouxe errado e escreva o arranjo da banda. Tom, capotraste, velocidade e anotações não mudam.</p>
     <label>Música<input id="editTitle"></label>
     <label>Artista<input id="editArtist"></label>
+    <label>Nome do arranjo<input id="editArrangement" maxlength="80" placeholder="Ex.: Acústico, Tom da Ana"></label>
+    <label>Aplicar edição<select id="editScope"><option value="arrangement">A todos os repertórios com este arranjo</option><option value="setlist">Somente a este repertório</option></select></label>
     <label>Letra ou cifra<textarea id="editText" placeholder="Linhas só com acordes viram cifras; [Refrão] vira seção e ganha atalho; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
-    <footer><button type="button" id="timingOpenBtn" hidden>Ajustar tempos</button><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
+    <footer><button type="button" id="revisionHistoryBtn">Versões</button><button type="button" id="timingOpenBtn" hidden>Ajustar tempos</button><button value="cancel">Cancelar</button><button class="accent" value="default">Salvar letra</button></footer>
   </form>
+</dialog>
+
+<dialog id="revisionDialog">
+  <div class="modal">
+    <header><h2>Versões do arranjo</h2><button id="revisionCloseBtn" type="button">×</button></header>
+    <div id="revisionList" class="historyList"></div>
+  </div>
+</dialog>
+
+<dialog id="setlistNoteDialog">
+  <form method="dialog" class="modal" id="setlistNoteForm">
+    <header><h2>Adicionar pausa ou nota</h2><button value="cancel">×</button></header>
+    <label>Título<input id="setlistNoteTitle" maxlength="100" placeholder="Ex.: Pausa, troca de instrumento"></label>
+    <label>Duração<input id="setlistNoteDuration" inputmode="numeric" placeholder="Ex.: 5:00"></label>
+    <label>Detalhes<textarea id="setlistNoteText" placeholder="O que a banda precisa lembrar"></textarea></label>
+    <footer><button value="cancel">Cancelar</button><button class="accent" value="default">Adicionar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="rehearsalDialog">
+  <form method="dialog" class="modal" id="rehearsalForm">
+    <header><h2>Encerrar ensaio</h2><button value="cancel">×</button></header>
+    <p>Os estados atuais das músicas serão guardados no histórico desta sessão.</p>
+    <label>Resumo do ensaio<textarea id="rehearsalNotes" placeholder="O que evoluiu, o que revisar, decisões de arranjo"></textarea></label>
+    <footer><button value="cancel">Continuar ensaiando</button><button class="accent" value="default">Salvar sessão</button></footer>
+  </form>
+</dialog>
+
+<dialog id="rehearsalHistoryDialog">
+  <div class="modal">
+    <header><h2>Histórico de ensaios</h2><button id="rehearsalHistoryCloseBtn" type="button">×</button></header>
+    <div id="rehearsalHistoryList" class="historyList"></div>
+  </div>
+</dialog>
+
+<dialog id="trashDialog">
+  <div class="modal">
+    <header><h2>Lixeira</h2><button id="trashCloseBtn" type="button">×</button></header>
+    <div id="trashList" class="trashList"></div>
+  </div>
 </dialog>
 
 <dialog id="timingDialog">
@@ -261,19 +320,21 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./core.js?v=3.12.0" defer></script>
-<script src="./search-engine.js?v=3.12.0" defer></script>
-<script src="./library.js?v=3.12.0" defer></script>
-<script src="./acervo.js?v=3.12.0" defer></script>
-<script src="./setlists.js?v=3.12.0" defer></script>
-<script src="./song-prefs.js?v=3.12.0" defer></script>
-<script src="./autoscroll.js?v=3.12.0" defer></script>
-<script src="./player.js?v=3.12.0" defer></script>
-<script src="./karaoke.js?v=3.12.0" defer></script>
-<script src="./song-edit.js?v=3.12.0" defer></script>
-<script src="./print.js?v=3.12.0" defer></script>
-<script src="./ui.js?v=3.12.0" defer></script>
-<script src="./search-ui.js?v=3.12.0" defer></script>
-<script src="./offline.js?v=3.12.0" defer></script>
+<script src="./domain.js?v=4.0.3" defer></script>
+<script src="./storage.js?v=4.0.3" defer></script>
+<script src="./core.js?v=4.0.3" defer></script>
+<script src="./search-engine.js?v=4.0.3" defer></script>
+<script src="./library.js?v=4.0.3" defer></script>
+<script src="./acervo.js?v=4.0.3" defer></script>
+<script src="./setlists.js?v=4.0.3" defer></script>
+<script src="./song-prefs.js?v=4.0.3" defer></script>
+<script src="./autoscroll.js?v=4.0.3" defer></script>
+<script src="./player.js?v=4.0.3" defer></script>
+<script src="./karaoke.js?v=4.0.3" defer></script>
+<script src="./song-edit.js?v=4.0.3" defer></script>
+<script src="./print.js?v=4.0.3" defer></script>
+<script src="./ui.js?v=4.0.3" defer></script>
+<script src="./search-ui.js?v=4.0.3" defer></script>
+<script src="./offline.js?v=4.0.3" defer></script>
 </body>
 </html>

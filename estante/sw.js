@@ -3,7 +3,7 @@
  *
  * Objetivo: o app abrir e funcionar sem internet no palco. Só o "casco" do
  * aplicativo é guardado em cache (HTML, CSS, scripts e ícones). As letras
- * salvas continuam no localStorage, que já funciona offline.
+ * salvas continuam no IndexedDB, com uma cópia de recuperação local.
  *
  * Consultas às fontes de letra (LRCLIB, Vagalume, Apple) nunca passam pelo
  * cache: são outro domínio e precisam de resposta fresca.
@@ -12,12 +12,14 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "3.12.0";
+const VERSION = "4.0.3";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./domain.js",
+  "./storage.js",
   "./core.js",
   "./search-engine.js",
   "./library.js",
@@ -41,11 +43,10 @@ const SHELL = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE)
-      // addAll falha inteiro se um arquivo faltar; guardamos um a um para que
-      // uma ausência isolada não impeça o app de ficar offline.
-      .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => null))))
-      .then(() => self.skipWaiting())
+    // A instalação é transacional: uma versão só fica pronta quando todo o
+    // casco essencial está no cache. Se um arquivo faltar, a versão anterior
+    // segue ativa e o usuário não fica com um app parcialmente offline.
+    caches.open(CACHE).then(cache => cache.addAll(SHELL))
   );
 });
 
