@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.0.3";
+const APP_VERSION="4.0.4";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -124,8 +124,8 @@ async function fetchVagalume(song){
 
 async function fetchLrclibSong(song){
   const qs=new URLSearchParams({track_name:song.title||""});if(song.artist)qs.set("artist_name",song.artist);
-  const r=await fetchSafe(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS});
-  if(r.status===429)throw Error("LRCLIB limitou temporariamente as buscas. Tente novamente em instantes.");if(!r.ok)throw Error(`LRCLIB respondeu ${r.status}`);
+  let r;try{r=await fetchSafe(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS})}catch(error){markSource("lrclib",false,error.message);throw error}
+  if(r.status===429){markSource("lrclib",false,429);throw Error("LRCLIB limitou temporariamente as buscas. Tente novamente em instantes.")}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}
   markSource("lrclib",true);
   // Pega a primeira linha COM texto. Cair no rows[0] quando nenhuma tem letra
   // devolvia a música em branco como se fosse sucesso, e as fontes de reserva

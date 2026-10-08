@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.0.3";
+const VERSION = "4.0.4";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -67,6 +67,21 @@ self.addEventListener("fetch", event => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // fontes de letra vão direto à rede
+
+  // Página sempre tenta a rede primeiro para receber a versão atual. Quando
+  // offline, cai para o shell salvo. Scripts e imagens continuam cache-first.
+  if (req.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        const resp = await fetch(req);
+        if (resp && resp.ok) await (await caches.open(CACHE)).put("./index.html", resp.clone());
+        return resp;
+      } catch {
+        return caches.match("./index.html", { ignoreSearch: true });
+      }
+    })());
+    return;
+  }
 
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then(hit => {

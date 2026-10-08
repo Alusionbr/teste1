@@ -164,8 +164,9 @@ fetchLrclibSong=async function(song){
 // busca do provedor associe uma letra de outra gravação a este resultado.
 async function fetchLiriqoExact(title,artist){
   const params=new URLSearchParams({title,artist});
-  const r=await fetchSafe(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000);
-  if(!r.ok)return null;
+  let r;try{r=await fetchSafe(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000)}catch(error){markSource("liriqo",false,error.message);throw error}
+  if(!r.ok){markSource("liriqo",false,r.status);return null}
+  markSource("liriqo",true);
   const data=await r.json();
   if(fold(cleanEdition(data?.metadata?.title))!==fold(cleanEdition(title))||fold(data?.metadata?.artist)!==fold(artist))return null;
   const text=String(data?.primary?.plain||"").trim();
@@ -175,7 +176,7 @@ async function fetchLiriqoSong(song){
   if(!song.title||!song.artist)return null;
   try{
     const exact=await fetchLiriqoExact(song.title,song.artist);
-    if(exact){song.lyrics=exact;song.synced="";song.source="LiriQo";markSource("liriqo",true);return song}
+    if(exact){song.lyrics=exact;song.synced="";song.source="LiriQo";return song}
   }catch{}
   // Alguns medleys não têm transcrição da gravação completa. Para ensaio,
   // juntar duas gravações conhecidas é útil, mas a origem deve ficar explícita.
@@ -193,7 +194,6 @@ async function fetchLiriqoSong(song){
     song.source="LiriQo";
     song.lyricNote="Versão de ensaio montada de duas gravações; confira a ordem e as repetições do seu medley.";
     song.lyricSources=parts.map(part=>`${part.title} — ${part.artist}`);
-    markSource("liriqo",true);
     return song;
   }catch{return null}
 }
