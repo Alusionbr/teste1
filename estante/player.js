@@ -1,5 +1,6 @@
 "use strict";
 function renderMissingLyrics(song,message){
+  window.EstanteTelemetry?.report("lyrics_unavailable");
   const catalogSources=(song.sources||[]).some(source=>["Apple","Deezer","MusicBrainz"].includes(source))||["Apple","Deezer","MusicBrainz"].includes(song.source);
   const title=catalogSources?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
   const down=[sourceDown("lrclib")?` LRCLIB indisponível${sourceStatus.lrclib.detail?` (${sourceStatus.lrclib.detail})`:""}.`:"",sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"",sourceDown("liriqo")?" LiriQo indisponível no momento.":""] .join("");

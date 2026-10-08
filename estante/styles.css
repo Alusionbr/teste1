@@ -136,3 +136,20 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 .trashList{display:grid;gap:7px;padding:14px 18px}.trashRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:6px}.trashRow span{min-width:0;overflow:hidden;text-overflow:ellipsis}.trashRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
 .historyList{display:grid;gap:7px;padding:14px 18px}.historyRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:6px}.historyRow>div{min-width:0}.historyRow strong,.historyRow small{display:block}.historyRow small{margin-top:3px;color:var(--muted);font-size:11px}.historyRow p{margin:7px 0 0;color:var(--text);white-space:pre-wrap}.historyRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
 @media(max-width:520px){.contextTools{grid-template-columns:1fr}.setlistBar{align-items:stretch;flex-direction:column}.setlistActions{overflow-x:auto}.setlistActions button{flex:0 0 auto}.brand span{display:none}}
+
+/* Optional account: the app opens directly in guest mode. */
+.accountBar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);font:11px system-ui,sans-serif}
+.accountBar span{flex:1;color:var(--muted);min-width:0}
+.accountBar button,.accountActions button,.accountModal>section>button,.adminModal>button{background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--text);padding:9px;cursor:pointer}
+.accountBar button:hover,.accountActions button:hover{border-color:var(--accent)}
+#accountDialog{width:min(600px,calc(100vw - 32px))}.accountModal{width:100%}
+.accountModal>section{padding:0 18px 14px}.accountModal h3,.adminModal h3{font:600 16px system-ui,sans-serif;margin:12px 0}
+.accountModal section p{margin:10px 0;padding:0;font-size:13px;line-height:1.5}
+.accountModal form label{margin:12px 0}.accountActions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.accountModal .consentLabel{display:flex;align-items:center;gap:10px;font-size:14px}.accountModal .consentLabel input{width:20px;height:20px;flex:0 0 20px;margin:0}
+.accountPrivacy{border-top:1px solid var(--line);padding-top:10px!important}
+#accountMessage:empty{display:none}#accountMessage{color:var(--accent);overflow-wrap:anywhere}
+#adminDialog{width:min(850px,calc(100vw - 32px))}.adminModal{width:100%}.adminModal>button,.adminModal>h3{margin-left:18px}
+.adminRows{padding:0 18px;overflow-wrap:anywhere}.adminRows p{padding:10px 0!important;margin:0!important;border-bottom:1px solid var(--line);font:13px/1.5 system-ui,sans-serif}
+
+.accountActions button:disabled{opacity:.48;cursor:not-allowed}

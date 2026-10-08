@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.0.4";
+const APP_VERSION="4.1.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -41,7 +41,7 @@ async function fetchRetrying(url,options={},timeout=12000){
 // uma fonte específica está fora do ar, em vez de deixar o usuário descobrir
 // tentando. Não persiste — cada visita começa "sem informação".
 const sourceStatus={};
-function markSource(name,ok,detail){sourceStatus[name]={ok,at:Date.now(),detail}}
+function markSource(name,ok,detail){sourceStatus[name]={ok,at:Date.now(),detail};if(!ok&&["vagalume","lrclib"].includes(name))window.EstanteTelemetry?.report("source_"+name)}
 function sourceDown(name,maxAgeMs=120000){const s=sourceStatus[name];return!!s&&!s.ok&&(Date.now()-s.at)<maxAgeMs}
 
 function load(k,fallback){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fallback}catch{return fallback}}
