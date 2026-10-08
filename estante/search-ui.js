@@ -57,7 +57,7 @@
       state.results=withLocalFirst(locais,remotos);state.tab="results";renderList();
       if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}
       const doRepertorio=locais.length?`${locais.length} já no aparelho · `:"";
-      if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes";notify(`${plural(state.results.length,"resultado","resultados")} · ${doRepertorio}${src}. Os melhores aparecem primeiro.`,true)}
+      if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes",fallback=state.searchMeta?.fallbackFrom==="vagalume"?"Vagalume indisponível; usei as outras fontes. ":"";notify(`${fallback}${plural(state.results.length,"resultado","resultados")} · ${doRepertorio}${src}. Os melhores aparecem primeiro.`,true)}
       else notify(locais.length?`${doRepertorio}mais ${state.results.length-locais.length} da busca.`:"",true);
     }catch(err){
       // A rede falhou, mas o que está salvo continua valendo: mostra o que dá.

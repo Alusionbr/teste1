@@ -49,6 +49,18 @@ let browser;
   assert.match(combinedRank,/Ouve-se o Júbilo \/ Leão/);
   assert.match(searchRegression.explanation,/O Vagalume está indisponível/);
   assert.deepEqual(searchRegression.actions,["Buscar outras versões","Colar minha letra"]);
+  const brasilFallback=await page.evaluate(async()=>{
+    const originals={fetchRetrying,searchLrclib,searchItunes,searchDeezer,searchMusicBrainz};
+    state.source="vagalume";
+    fetchRetrying=async()=>({ok:false,status:503});
+    searchLrclib=async()=>[];
+    searchItunes=async()=>[{title:"Ouve-se o Júbilo",artist:"Marcos Góes",source:"Apple",sources:["Apple"]}];
+    searchDeezer=async()=>[];
+    searchMusicBrainz=async()=>[];
+    try{const rows=await searchMusic("Ouve-se o Júbilo");return{count:rows.length,mode:state.source,fallback:state.searchMeta.fallbackFrom}}
+    finally{Object.assign(window,originals)}
+  });
+  assert.deepEqual(brasilFallback,{count:1,mode:"smart",fallback:"vagalume"});
   const lyricsFallback=await page.evaluate(async()=>{
     const original=fetchSafe;
     fetchSafe=async url=>{
@@ -170,7 +182,7 @@ let browser;
   await page.click("#menuBtn");
   await page.waitForFunction(()=>document.querySelector("#sidebar").getBoundingClientRect().x>=-1);
   const mobile=await page.evaluate(()=>{const sidebar=document.querySelector("#sidebar").getBoundingClientRect(),header=document.querySelector(".songHeader").getBoundingClientRect();return{sidebarX:Math.round(sidebar.x),sidebarWidth:Math.round(sidebar.width),headerRight:Math.round(header.right),viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth}});
-  assert.equal(mobile.sidebarX,0);assert.ok(mobile.sidebarWidth<=mobile.viewport);assert.ok(mobile.headerRight<=mobile.viewport);assert.equal(mobile.scrollWidth,mobile.viewport);
+  assert.equal(Math.abs(mobile.sidebarX),0);assert.ok(mobile.sidebarWidth<=mobile.viewport);assert.ok(mobile.headerRight<=mobile.viewport);assert.equal(mobile.scrollWidth,mobile.viewport);
   await page.click("#sidebarCloseBtn");
   await page.waitForFunction(()=>document.querySelector("#sidebar").getBoundingClientRect().right<=1);
   await page.evaluate(()=>navigator.serviceWorker.ready);

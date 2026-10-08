@@ -8,11 +8,11 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 
 | Recurso | Como funciona |
 |---|---|
-| **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer, Apple e MusicBrainz em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Os outros modos priorizam uma fonte só (Brasil e Trecho dependem só do Vagalume; Sincro prioriza o LRCLIB). |
+| **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer, Apple e MusicBrainz em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Se o Vagalume falhar no modo Brasil, o app passa automaticamente para essa busca. Trecho continua dependendo do Vagalume ou das letras salvas. |
 | **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
 | **Busca no aparelho** | Toda busca mostra primeiro a biblioteca local e depois incorpora o acervo e as fontes online. Pedidos antigos são descartados quando uma busca mais nova começa. Também procura **dentro do texto da letra** e funciona offline. |
 | **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
-| **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) não abre mais vazia: o app tenta o acervo do site e depois a `lyrics.ovh`, que não pede chave. |
+| **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) tenta o acervo, o LiriQo e a `lyrics.ovh`. O LiriQo exige correspondência de título e artista; para o medley “Ouve-se o Júbilo / Leão da Tribo de Judá”, há uma versão de ensaio identificada quando a gravação exata não tem transcrição. |
 | **Biblioteca e arranjos** | Uma música pode ter vários arranjos, com letra/cifra, tom, capo, velocidade, vídeo, notas e histórico próprios. A edição escolhe entre atualizar o arranjo reutilizado ou criar uma versão só para o repertório atual. |
 | **Repertórios** | Criar, renomear, duplicar, arquivar, imprimir e mover para a lixeira. Músicas entram em lote pela Biblioteca; a ordem aceita arrastar e também botões ↑/↓. Pausas e trocas de instrumento podem fazer parte da ordem. |
 | **Ensaio** | Cada música passa por **A aprender**, **Em ensaio** e **Pronta**. Iniciar/encerrar cria um histórico com data, estados e resumo da sessão. |
@@ -235,6 +235,7 @@ Todas gratuitas e sem cadastro, exceto onde indicado. Nenhuma biblioteca externa
 | **LRCLIB** | letra e **letra sincronizada** (`.lrc`) | não | `fetch` (CORS aberto) |
 | **Vagalume** | letra e busca **por trecho** | opcional, só para abrir a letra | `fetch`, com repetição em erro passageiro |
 | **Acervo do site** | letra própria, offline | não | arquivo local |
+| **LiriQo** | letra simples de outras fontes, com confirmação de título e artista | não | `fetch` (CORS aberto) |
 | **lyrics.ovh** | letra simples, como reserva | não | `fetch` (CORS aberto) |
 | **Deezer** | catálogo: título, artista, duração | não | JSONP |
 | **Apple (iTunes)** | catálogo: título, artista, duração | não | JSONP |

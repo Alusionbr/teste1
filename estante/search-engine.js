@@ -122,7 +122,19 @@ async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const
   }
   if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
-searchMusic=async function(q){if(state.source==="smart")return smartSearchMusic(q);return legacySearchMusic(q)};
+searchMusic=async function(q){
+  if(state.source==="smart")return smartSearchMusic(q);
+  try{return await legacySearchMusic(q)}catch(error){
+    // Brasil depende apenas do Vagalume. Se ele cair, ainda é possível achar
+    // a faixa pelos outros catálogos e buscar a letra ao abrir o resultado.
+    // Trecho não faz essa troca: os outros serviços não pesquisam versos.
+    if(state.source!=="vagalume"||error.source!=="vagalume")throw error;
+    const alternatives=await smartSearchMusic(q);
+    if(!alternatives.length)throw error;
+    state.source="smart";state.searchMeta.fallbackFrom="vagalume";updatePrefs();
+    return alternatives;
+  }
+};
 fetchLrclibSong=async function(song){
   if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();
     // Só aceitar se veio texto de verdade. O LRCLIB responde 200 com
