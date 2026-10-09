@@ -17,10 +17,11 @@ async function sync(page){await page.evaluate(()=>EstanteAccount.sync());await p
 (async()=>{
   browser=await chromium.launch({headless:true,executablePath:"C:/Program Files/Google/Chrome/Application/chrome.exe"});
   const context=await browser.newContext({serviceWorkers:"block",viewport:{width:1280,height:900}}),page=await context.newPage();
-  let usage=0;page.on("request",r=>{if(r.url().includes("/estante-usage"))usage++});
+  const usagePayloads=[];page.on("request",r=>{if(r.url().includes("/estante-usage"))usagePayloads.push(JSON.parse(r.postData()))});
   await ready(page);assert.equal(await page.locator("dialog[open]").count(),0);
   await page.evaluate(()=>createSetlist("Visitante local",[{title:"Canção de teste",artist:"Teste",lyrics:"Conteúdo de teste",notes:"Nota privada"}]));
-  assert.ok(usage>0);
+  assert.ok(usagePayloads.length>0);
+  assert.deepEqual(Object.keys(usagePayloads[0]).sort(),["error","feature","version"]);
   await signIn(page,creds.emailA);
   assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Visitante local")),false);
   await page.waitForSelector("#adminBtn:visible");
@@ -44,7 +45,7 @@ async function sync(page){await page.evaluate(()=>EstanteAccount.sync());await p
   assert.ok(await page.evaluate(async()=> (await EstanteStorage.recovery()).setlists.some(x=>x.name==="Alteração offline A")));
   await page.click("#adminBtn");
   await page.waitForFunction(()=>document.querySelector("#adminSummary").textContent.includes("Atualizado"));
-  assert.match(await page.locator("#adminSessions").textContent(),/Sessão ·/);
+  assert.match(await page.locator("#adminSummary").textContent(),/pulsos de atividade/);
   assert.doesNotMatch(await page.locator("#adminSessions").textContent(),/example\.invalid/);
   await page.screenshot({path:path.join(__dirname,"../test-results/admin.png")});
   await page.click("#adminClose");
@@ -59,8 +60,8 @@ async function sync(page){await page.evaluate(()=>EstanteAccount.sync());await p
   await page.waitForFunction(email=>EstanteAccount.getSession()?.user?.email===email,creds.emailB);
   await sync(page);assert.equal(await page.locator("#adminBtn").isVisible(),false);
   assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Conta A")),false);
-  const denied=await page.evaluate(async()=>{const c=EstanteAccount.getClient();const [w,a]=await Promise.all([c.from("estante_workspaces").select("user_id"),c.from("estante_usage_sessions").select("id")]);return{workspaces:w.data,usage:a.data}});
+  const denied=await page.evaluate(async()=>{const c=EstanteAccount.getClient();const [w,a]=await Promise.all([c.from("estante_workspaces").select("user_id"),c.rpc("estante_usage_summary")]);return{workspaces:w.data,usage:a.data}});
   assert.deepEqual(denied.workspaces,[{user_id:creds.b}]);assert.deepEqual(denied.usage,[]);
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({guest:true,optionalAccount:true,guestCopy:true,twoDevices:true,conflict:true,recovery:true,admin:true,rls:true,mobile:true,usageRequests:usage}));
+  console.log(JSON.stringify({guest:true,optionalAccount:true,guestCopy:true,twoDevices:true,conflict:true,recovery:true,admin:true,rls:true,mobile:true,usageRequests:usagePayloads.length}));
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{await browser?.close()});

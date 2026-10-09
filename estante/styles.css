@@ -150,6 +150,6 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 .accountPrivacy{border-top:1px solid var(--line);padding-top:10px!important}
 #accountMessage:empty{display:none}#accountMessage{color:var(--accent);overflow-wrap:anywhere}
 #adminDialog{width:min(850px,calc(100vw - 32px))}.adminModal{width:100%}.adminModal>button,.adminModal>h3{margin-left:18px}
-.adminRows{padding:0 18px;overflow-wrap:anywhere}.adminRows p{padding:10px 0!important;margin:0!important;border-bottom:1px solid var(--line);font:13px/1.5 system-ui,sans-serif}
+.adminModal>p,.adminRows p{color:#c4c4c4}.adminRows{padding:0 18px;overflow-wrap:anywhere}.adminRows p{padding:10px 0!important;margin:0!important;border-bottom:1px solid var(--line);font:13px/1.5 system-ui,sans-serif}
 
 .accountActions button:disabled{opacity:.48;cursor:not-allowed}

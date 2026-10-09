@@ -71,7 +71,6 @@
       session=next;meta=id?loadMeta(id):{};hasLocal=!!stored;
       adopt(stored||EstanteDomain.migrate(null));ready=true;
       if(!stored){EstanteStorage.save(state.workspace);if(!await EstanteStorage.flush())throw Error("Falha ao preparar o espaço local.")}
-      EstanteTelemetry.identityChanged();
       status(id?"Salvo no aparelho; conectando à nuvem…":"Sem conta · dados neste aparelho");
     }finally{switching=false;document.querySelector(".app").inert=false;update()}
     if(id&&ticket===epoch){await sync();checkAdmin(ticket)}
@@ -155,16 +154,17 @@
     if(!admin||!session||!$("adminDialog").open||document.hidden)return;
     const ticket=epoch;
     try{
-      const [sessions,errors]=await Promise.all([
-        client.from("estante_usage_sessions").select("id,label,user_id,last_seen_at,active,feature,app_version").order("last_seen_at",{ascending:false}).limit(200),
+      const [usage,errors]=await Promise.all([
+        client.rpc("estante_usage_summary"),
         client.from("estante_error_counts").select("day,code,app_version,occurrences").order("day",{ascending:false}).limit(200)
       ]);
-      if(ticket!==epoch)return;if(sessions.error||errors.error)throw Error("Falha ao consultar o painel.");
-      const list=$("adminSessions");list.textContent="";const rows=sessions.data||[];
-      const online=rows.filter(x=>x.active&&Date.now()-Date.parse(x.last_seen_at)<130000);
-      $("adminSummary").textContent=online.length+" sessão(ões) ativa(s) · "+rows.length+" sessões recentes (máximo 200). Atualizado às "+new Date().toLocaleTimeString("pt-BR");
+      if(ticket!==epoch)return;if(usage.error||errors.error)throw Error("Falha ao consultar o painel.");
+      const rows=usage.data||[],recent=rows.reduce((n,row)=>n+Number(row.recent_pulses||0),0),day=rows.reduce((n,row)=>n+Number(row.pulses_24h||0),0);
+      $("adminSummary").textContent=recent+" pulsos de atividade nos últimos 2 minutos · "+day+" nas últimas 24 horas. Cada aba pode enviar mais de um pulso. Atualizado às "+new Date().toLocaleTimeString("pt-BR");
       const names={results:"Busca",library:"Biblioteca",setlist:"Repertórios",rehearsal:"Ensaio"};
-      rows.forEach(row=>{const el=document.createElement("p");el.textContent=row.label+" · "+(online.includes(row)?"Online":"Última atividade "+new Date(row.last_seen_at).toLocaleString("pt-BR"))+" · "+names[row.feature]+" · v"+row.app_version;list.appendChild(el)});
+      const list=$("adminSessions");list.textContent="";
+      rows.forEach(row=>{const el=document.createElement("p");el.textContent=(names[row.feature]||row.feature)+" · "+row.recent_pulses+" pulsos recentes · "+row.pulses_24h+" nas últimas 24 horas";list.appendChild(el)});
+      if(!rows.length)list.textContent="Ainda não há atividade registrada.";
       const host=$("adminErrors");host.textContent="";
       (errors.data||[]).forEach(row=>{const el=document.createElement("p");el.textContent=row.day+" · "+row.code+" · "+row.occurrences+" ocorrência(s) · v"+row.app_version;host.appendChild(el)});
       if(!errors.data?.length)host.textContent="Nenhum diagnóstico recebido.";

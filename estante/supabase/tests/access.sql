@@ -16,7 +16,7 @@ do $$ declare n integer; begin
     raise exception 'Ownership change allowed';exception when insufficient_privilege then null;end;
   begin insert into public.estante_admins values(current_setting('estante.test_a')::uuid);
     raise exception 'Self promotion allowed';exception when insufficient_privilege then null;end;
-  select count(*) into n from public.estante_usage_sessions;
+  select count(*) into n from public.estante_usage_counts;
   if n<>0 then raise exception 'Non-admin can read activity';end if;
 end $$;
 reset role;
@@ -31,7 +31,7 @@ do $$ declare n integer;begin
     raise exception 'Cross-user insert';exception when insufficient_privilege then null;end;
   begin perform public.estante_save_workspace('{"version":4}',0);
     raise exception 'Malformed payload accepted';exception when check_violation then null;end;
-  begin perform public.estante_record_usage(gen_random_uuid(),null,'Visitor','results','4.1.0',true,null,'test');
+  begin perform public.estante_record_aggregate('results','4.1.0',null);
     raise exception 'Public telemetry RPC exposed';exception when insufficient_privilege then null;end;
 end $$;
 reset role;
@@ -39,17 +39,19 @@ select set_config('request.jwt.claims','{}',true);
 set local role anon;
 do $$ begin
   begin perform * from public.estante_workspaces;raise exception 'Anon can read workspaces';exception when insufficient_privilege then null;end;
-  begin perform * from public.estante_usage_sessions;raise exception 'Anon can read usage';exception when insufficient_privilege then null;end;
+  begin perform * from public.estante_usage_counts;raise exception 'Anon can read usage';exception when insufficient_privilege then null;end;
   begin perform * from public.estante_admins;raise exception 'Anon can read admins';exception when insufficient_privilege then null;end;
 end $$;
 reset role;
 -- Admin activity access does not confer access to personal repertoires.
 insert into public.estante_admins values(current_setting('estante.test_b')::uuid);
-select public.estante_record_usage(gen_random_uuid(),null,'Visitante de teste','results','4.1.0',true,'app_error','transaction-test');
+select public.estante_record_aggregate('results','4.1.0',null);
+select public.estante_record_aggregate('results','4.1.0','app_error');
 select set_config('request.jwt.claims',json_build_object('sub',current_setting('estante.test_b'),'role','authenticated')::text,true);
 set local role authenticated;
 do $$ declare n integer;begin
-  select count(*) into n from public.estante_usage_sessions;if n<1 then raise exception 'Admin cannot read usage';end if;
+  select count(*) into n from public.estante_usage_counts;if n<1 then raise exception 'Admin cannot read usage';end if;
+  select count(*) into n from public.estante_usage_summary();if n<1 then raise exception 'Admin cannot read summary';end if;
   select count(*) into n from public.estante_error_counts;if n<1 then raise exception 'Admin cannot read errors';end if;
   select count(*) into n from public.estante_workspaces;if n<>0 then raise exception 'Admin can read others repertoire';end if;
 end $$;

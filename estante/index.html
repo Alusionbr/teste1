@@ -197,7 +197,6 @@
     <p><b>Imprimir:</b> gera a ordem do show em papel ou PDF, só a lista ou com as letras.</p>
     <p><b>Sem internet:</b> o resumo mostra quantas músicas estão prontas offline. Depois da primeira abertura o app pode ser instalado; a busca online precisa de rede, o conteúdo salvo não.</p>
     <p><b>Importar:</b> mostra o que vem no arquivo antes de mexer em qualquer coisa. <b>Adicionar</b> mantém o que já está no aparelho; <b>Substituir</b> troca tudo.</p>
-    <p><b>Privacidade:</b> o Estante registra sessões de uso e códigos de falha sem nome, e-mail, letras, buscas ou anotações. Apenas o administrador vê o painel; os registros são apagados após 30 dias.</p>
     <p><b>Atalhos:</b> Espaço rola/pausa; ← → muda música; Page Up/Down rola meia tela; P alterna palco; F tela cheia; Esc para.</p>
     <footer><button class="accent" value="default">Entendi</button></footer>
   </form>
@@ -361,7 +360,7 @@
 <dialog id="adminDialog" aria-labelledby="adminTitle">
   <div class="modal adminModal">
     <header><h2 id="adminTitle">Uso do Estante</h2><button id="adminClose" type="button" aria-label="Fechar painel">×</button></header>
-    <p>Mostra sessões anônimas de uso e diagnósticos. Uma pessoa pode ter várias abas. “Online” significa atividade nos últimos 130 segundos; a lista atualiza a cada 15 segundos.</p>
+    <p>Mostra somente contagens agregadas de atividade por área e falhas. Não identifica pessoas, aparelhos ou abas; a lista atualiza a cada 15 segundos.</p>
     <button id="adminRefresh" type="button">Atualizar</button>
     <p id="adminSummary" role="status"></p><div id="adminSessions" class="adminRows"></div>
     <h3>Falhas informadas · últimos 30 dias</h3><div id="adminErrors" class="adminRows"></div>
