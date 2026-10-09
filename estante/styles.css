@@ -137,3 +137,9 @@ button:disabled{cursor:not-allowed}.headerActions button:disabled{opacity:.58;co
 .trashList{display:grid;gap:7px;padding:14px 18px}.trashRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:6px}.trashRow span{min-width:0;overflow:hidden;text-overflow:ellipsis}.trashRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
 .historyList{display:grid;gap:7px;padding:14px 18px}.historyRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:6px}.historyRow>div{min-width:0}.historyRow strong,.historyRow small{display:block}.historyRow small{margin-top:3px;color:var(--muted);font-size:11px}.historyRow p{margin:7px 0 0;color:var(--text);white-space:pre-wrap}.historyRow button{background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--accent);padding:6px 9px}
 @media(max-width:520px){.contextTools{grid-template-columns:1fr}.setlistBar{align-items:stretch;flex-direction:column}.setlistActions{overflow-x:auto}.setlistActions button{flex:0 0 auto}.brand span{display:none}}
+
+.bugReportStatus{min-height:1.4em;margin-top:0!important;color:var(--muted)}
+.bugReportStatus[data-state="error"]{color:#efb6b6}
+.bugReportStatus[data-state="success"]{color:var(--accent)}
+#bugReportDialog .modal textarea{min-height:132px;resize:vertical;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.bugReportTrap{position:absolute!important;width:1px;height:1px;margin:-1px!important;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
