@@ -28,9 +28,10 @@ async function openSong(song){
   karaokeOnSongChange();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
-    try{if(song.vagId&&state.keyVag)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
+    const tryVagalume=song.vagId&&state.keyVag&&sourceStatus.vagalume?.ok!==false;
+    try{if(tryVagalume)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
       if(requestId!==openSongRequest)return;
-      if(song.vagId&&state.keyVag){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify("O Vagalume não respondeu; carreguei uma versão alternativa do LRCLIB.",true)}catch{if(requestId===openSongRequest)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
+      if(tryVagalume){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify(`O Vagalume não respondeu; carreguei uma versão de ${song.source||"outra fonte"}.`,true)}catch{if(requestId===openSongRequest)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
     }
     if(requestId!==openSongRequest)return;
     persistCurrent();

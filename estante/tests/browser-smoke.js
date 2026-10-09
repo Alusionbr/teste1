@@ -19,13 +19,24 @@ let browser;
   await context.addInitScript(()=>{
     localStorage.setItem("estante:v3:setlists",JSON.stringify({version:3,activeId:"legacy",setlists:[{id:"legacy",name:"Legado",songs:[{title:"Canção antiga",artist:"Banda",lyrics:"[Refrão]\nC G\nTexto",notes:"entrada suave"}]}]}));
   });
-  const page=await context.newPage(),errors=[];
+  const page=await context.newPage(),errors=[],failedRequests=[];
   page.on("pageerror",error=>errors.push(error.message));
+  page.on("requestfailed",request=>failedRequests.push(request.url()));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text())});
   await page.goto("http://127.0.0.1:8765/",{waitUntil:"networkidle"});
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&state.setlists.length);
   assert.equal(await page.evaluate(()=>state.workspace.version),4);
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
+  const modes=await page.evaluate(()=>{
+    markSource("vagalume",false,503);markSource("lrclib",false,503);
+    state.source="excerpt";markSource("vagalume",false,503);
+    const hidden=[...document.querySelectorAll(".chip[data-source]")].filter(b=>b.hidden).map(b=>b.dataset.source);
+    const mode=state.source;
+    markSource("vagalume",true);markSource("lrclib",true);
+    const restored=[...document.querySelectorAll(".chip[data-source]")].filter(b=>!b.hidden).map(b=>b.dataset.source);
+    return{hidden,mode,restored};
+  });
+  assert.deepEqual(modes,{hidden:["vagalume","lrclib","excerpt"],mode:"smart",restored:["smart","vagalume","lrclib","excerpt"]});
   const searchRegression=await page.evaluate(()=>{
     const ranked=mergeSongs([
       {title:"Fuego",artist:"Jubilo",source:"MusicBrainz"},
@@ -69,6 +80,15 @@ let browser;
     finally{Object.assign(window,originals)}
   });
   assert.deepEqual(brasilFallback,{count:1,mode:"smart",fallback:"vagalume"});
+  const sincroFallback=await page.evaluate(async()=>{
+    const originals={fetchSafe,searchItunes,searchDeezer,searchMusicBrainz};
+    state.source="lrclib";
+    fetchSafe=async()=>({ok:false,status:503,headers:new Headers()});
+    searchItunes=async()=>[{title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"]}];
+    searchDeezer=async()=>[];searchMusicBrainz=async()=>[];
+    try{const rows=await searchMusic("Um Pedido");return{count:rows.length,mode:state.source,fallback:state.searchMeta.fallbackFrom}}finally{Object.assign(window,originals)}
+  });
+  assert.deepEqual(sincroFallback,{count:1,mode:"smart",fallback:"lrclib"});
   const lyricsFallback=await page.evaluate(async()=>{
     const original=fetchSafe;
     fetchSafe=async url=>{
@@ -223,7 +243,9 @@ let browser;
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&document.querySelector("#network").textContent==="offline");
   assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Criado em outra aba")),true);
   await context.setOffline(false);
-  assert.equal(errors.length,0,errors.join("\n"));
+  assert.ok(failedRequests.every(url=>url.includes("api.vagalume.com.br")),failedRequests.join("\n"));
+  const unexpected=errors.filter(message=>!message.includes("api.vagalume.com.br")&&message!=="Failed to load resource: net::ERR_FAILED");
+  assert.equal(unexpected.length,0,unexpected.join("\n"));
 
   const compact=await page.evaluate(()=>({version:state.workspace.version,setlists:state.setlists.length,library:state.library.length,sessions:state.sessions.length,trash:state.trash.length,save:document.querySelector("#saveState").textContent}));
   console.log(JSON.stringify(compact));
