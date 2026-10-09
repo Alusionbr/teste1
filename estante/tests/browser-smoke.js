@@ -51,6 +51,18 @@ let browser;
     renderMissingLyrics({title:"Ouve-se o Júbilo",artist:"Silvério Peres",source:"Deezer",sources:["Deezer"]},"Sem letra");
     return{solo,unrelated,medleyTag,explanation:document.querySelector("#paper").textContent,actions:[...document.querySelectorAll(".missingActions button")].map(x=>x.textContent)};
   });
+  const lyricPriority=await page.evaluate(()=>{
+    const titleOnly=mergeSongs([
+      {title:"Um Pedido",artist:"Davi Sacer",source:"Apple"},
+      {title:"Um Pedido",artist:"Hungria",lyrics:"letra disponível",source:"LRCLIB"}
+    ],"Um Pedido");
+    const artistSpecific=mergeSongs([
+      {title:"Um Pedido",artist:"Davi Sacer",source:"Apple"},
+      {title:"Um Pedido",artist:"Hungria",lyrics:"letra disponível",source:"LRCLIB"}
+    ],"Um Pedido Davi Sacer");
+    return{firstWithLyrics:!!titleOnly[0].lyrics,exactArtistFirst:artistSpecific[0].artist};
+  });
+  assert.deepEqual(lyricPriority,{firstWithLyrics:true,exactArtistFirst:"Davi Sacer"});
   assert.ok(searchRegression.solo<searchRegression.unrelated);
   assert.equal(searchRegression.medleyTag,true);
   const combinedRank=await page.evaluate(()=>mergeSongs([
@@ -130,7 +142,7 @@ let browser;
   assert.equal(correctRecording,"Gravação correspondente");
   await page.evaluate(()=>{
     window.exactLyricOriginals={searchMusic,searchAcervo,fetchLiriqoExact};
-    searchMusic=async()=>[{title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"],lyrics:"",synced:""}];
+    searchMusic=async()=>[{title:"Um Pedido",artist:"Hungria",source:"LRCLIB",sources:["LRCLIB"],lyrics:"Letra do teste.",synced:""},{title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"],lyrics:"",synced:""}];
     searchAcervo=async()=>[];
     fetchLiriqoExact=(title,artist)=>new Promise(resolve=>{
       window.exactLyricQuery={title,artist};
@@ -144,7 +156,7 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>window.exactLyricQuery),{title:"Um Pedido",artist:"Davi Sacer"});
   assert.match(await page.locator("#list").textContent(),/buscar letra ao abrir/);
   await page.evaluate(()=>window.finishExactLyrics());
-  await page.waitForFunction(()=>state.results[0]?.source==="LiriQo"&&document.querySelector("#list")?.textContent.includes("com letra"));
+  await page.waitForFunction(()=>state.results[0]?.artist==="Davi Sacer"&&state.results[0]?.source==="LiriQo"&&document.querySelector("#list")?.textContent.includes("com letra"));
   assert.equal(await page.evaluate(()=>!!state.results[0].lyrics),true);
   await page.evaluate(()=>{Object.assign(window,window.exactLyricOriginals);delete window.exactLyricOriginals;delete window.exactLyricQuery;delete window.finishExactLyrics});
   await page.evaluate(()=>liriqoCache.clear());
