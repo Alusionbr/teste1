@@ -23,9 +23,23 @@ let browser;
   page.on("pageerror",error=>errors.push(error.message));
   page.on("requestfailed",request=>failedRequests.push(request.url()));
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text())});
+  let bugSubmission=null;
+  await page.route("https://pxqhpntifbtjaoqtirao.supabase.co/functions/v1/estante-bug-report",async route=>{
+    const headers={"Access-Control-Allow-Origin":"http://127.0.0.1:8765","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"apikey, content-type","Access-Control-Max-Age":"86400","Vary":"Origin","Content-Type":"application/json"};
+    if(route.request().method()==="OPTIONS")return route.fulfill({status:204,headers});
+    bugSubmission=route.request().postDataJSON();
+    return route.fulfill({status:200,headers,body:'{"ok":true}'});
+  });
   await page.goto("http://127.0.0.1:8765/",{waitUntil:"networkidle"});
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&state.setlists.length);
   assert.equal(await page.evaluate(()=>state.workspace.version),4);
+  await page.click("#reportBugBtn");
+  await page.selectOption("#bugCategory","lyrics_search");
+  await page.fill("#bugDescription","A busca não abriu a letra esperada.");
+  await page.click("#bugReportSubmit");
+  await page.waitForFunction(()=>document.querySelector("#bugReportStatus").dataset.state==="success");
+  assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
+  assert.deepEqual(bugSubmission,{app_version:"4.1.0",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);

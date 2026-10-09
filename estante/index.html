@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <script data-version="4.0.9">
+  <script data-version="4.1.0">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -49,7 +49,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.0.9">
+  <link rel="stylesheet" href="./styles.css?v=4.1.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -116,6 +116,7 @@
       <button id="importBtn">Importar</button>
       <button id="trashBtn">Lixeira</button>
       <button id="helpBtn">Ajuda</button>
+      <button id="reportBugBtn" type="button">Informar um bug</button>
     </footer>
   </aside>
 
@@ -357,23 +358,45 @@
   </div>
 </dialog>
 
+<dialog id="bugReportDialog">
+  <form method="dialog" class="modal" id="bugReportForm">
+    <header><h2>Informar um bug</h2><button id="bugReportClose" type="button" aria-label="Fechar">×</button></header>
+    <p>Conte rapidamente o que aconteceu. Não pedimos nome, e-mail ou login; a versão do Estante e a tela atual ajudam a equipe a reproduzir o problema.</p>
+    <label>Onde ocorreu?
+      <select id="bugCategory" required>
+        <option value="lyrics_search">Busca ou letra</option>
+        <option value="rehearsal_setlists">Ensaio ou repertório</option>
+        <option value="interface_controls">Tela ou controles</option>
+        <option value="other">Outro</option>
+      </select>
+    </label>
+    <label>O que aconteceu?
+      <textarea id="bugDescription" required minlength="15" maxlength="1500" rows="5" placeholder="Ex.: toquei em Buscar, apareceu a música, mas a letra ficou em branco."></textarea>
+    </label>
+    <label class="bugReportTrap" aria-hidden="true">Site<input id="bugReportWebsite" tabindex="-1" autocomplete="off"></label>
+    <p id="bugReportStatus" class="bugReportStatus" role="status" aria-live="polite"></p>
+    <footer><button id="bugReportCancel" type="button">Cancelar</button><button id="bugReportSubmit" class="accent" type="submit">Enviar relato</button></footer>
+  </form>
+</dialog>
+
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.0.9" defer></script>
-<script src="./storage.js?v=4.0.9" defer></script>
-<script src="./core.js?v=4.0.9" defer></script>
-<script src="./search-engine.js?v=4.0.9" defer></script>
-<script src="./library.js?v=4.0.9" defer></script>
-<script src="./acervo.js?v=4.0.9" defer></script>
-<script src="./setlists.js?v=4.0.9" defer></script>
-<script src="./song-prefs.js?v=4.0.9" defer></script>
-<script src="./autoscroll.js?v=4.0.9" defer></script>
-<script src="./player.js?v=4.0.9" defer></script>
-<script src="./karaoke.js?v=4.0.9" defer></script>
-<script src="./song-edit.js?v=4.0.9" defer></script>
-<script src="./print.js?v=4.0.9" defer></script>
-<script src="./ui.js?v=4.0.9" defer></script>
-<script src="./search-ui.js?v=4.0.9" defer></script>
-<script src="./offline.js?v=4.0.9" defer></script>
+<script src="./domain.js?v=4.1.0" defer></script>
+<script src="./storage.js?v=4.1.0" defer></script>
+<script src="./core.js?v=4.1.0" defer></script>
+<script src="./search-engine.js?v=4.1.0" defer></script>
+<script src="./library.js?v=4.1.0" defer></script>
+<script src="./acervo.js?v=4.1.0" defer></script>
+<script src="./setlists.js?v=4.1.0" defer></script>
+<script src="./song-prefs.js?v=4.1.0" defer></script>
+<script src="./autoscroll.js?v=4.1.0" defer></script>
+<script src="./player.js?v=4.1.0" defer></script>
+<script src="./karaoke.js?v=4.1.0" defer></script>
+<script src="./song-edit.js?v=4.1.0" defer></script>
+<script src="./print.js?v=4.1.0" defer></script>
+<script src="./ui.js?v=4.1.0" defer></script>
+<script src="./search-ui.js?v=4.1.0" defer></script>
+<script src="./offline.js?v=4.1.0" defer></script>
+<script src="./bug-report.js?v=4.1.0" defer></script>
 </body>
 </html>
