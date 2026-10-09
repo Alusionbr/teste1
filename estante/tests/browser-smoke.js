@@ -108,6 +108,10 @@ let browser;
   }
   assert.deepEqual(await page.locator(".tab").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
 
+  await page.click('[data-tab="setlist"]');
+  assert.equal(await page.locator("#setlistBar").isVisible(),true);
+  assert.equal(await page.locator("#libraryTools").isVisible(),false);
+  assert.equal(await page.locator("#rehearsalTools").isVisible(),false);
   await page.click("#setlistNew");
   await page.fill("#setlistName","Ensaio de quinta");
   await page.locator("#setlistForm button.accent").click();
