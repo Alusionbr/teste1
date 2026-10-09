@@ -246,3 +246,20 @@ Deezer, Apple e MusicBrainz **não têm letra**. Entram para identificar a faixa
 Busca **por trecho da letra** só existe no Vagalume. LRCLIB, Deezer, Apple e MusicBrainz comparam título, artista e álbum — nunca o texto. Quando o Vagalume está fora do ar, a busca por trecho fica limitada ao repertório salvo e ao acervo, que guardam a letra inteira. Testei ChartLyrics (fora do ar), Musixmatch e Genius (sem CORS, exigem chave) — nenhuma serve para uso direto no navegador.
 
 Letras e cifras pertencem aos autores e editoras. O app apenas exibe o que as fontes públicas devolvem e mostra o crédito da fonte no rodapé de cada música. A chave da API do Vagalume, quando cadastrada, fica somente no aparelho.
+
+## Conta opcional e painel
+
+O Estante abre diretamente sem cadastro. O visitante usa busca, biblioteca, repertórios e ensaios; seus dados ficam no IndexedDB deste navegador. **Exportar** cria uma cópia manual. A conta usa o Supabase do Bíblia em Contexto com o mesmo e-mail e senha, mas mantém uma sessão e tabelas próprias. A tela **Minha conta** oferece **Copiar repertórios do visitante** quando a pessoa quiser trazer o conteúdo local para a conta. Sair volta ao visitante; os dois espaços locais permanecem separados. Chaves do Vagalume/YouTube e preferências do aparelho não entram no backup da nuvem.
+
+A sincronização guarda o workspace completo em `public.estante_workspaces`, com RLS por dono e revisão otimista atômica. O app mostra um conflito quando aparelhos diferentes alteram a mesma base. Antes de substituir a versão local, grava uma cópia de recuperação; ao escolher sobrescrever a nuvem, baixa a cópia remota anterior. O limite por workspace é 2 MB. O cache offline preserva a última cópia por conta neste aparelho, sem disponibilizá-la a outras contas pela interface. Em aparelho compartilhado, use perfis de navegador separados.
+
+O app registra somente contagens agregadas de pulsos por minuto, área e versão, além de totais por código de falha. Não transmite identificador de sessão, login, navegador, aparelho, busca, letra, anotação, senha ou exceção bruta. A função `estante-usage` não lê IP para formar os relatórios. Contadores com mais de 30 dias são apagados quando chega um novo evento. O painel **Uso do Estante** só aparece para quem consta em `public.estante_admins`; RLS nega leituras de telemetria aos demais e não concede ao administrador acesso aos repertórios privados. O número de pulsos recentes indica atividade, não usuários únicos online.
+
+Para cadastros novos e recuperação de senha, o projeto Supabase precisa de serviço SMTP que envie para endereços fora da equipe e de `https://alusionbr.github.io/teste1/estante/` na lista de URLs de redirecionamento do Auth. A configuração de e-mail e a URL autorizada devem ser conferidas no painel Supabase antes de anunciar esses fluxos como disponíveis. O login de contas já existentes foi verificado com contas descartáveis.
+
+### Manutenção
+
+- Dependências fixadas em `package-lock.json`. Rode `npm ci` e `npm run build:vendor` em `estante/` somente ao atualizar o SDK. Publique `vendor/supabase.js` gerado com a alteração de versão.
+- O SQL fica em `supabase/migrations/`; aplicar no projeto `pxqhpntifbtjaoqtirao` e verificar as políticas com `supabase/tests/access.sql`. O teste transacional faz rollback.
+- `node --test tests/*.test.js` cobre regras locais. `node tests/browser-smoke.js` valida busca, repertórios e offline com servidor em `http://127.0.0.1:8765/`. `ESTANTE_LIVE_ACCOUNT=1 node tests/account-live.js` usa duas contas **descartáveis** em `test-results/credentials.json`, que está no `.gitignore`; apague as contas após o teste.
+- `APP_VERSION` em `core.js`, `VERSION` em `sw.js` e todos os `?v=` do HTML precisam ser iguais. O shell deve listar cada script carregado no HTML.

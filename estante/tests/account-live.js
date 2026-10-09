@@ -1,0 +1,67 @@
+"use strict";
+const fs=require("node:fs"),path=require("node:path"),os=require("node:os"),Module=require("node:module"),assert=require("node:assert/strict");
+process.env.NODE_PATH=[process.env.NODE_PATH,path.join(os.homedir(),".cache","codex-runtimes","codex-primary-runtime","dependencies","node","node_modules")].filter(Boolean).join(path.delimiter);Module._initPaths();
+const {chromium}=require("playwright");
+if(process.env.ESTANTE_LIVE_ACCOUNT!=="1")throw Error("Set ESTANTE_LIVE_ACCOUNT=1 with disposable fixture accounts only.");
+const creds=JSON.parse(fs.readFileSync(path.join(__dirname,"../test-results/credentials.json"),"utf8").replace(/^\uFEFF/,""));
+let browser;
+const base=process.env.ESTANTE_TEST_URL||"http://127.0.0.1:8765/";
+const errors=[];
+async function ready(page){await page.goto(base);await page.waitForFunction(()=>window.EstanteAccount&&state.workspace);page.on("pageerror",e=>errors.push(e.message));page.on("dialog",d=>d.accept())}
+async function signIn(page,email){
+  await page.click("#accountBtn");await page.fill("#accountEmail",email);await page.fill("#accountPassword",creds.password);await page.click("#authSubmit");
+  await page.waitForFunction(email=>EstanteAccount.getSession()?.user?.email===email,email,{timeout:25000});
+  await page.waitForFunction(()=>document.querySelector("#cloudState").textContent.includes("na nuvem"),null,{timeout:25000});
+}
+async function sync(page){await page.evaluate(()=>EstanteAccount.sync());await page.waitForFunction(()=>document.querySelector("#cloudState").textContent.includes("na nuvem"),null,{timeout:25000})}
+(async()=>{
+  browser=await chromium.launch({headless:true,executablePath:"C:/Program Files/Google/Chrome/Application/chrome.exe"});
+  const context=await browser.newContext({serviceWorkers:"block",viewport:{width:1280,height:900}}),page=await context.newPage();
+  const usagePayloads=[];page.on("request",r=>{if(r.url().includes("/estante-usage"))usagePayloads.push(JSON.parse(r.postData()))});
+  await ready(page);assert.equal(await page.locator("dialog[open]").count(),0);
+  await page.evaluate(()=>createSetlist("Visitante local",[{title:"Canção de teste",artist:"Teste",lyrics:"Conteúdo de teste",notes:"Nota privada"}]));
+  assert.ok(usagePayloads.length>0);
+  assert.deepEqual(Object.keys(usagePayloads[0]).sort(),["error","feature","version"]);
+  await signIn(page,creds.emailA);
+  assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Visitante local")),false);
+  await page.waitForSelector("#adminBtn:visible");
+  await page.click("#copyGuest");
+  await page.waitForFunction(()=>state.setlists.some(x=>x.name==="Visitante local"));
+  assert.ok(await page.evaluate(async()=> (await EstanteStorage.readScope("guest")).setlists.some(x=>x.name==="Visitante local")));
+  await page.click("#accountClose");await page.evaluate(()=>createSetlist("Conta A"));await sync(page);
+  const context2=await browser.newContext({serviceWorkers:"block"}),p2=await context2.newPage();await ready(p2);await signIn(p2,creds.emailA);
+  assert.ok(await p2.evaluate(()=>state.setlists.some(x=>x.name==="Conta A")));
+  await p2.click("#accountClose");
+  await context.route("https://*.supabase.co/**",r=>r.abort());
+  await page.evaluate(()=>createSetlist("Alteração offline A"));
+  await p2.evaluate(()=>createSetlist("Alteração remota B"));await sync(p2);
+  await context.unroute("https://*.supabase.co/**");
+  await page.evaluate(()=>EstanteAccount.sync());
+  await page.waitForFunction(()=>document.querySelector("#cloudState").textContent.includes("duas versões"),null,{timeout:25000});
+  assert.ok(await page.evaluate(()=>state.setlists.some(x=>x.name==="Alteração offline A")));
+  assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Alteração remota B")),false);
+  await page.click("#accountBtn");await page.click("#cloudDownload");await sync(page);
+  assert.ok(await page.evaluate(()=>state.setlists.some(x=>x.name==="Alteração remota B")));
+  assert.ok(await page.evaluate(async()=> (await EstanteStorage.recovery()).setlists.some(x=>x.name==="Alteração offline A")));
+  await page.click("#adminBtn");
+  await page.waitForFunction(()=>document.querySelector("#adminSummary").textContent.includes("Atualizado"));
+  assert.match(await page.locator("#adminSummary").textContent(),/pulsos de atividade/);
+  assert.doesNotMatch(await page.locator("#adminSessions").textContent(),/example\.invalid/);
+  await page.screenshot({path:path.join(__dirname,"../test-results/admin.png")});
+  await page.click("#adminClose");
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:path.join(__dirname,"../test-results/account-mobile.png")});
+  assert.ok(await page.evaluate(()=>document.querySelector("#accountDialog").scrollWidth<=innerWidth));
+  await page.click("#logoutBtn");
+  await page.waitForFunction(()=>!EstanteAccount.getSession());
+  assert.ok(await page.evaluate(()=>state.setlists.some(x=>x.name==="Visitante local")));
+  assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Conta A")),false);
+  await page.fill("#accountEmail",creds.emailB);await page.fill("#accountPassword",creds.password);await page.click("#authSubmit");
+  await page.waitForFunction(email=>EstanteAccount.getSession()?.user?.email===email,creds.emailB);
+  await sync(page);assert.equal(await page.locator("#adminBtn").isVisible(),false);
+  assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Conta A")),false);
+  const denied=await page.evaluate(async()=>{const c=EstanteAccount.getClient();const [w,a]=await Promise.all([c.from("estante_workspaces").select("user_id"),c.rpc("estante_usage_summary")]);return{workspaces:w.data,usage:a.data}});
+  assert.deepEqual(denied.workspaces,[{user_id:creds.b}]);assert.deepEqual(denied.usage,[]);
+  assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({guest:true,optionalAccount:true,guestCopy:true,twoDevices:true,conflict:true,recovery:true,admin:true,rls:true,mobile:true,usageRequests:usagePayloads.length}));
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{await browser?.close()});

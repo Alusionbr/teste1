@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=4.0.4">
+  <link rel="stylesheet" href="./styles.css?v=4.1.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -20,6 +20,7 @@
   <aside class="sidebar" id="sidebar">
     <header class="brand"><strong>ESTANTE</strong><span>ensaio e repertório</span><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
 
+    <div class="accountBar"><span id="cloudState" role="status">Sem conta · dados neste aparelho</span><button id="accountBtn" type="button">Conta opcional</button></div>
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
       <button>Buscar</button>
@@ -318,23 +319,76 @@
   </div>
 </dialog>
 
+
+<dialog id="accountDialog" aria-labelledby="accountTitle">
+  <div class="modal accountModal">
+    <header><h2 id="accountTitle">Conta e sincronização</h2><button id="accountClose" type="button" aria-label="Fechar conta">×</button></header>
+    <p id="accountIdentity"></p>
+    <p id="accountGuestHint">Use busca, biblioteca, repertórios e ensaios sem cadastro. Sem conta, os dados ficam neste navegador; exporte uma cópia para guardá-los.</p>
+    <section id="authPanel">
+      <h3 id="authModeTitle">Entrar</h3>
+      <form id="authForm">
+        <label>E-mail<input id="accountEmail" type="email" required autocomplete="username" maxlength="254"></label>
+        <label id="accountPasswordLabel">Senha<input id="accountPassword" type="password" required autocomplete="current-password"></label>
+        <div class="accountActions"><button id="authSubmit" class="accent" type="submit">Entrar</button><button type="button" data-auth-mode="login">Já tenho conta</button><button type="button" data-auth-mode="signup">Criar conta</button><button type="button" data-auth-mode="reset">Esqueci a senha</button></div>
+      </form>
+      <p id="emailFlowNotice">Cadastro novo e recuperação por e-mail estarão disponíveis em breve. Por enquanto, entre com uma conta existente ou use o Estante sem conta.</p>
+      <p>A conta pode ser a mesma do Bíblia em Contexto. Seus repertórios só ficam acessíveis à sua conta.</p>
+      <button id="continueGuest" type="button">Continuar sem conta</button>
+    </section>
+    <section id="signedPanel" hidden>
+      <p>Repertórios, biblioteca e ensaios desta conta ficam separados do visitante. Chaves das fontes e ajustes do aparelho ficam locais.</p>
+      <div class="accountActions"><button id="syncNow" class="accent" type="button">Sincronizar agora</button><button id="copyGuest" type="button">Copiar repertórios do visitante</button><button id="downloadRecovery" type="button">Baixar cópia de recuperação</button><button id="adminBtn" type="button" hidden>Painel administrativo</button><button id="logoutBtn" type="button">Sair da conta</button></div>
+      <p>As cópias offline desta conta permanecem neste navegador após sair. Em um aparelho compartilhado, use um perfil de navegador separado.</p>
+    </section>
+    <section id="cloudConflict" hidden>
+      <h3>Escolha qual versão usar</h3><p id="conflictSummary"></p>
+      <div class="accountActions"><button id="cloudDownload" type="button">Usar versão da nuvem</button><button id="cloudUpload" type="button">Usar versão deste aparelho</button></div>
+    </section>
+    <p id="accountMessage" role="status" aria-live="polite"></p>
+
+  </div>
+</dialog>
+<dialog id="passwordDialog" aria-labelledby="passwordTitle">
+  <form id="newPasswordForm" class="modal">
+    <header><h2 id="passwordTitle">Definir nova senha</h2><button id="passwordCancel" type="button" aria-label="Cancelar alteração de senha">×</button></header>
+    <label>Nova senha<input id="newPassword" type="password" required minlength="8" autocomplete="new-password"></label>
+    <p id="passwordMessage" role="status"></p>
+    <footer><button id="newPasswordSubmit" class="accent" type="submit">Salvar nova senha</button></footer>
+  </form>
+</dialog>
+<dialog id="adminDialog" aria-labelledby="adminTitle">
+  <div class="modal adminModal">
+    <header><h2 id="adminTitle">Uso do Estante</h2><button id="adminClose" type="button" aria-label="Fechar painel">×</button></header>
+    <p>Mostra somente contagens agregadas de atividade por área e falhas. Não identifica pessoas, aparelhos ou abas; a lista atualiza a cada 15 segundos.</p>
+    <button id="adminRefresh" type="button">Atualizar</button>
+    <p id="adminSummary" role="status"></p><div id="adminSessions" class="adminRows"></div>
+    <h3>Falhas informadas · últimos 30 dias</h3><div id="adminErrors" class="adminRows"></div>
+  </div>
+</dialog>
+
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.0.4" defer></script>
-<script src="./storage.js?v=4.0.4" defer></script>
-<script src="./core.js?v=4.0.4" defer></script>
-<script src="./search-engine.js?v=4.0.4" defer></script>
-<script src="./library.js?v=4.0.4" defer></script>
-<script src="./acervo.js?v=4.0.4" defer></script>
-<script src="./setlists.js?v=4.0.4" defer></script>
-<script src="./song-prefs.js?v=4.0.4" defer></script>
-<script src="./autoscroll.js?v=4.0.4" defer></script>
-<script src="./player.js?v=4.0.4" defer></script>
-<script src="./karaoke.js?v=4.0.4" defer></script>
-<script src="./song-edit.js?v=4.0.4" defer></script>
-<script src="./print.js?v=4.0.4" defer></script>
-<script src="./ui.js?v=4.0.4" defer></script>
-<script src="./search-ui.js?v=4.0.4" defer></script>
-<script src="./offline.js?v=4.0.4" defer></script>
+<script src="./domain.js?v=4.1.0" defer></script>
+<script src="./storage.js?v=4.1.0" defer></script>
+<script src="./vendor/supabase.js?v=4.1.0" defer></script>
+<script src="./cloud-config.js?v=4.1.0" defer></script>
+<script src="./cloud-model.js?v=4.1.0" defer></script>
+<script src="./telemetry.js?v=4.1.0" defer></script>
+<script src="./account.js?v=4.1.0" defer></script>
+<script src="./core.js?v=4.1.0" defer></script>
+<script src="./search-engine.js?v=4.1.0" defer></script>
+<script src="./library.js?v=4.1.0" defer></script>
+<script src="./acervo.js?v=4.1.0" defer></script>
+<script src="./setlists.js?v=4.1.0" defer></script>
+<script src="./song-prefs.js?v=4.1.0" defer></script>
+<script src="./autoscroll.js?v=4.1.0" defer></script>
+<script src="./player.js?v=4.1.0" defer></script>
+<script src="./karaoke.js?v=4.1.0" defer></script>
+<script src="./song-edit.js?v=4.1.0" defer></script>
+<script src="./print.js?v=4.1.0" defer></script>
+<script src="./ui.js?v=4.1.0" defer></script>
+<script src="./search-ui.js?v=4.1.0" defer></script>
+<script src="./offline.js?v=4.1.0" defer></script>
 </body>
 </html>

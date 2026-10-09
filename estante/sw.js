@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.0.4";
+const VERSION = "4.1.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -21,6 +21,11 @@ const SHELL = [
   "./domain.js",
   "./storage.js",
   "./core.js",
+  "./vendor/supabase.js",
+  "./cloud-config.js",
+  "./cloud-model.js",
+  "./telemetry.js",
+  "./account.js",
   "./search-engine.js",
   "./library.js",
   "./acervo.js",
