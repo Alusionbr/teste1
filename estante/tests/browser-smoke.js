@@ -83,7 +83,7 @@ let browser;
       const mismatch=await fetchLiriqoExact("Outra Música","Outro Artista");
       const saved=EstanteDomain.normalizeSong(song);
       return{source:song.source,note:song.lyricNote,text:song.lyrics,mismatch,savedNote:saved.lyricNote,savedSources:saved.lyricSources};
-    }finally{fetchSafe=original}
+    }finally{fetchSafe=original;liriqoCache.clear()}
   });
   assert.equal(lyricsFallback.source,"LiriQo");
   assert.match(lyricsFallback.note,/Versão de ensaio/);
@@ -92,7 +92,27 @@ let browser;
   assert.equal(lyricsFallback.mismatch,null);
   assert.equal(lyricsFallback.savedNote,lyricsFallback.note);
   assert.equal(lyricsFallback.savedSources.length,2);
+  const alternateTrack=await page.evaluate(async()=>{
+    const original=fetchSafe;let calls=0;
+    fetchSafe=async()=>({ok:true,json:async()=>{calls++;return calls===1?{metadata:{title:"Teste reserva",artist:"Banda"},primary:null,tracks:[]}:{metadata:{title:"Teste reserva",artist:"Banda"},primary:{title:"Teste reserva",artist:"Outro artista",plain:"Texto errado de outra banda que nunca deve ser aceito aqui"},tracks:[{title:"Teste reserva",artist:"Banda",timed:[{text:"Texto fictício de uma resposta alternativa e correspondente ao artista."}]}]}}});
+    try{const text=await fetchLiriqoExact("Teste reserva","Banda");await fetchLiriqoExact("Teste reserva","Banda");return{text,calls}}finally{fetchSafe=original;liriqoCache.clear()}
+  });
+  assert.match(alternateTrack.text,/Texto fictício/);assert.equal(alternateTrack.calls,2);
+  const correctRecording=await page.evaluate(async()=>{
+    const original=fetchSafe;
+    fetchSafe=async()=>({ok:true,json:async()=>[
+      {trackName:"Um Pedido",artistName:"Outro cantor",plainLyrics:"Letra incorreta"},
+      {trackName:"Outro pedido",artistName:"Davi Sacer",plainLyrics:"Outro título"},
+      {trackName:"Um Pedido",artistName:"Davi Sacer",plainLyrics:"Gravação correspondente"}
+    ]});
+    try{const song=await fetchLrclibSong({title:"Um Pedido",artist:"Davi Sacer"});return song.lyrics}finally{fetchSafe=original}
+  });
+  assert.equal(correctRecording,"Gravação correspondente");
+  await page.evaluate(()=>liriqoCache.clear());
   if(process.env.ESTANTE_LIVE_LYRICS==="1"){
+    await page.evaluate(async()=>openSong({title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"]}));
+    assert.equal(await page.evaluate(()=>!!state.current.lyrics&&state.current.source==="LiriQo"),true);
+    assert.equal(await page.locator(".missingActions").count(),0);
     const live=await page.evaluate(async()=>{
       const song={title:"Ouve-se o Júbilo / Leão da Tribo de Judá",artist:"Bispo Rodovalho"};
       await fetchLiriqoSong(song);

@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.0.5";
+const VERSION = "4.0.6";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -46,7 +46,7 @@ self.addEventListener("install", event => {
     // A instalação é transacional: uma versão só fica pronta quando todo o
     // casco essencial está no cache. Se um arquivo faltar, a versão anterior
     // segue ativa e o usuário não fica com um app parcialmente offline.
-    caches.open(CACHE).then(cache => cache.addAll(SHELL))
+    caches.open(CACHE).then(cache => cache.addAll(SHELL.map(asset => /\.(?:js|css|json)$/.test(asset) ? `${asset}?v=${VERSION}` : asset)))
   );
 });
 
@@ -74,32 +74,32 @@ self.addEventListener("fetch", event => {
     event.respondWith((async () => {
       try {
         const resp = await fetch(req);
-        if (resp && resp.ok) await (await caches.open(CACHE)).put("./index.html", resp.clone());
-        return resp;
+        if (resp && resp.ok) {
+          await (await caches.open(CACHE)).put("./index.html", resp.clone());
+          return resp;
+        }
+        return await (await caches.open(CACHE)).match("./index.html") || resp;
       } catch {
-        return caches.match("./index.html", { ignoreSearch: true });
+        return (await caches.open(CACHE)).match("./index.html");
       }
     })());
     return;
   }
 
-  event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then(hit => {
-      // Cache primeiro (abre rápido e funciona offline), atualizando por trás
-      // para a próxima abertura já pegar a versão nova.
-      const network = fetch(req).then(resp => {
-        if (resp && resp.ok && resp.type === "basic") {
-          const copy = resp.clone();
-          caches.open(CACHE).then(cache => cache.put(req, copy));
-        }
-        return resp;
-      }).catch(() => null);
-
-      if (hit) {
-        event.waitUntil(network);
-        return hit;
+  event.respondWith((async () => {
+    // Cada worker lê apenas o seu cache e a versão exata pedida pelo HTML.
+    // Ignorar ?v= misturava scripts antigos e novos após uma publicação.
+    const cache = await caches.open(CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    try {
+      const resp = await fetch(req);
+      if (resp.ok && resp.type === "basic" && (!url.searchParams.has("v") || url.searchParams.get("v") === VERSION)) {
+        await cache.put(req, resp.clone());
       }
-      return network.then(resp => resp || caches.match("./index.html", { ignoreSearch: true }));
-    })
-  );
+      return resp;
+    } catch {
+      return Response.error();
+    }
+  })());
 });

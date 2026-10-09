@@ -10,7 +10,46 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <link rel="stylesheet" href="./styles.css?v=4.0.5">
+  <script data-version="4.0.6">
+  // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
+  (()=>{
+    const version=document.currentScript.dataset.version;
+    const controller=navigator.serviceWorker?.controller;
+    if(!controller||!navigator.onLine||new URL(controller.scriptURL).searchParams.get("v")===version)return;
+    const attempt="estante:update:"+version;
+    try{if(sessionStorage.getItem(attempt))return}catch{}
+    let active=true,cover;
+    const stop=()=>{active=false;clearTimeout(timer);cover?.remove();window.removeEventListener("load",loading,true);document.removeEventListener("click",block,true);document.removeEventListener("keydown",block,true);navigator.serviceWorker.removeEventListener("controllerchange",changed)};
+    const loading=e=>{if(active)e.stopImmediatePropagation()};
+    window.addEventListener("load",loading,true);
+    const block=e=>{if(active){e.preventDefault();e.stopImmediatePropagation()}};
+    const changed=()=>{if(!active||new URL(navigator.serviceWorker.controller.scriptURL).searchParams.get("v")!==version)return;stop();location.reload()};
+    document.addEventListener("click",block,true);
+    document.addEventListener("keydown",block,true);
+    document.addEventListener("DOMContentLoaded",()=>{
+      if(!active)return;
+      cover=document.createElement("div");cover.setAttribute("role","status");cover.textContent="Atualizando o Estante…";
+      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#0d1117;color:white;font:18px system-ui";
+      document.body.appendChild(cover);
+    },{once:true});
+    navigator.serviceWorker.addEventListener("controllerchange",changed);
+    const timer=setTimeout(stop,20000);
+    const activate=worker=>{
+      if(!active||!worker||new URL(worker.scriptURL).searchParams.get("v")!==version)return;
+      if(worker.state==="installed"){
+        try{sessionStorage.setItem(attempt,"1")}catch{}
+        worker.postMessage("skipWaiting");
+      }else if(worker.state==="redundant")stop();
+    };
+    navigator.serviceWorker.register("./sw.js?v="+version,{scope:"./",updateViaCache:"none"}).then(reg=>{
+      if(!active)return;
+      if(reg.waiting)activate(reg.waiting);
+      const watch=()=>{const worker=reg.installing;if(worker){worker.addEventListener("statechange",()=>activate(worker));activate(worker)}};
+      reg.addEventListener("updatefound",watch);watch();
+    }).catch(stop);
+  })();
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=4.0.6">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -320,21 +359,21 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.0.5" defer></script>
-<script src="./storage.js?v=4.0.5" defer></script>
-<script src="./core.js?v=4.0.5" defer></script>
-<script src="./search-engine.js?v=4.0.5" defer></script>
-<script src="./library.js?v=4.0.5" defer></script>
-<script src="./acervo.js?v=4.0.5" defer></script>
-<script src="./setlists.js?v=4.0.5" defer></script>
-<script src="./song-prefs.js?v=4.0.5" defer></script>
-<script src="./autoscroll.js?v=4.0.5" defer></script>
-<script src="./player.js?v=4.0.5" defer></script>
-<script src="./karaoke.js?v=4.0.5" defer></script>
-<script src="./song-edit.js?v=4.0.5" defer></script>
-<script src="./print.js?v=4.0.5" defer></script>
-<script src="./ui.js?v=4.0.5" defer></script>
-<script src="./search-ui.js?v=4.0.5" defer></script>
-<script src="./offline.js?v=4.0.5" defer></script>
+<script src="./domain.js?v=4.0.6" defer></script>
+<script src="./storage.js?v=4.0.6" defer></script>
+<script src="./core.js?v=4.0.6" defer></script>
+<script src="./search-engine.js?v=4.0.6" defer></script>
+<script src="./library.js?v=4.0.6" defer></script>
+<script src="./acervo.js?v=4.0.6" defer></script>
+<script src="./setlists.js?v=4.0.6" defer></script>
+<script src="./song-prefs.js?v=4.0.6" defer></script>
+<script src="./autoscroll.js?v=4.0.6" defer></script>
+<script src="./player.js?v=4.0.6" defer></script>
+<script src="./karaoke.js?v=4.0.6" defer></script>
+<script src="./song-edit.js?v=4.0.6" defer></script>
+<script src="./print.js?v=4.0.6" defer></script>
+<script src="./ui.js?v=4.0.6" defer></script>
+<script src="./search-ui.js?v=4.0.6" defer></script>
+<script src="./offline.js?v=4.0.6" defer></script>
 </body>
 </html>

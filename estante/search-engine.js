@@ -142,7 +142,7 @@ fetchLrclibSong=async function(song){
     // instrumentais; aceitar isso como sucesso abria a música EM BRANCO e
     // ainda impedia as reservas (Vagalume, acervo, lyrics.ovh) de rodarem,
     // porque a função retornava sem erro.
-    if(x&&(x.plainLyrics||x.syncedLyrics||x.instrumental)){
+    if(x&&matchesLyricSong(x,song)&&(x.plainLyrics||x.syncedLyrics||x.instrumental)){
       Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});
       return song;
     }
@@ -162,15 +162,39 @@ fetchLrclibSong=async function(song){
 };
 // Uma fonte adicional com CORS. Aceitar somente metadados iguais evita que a
 // busca do provedor associe uma letra de outra gravação a este resultado.
+const liriqoCache=new Map(),liriqoPending=new Map();
 async function fetchLiriqoExact(title,artist){
-  const params=new URLSearchParams({title,artist});
-  let r;try{r=await fetchSafe(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000)}catch(error){markSource("liriqo",false,error.message);throw error}
-  if(!r.ok){markSource("liriqo",false,r.status);return null}
-  markSource("liriqo",true);
-  const data=await r.json();
-  if(fold(cleanEdition(data?.metadata?.title))!==fold(cleanEdition(title))||fold(data?.metadata?.artist)!==fold(artist))return null;
-  const text=String(data?.primary?.plain||"").trim();
-  return text.length>=40?text.replace(/\r\n/g,"\n"):null;
+  const key=JSON.stringify([fold(title),fold(artist)]),cached=liriqoCache.get(key);
+  if(cached&&Date.now()-cached.at<600000)return cached.text;
+  if(liriqoPending.has(key))return liriqoPending.get(key);
+  const request=requestLiriqoExact(title,artist).then(text=>{
+    if(text){liriqoCache.delete(key);liriqoCache.set(key,{text,at:Date.now()});if(liriqoCache.size>50)liriqoCache.delete(liriqoCache.keys().next().value)}
+    return text;
+  }).finally(()=>liriqoPending.delete(key));
+  liriqoPending.set(key,request);return request;
+}
+function liriqoText(track){
+  if(typeof track?.plain==="string"&&track.plain.trim())return track.plain.trim();
+  if(Array.isArray(track?.timed)){const text=track.timed.map(line=>typeof line?.text==="string"?line.text:"").filter(Boolean).join("\n");if(text)return text}
+  if(typeof track?.lrc==="string")return parseLRC(track.lrc).map(line=>line.text).join("\n");
+  return "";
+}
+async function requestLiriqoExact(title,artist){
+  const attempts=[new URLSearchParams({title,artist}),new URLSearchParams({Q:title+" "+artist})];
+  for(const params of attempts){
+    let r;try{r=await fetchRetrying(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000)}catch(error){markSource("liriqo",false,error.message);throw error}
+    if(!r.ok){markSource("liriqo",false,r.status);return null}
+    markSource("liriqo",true);const d=await r.json();
+    if(fold(cleanEdition(d.metadata?.title))!==fold(cleanEdition(title))||fold(d.metadata?.artist)!==fold(artist))continue;
+    for(const track of [d.primary,...(Array.isArray(d.tracks)?d.tracks:[])]){
+      if(!track)continue;
+      if(track.title&&fold(cleanEdition(track.title))!==fold(cleanEdition(title)))continue;
+      if(track.artist&&fold(track.artist)!==fold(artist))continue;
+      const text=liriqoText(track);
+      if(text.length>=40)return text.replace(/\r\n/g,"\n");
+    }
+  }
+  return null;
 }
 async function fetchLiriqoSong(song){
   if(!song.title||!song.artist)return null;
