@@ -24,7 +24,10 @@ function candidateScore(m,q){
   const titleMatch=titleSimilarity(q,m.title);
   if(titleMatch>=.72)score+=titleMatch*100;
   if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;
-  if(m.synced)score+=12;else if(m.lyrics)score+=8;
+  // Dentro de resultados igualmente relevantes, texto disponível deve subir
+  // acima de uma gravação que só existe no catálogo. Correspondência de artista
+  // e título continua pesando mais para não destacar a letra da faixa errada.
+  if(m.synced)score+=48;else if(m.lyrics)score+=36;
   if((m.sources||[]).includes("Vagalume"))score+=4;if((m.sources||[]).includes("Apple"))score+=3;if((m.sources||[]).includes("Deezer"))score+=2;if((m.sources||[]).includes("MusicBrainz"))score+=2;
   return score;
 }

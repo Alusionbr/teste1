@@ -78,6 +78,7 @@
       const lyrics=await fetchLiriqoExact(exact.title,exact.artist);
       if(!lyrics||requestId!==searchRequest||state.current===exact||!state.results.includes(exact))return;
       exact.lyrics=lyrics;exact.source="LiriQo";exact.sources=[...new Set([...(exact.sources||[]),"LiriQo"])];
+      state.results.sort((a,b)=>candidateScore(b,q)-candidateScore(a,q)||String(a.title).localeCompare(String(b.title)));
       if(state.tab==="results")renderList();
     }catch{}
   }
