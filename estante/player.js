@@ -38,7 +38,7 @@ async function openSong(song){
   if(requestId!==openSongRequest)return;
   renderCurrentLyrics();updateSaveButton();
   const vagUrl=safeUrl(song.vagUrl);
-  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.lyricNote)$("credits").textContent=`${song.lyricNote} Fontes: ${(song.lyricSources||[]).join("; ")} via ${song.source}. Direitos reservados aos autores e editoras.`;else if(vagUrl&&song.source!=="LRCLIB")$("credits").innerHTML=`Letra publicada por <a href="${esc(vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
+  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.lyricNote)$("credits").textContent=`${song.lyricNote} Fontes: ${(song.lyricSources||[]).join("; ")} via ${song.source}. Direitos reservados aos autores e editoras.`;else if(vagUrl&&song.source==="Vagalume")$("credits").innerHTML=`Letra publicada por <a href="${esc(vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
 }
 // Redesenha a letra da música aberta a partir do que está em state.current.
 // Serve para abrir a música e também depois de editar a letra, sem consultar a

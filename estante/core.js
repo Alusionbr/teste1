@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.0.5";
+const APP_VERSION="4.0.6";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -122,6 +122,7 @@ async function fetchVagalume(song){
   song.lyrics=d.mus[0].text;song.vagUrl=d.mus[0].url||song.vagUrl;return song;
 }
 
+function matchesLyricSong(record,song){return fold(record.trackName)===fold(song.title)&&fold(record.artistName)===fold(song.artist)}
 async function fetchLrclibSong(song){
   const qs=new URLSearchParams({track_name:song.title||""});if(song.artist)qs.set("artist_name",song.artist);
   let r;try{r=await fetchSafe(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS})}catch(error){markSource("lrclib",false,error.message);throw error}
@@ -130,7 +131,7 @@ async function fetchLrclibSong(song){
   // Pega a primeira linha COM texto. Cair no rows[0] quando nenhuma tem letra
   // devolvia a música em branco como se fosse sucesso, e as fontes de reserva
   // nunca chegavam a ser tentadas.
-  const rows=await r.json(),x=rows.find(v=>v.syncedLyrics||v.plainLyrics||v.instrumental);
+  const rows=await r.json(),x=rows.find(v=>matchesLyricSong(v,song)&&(v.syncedLyrics||v.plainLyrics||v.instrumental));
   if(!x)throw Error("Não encontrei uma letra alternativa para esta música.");
   Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song;
 }

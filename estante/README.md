@@ -225,6 +225,8 @@ quando outra aba gravou uma revisão mais nova, evitando sobrescrita silenciosa.
 4. Rode o roteiro de `checklist-manual.md`.
 5. Rode `node --test estante/tests/*.test.js` e, com um servidor local ativo,
    `node estante/tests/browser-smoke.js`.
+   Rode também `node estante/tests/cache-upgrade.js`: o teste reproduz um cache legado, verifica a atualização automática e conserva a biblioteca offline.
+   Para testar as fontes externas, use `ESTANTE_LIVE_LYRICS=1` no teste de navegador. O diagnóstico `node estante/scripts/check-sources.mjs` não imprime letras.
 
 ## Fontes
 
