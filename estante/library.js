@@ -37,7 +37,7 @@ function renderList(){
       if(m.local)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · sua biblioteca":"na sua biblioteca"}</span>`);
       else if(m.acervo)tags.push(`<span class="tag local">${m.matchedLyrics?"na letra · acervo":"acervo do site"}</span>`);
       else if(m.lyrics&&!m.synced)tags.push('<span class="tag">com letra</span>');
-      else if(!m.synced&&!m.instrumental)tags.push('<span class="tag catalogOnly">sem letra nesta fonte</span>');
+      else if(!m.synced&&!m.instrumental)tags.push('<span class="tag catalogOnly">buscar letra ao abrir</span>');
     }
     if(/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(m.title||""))tags.push('<span class="tag">medley</span>');
     if(m.arrangementName)tags.push(`<span class="tag arrangement">${esc(m.arrangementName)}</span>`);

@@ -63,6 +63,24 @@
     if(state.source==="smart")return notify(`${err.message} As demais fontes não acharam outra versão agora.`);
     notify(`${err.message} A busca Inteligente combina as outras fontes.`,false,{label:"Tentar na Inteligente",run:()=>{state.source="smart";syncSourceUI();updatePrefs();$("searchInput").value=q;$("searchForm").requestSubmit()}});
   }
+  // O catálogo identifica a gravação antes de a fonte de letras responder.
+  // Para uma busca exata por título + artista, confirme a letra em segundo plano
+  // sem atrasar a lista nem aceitar texto de outra versão.
+  async function enrichExactLyric(q,remotos,requestId){
+    const requested=searchTokens(cleanEdition(q));if(requested.size<3)return;
+    const exact=remotos.find(song=>{
+      if(song.lyrics||song.synced||!song.artist)return false;
+      const candidate=searchTokens(`${song.title} ${song.artist}`);
+      return candidate.size===requested.size&&[...requested].every(token=>candidate.has(token));
+    });
+    if(!exact)return;
+    try{
+      const lyrics=await fetchLiriqoExact(exact.title,exact.artist);
+      if(!lyrics||requestId!==searchRequest||state.current===exact||!state.results.includes(exact))return;
+      exact.lyrics=lyrics;exact.source="LiriQo";exact.sources=[...new Set([...(exact.sources||[]),"LiriQo"])];
+      if(state.tab==="results")renderList();
+    }catch{}
+  }
   const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
   $("searchForm").onsubmit=async e=>{e.preventDefault();const q=$("searchInput").value.trim();if(!q)return;
     const required=REQUIRED_SOURCE[state.source];if(required&&!sourceAvailable(required)){state.source="smart";syncSourceUI();updatePrefs()}
@@ -85,6 +103,7 @@
     try{
       const remotos=await searchMusic(q);if(requestId!==searchRequest)return;
       state.results=withLocalFirst(locais,remotos);state.tab="results";renderList();
+      void enrichExactLyric(q,remotos,requestId);
       if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}
       const doRepertorio=locais.length?`${locais.length} já no aparelho · `:"";
       if(state.source==="smart"){const src=state.searchMeta?.sources?.join(" + ")||"múltiplas fontes",fallback=state.searchMeta?.fallbackFrom=== "vagalume"?"Vagalume indisponível; usei as outras fontes. ":state.searchMeta?.fallbackFrom==="lrclib"?"LRCLIB indisponível; usei as outras fontes. ":"";notify(`${fallback}${plural(state.results.length,"resultado","resultados")} · ${doRepertorio}${src}. Os melhores aparecem primeiro.`,true)}
