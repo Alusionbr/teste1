@@ -128,6 +128,25 @@ let browser;
     try{const song=await fetchLrclibSong({title:"Um Pedido",artist:"Davi Sacer"});return song.lyrics}finally{fetchSafe=original}
   });
   assert.equal(correctRecording,"Gravação correspondente");
+  await page.evaluate(()=>{
+    window.exactLyricOriginals={searchMusic,searchAcervo,fetchLiriqoExact};
+    searchMusic=async()=>[{title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"],lyrics:"",synced:""}];
+    searchAcervo=async()=>[];
+    fetchLiriqoExact=(title,artist)=>new Promise(resolve=>{
+      window.exactLyricQuery={title,artist};
+      window.finishExactLyrics=()=>resolve("Texto fictício de teste para a gravação confirmada.");
+    });
+    state.source="smart";
+  });
+  await page.locator("#searchInput").fill("Um Pedido Davi Sacer");
+  await page.locator("#searchForm button").click();
+  await page.waitForFunction(()=>typeof window.finishExactLyrics==="function");
+  assert.deepEqual(await page.evaluate(()=>window.exactLyricQuery),{title:"Um Pedido",artist:"Davi Sacer"});
+  assert.match(await page.locator("#list").textContent(),/buscar letra ao abrir/);
+  await page.evaluate(()=>window.finishExactLyrics());
+  await page.waitForFunction(()=>state.results[0]?.source==="LiriQo"&&document.querySelector("#list")?.textContent.includes("com letra"));
+  assert.equal(await page.evaluate(()=>!!state.results[0].lyrics),true);
+  await page.evaluate(()=>{Object.assign(window,window.exactLyricOriginals);delete window.exactLyricOriginals;delete window.exactLyricQuery;delete window.finishExactLyrics});
   await page.evaluate(()=>liriqoCache.clear());
   if(process.env.ESTANTE_LIVE_LYRICS==="1"){
     await page.evaluate(async()=>openSong({title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"]}));
