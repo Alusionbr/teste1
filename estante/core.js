@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.0.6";
+const APP_VERSION="4.0.7";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -41,7 +41,7 @@ async function fetchRetrying(url,options={},timeout=12000){
 // uma fonte específica está fora do ar, em vez de deixar o usuário descobrir
 // tentando. Não persiste — cada visita começa "sem informação".
 const sourceStatus={};
-function markSource(name,ok,detail){sourceStatus[name]={ok,at:Date.now(),detail}}
+function markSource(name,ok,detail){sourceStatus[name]={ok,at:Date.now(),detail};window.dispatchEvent(new CustomEvent("estante:source-status",{detail:{name,ok}}))}
 function sourceDown(name,maxAgeMs=120000){const s=sourceStatus[name];return!!s&&!s.ok&&(Date.now()-s.at)<maxAgeMs}
 
 function load(k,fallback){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fallback}catch{return fallback}}
@@ -93,8 +93,9 @@ function updateControls(){document.documentElement.style.setProperty("--font",st
 function sourceError(name,msg){const e=Error(msg);e.source=name;return e}
 async function searchMusic(q){
   if(state.source==="lrclib"){
-    const r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS});
-    if(r.status===429){const wait=r.headers.get("Retry-After");throw Error(`Muitas buscas seguidas no LRCLIB.${wait?` Tente novamente em ${wait}s.`:" Aguarde alguns segundos."}`)} if(!r.ok)throw Error(`LRCLIB respondeu ${r.status}`);
+    let r;try{r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw sourceError("lrclib","LRCLIB não respondeu a tempo.")}
+    if(r.status===429){markSource("lrclib",false,429);const wait=r.headers.get("Retry-After");throw sourceError("lrclib",`Muitas buscas seguidas no LRCLIB.${wait?` Tente novamente em ${wait}s.`:" Aguarde alguns segundos."}`)}
+    if(!r.ok){markSource("lrclib",false,r.status);throw sourceError("lrclib",`LRCLIB respondeu ${r.status}`)}
     markSource("lrclib",true);
     return (await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"}));
   }

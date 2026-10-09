@@ -303,6 +303,6 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};
   await loadSetlists();
   state.source=(p.source==="trecho"?"excerpt":p.source)||"smart";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"neon-palco";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;
-  document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();
+  window.dispatchEvent(new Event("estante:prefs-loaded"));document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();
   const incoming=await readSharedLink();if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus();
 })();

@@ -40,8 +40,11 @@ function songKey(m){
 function mergeSongs(rows,q){const map=new Map();for(const raw of rows){if(!raw||!raw.title)continue;const k=songKey(raw);const old=map.get(k);if(!old){const x={...raw,sources:[...(raw.sources||[raw.source].filter(Boolean))]};map.set(k,x);continue}const src=new Set([...(old.sources||[]),...(raw.sources||[raw.source].filter(Boolean))]);old.sources=[...src];for(const f of ["lyrics","synced","vagId","vagUrl","catalogUrl","appleId","album","duration"]){if(!old[f]&&raw[f])old[f]=raw[f]}if((raw.synced||raw.lyrics)&&!(old.synced||old.lyrics)){old.lyrics=raw.lyrics||"";old.synced=raw.synced||""}}
   const all=[...map.values()];for(const m of all){m.source=m.sources.join(" + ");m._score=candidateScore(m,q)}return all.sort((a,b)=>b._score-a._score||String(a.title).localeCompare(String(b.title))).slice(0,35)}
 function queryVariants(q){const out=[q];const clean=cleanEdition(q);if(searchFold(clean)!==searchFold(q)&&clean.length>2)out.push(clean);const noFeat=clean.replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"").trim();if(noFeat.length>2&&!out.some(x=>searchFold(x)===searchFold(noFeat)))out.push(noFeat);const dash=q.split(/\s[-–—]\s/).map(x=>x.trim()).filter(x=>x.length>2);for(const x of dash)if(!out.some(v=>searchFold(v)===searchFold(x)))out.push(x);return out.slice(0,3)}
-async function searchLrclib(q){const r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:SEARCH_HEADERS});if(r.status===429)return[];if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
-async function searchVagalumeAdvanced(q,route="search.artmus"){const key=state.keyVag?`&apikey=${encodeURIComponent(state.keyVag)}`:"";const r=await fetchRetrying(`https://api.vagalume.com.br/${route}?q=${encodeURIComponent(q)}&limit=10${key}`);if(!r.ok){markSource("vagalume",false,r.status);return[]}markSource("vagalume",true);const d=await r.json();return((d.response&&d.response.docs)||[]).filter(x=>x.title).map(x=>({title:x.title,artist:x.band||"",album:"",duration:0,lyrics:"",synced:"",source:"Vagalume",sources:["Vagalume"],vagId:x.id||"",vagUrl:x.url?"https://www.vagalume.com.br"+x.url:""}))}
+async function searchLrclib(q){if(sourceStatus.lrclib?.ok===false)return[];let r;try{r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:SEARCH_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw e}if(r.status===429){markSource("lrclib",false,429);return[]}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
+async function searchVagalumeAdvanced(q,route="search.artmus"){
+  if(sourceStatus.vagalume?.ok===false)return[];
+  const key=state.keyVag?`&apikey=${encodeURIComponent(state.keyVag)}`:"";
+  let r;try{r=await fetchRetrying(`https://api.vagalume.com.br/${route}?q=${encodeURIComponent(q)}&limit=10${key}`)}catch(e){markSource("vagalume",false,e.message);return[]}if(!r.ok){markSource("vagalume",false,r.status);return[]}markSource("vagalume",true);const d=await r.json();return((d.response&&d.response.docs)||[]).filter(x=>x.title).map(x=>({title:x.title,artist:x.band||"",album:"",duration:0,lyrics:"",synced:"",source:"Vagalume",sources:["Vagalume"],vagId:x.id||"",vagUrl:x.url?"https://www.vagalume.com.br"+x.url:""}))}
 // Fontes por JSONP: a Apple e a Deezer não devolvem cabeçalho de CORS para
 // fetch() direto do navegador, então o pedido vira uma tag <script> — a mesma
 // técnica que já usávamos só para a Apple. Nenhuma das duas tem letra; entram
@@ -123,15 +126,14 @@ async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const
   if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
   if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
 searchMusic=async function(q){
-  if(state.source==="smart")return smartSearchMusic(q);
+  const requestedSource=state.source;
+  if(requestedSource==="smart")return smartSearchMusic(q);
   try{return await legacySearchMusic(q)}catch(error){
-    // Brasil depende apenas do Vagalume. Se ele cair, ainda é possível achar
-    // a faixa pelos outros catálogos e buscar a letra ao abrir o resultado.
-    // Trecho não faz essa troca: os outros serviços não pesquisam versos.
-    if(state.source!=="vagalume"||error.source!=="vagalume")throw error;
+    // Um modo com fonte exclusiva caiu: procure pelo que continua disponível.
+    if(!["vagalume","lrclib"].includes(requestedSource)||error.source!==requestedSource)throw error;
     const alternatives=await smartSearchMusic(q);
+    state.source="smart";state.searchMeta.fallbackFrom=requestedSource;updatePrefs();
     if(!alternatives.length)throw error;
-    state.source="smart";state.searchMeta.fallbackFrom="vagalume";updatePrefs();
     return alternatives;
   }
 };
@@ -148,7 +150,7 @@ fetchLrclibSong=async function(song){
     }
   }}catch{}}
   try{return await legacyFetchLrclibSong(song)}catch(first){
-    if(state.keyVag){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
+    if(state.keyVag&&sourceStatus.vagalume?.ok!==false){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
     // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)
     // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
     // não havia mais nada a tentar.
@@ -183,7 +185,7 @@ async function requestLiriqoExact(title,artist){
   const attempts=[new URLSearchParams({title,artist}),new URLSearchParams({Q:title+" "+artist})];
   for(const params of attempts){
     let r;try{r=await fetchRetrying(`https://api.liriqo-alfarrizi.my.id/v1/lyrics?${params}`,{headers:{Accept:"application/json"}},25000)}catch(error){markSource("liriqo",false,error.message);throw error}
-    if(!r.ok){markSource("liriqo",false,r.status);return null}
+    if(!r.ok){markSource("liriqo",r.status===404,r.status);return null}
     markSource("liriqo",true);const d=await r.json();
     if(fold(cleanEdition(d.metadata?.title))!==fold(cleanEdition(title))||fold(d.metadata?.artist)!==fold(artist))continue;
     for(const track of [d.primary,...(Array.isArray(d.tracks)?d.tracks:[])]){

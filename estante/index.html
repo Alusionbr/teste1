@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
   <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <script data-version="4.0.6">
+  <script data-version="4.0.7">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -49,7 +49,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.0.6">
+  <link rel="stylesheet" href="./styles.css?v=4.0.7">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -179,7 +179,7 @@
     <label>Chave da API do Vagalume<input id="vagalumeKey" type="password" autocomplete="off" placeholder="Cole sua chave"></label>
     <p><b>Inteligente</b> consulta em paralelo o LRCLIB, o Vagalume, o Deezer, o catálogo da Apple e o MusicBrainz, elimina duplicatas e tenta versões alternativas automaticamente. É o modo mais resistente: se uma fonte estiver fora do ar, as outras seguem funcionando.</p>
     <p>Letra vem do LRCLIB (a única com sincronia), do Vagalume, do acervo deste site e, como reserva, do LiriQo e da lyrics.ovh. Deezer, Apple e MusicBrainz não têm letra: servem para identificar a faixa e descobrir álbum e duração — é o que permite às outras acharem a letra certa. Quando um medley não tem transcrição completa, uma versão de ensaio pode combinar gravações identificadas e mostrar esse aviso.</p>
-    <p><b>Sincro</b> prioriza LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam só o Vagalume — quando ele está fora do ar (acontece de vez em quando), os dois ganham um sinal vermelho. Procurar por um pedaço da letra depende dele: as outras fontes comparam título, artista e álbum, nunca o texto. Nesse caso o app ainda procura no seu repertório e no acervo, que guardam a letra inteira.</p>
+    <p><b>Sincro</b> usa LRCLIB. <b>Brasil</b> e <b>Trecho</b> usam o Vagalume. Os modos aparecem somente enquanto suas fontes respondem; o app volta à busca Inteligente se uma delas cair. A busca Inteligente também encontra trechos nas letras já salvas no aparelho e no acervo.</p>
     <p>Para abrir letras diretamente pelo Vagalume, cadastre a chave da API. Ela fica somente neste aparelho.</p>
     <footer><button class="accent" id="sourcesSave" value="default">Salvar</button></footer>
   </form>
@@ -359,21 +359,21 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.0.6" defer></script>
-<script src="./storage.js?v=4.0.6" defer></script>
-<script src="./core.js?v=4.0.6" defer></script>
-<script src="./search-engine.js?v=4.0.6" defer></script>
-<script src="./library.js?v=4.0.6" defer></script>
-<script src="./acervo.js?v=4.0.6" defer></script>
-<script src="./setlists.js?v=4.0.6" defer></script>
-<script src="./song-prefs.js?v=4.0.6" defer></script>
-<script src="./autoscroll.js?v=4.0.6" defer></script>
-<script src="./player.js?v=4.0.6" defer></script>
-<script src="./karaoke.js?v=4.0.6" defer></script>
-<script src="./song-edit.js?v=4.0.6" defer></script>
-<script src="./print.js?v=4.0.6" defer></script>
-<script src="./ui.js?v=4.0.6" defer></script>
-<script src="./search-ui.js?v=4.0.6" defer></script>
-<script src="./offline.js?v=4.0.6" defer></script>
+<script src="./domain.js?v=4.0.7" defer></script>
+<script src="./storage.js?v=4.0.7" defer></script>
+<script src="./core.js?v=4.0.7" defer></script>
+<script src="./search-engine.js?v=4.0.7" defer></script>
+<script src="./library.js?v=4.0.7" defer></script>
+<script src="./acervo.js?v=4.0.7" defer></script>
+<script src="./setlists.js?v=4.0.7" defer></script>
+<script src="./song-prefs.js?v=4.0.7" defer></script>
+<script src="./autoscroll.js?v=4.0.7" defer></script>
+<script src="./player.js?v=4.0.7" defer></script>
+<script src="./karaoke.js?v=4.0.7" defer></script>
+<script src="./song-edit.js?v=4.0.7" defer></script>
+<script src="./print.js?v=4.0.7" defer></script>
+<script src="./ui.js?v=4.0.7" defer></script>
+<script src="./search-ui.js?v=4.0.7" defer></script>
+<script src="./offline.js?v=4.0.7" defer></script>
 </body>
 </html>
