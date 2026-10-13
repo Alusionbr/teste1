@@ -1870,6 +1870,37 @@ input[type="checkbox"] {
 @media(max-width:720px) { .post-it-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media(max-width:420px) { .post-it-grid { grid-template-columns: 1fr; } }
 
+.card-filter-panel { margin-bottom: 20px; }
+.card-filter-heading {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.card-filter-heading > div { display: grid; align-content: start; gap: 7px; min-width: 0; }
+.card-filter-heading strong { font-size: clamp(17px, 2vw, 24px); overflow-wrap: anywhere; }
+.card-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.card-filters label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+.card-filters select { width: 100%; min-width: 0; min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); }
+.card-filter-panel > .fine { margin-top: 10px; }
+:root[data-theme="dark"] .card-filters select { background: var(--panel); color: var(--ink); }
+@media(max-width:640px) {
+  .card-filter-panel { padding: 13px; margin-bottom: 12px; }
+  .card-filter-heading { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-bottom: 12px; }
+  .card-filter-heading > div:last-child { grid-column: 1 / -1; }
+  .card-filter-heading .eyebrow { font-size: 8px; }
+  .card-filter-heading strong { font-size: 17px; }
+  .card-filters { grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+  .card-filters label { grid-template-columns: 70px minmax(0, 1fr); align-items: center; font-size: 10px; }
+  .card-filters select { min-height: 40px; padding: 7px 9px; font-size: 12px; }
+  .card-filter-panel > .fine { font-size: 9px; margin-top: 8px; }
+  .invoice-stats { gap: 10px; }
+  .invoice-stats > div { min-width: 0; }
+  .invoice-stats span { font-size: 9px; line-height: 1.35; }
+  .invoice-stats strong { font-size: 17px; }
+}
+
 /* Compact phone viewport while keeping controls comfortable to tap. */
 @media(max-width:640px) {
   html { -webkit-text-size-adjust: 100%; }
