@@ -21,6 +21,7 @@ import {
   type Reminder,
 } from "./model.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
+import { financialSeries, financialTotals, spendingGroups, type FlowPoint } from "./insights.ts";
 import {
   addMonths,
   dueDate,
@@ -41,6 +42,11 @@ let page = "overview",
   area = "all",
   owner = "all",
   status = "all",
+  entryKind = "all",
+  entryCategory = "all",
+  entrySubcategory = "all",
+  entryFiltersOpen = false,
+  analysisPeriod: "monthly" | "yearly" = "monthly",
   editId = "",
   modal = "",
   importRows: Partial<Entry>[] = [];
@@ -74,12 +80,15 @@ const icon = (name: string) => {
     logout: "M9 3H3v18h6 M10 12h11 M16 7l5 5-5 5",
     check: "M4 12l5 5L20 6",
     debt: "M5 3h14v18l-3-2-4 2-4-2-3 2z M8 8h8 M8 12h6",
+    analysis: "M4 20V11 M10 20V5 M16 20v-8 M22 20v-13 M2 20h20",
+    categories: "M4 5h16 M4 12h11 M4 19h16 M18 10l3 3-3 3",
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ? `<path d="${paths[name]}"/>` : '<circle cx="12" cy="12" r="9"/>'}</svg>`;
 };
 const nav = [
   ["overview", "Início"],
   ["entries", "Dinheiro"],
+  ["analysis", "Análises"],
   ["shopping", "Compras"],
   ["pantry", "Casa"],
   ["settings", "Perfil"],
@@ -91,8 +100,9 @@ const nav = [
   ["goals", "Metas"],
   ["documents", "Comprovantes"],
   ["family", "Família e acesso"],
+  ["categories", "Categorias"],
 ];
-const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
+const primaryNav = new Set(["overview", "entries", "analysis", "shopping", "pantry", "settings"]);
 const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) || (id === "reminders" || id === "calendar") && api.data!.reminders.some((r) => r.kind !== "post_it" && r.due_on && !r.completed && daysFromToday(r.due_on) <= 7) ? "<i></i>" : ""}</button>`;
 function sidebarNav() {
   const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
@@ -124,7 +134,8 @@ const commonCategories = [
   "Mercado", "Moradia", "Contas da casa", "Alimentação fora", "Transporte",
   "Saúde", "Educação", "Família e filhos", "Pets", "Vestuário",
   "Cuidados pessoais", "Lazer", "Assinaturas", "Impostos", "Salário",
-  "Investimentos", "Dívidas", "Fatura", "Transferência", "Outros",
+  "Investimentos", "Dívidas", "Fatura", "Transferência", "Seguros",
+  "Serviços domésticos", "Presentes e doações", "Taxas bancárias", "Outros",
 ];
 const subcategorySuggestions: Record<string, string[]> = {
   Mercado: ["Supermercado", "Hortifruti", "Açougue", "Padaria", "Mercearia", "Feira"],
@@ -132,9 +143,9 @@ const subcategorySuggestions: Record<string, string[]> = {
   "Contas da casa": ["Água", "Energia", "Gás", "Internet", "Telefone", "Limpeza"],
   "Alimentação fora": ["Restaurante", "Delivery", "Lanche", "Café"],
   Transporte: ["Combustível", "Aplicativo", "Transporte público", "Estacionamento", "Manutenção", "Pedágio"],
-  Saúde: ["Consulta", "Exames", "Medicamentos", "Vacinas", "Dentista", "Terapia", "Plano de saúde", "Óculos"],
+  Saúde: ["Consulta", "Exames", "Medicamentos", "Vacinas", "Dentista", "Terapia", "Plano de saúde", "Óculos", "Hospital", "Fisioterapia"],
   Educação: ["Mensalidade", "Material escolar", "Uniforme", "Curso", "Atividade"],
-  "Família e filhos": ["Creche", "Cuidados infantis", "Mesada", "Atividade infantil", "Presente", "Ajuda à família"],
+  "Família e filhos": ["Creche", "Cuidados infantis", "Fraldas", "Fórmula infantil", "Mesada", "Atividade infantil", "Presente", "Ajuda à família"],
   Pets: ["Ração", "Veterinário", "Medicamentos", "Banho e tosa", "Acessórios"],
   Vestuário: ["Roupas", "Calçados", "Acessórios"],
   "Cuidados pessoais": ["Cabelo", "Barbearia", "Higiene", "Cosméticos"],
@@ -146,17 +157,26 @@ const subcategorySuggestions: Record<string, string[]> = {
   Dívidas: ["Empréstimo", "Financiamento", "Juros"],
   Fatura: ["Pagamento de cartão"],
   Transferência: ["Entre contas", "Retirada", "Depósito"],
+  Seguros: ["Vida", "Residencial", "Automóvel", "Saúde"],
+  "Serviços domésticos": ["Diarista", "Conserto", "Jardinagem", "Lavanderia"],
+  "Presentes e doações": ["Aniversário", "Datas especiais", "Doação"],
+  "Taxas bancárias": ["Tarifa", "Anuidade", "Juros", "Multa"],
   Outros: ["A confirmar"],
 };
 const categoryOptions = (current: string) => Array.from(new Set([
   ...commonCategories,
+  ...(api.data?.category_presets || []).map((item) => item.category),
   ...(api.data?.entries || []).map((entry) => entry.category),
   ...(api.data?.recurring || []).map((entry) => entry.category),
 ])).filter(Boolean).map((category) => opt(category, category, current)).join("");
-const subcategoryList = (category: string) => `<datalist id="subcategories">${Array.from(new Set([
+const subcategoriesFor = (category: string) => Array.from(new Set([
+  ...(api.data?.category_presets || []).filter((item) => item.category === category).map((item) => item.subcategory || ""),
   ...(subcategorySuggestions[category] || []),
   ...(api.data?.entries || []).filter((entry) => entry.category === category).map((entry) => entry.subcategory || ""),
-])).filter(Boolean).map((subcategory) => `<option value="${esc(subcategory)}"></option>`).join("")}</datalist>`;
+])).filter(Boolean);
+const subcategoryList = (category: string) => `<datalist id="subcategories">${subcategoriesFor(category).map((subcategory) => `<option value="${esc(subcategory)}"></option>`).join("")}</datalist>`;
+const subcategoryChips = (category: string, selected = "") => subcategoriesFor(category).slice(0, 7)
+  .map((item) => button("pick-subcategory", item, `subcategory-chip ${item === selected ? "selected" : ""}`, `data-value="${esc(item)}"`)).join("");
 const quickGroceries = [
   ["Arroz", "pacote"], ["Feijão", "pacote"], ["Leite", "litro"],
   ["Ovos", "dúzia"], ["Pão", "pacote"], ["Café", "pacote"],
@@ -247,76 +267,116 @@ function login() {
 }
 function quickPanel() {
   const allowed: Record<QuickAction, boolean> = { expense: api.allowed("entries"), cards: true, shopping: true, pantry: true };
-  const visible = api.preferences.quick_actions.filter((id) => allowed[id]);
-  return visible.length ? `<nav class="quick-panel" aria-label="Seus atalhos">${visible.map((id) => button(id === "expense" ? "add-entry" : "nav", actionNames[id], "secondary", id === "expense" ? "" : `data-page="${id === "cards" ? "cards" : id === "shopping" ? "shopping" : "pantry"}"`)).join("")}</nav>` : "";
+  const visible = api.preferences.quick_actions.filter((id) => id !== "expense" && allowed[id]);
+  return visible.length ? `<nav class="quick-panel" aria-label="Seus atalhos">${visible.map((id) => button("nav", actionNames[id], "secondary", `data-page="${id === "cards" ? "cards" : id === "shopping" ? "shopping" : "pantry"}"`)).join("")}</nav>` : "";
 }
 function summary() {
-  const d = api.data!,
-    m = metrics(d, month);
-  const destinations = new Map<string, number>();
-  d.entries.filter((entry) => entry.kind === "expense" && entry.status !== "pending_review" && entry.date.startsWith(month) && entry.payee?.trim())
-    .forEach((entry) => destinations.set(entry.payee!.trim(), (destinations.get(entry.payee!.trim()) || 0) + entry.amount_cents));
-  const percent = d.home.budget_cents
-    ? Math.round((m.home / d.home.budget_cents) * 100)
-    : 0;
-  const low = d.pantry.filter((p) => {
-    const f = forecast(p);
-    return f.stock <= p.minimum || (f.days !== null && f.days < 7);
+  const data = api.data!;
+  const monthly = metrics(data, month);
+  const cash = financialTotals(data.entries, month);
+  const picture = monthPicture(data, month);
+  const groups = spendingGroups(data, month);
+  const monthName = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const previousMonth = addMonths(month, -1);
+  const previousSpending = metrics(data, previousMonth).spend;
+  const trend = previousSpending ? Math.round((monthly.spend - previousSpending) / previousSpending * 100) : null;
+  const accountBalances = data.accounts.map((account) => balance(data, account)).filter((value): value is number => value !== null);
+  const knownBalance = accountBalances.reduce((sum, value) => sum + value, 0);
+  const pendingReviews = data.entries.filter((entry) => entry.status === "pending_review").length;
+  const urgentReminders = data.reminders.filter((item) => item.kind !== "post_it" && item.due_on && !item.completed && daysFromToday(item.due_on) <= 7)
+    .sort((x, y) => x.due_on!.localeCompare(y.due_on!));
+  const lowPantry = data.pantry.filter((item) => {
+    const estimate = forecast(item);
+    return estimate.stock <= item.minimum || estimate.days !== null && estimate.days < 7;
   });
-  const cards = d.cards.reduce((s, c) => s + invoice(d, c, month).remaining, 0);
-  const picture = monthPicture(d, month);
-  const prevMonth = new Date(month + "-01T12:00:00");
-  prevMonth.setMonth(prevMonth.getMonth() - 1);
-  const pm = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, "0")}`;
-  const previous = metrics(d, pm).spend;
-  const trend = previous
-    ? Math.round(((m.spend - previous) / previous) * 100)
-    : null;
-  const dueReminders = d.reminders.filter((r) => r.kind !== "post_it" && r.due_on && !r.completed && daysFromToday(r.due_on) <= 7).sort((a, b) => a.due_on!.localeCompare(b.due_on!));
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Gastos compartilhados da família e seus próprios registros." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${dueReminders.length ? `<section class="panel reminder-banner"><div><span class="eyebrow">PRÓXIMOS AVISOS</span><p>${dueReminders.slice(0, 3).map((r) => `<strong>${r.kind === "due_date" ? "Vencimento: " : ""}${esc(r.title)}</strong> · ${reminderTiming(r.due_on!)}`).join("<br>")}</p></div>${button("nav", "Ver calendário", "secondary", 'data-page="calendar"')}</section>` : ""}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
-    m.categories.length
-      ? `<div class="category-chart">${m.categories
-          .slice(0, 6)
-          .map(
-            ([cat, total], i) =>
-              `<div class="category-row"><span><i style="background:var(--chart-${i % 4})"></i>${esc(cat)}</span><strong>${brl(total)}</strong><div class="bar"><b style="width:${Math.round((total / m.spend) * 100)}%;background:var(--chart-${i % 4})"></b></div></div>`,
-          )
-          .join("")}</div>`
-      : empty("Seu primeiro gasto conta a história", "add-entry")
-  }${destinations.size ? `<details><summary>Onde o dinheiro foi gasto</summary>${[...destinations].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, total]) => `<p class="detail-line">${esc(name)} <strong>${brl(total)}</strong></p>`).join("")}</details>` : ""}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
-    low.length
-      ? low
-          .slice(0, 3)
-          .map((p) => esc(p.name))
-          .join(", ")
-      : "Cadastre consumo diário para estimar reposições."
-  }</p></div></article><article class="insight"><span>${icon("entries")}</span><div><strong>${m.pending.length} lançamento(s) em revisão</strong><p>Registros em revisão ficam fora de todos os totais.</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">MOVIMENTO DA CASA</span><h3>Últimos lançamentos</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...d.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5))}</section></div><p class="fine">${admin() ? "Totais incluem os registros da família." : "Totais calculados somente sobre os registros que você pode acessar."} Gastos são contabilizados na data da compra; pagamentos de fatura, principal e transferências não duplicam despesas.</p>`;
+  const householdPercent = data.home.budget_cents ? Math.min(100, Math.round(monthly.home / data.home.budget_cents * 100)) : 0;
+  return `<section class="overview-heading"><div><span class="eyebrow">VISÃO DA FAMÍLIA</span><h2>Seu mês, sem complicação.</h2><p>Valores de ${esc(monthName)}. Você vê apenas os registros permitidos para a sua conta.</p></div>${button("nav", "Ver análises", "secondary", 'data-page="analysis"')}</section>
+  <section class="overview-hero"><div><span class="eyebrow">GASTOS LANÇADOS NO MÊS</span><strong>${brl(monthly.spend)}</strong><p>Compras pelo valor total, inclusive no cartão. Este número mostra quanto foi gasto, não quanto saiu da conta.</p><span class="overview-trend">${trend === null ? "Sem comparação com o mês anterior" : `${trend > 0 ? "↑" : trend < 0 ? "↓" : "="} ${Math.abs(trend)}% em relação ao mês anterior`}</span></div><div class="overview-hero-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div></section>
+  <div class="cash-summary" aria-label="Dinheiro recebido e pago no mês"><article class="cash-tile cash-received"><span>${icon("accounts")} Entrou nas contas</span><strong>${brl(cash.received)}</strong><small>Receitas confirmadas</small></article><article class="cash-tile cash-paid"><span>${icon("entries")} Saiu das contas</span><strong>${brl(cash.paid)}</strong><small>Pagamentos confirmados, inclusive faturas</small></article></div>
+  <section class="quick-create"><div><span class="eyebrow">REGISTRE EM SEGUNDOS</span><h3>O que aconteceu agora?</h3></div><div class="quick-create-actions">${api.allowed("entries") ? (api.preferences.quick_actions.includes("expense") ? button("add-entry", `${icon("plus")} Gasto`, "primary") : "") + button("add-income", `${icon("accounts")} Receita`, "secondary") + button("add-payable", `${icon("calendar")} Conta a pagar`, "secondary") + button("transfer", `${icon("arrow")} Transferência`, "secondary") : ""}</div></section>${quickPanel()}
+  <div class="overview-status"><article><span>A pagar neste mês</span><strong>${brl(picture.due)}</strong><small>Contas pendentes e faturas por vencimento</small></article><article><span>Saldo conhecido em contas</span><strong>${accountBalances.length ? brl(knownBalance) : "Ainda não informado"}</strong><small>${accountBalances.length} conta(s) com saldo visível</small></article><article><span>Para conferir</span><strong>${pendingReviews}</strong><small>Lançamentos fora dos totais até confirmar</small></article></div>
+  ${data.home.budget_cents ? `<section class="budget-strip"><div><span>Orçamento do lar</span><strong>${brl(monthly.home)} de ${brl(data.home.budget_cents)}</strong></div><div class="bar"><b style="width:${householdPercent}%"></b></div><small>${householdPercent}% usado pelos gastos visíveis da casa</small></section>` : ""}
+  ${urgentReminders.length ? `<section class="overview-alert"><span>${icon("reminders")}</span><div><strong>${urgentReminders.length} aviso(s) próximos</strong><p>${urgentReminders.slice(0, 2).map((item) => `${esc(item.title)} · ${reminderTiming(item.due_on!)}`).join("<br>")}</p></div>${button("nav", "Abrir calendário", "text-button", 'data-page="calendar"')}</section>` : ""}
+  <div class="overview-chart">${flowChart(financialSeries(data, month, "monthly").slice(-6), "Entradas e saídas · 6 meses")}${button("nav", "Explorar meses e anos", "text-button", 'data-page="analysis"')}</div>
+  <div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">ONDE FOI GASTO</span><h3>Principais categorias</h3></div>${button("nav", "Ver detalhes", "text-button", 'data-page="analysis"')}</div>${groups.length ? `<div class="category-chart">${groups.slice(0, 5).map((group, index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong><div class="bar"><b style="width:${monthly.spend ? Math.round(group.total / monthly.spend * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div>` : '<p class="fine">Os gastos classificados aparecerão aqui.</p>'}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">PRECISA DE ATENÇÃO</span><h3>Próximos passos</h3></div></div>${monthly.overdue.length ? `<article class="insight warning"><span>${icon("calendar")}</span><div><strong>${monthly.overdue.length} conta(s) vencida(s)</strong><p>Confira ${brl(monthly.overdue.reduce((sum, item) => sum + item.amount_cents, 0))} em pendências.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem vencimentos atrasados</strong><p>Os registros visíveis estão em dia.</p></div></article>`}<article class="insight"><span>${icon("pantry")}</span><div><strong>${lowPantry.length ? `${lowPantry.length} produto(s) para repor` : "Despensa em ordem"}</strong><p>${lowPantry.length ? lowPantry.slice(0, 3).map((item) => esc(item.name)).join(", ") : "O estoque cadastrado não pede reposição agora."}</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">ÚLTIMOS REGISTROS</span><h3>Movimentações recentes</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...data.entries].sort((x, y) => y.date.localeCompare(x.date)).slice(0, 5))}</section></div><p class="fine overview-footnote">Recebido e pago consideram apenas operações confirmadas. Transferências entre contas não entram como receita ou despesa. Gastos incluem o valor integral da compra na data do lançamento.</p>`;
 }
 function entryList(rows: Entry[]) {
-  return rows.length
-    ? `<div class="records">${rows.map((e) => {
-        const card = e.card_id ? api.data?.cards.find((c) => c.id === e.card_id) : undefined;
-        const invoice = e.kind === "expense" && e.payment === "card" && card
-          ? e.first_invoice_month || invoiceMonth(e.date, card.closing_day)
-          : null;
-        const invoiceLabel = invoice ? ` · ${esc(card!.name)} · fatura ${invoice.split("-").reverse().join("/")}` : "";
-        const canManage = (admin() || own(e)) && api.allowed("entries");
-        return `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.payee ? `${esc(e.payee)} · ` : ""}${e.date.split("-").reverse().join("/")} · ${esc(e.category)}${e.subcategory ? ` › ${esc(e.subcategory)}` : ""} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}${invoiceLabel}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}${e.debt_installment_number ? ` · parcela ${e.debt_installment_number}` : ""}</small></div><div class="record-actions">${share("entries", e)}${invoice ? button("entry-invoice", `Ver fatura ${invoice.split("-").reverse().join("/")}`, "text-button", `data-id="${e.id}"`) : ""}${canManage ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${canManage ? deleteButton("entries", e.id) : ""}</div></article>`;
-      }).join("")}</div>`
-    : empty("Nenhum lançamento por aqui", "add-entry");
+  if (!rows.length) return empty("Nenhum lançamento por aqui", "add-entry");
+  const kindNames: Record<Entry["kind"], string> = {
+    expense: "Gasto", income: "Receita", card_payment: "Fatura paga",
+    transfer: "Transferência", debt_payment: "Empréstimo pago",
+  };
+  return `<div class="records">${rows.map((entry) => {
+    const card = entry.card_id ? api.data!.cards.find((item) => item.id === entry.card_id) : undefined;
+    const invoiceMonthLabel = entry.kind === "expense" && entry.payment === "card" && card
+      ? entry.first_invoice_month || invoiceMonth(entry.date, card.closing_day) : null;
+    const canManage = (admin() || own(entry)) && api.allowed("entries");
+    const entryActions = `${share("entries", entry)}${invoiceMonthLabel ? button("entry-invoice", "Ver fatura", "text-button", `data-id="${entry.id}"`) : ""}${canManage ? button("edit-entry", "Editar lançamento", "text-button", `data-id="${entry.id}"`) : ""}${entry.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar lançamento", "text-button", `data-id="${entry.id}"`) : ""}${canManage ? deleteButton("entries", entry.id) : ""}`;
+    const state = entry.status === "pending_review" ? "Em revisão" : entry.status === "pending" ? "A pagar" : entry.payment === "card" ? "No cartão" : "Confirmado";
+    return `<article class="record money-record"><span class="record-icon ${entry.kind === "income" ? "income" : entry.kind === "expense" ? "expense" : "movement"}">${icon(entry.payment === "card" ? "cards" : entry.kind === "income" ? "accounts" : "entries")}</span><div class="record-info"><div class="record-title-line"><strong>${esc(entry.description)}</strong><span class="record-kind">${kindNames[entry.kind]}</span></div><small>${entry.date.split("-").reverse().join("/")}${entry.payee ? ` · ${esc(entry.payee)}` : ""} · ${esc(entry.category)}${entry.subcategory ? ` / ${esc(entry.subcategory)}` : ""}${invoiceMonthLabel ? ` · ${esc(card!.name)} (${invoiceMonthLabel.split("-").reverse().join("/")})` : ""}</small><span class="record-owner">${esc(names(entry.owner_id))} · ${{ household: "Casa", personal: "Pessoal", business: "Empresa" }[entry.area]}</span></div><div class="record-value"><strong class="${entry.kind === "income" ? "positive" : entry.kind === "expense" ? "negative" : ""}">${entry.kind === "income" ? "+" : entry.kind === "expense" ? "−" : ""}${brl(entry.amount_cents)}</strong><small class="record-state ${entry.status}">${state}${entry.installments > 1 ? ` · ${entry.installments}x` : ""}</small></div>${entry.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Marcar pago", "secondary record-pay", `data-id="${entry.id}"`) : ""}<details class="record-menu"><summary aria-label="Opções de ${esc(entry.description)}">•••</summary><div class="record-menu-pop">${entryActions}</div></details></article>`;
+  }).join("")}</div>`;
+}
+function flowChart(points: FlowPoint[], title: string) {
+  const peak = Math.max(1, ...points.flatMap((point) => [point.received, point.paid]));
+  return `<section class="panel flow-chart-panel"><div class="panel-title"><div><span class="eyebrow">DINHEIRO EM MOVIMENTO</span><h3>${esc(title)}</h3></div><div class="flow-legend"><span><i class="legend-in"></i>Recebido</span><span><i class="legend-out"></i>Pago</span></div></div><div class="flow-chart-scroll"><div class="flow-chart" role="img" aria-label="Comparação entre valores recebidos e pagos por período">${points.map((point) => `<div class="flow-column"><div class="flow-bars"><span class="flow-bar flow-bar-in" style="height:${point.received ? Math.max(3, Math.round(point.received / peak * 100)) : 0}%" title="${esc(point.label)}: recebido ${esc(formatBrl(point.received))}"></span><span class="flow-bar flow-bar-out" style="height:${point.paid ? Math.max(3, Math.round(point.paid / peak * 100)) : 0}%" title="${esc(point.label)}: pago ${esc(formatBrl(point.paid))}"></span></div><span class="flow-label">${esc(point.label)}</span></div>`).join("")}</div></div><details class="chart-data"><summary>Ver valores do gráfico</summary><div class="chart-data-table"><table><thead><tr><th>Período</th><th>Recebido</th><th>Pago</th><th>Gastos lançados</th></tr></thead><tbody>${points.map((point) => `<tr><th>${esc(point.label)}</th><td>${brl(point.received)}</td><td>${brl(point.paid)}</td><td>${brl(point.spending)}</td></tr>`).join("")}</tbody></table></div></details><p class="fine">Compras no cartão entram em “gastos lançados”. O dinheiro sai das contas quando a fatura é paga.</p></section>`;
+}
+function spendingDonut(groups: ReturnType<typeof spendingGroups>) {
+  const total = groups.reduce((sum, item) => sum + item.total, 0);
+  if (!total) return '<div class="spending-donut empty-donut"><span>Sem gastos</span></div>';
+  const segments = groups.slice(0, 4).map((item) => item.total);
+  const rest = groups.slice(4).reduce((sum, item) => sum + item.total, 0);
+  if (rest) segments.push(rest);
+  const colors = ["#20745d", "#76a493", "#e8ac72", "#92a9c7", "#d8dfe3"];
+  let cursor = 0;
+  const stops = segments.map((value, index) => {
+    const start = cursor;
+    cursor += value / total * 100;
+    return `${colors[index]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  });
+  return `<div class="spending-donut" style="background:conic-gradient(${stops.join(",")})"><span><small>Total de gastos</small><strong>${brl(total)}</strong></span></div>`;
+}
+function analysis() {
+  const data = api.data!;
+  const year = month.slice(0, 4);
+  const prefix = analysisPeriod === "monthly" ? month : year;
+  const totals = financialTotals(data.entries, prefix);
+  const groups = spendingGroups(data, prefix);
+  const points = financialSeries(data, month, analysisPeriod);
+  return `<section class="page-intro"><div><h2>Entenda o ritmo da casa.</h2><p>Compare o que entrou, o que foi pago e onde os gastos aconteceram.</p></div><div class="period-switch" role="group" aria-label="Período dos gráficos">${button("analysis-period", "Mês a mês", analysisPeriod === "monthly" ? "active" : "", 'data-period="monthly"')}${button("analysis-period", "Ano a ano", analysisPeriod === "yearly" ? "active" : "", 'data-period="yearly"')}</div></section><section class="analysis-summary"><article class="analysis-total received"><span>Recebido · ${analysisPeriod === "monthly" ? month.split("-").reverse().join("/") : year}</span><strong>${brl(totals.received)}</strong><small>Receitas confirmadas</small></article><article class="analysis-total paid"><span>Pago</span><strong>${brl(totals.paid)}</strong><small>Saídas confirmadas das contas</small></article><article class="analysis-total spending"><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong><small>Valor integral das compras</small></article></section>${flowChart(points, analysisPeriod === "monthly" ? "Últimos 12 meses" : "Últimos 5 anos")}<div class="analysis-breakdown"><section class="panel"><div class="panel-title"><div><span class="eyebrow">COMPOSIÇÃO DOS GASTOS</span><h3>Por categoria</h3></div></div>${spendingDonut(groups)}</section><section class="panel"><div class="panel-title"><div><span class="eyebrow">CLASSIFICAÇÃO</span><h3>Categorias e subcategorias</h3></div>${button("nav", "Gerenciar", "text-button", 'data-page="categories"')}</div>${groups.length ? groups.map((group, index) => `<details class="analysis-category"><summary><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong></summary><div>${group.subcategories.map(([name, value]) => `<p class="detail-line">${esc(name)} <strong>${brl(value)}</strong></p>`).join("")}</div></details>`).join("") : '<p class="fine">Sem gastos nesse período. Escolha outro mês ou registre um gasto.</p>'}</section></div>`;
+}
+function categories() {
+  const presets = api.data!.category_presets;
+  const names = Array.from(new Set([...commonCategories, ...presets.map((item) => item.category),
+    ...api.data!.entries.map((item) => item.category)])).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return `<section class="page-intro"><div><h2>Classifique sem esforço.</h2><p>Escolha sugestões prontas ou crie opções para usar nos próximos lançamentos.</p></div>${api.allowed("entries") ? button("add-category-preset", icon("plus") + " Criar opção") : ""}</section><div class="category-library">${names.map((name) => {
+    const custom = presets.filter((item) => item.category === name);
+    const suggestions = Array.from(new Set([...(subcategorySuggestions[name] || []),
+      ...custom.map((item) => item.subcategory || ""),
+      ...api.data!.entries.filter((item) => item.category === name).map((item) => item.subcategory || "")])).filter(Boolean);
+    return `<section class="panel category-library-card"><div class="panel-title"><h3>${esc(name)}</h3><span class="badge">${suggestions.length} tipo(s)</span></div><div class="category-tags">${suggestions.length ? suggestions.map((item) => `<span>${esc(item)}</span>`).join("") : '<span>Sem subcategoria ainda</span>'}</div>${custom.length ? `<details><summary>Minhas opções salvas (${custom.length})</summary>${custom.map((item) => `<div class="category-custom-row"><span>${esc(item.subcategory || "Categoria personalizada")}${item.shared ? " · Família" : ""}</span>${item.owner_id === api.userId && api.allowed("entries") ? button("edit-category-preset", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("category_presets", item.id) : ""}</div>`).join("")}</details>` : ""}</section>`;
+  }).join("")}</div><p class="fine section-gap">Crie aqui as opções que deseja encontrar facilmente nos próximos lançamentos. Editar uma opção não altera lançamentos antigos.</p>`;
 }
 function entries() {
-  const rows = api.data!.entries.filter(
-    (e) =>
-      e.date.startsWith(month) &&
-      (area === "all" || e.area === area) &&
-      (owner === "all" || e.owner_id === owner) &&
-      (status === "all" || e.status === status) &&
-      `${e.description} ${e.payee || ""} ${e.category} ${e.subcategory || ""}`
-        .toLocaleLowerCase()
-        .includes(filter.toLocaleLowerCase()),
-  );
-  return `<section class="page-intro"><div><h2>O dia a dia, registrado.</h2><p>Gastos, receitas e pagamentos com clareza.</p></div>${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</section><section class="panel"><div class="filters">${input("search", "search", filter, 'placeholder="Buscar descrição ou categoria" aria-label="Buscar lançamentos"')}<select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Lar", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todos os responsáveis", owner) + api.data!.members.map((m) => opt(m.user_id, m.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select></div>${entryList(rows)}</section>`;
+  const data = api.data!;
+  const categoryNames = Array.from(new Set(data.entries.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const subcategoryNames = Array.from(new Set(data.entries.filter((item) => entryCategory === "all" || item.category === entryCategory)
+    .map((item) => item.subcategory).filter((item): item is string => !!item))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const rows = data.entries.filter((entry) => entry.date.startsWith(month) &&
+    (entryKind === "all" || entryKind === "expenses" && entry.kind === "expense" ||
+      entryKind === "income" && entry.kind === "income" ||
+      entryKind === "payments" && ["card_payment", "debt_payment"].includes(entry.kind) ||
+      entryKind === "transfers" && entry.kind === "transfer") &&
+    (area === "all" || entry.area === area) && (owner === "all" || entry.owner_id === owner) &&
+    (status === "all" || entry.status === status) &&
+    (entryCategory === "all" || entry.category === entryCategory) &&
+    (entrySubcategory === "all" || entry.subcategory === entrySubcategory) &&
+    `${entry.description} ${entry.payee || ""} ${entry.category} ${entry.subcategory || ""}`
+      .toLocaleLowerCase().includes(filter.toLocaleLowerCase()))
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.created_at || "").localeCompare(a.created_at || ""));
+  const totals = financialTotals(data.entries, month);
+  const tabs = [["all", "Tudo"], ["expenses", "Gastos"], ["income", "Receitas"],
+    ["payments", "Pagamentos"], ["transfers", "Transferências"]];
+  return `<section class="page-intro"><div><h2>Todos os movimentos, no lugar certo.</h2><p>Veja gastos, dinheiro recebido e pagamentos sem misturar os totais.</p></div><div class="button-row">${button("nav", "Categorias", "secondary", 'data-page="categories"')}${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</div></section><div class="entry-overview"><div><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong></div><div><span>Entrou</span><strong>${brl(totals.received)}</strong></div><div><span>Saiu das contas</span><strong>${brl(totals.paid)}</strong></div></div><section class="panel entry-panel"><div class="entry-tabs" role="group" aria-label="Tipo de lançamento">${tabs.map(([kind, label]) => button("entry-kind", label, entryKind === kind ? "active" : "", `data-kind="${kind}" aria-pressed="${entryKind === kind}"`)).join("")}</div><div class="entry-search">${input("search", "search", filter, 'placeholder="Buscar descrição, lugar ou categoria" aria-label="Buscar lançamentos"')}<span>${rows.length} registro(s)</span></div><details class="entry-extra-filters" ${entryFiltersOpen ? "open" : ""}><summary>Filtrar por pessoa, categoria ou situação</summary><div class="filters"><select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Casa", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todas as pessoas", owner) + data.members.map((item) => opt(item.user_id, item.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select><select name="entry_category" aria-label="Filtrar categoria">${opt("all", "Todas as categorias", entryCategory) + categoryNames.map((item) => opt(item, item, entryCategory)).join("")}</select><select name="entry_subcategory" aria-label="Filtrar subcategoria">${opt("all", "Todas as subcategorias", entrySubcategory) + subcategoryNames.map((item) => opt(item, item, entrySubcategory)).join("")}</select></div></details>${entryList(rows)}</section>`;
 }
 function cards() {
   const d = api.data!;
@@ -534,7 +594,7 @@ function entryForm(preset: Partial<Entry> = {}) {
       .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
       .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
       .join("")}</select>`,
-  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("payee", "Estabelecimento ou destinatário (opcional)", input("payee", "text", e.payee || "", 'maxlength="160" list="payees" placeholder="Ex.: farmácia, iFood ou pessoa"') + `<datalist id="payees">${[...new Set(api.data!.entries.map((item) => item.payee).filter(Boolean))].map((item) => `<option value="${esc(item)}"></option>`).join("")}</datalist>`, true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Selecione uma categoria", e.category)}${categoryOptions(e.category)}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", e.subcategory || "", 'list="subcategories" maxlength="80" placeholder="Ex.: vacinas"') + subcategoryList(e.category))}<p class="fine wide">Escolha uma categoria e, se ajudar, detalhe o tipo do gasto. Ex.: Saúde → Vacinas. Você pode digitar outra subcategoria.</p>${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field(
+  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("payee", "Estabelecimento ou destinatário (opcional)", input("payee", "text", e.payee || "", 'maxlength="160" list="payees" placeholder="Ex.: farmácia, iFood ou pessoa"') + `<datalist id="payees">${[...new Set(api.data!.entries.map((item) => item.payee).filter(Boolean))].map((item) => `<option value="${esc(item)}"></option>`).join("")}</datalist>`, true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Selecione uma categoria", e.category)}${categoryOptions(e.category)}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", e.subcategory || "", 'list="subcategories" maxlength="80" placeholder="Ex.: vacinas"') + subcategoryList(e.category) + `<div class="subcategory-chips" data-subcategory-chips>${subcategoryChips(e.category, e.subcategory || "")}</div>`)}<p class="fine wide">Toque em uma sugestão ou digite um nome novo. Salve suas opções frequentes em Categorias.</p>${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -573,6 +633,10 @@ function modalContent() {
   switch (modal) {
     case "entry":
       return entryForm(editId ? d.entries.find((e) => e.id === editId) : {});
+    case "income":
+      return entryForm({ kind: "income", category: "" });
+    case "payable":
+      return entryForm({ kind: "expense", status: "pending", payment: "cash", category: "" });
     case "card-payment":
       return entryForm({
         kind: "card_payment",
@@ -604,6 +668,10 @@ function modalContent() {
       const source = d.cards.find((item) => item.id === editId)!;
       const targets = d.cards.filter((item) => item.id !== source.id && !item.archived_at && item.owner_id === source.owner_id && item.closing_day === source.closing_day && item.due_day === source.due_day);
       return `<form id="merge-card-form" class="form-grid"><p class="fine wide">As compras, pagamentos e anexos de ${esc(source.name)} passarão para o cartão escolhido. O cartão duplicado ficará arquivado com histórico.</p>${field("target", "Cartão que vai permanecer", `<select name="target" required>${opt("", "Escolha o cartão")}${targets.map((item) => opt(item.id, `${item.name} · ${item.created_at?.slice(0, 10) || "sem data"} · ${d.entries.filter((entry) => entry.card_id === item.id).length} lançamento(s)`)).join("")}</select>`, true)}${targets.length ? formEnd("Consolidar cartões") : '<p class="fine wide">Não há outro cartão do mesmo titular com datas iguais. Confira o cadastro primeiro.</p>'}</form>`;
+    }
+    case "category-preset": {
+      const preset = d.category_presets.find((item) => item.id === editId);
+      return `<form id="category-preset-form" class="form-grid">${input("id", "hidden", preset?.id || "")}${field("category", "Categoria", input("category", "text", preset?.category || "", 'list="category-names" maxlength="80" placeholder="Ex.: Saúde" required') + `<datalist id="category-names">${categoryOptions("")}</datalist>`, true)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", preset?.subcategory || "", 'maxlength="80" placeholder="Ex.: Vacinas"'), true)}${admin() ? `<label class="wide category-sharing"><input type="checkbox" name="shared" ${(preset?.shared ?? true) ? "checked" : ""}> Disponível para a família</label>` : ""}<p class="fine wide">Use só a categoria para criar um grupo novo. Adicione uma subcategoria para encontrá-la nos próximos gastos. Lançamentos antigos mantêm sua classificação.</p>${formEnd(preset ? "Salvar opção" : "Criar opção")}</form>`;
     }
     case "card": {
       const card = d.cards.find((item) => item.id === editId);
@@ -678,9 +746,12 @@ function render() {
   }
   const titles: Record<string, string> = {
     entry: "Novo lançamento",
+    income: "Registrar receita",
+    payable: "Criar conta a pagar",
     transfer: "Transferir entre contas",
     alignment: "Alinhar fatura",
     "merge-card": "Unir cartões duplicados",
+    "category-preset": editId ? "Editar classificação" : "Nova categoria ou subcategoria",
     "card-payment": "Pagamento de fatura",
     "debt-payment": "Pagamento de principal",
     card: editId ? "Editar cartão" : "Novo cartão",
@@ -699,6 +770,8 @@ function render() {
   const views: Record<string, () => string> = {
     overview: summary,
     entries,
+    analysis,
+    categories,
     cards,
     reminders,
     calendar,
@@ -713,7 +786,7 @@ function render() {
   };
   root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
     .filter(([id]) =>
-      ["overview", "entries", "calendar", "shopping", "settings"].includes(id),
+      ["overview", "entries", "analysis", "shopping", "settings"].includes(id),
     )
     .map(
       ([id, label]) =>
@@ -734,6 +807,7 @@ function render() {
     }
     for (const [id, tile] of tiles) if (!pref.dashboard_order.includes(id as DashboardWidget)) tile.hidden = true;
   }
+  root.querySelectorAll<HTMLElement>(".flow-chart-scroll").forEach((chart) => { chart.scrollLeft = chart.scrollWidth; });
   if (modal) {
     const dialog = root.querySelector<HTMLDialogElement>("dialog")!;
     dialog.removeAttribute("open");
@@ -793,17 +867,44 @@ function show(type: string, id = "") {
   editId = id;
   render();
 }
+function chooseSubcategory(chip: HTMLElement) {
+  const form = chip.closest<HTMLFormElement>("#entry-form");
+  const field = form?.querySelector<HTMLInputElement>('[name="subcategory"]');
+  if (!form || !field) return;
+  form.dataset.lastCategory = form.querySelector<HTMLSelectElement>('[name="category"]')?.value || "";
+  field.value = chip.dataset.value || "";
+  form.querySelectorAll<HTMLElement>("[data-action='pick-subcategory']").forEach((item) =>
+    item.classList.toggle("selected", item === chip));
+}
+root.addEventListener("pointerdown", (event) => {
+  const chip = (event.target as Element).closest<HTMLElement>('[data-action="pick-subcategory"]');
+  if (chip) chooseSubcategory(chip);
+});
 root.addEventListener("click", (event) => {
   const b = (event.target as Element).closest<HTMLElement>("[data-action]");
   if (!b || busy) return;
   const a = b.dataset.action!,
     id = b.dataset.id || "";
+  if (a === "pick-subcategory") {
+    chooseSubcategory(b);
+    return;
+  }
   if (a === "nav") {
     page = b.dataset.page!;
     notice = "";
     modal = "";
     render();
     window.scrollTo(0, 0);
+    return;
+  }
+  if (a === "analysis-period") {
+    analysisPeriod = b.dataset.period === "yearly" ? "yearly" : "monthly";
+    render();
+    return;
+  }
+  if (a === "entry-kind") {
+    entryKind = b.dataset.kind || "all";
+    render();
     return;
   }
   if (a === "calendar-day") {
@@ -910,7 +1011,11 @@ root.addEventListener("click", (event) => {
   if (a === "add-reminder") newReminderKind = "reminder";
   const map: Record<string, string> = {
     "add-entry": "entry",
+    "add-income": "income",
+    "add-payable": "payable",
     "edit-entry": "entry",
+    "add-category-preset": "category-preset",
+    "edit-category-preset": "category-preset",
     "add-card": "card",
     "edit-card": "card",
     "card-payment": "card-payment",
@@ -1142,10 +1247,13 @@ root.addEventListener("change", (event) => {
     }
     render();
   }
-  if (["area", "owner", "status"].includes(el.name)) {
+  if (["area", "owner", "status", "entry_category", "entry_subcategory"].includes(el.name)) {
+    entryFiltersOpen = true;
     if (el.name === "area") area = el.value;
     if (el.name === "owner") owner = el.value;
     if (el.name === "status") status = el.value;
+    if (el.name === "entry_category") { entryCategory = el.value; entrySubcategory = "all"; }
+    if (el.name === "entry_subcategory") entrySubcategory = el.value;
     render();
   }
 });
@@ -1222,11 +1330,12 @@ function syncEntryForm() {
     category.value = suggestedCategory[kind] || "";
   const subcategory = form.elements.namedItem("subcategory");
   if (category instanceof HTMLSelectElement && subcategory instanceof HTMLInputElement) {
+    if (form.dataset.lastCategory !== undefined && form.dataset.lastCategory !== category.value) subcategory.value = "";
+    form.dataset.lastCategory = category.value;
     const list = form.querySelector<HTMLDataListElement>("#subcategories");
-    if (list) list.innerHTML = Array.from(new Set([
-      ...(subcategorySuggestions[category.value] || []),
-      ...(api.data?.entries || []).filter((entry) => entry.category === category.value).map((entry) => entry.subcategory || ""),
-    ])).filter(Boolean).map((item) => `<option value="${esc(item)}"></option>`).join("");
+    if (list) list.innerHTML = subcategoriesFor(category.value).map((item) => `<option value="${esc(item)}"></option>`).join("");
+    const chips = form.querySelector<HTMLElement>("[data-subcategory-chips]");
+    if (chips) chips.innerHTML = subcategoryChips(category.value, subcategory.value);
   }
   const installmentSelect = form.elements.namedItem("debt_installment_number");
   if (installmentSelect instanceof HTMLSelectElement) {
@@ -1482,7 +1591,18 @@ root.addEventListener("submit", (event) => {
       modal = "import-preview";
       return;
     }
-    if (f.getAttribute("id") === "alignment-form") {
+    if (f.getAttribute("id") === "category-preset-form") {
+      const category = val(f, "category").trim();
+      const subcategory = val(f, "subcategory").trim() || null;
+      if (!category || category.length > 80 || (subcategory && subcategory.length > 80))
+        throw Error("Confira o nome da categoria e da subcategoria.");
+      if (api.data!.category_presets.some((item) => item.id !== id && item.owner_id === api.userId &&
+        item.category.trim().toLocaleLowerCase() === category.toLocaleLowerCase() &&
+        (item.subcategory?.trim().toLocaleLowerCase() || "") === (subcategory?.toLocaleLowerCase() || "")))
+        throw Error("Esta opção já está salva. Escolha outro nome ou edite a existente.");
+      await api.save("category_presets", { ...(id ? { id } : {}), category, subcategory,
+        ...(admin() ? { shared: f.querySelector<HTMLInputElement>('[name="shared"]')?.checked || false } : {}) });
+    } else if (f.getAttribute("id") === "alignment-form") {
       await api.alignInvoice(editId, val(f, "invoice_month"), val(f, "cutoff_on"), cash(f, "total", true), val(f, "note"));
       month = val(f, "invoice_month");
     } else if (f.getAttribute("id") === "merge-card-form") {
