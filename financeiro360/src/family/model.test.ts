@@ -68,6 +68,25 @@ test("card payment updates invoice and account without double counting expenses"
   assert.equal(invoice(d, c, m).remaining, Math.max(0, f.total - 10000));
   assert.equal(balance(d, d.accounts[0]), opening);
 });
+test("invoice alignment adds later purchases, excludes prior ones, and subtracts payments", () => {
+  const d = demoData();
+  const card = d.cards[0];
+  const month = "2026-11";
+  const purchase = d.entries.find((entry) => entry.payment === "card")!;
+  const before = { ...purchase, id: "before-cut", card_id: card.id, date: "2026-10-05", first_invoice_month: month, amount_cents: 30000, installments: 1 };
+  const after = { ...before, id: "after-cut", date: "2026-10-12", amount_cents: 10000 };
+  const payment = { ...before, id: "payment-after-cut", kind: "card_payment" as const,
+    payment: "cash" as const, invoice_month: month, amount_cents: 25000 };
+  d.entries = [before, after, payment];
+  d.invoice_alignments = [{ id: "alignment", home_id: d.home.id, owner_id: card.owner_id,
+    card_id: card.id, invoice_month: month, cutoff_on: "2026-10-10", total_cents: 70000,
+    active: true, note: "", created_at: "2026-10-10T12:00:00Z" }];
+  assert.deepEqual([invoice(d, card, month).total, invoice(d, card, month).remaining,
+    invoice(d, card, month).untracked], [80000, 55000, 40000]);
+  d.invoice_alignment_exceptions.push({ id: "exception", home_id: d.home.id,
+    owner_id: card.owner_id, alignment_id: "alignment", entry_id: before.id, count_after: true });
+  assert.equal(invoice(d, card, month).total, 110000);
+});
 test("invoice detail includes only the exact installment for the selected month", () => {
   const d = demoData();
   const card = d.cards[0];
