@@ -52,6 +52,7 @@ let page = "overview",
   analysisPeriod: "monthly" | "yearly" = "monthly",
   editId = "",
   modal = "",
+  categoryPresetCategory = "",
   importRows: Partial<Entry>[] = [];
 const esc = (v: unknown) =>
   String(v ?? "").replace(
@@ -170,12 +171,23 @@ const categoryIsHidden = (category: string) => category.trim().normalize("NFD").
 const sortCategoriesByUse = (categories: Iterable<string>) => {
   const counts = new Map<string, number>();
   for (const entry of api.data?.entries || []) {
-    if (entry.status !== "pending_review") counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
+    if (entry.kind === "expense" && entry.status !== "pending_review") counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
   const defaultOrder = new Map(commonCategories.map((category, index) => [category, index]));
   return Array.from(new Set(categories)).filter((category) => !!category && !categoryIsHidden(category))
     .sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) ||
       (defaultOrder.get(a) ?? 999) - (defaultOrder.get(b) ?? 999) || a.localeCompare(b, "pt-BR"));
+};
+const sortSubcategoriesByUse = (category: string, items: Iterable<string>) => {
+  const counts = new Map<string, number>();
+  for (const entry of api.data?.entries || []) {
+    if (entry.kind === "expense" && entry.status !== "pending_review" && entry.category === category && entry.subcategory)
+      counts.set(entry.subcategory, (counts.get(entry.subcategory) || 0) + 1);
+  }
+  const defaultOrder = new Map((subcategorySuggestions[category] || []).map((name, index) => [name, index]));
+  return Array.from(new Set(items)).filter(Boolean).sort((a, b) =>
+    (counts.get(b) || 0) - (counts.get(a) || 0) ||
+    (defaultOrder.get(a) ?? 999) - (defaultOrder.get(b) ?? 999) || a.localeCompare(b, "pt-BR"));
 };
 const categoryOptions = (current: string) => {
   const categories = sortCategoriesByUse([
@@ -187,11 +199,11 @@ const categoryOptions = (current: string) => {
   if (current && categoryIsHidden(current)) categories.push(current);
   return categories.map((category) => opt(category, categoryIsHidden(category) ? `${category} · lançamento antigo` : category, current)).join("");
 };
-const subcategoriesFor = (category: string) => Array.from(new Set([
+const subcategoriesFor = (category: string) => sortSubcategoriesByUse(category, [
   ...(api.data?.category_presets || []).filter((item) => item.category === category).map((item) => item.subcategory || ""),
   ...(subcategorySuggestions[category] || []),
   ...(api.data?.entries || []).filter((entry) => entry.category === category).map((entry) => entry.subcategory || ""),
-])).filter(Boolean);
+]);
 const subcategoryList = (category: string) => `<datalist id="subcategories">${subcategoriesFor(category).map((subcategory) => `<option value="${esc(subcategory)}"></option>`).join("")}</datalist>`;
 const subcategoryChips = (category: string, selected = "") => subcategoriesFor(category).slice(0, 7)
   .map((item) => button("pick-subcategory", item, `subcategory-chip ${item === selected ? "selected" : ""}`, `data-value="${esc(item)}"`)).join("");
@@ -311,7 +323,7 @@ function summary() {
   return `<section class="overview-heading"><div><span class="eyebrow">VISÃO DA FAMÍLIA</span><h2>Seu mês, sem complicação.</h2><p>Valores de ${esc(monthName)}. Você vê apenas os registros permitidos para a sua conta.</p></div>${button("nav", "Ver análises", "secondary", 'data-page="analysis"')}</section>
   <section class="overview-hero"><div><span class="eyebrow">GASTOS LANÇADOS NO MÊS</span><strong>${brl(monthly.spend)}</strong><p>Compras pelo valor total, inclusive no cartão. Este número mostra quanto foi gasto, não quanto saiu da conta.</p><span class="overview-trend">${trend === null ? "Sem comparação com o mês anterior" : `${trend > 0 ? "↑" : trend < 0 ? "↓" : "="} ${Math.abs(trend)}% em relação ao mês anterior`}</span></div><div class="overview-hero-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div></section>
   <div class="cash-summary" aria-label="Dinheiro recebido e pago no mês"><article class="cash-tile cash-received"><span>${icon("accounts")} Entrou nas contas</span><strong>${brl(cash.received)}</strong><small>Receitas confirmadas</small></article><article class="cash-tile cash-paid"><span>${icon("entries")} Saiu das contas</span><strong>${brl(cash.paid)}</strong><small>Pagamentos confirmados, inclusive faturas</small></article></div>
-  <section class="quick-create"><div><span class="eyebrow">REGISTRE EM SEGUNDOS</span><h3>O que aconteceu agora?</h3></div><div class="quick-create-actions">${api.allowed("entries") ? (api.preferences.quick_actions.includes("expense") ? button("add-entry", `${icon("plus")} Gasto`, "primary") : "") + button("add-income", `${icon("accounts")} Receita`, "secondary") + button("add-payable", `${icon("calendar")} Conta a pagar`, "secondary") + button("transfer", `${icon("arrow")} Transferência`, "secondary") : ""}</div></section>${quickPanel()}
+  <section class="quick-create"><div><span class="eyebrow">REGISTRE EM SEGUNDOS</span><h3>O que aconteceu agora?</h3></div><div class="quick-create-actions">${api.allowed("entries") ? (api.preferences.quick_actions.includes("expense") ? button("quick-expense", `${icon("plus")} Gasto rápido`, "primary") : "") + button("add-entry", "Mais detalhes", "secondary") + button("add-income", `${icon("accounts")} Receita`, "secondary") + button("add-payable", `${icon("calendar")} Conta a pagar`, "secondary") + button("transfer", `${icon("arrow")} Transferência`, "secondary") : ""}</div></section>${quickPanel()}
   <div class="overview-status"><article><span>A pagar neste mês</span><strong>${brl(picture.due)}</strong><small>Contas pendentes e faturas por vencimento</small></article><article><span>Saldo conhecido em contas</span><strong>${accountBalances.length ? brl(knownBalance) : "Ainda não informado"}</strong><small>${accountBalances.length} conta(s) com saldo visível</small></article><article><span>Para conferir</span><strong>${pendingReviews}</strong><small>Lançamentos fora dos totais até confirmar</small></article></div>
   ${data.home.budget_cents ? `<section class="budget-strip"><div><span>Orçamento do lar</span><strong>${brl(monthly.home)} de ${brl(data.home.budget_cents)}</strong></div><div class="bar"><b style="width:${householdPercent}%"></b></div><small>${householdPercent}% usado pelos gastos visíveis da casa</small></section>` : ""}
   ${urgentReminders.length ? `<section class="overview-alert"><span>${icon("reminders")}</span><div><strong>${urgentReminders.length} aviso(s) próximos</strong><p>${urgentReminders.slice(0, 2).map((item) => `${esc(item.title)} · ${reminderTiming(item.due_on!)}`).join("<br>")}</p></div>${button("nav", "Abrir calendário", "text-button", 'data-page="calendar"')}</section>` : ""}
@@ -371,7 +383,7 @@ function categories() {
     const suggestions = Array.from(new Set([...(subcategorySuggestions[name] || []),
       ...custom.map((item) => item.subcategory || ""),
       ...api.data!.entries.filter((item) => item.category === name).map((item) => item.subcategory || "")])).filter(Boolean);
-    return `<section class="panel category-library-card"><div class="panel-title"><h3>${esc(name)}</h3><span class="badge">${suggestions.length} tipo(s)</span></div><div class="category-tags">${suggestions.length ? suggestions.map((item) => `<span>${esc(item)}</span>`).join("") : '<span>Sem subcategoria ainda</span>'}</div>${custom.length ? `<details><summary>Minhas opções salvas (${custom.length})</summary>${custom.map((item) => `<div class="category-custom-row"><span>${esc(item.subcategory || "Categoria personalizada")}${item.shared ? " · Família" : ""}</span>${item.owner_id === api.userId && api.allowed("entries") ? button("edit-category-preset", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("category_presets", item.id) : ""}</div>`).join("")}</details>` : ""}</section>`;
+    return `<section class="panel category-library-card"><div class="panel-title"><h3>${esc(name)}</h3><span class="badge">${suggestions.length} tipo(s)</span></div><div class="category-tags">${suggestions.length ? suggestions.map((item) => `<span>${esc(item)}</span>`).join("") : '<span>Sem subcategoria ainda</span>'}</div>${api.allowed("entries") ? button("add-subcategory", `${icon("plus")} Adicionar subcategoria`, "secondary full", `data-category="${esc(name)}"`) : ""}${custom.length ? `<details class="category-saved-options" open><summary>Opções salvas (${custom.length})</summary>${custom.map((item) => `<div class="category-custom-row"><span>${esc(item.subcategory || "Categoria personalizada")}${item.shared ? " · Família" : ""}</span>${item.owner_id === api.userId && api.allowed("entries") ? button("edit-category-preset", "Editar", "text-button", `data-id="${item.id}"`) + deleteButton("category_presets", item.id) : ""}</div>`).join("")}</details>` : ""}</section>`;
   }).join("")}</div><p class="fine section-gap">Crie aqui as opções que deseja encontrar facilmente nos próximos lançamentos. Editar uma opção não altera lançamentos antigos.</p>`;
 }
 function entries() {
@@ -489,7 +501,7 @@ function shopping() {
   const d = api.data!,
     items = d.shopping.filter((s) => !s.bought),
     total = items.reduce((s, x) => s + x.estimate_cents * x.quantity, 0);
-  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "Adicionar item", "secondary") : ""}</div></section>${api.allowed("shopping") ? `<section class="panel quick-grocery-panel"><div class="panel-title"><div><h3>Adicionar item rápido</h3><p>Toque em um produto para colocar uma unidade na lista. Ajuste quantidade e preço depois.</p></div></div><div class="quick-grocery-list">${quickGroceries.map(([name]) => button("quick-shop", name, "secondary", `data-name="${esc(name)}"`)).join("")}</div></section>` : ""}<div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Próxima ida ao mercado</h3><span class="badge">${items.length} item(s)</span></div>${items.length ? `<form id="purchase-form">${items.map((s) => `<div class="shopping-row"><label class="shopping-item"><input type="checkbox" name="items" value="${s.id}" checked><span><strong>${esc(s.name)}</strong><small>${s.quantity} ${esc(s.unit)} · ${brl(s.estimate_cents)} / unidade</small></span><strong>${brl(Math.round(s.estimate_cents * s.quantity))}</strong></label>${api.allowed("shopping") ? button("edit-shopping", "Editar", "text-button", `data-id="${s.id}"`) : ""}</div>`).join("")}<div class="form-grid section-gap">${field("total", "Total real pago (R$)", moneyInput("total", (total / 100).toFixed(2).replace(".", ",")))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions()}</select>`, true)}</div>${api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry") ? `<button class="primary full section-gap" type="submit">Concluir compra e atualizar estoque</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>` : empty("Sua próxima lista começa aqui", "add-shopping")}</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da compra</h3><strong class="large-number">${brl(Math.round(total))}</strong><p>O total real será registrado uma única vez como despesa do lar e os produtos serão adicionados ao estoque.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para 14 dias de consumo ou o mínimo que você definiu.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Itens manuais sem produto vinculado não alteram a despensa.</p>${items.map((s) => (api.allowed("shopping") ? `<p class="detail-line">${esc(s.name)} ${deleteButton("shopping", s.id)}</p>` : "")).join("")}</aside></div>`;
+  return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Uma lista da casa para comprar melhor e desperdiçar menos.</p></div><div class="button-row">${api.allowed("shopping") ? button("generate-list", "✦ Sugerir para 14 dias") + button("add-shopping", "Adicionar item", "secondary") : ""}</div></section>${api.allowed("shopping") ? `<section class="panel quick-grocery-panel"><div class="panel-title"><div><h3>Adicionar item rápido</h3><p>Toque em um produto para colocar uma unidade na lista. Ajuste quantidade e preço depois.</p></div></div><div class="quick-grocery-list">${quickGroceries.map(([name]) => button("quick-shop", name, "secondary", `data-name="${esc(name))).join("")}</div></section>` : ""}<div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Próxima ida ao mercado</h3><span class="badge">${items.length} item(s)</span></div>${items.length ? `<form id="purchase-form">${items.map((s) => `<div class="shopping-row"><label class="shopping-item"><input type="checkbox" name="items" value="${s.id}" checked><span><strong>${esc(s.name)}</strong><small>${s.quantity} ${esc(s.unit)} · ${brl(s.estimate_cents)} / unidade</small></span><strong>${brl(Math.round(s.estimate_cents * s.quantity))}</strong></label>${api.allowed("shopping") ? button("edit-shopping", "Editar", "text-button", `data-id="${s.id}"`) : ""}</div>`).join("")}<div class="form-grid section-gap">${field("total", "Total real pago (R$)", moneyInput("total", (total / 100).toFixed(2).replace(".", ",")))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions()}</select>`, true)}</div>${api.allowed("shopping") && api.allowed("entries") && api.allowed("pantry") ? `<button class="primary full section-gap" type="submit">Concluir compra e atualizar estoque</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>` : empty("Sua próxima lista começa aqui", "add-shopping")}</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da compra</h3><strong class="large-number">${brl(Math.round(total))}</strong><p>O total real será registrado uma única vez como despesa do lar e os produtos serão adicionados ao estoque.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para 14 dias de consumo ou o mínimo que você definiu.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Itens manuais sem produto vinculado não alteram a despensa.</p>${items.map((s) => (api.allowed("shopping") ? `<p class="detail-line">${esc(s.name)} ${deleteButton("shopping", s.id)}</p>` : "")).join("")}</aside></div>`;
 }
 function calendar() {
   const d = api.data!;
@@ -644,11 +656,17 @@ function entryForm(preset: Partial<Entry> = {}) {
     }</select>`,
   ))}${conditional("debt-installment", field("debt_installment_number", "Parcela deste empréstimo (opcional)", `<select name="debt_installment_number" data-selected="${e.debt_installment_number || ""}"><option value="">Sem parcela vinculada</option></select>`))}<p class="fine wide">${admin() ? "Seus gastos pessoais ficam visíveis para você. Os gastos da casa são compartilhados com a família." : "Gastos da casa são compartilhados automaticamente. Gastos pessoais ficam só para você até escolher compartilhar."}</p>${formEnd("Salvar lançamento")}</form>`;
 }
+function quickExpenseForm() {
+  const cards = api.data!.cards.filter((card) => own(card) && !card.archived_at);
+  return `<form id="quick-expense-form" class="form-grid quick-expense-form">${field("description", "O que você comprou?", input("description", "text", "", 'maxlength="160" placeholder="Ex.: vacina do filho" required'), true)}${field("amount", "Valor total (R$)", moneyInput("amount", ""))}${field("date", "Data da compra", input("date", "date", today(), "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Escolha uma categoria")}${categoryOptions("")}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", "", 'list="quick-subcategories" maxlength="80" placeholder="Ex.: Vacinas"') + `<datalist id="quick-subcategories"></datalist><div class="subcategory-chips" data-quick-subcategory-chips></div>`)}${field("area", "Tipo de gasto", `<select name="area">${opt("household", "Da casa · compartilhado", "household")}${opt("personal", "Pessoal · só para mim")}</select>`)}${field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", "cash")}${opt("card", "Cartão")}</select>`)}${cards.length ? field("card_id", "Qual cartão?", `<select name="card_id">${cardOptions()}</select>`) : ""}<p class="fine wide">Compras no cartão entram na fatura conforme o fechamento cadastrado.</p><div class="button-row wide"><button type="submit" class="primary">Salvar gasto</button>${button("add-entry", "Mais opções", "secondary")}</div></form>`;
+}
 function modalContent() {
   const d = api.data!;
   const p = d.pantry.find((p) => p.id === editId),
     g = d.goals.find((g) => g.id === editId);
   switch (modal) {
+    case "quick-expense":
+      return quickExpenseForm();
     case "entry":
       return entryForm(editId ? d.entries.find((e) => e.id === editId) : {});
     case "income":
@@ -689,7 +707,7 @@ function modalContent() {
     }
     case "category-preset": {
       const preset = d.category_presets.find((item) => item.id === editId);
-      return `<form id="category-preset-form" class="form-grid">${input("id", "hidden", preset?.id || "")}${field("category", "Categoria", input("category", "text", preset?.category || "", 'list="category-names" maxlength="80" placeholder="Ex.: Saúde" required') + `<datalist id="category-names">${categoryOptions("")}</datalist>`, true)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", preset?.subcategory || "", 'maxlength="80" placeholder="Ex.: Vacinas"'), true)}${admin() ? `<label class="wide category-sharing"><input type="checkbox" name="shared" ${(preset?.shared ?? true) ? "checked" : ""}> Disponível para a família</label>` : ""}<p class="fine wide">Use só a categoria para criar um grupo novo. Adicione uma subcategoria para encontrá-la nos próximos gastos. Lançamentos antigos mantêm sua classificação.</p>${formEnd(preset ? "Salvar opção" : "Criar opção")}</form>`;
+      return `<form id="category-preset-form" class="form-grid">${input("id", "hidden", preset?.id || "")}${field("category", "Categoria", input("category", "text", preset?.category || categoryPresetCategory, 'list="category-names" maxlength="80" placeholder="Ex.: Saúde" required') + `<datalist id="category-names">${categoryOptions("")}</datalist>`, true)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", preset?.subcategory || "", 'maxlength="80" placeholder="Ex.: Vacinas"'), true)}${admin() ? `<label class="wide category-sharing"><input type="checkbox" name="shared" ${(preset?.shared ?? true) ? "checked" : ""}> Disponível para a família</label>` : ""}<p class="fine wide">Use só a categoria para criar um grupo novo. Adicione uma subcategoria para encontrá-la nos próximos gastos. Lançamentos antigos mantêm sua classificação.</p>${formEnd(preset ? "Salvar opção" : "Criar opção")}</form>`;
     }
     case "card": {
       const card = d.cards.find((item) => item.id === editId);
@@ -764,6 +782,7 @@ function render() {
   }
   const titles: Record<string, string> = {
     entry: "Novo lançamento",
+    "quick-expense": "Gasto rápido",
     income: "Registrar receita",
     payable: "Criar conta a pagar",
     transfer: "Transferir entre contas",
@@ -886,7 +905,7 @@ function show(type: string, id = "") {
   render();
 }
 function chooseSubcategory(chip: HTMLElement) {
-  const form = chip.closest<HTMLFormElement>("#entry-form");
+  const form = chip.closest<HTMLFormElement>("#entry-form, #quick-expense-form");
   const field = form?.querySelector<HTMLInputElement>('[name="subcategory"]');
   if (!form || !field) return;
   form.dataset.lastCategory = form.querySelector<HTMLSelectElement>('[name="category"]')?.value || "";
@@ -1027,6 +1046,16 @@ root.addEventListener("click", (event) => {
     return;
   }
   if (a === "add-reminder") newReminderKind = "reminder";
+  if (a === "quick-expense") {
+    show("quick-expense");
+    return;
+  }
+  if (a === "add-subcategory") {
+    categoryPresetCategory = b.dataset.category || "";
+    show("category-preset");
+    return;
+  }
+  if (a === "add-category-preset") categoryPresetCategory = "";
   const map: Record<string, string> = {
     "add-entry": "entry",
     "add-income": "income",
@@ -1248,7 +1277,14 @@ root.addEventListener("click", (event) => {
   }
 });
 root.addEventListener("change", (event) => {
-  if ((event.target as HTMLInputElement).closest("#entry-form")) syncEntryForm();
+  const changed = event.target as HTMLInputElement;
+  if (changed.closest("#entry-form")) syncEntryForm();
+  if (changed.name === "category" && changed.closest("#quick-expense-form")) {
+    const form = changed.closest<HTMLFormElement>("#quick-expense-form")!;
+    const items = subcategoriesFor(changed.value);
+    form.querySelector("#quick-subcategories")!.innerHTML = items.map((item) => `<option value="${esc(item)}"></option>`).join("");
+    form.querySelector<HTMLElement>("[data-quick-subcategory-chips]")!.innerHTML = subcategoryChips(changed.value);
+  }
   if ((event.target as HTMLInputElement).name === "kind" && (event.target as HTMLInputElement).closest("#reminder-form")) syncReminderForm();
   if (modal) return;
   const el = event.target as HTMLInputElement;
@@ -1615,7 +1651,21 @@ root.addEventListener("submit", (event) => {
       modal = "import-preview";
       return;
     }
-    if (f.getAttribute("id") === "category-preset-form") {
+    if (f.getAttribute("id") === "quick-expense-form") {
+      const payment: Entry["payment"] = val(f, "payment") === "card" ? "card" : "cash";
+      const cardId = payment === "card" ? val(f, "card_id") : "";
+      if (payment === "card" && (!cardId || !api.data!.cards.some((card) => card.id === cardId && own(card) && !card.archived_at)))
+        throw Error("Escolha um cartão válido para esta compra.");
+      await api.save("entries", {
+        description: val(f, "description"), payee: null, amount_cents: cash(f, "amount"),
+        date: val(f, "date"), due_date: null, kind: "expense", category: val(f, "category"),
+        subcategory: val(f, "subcategory") || null, area: val(f, "area"), shared: val(f, "area") !== "personal", status: "paid",
+        payment, card_id: cardId || null, account_id: null, target_account_id: null, debt_id: null,
+        debt_installment_number: null, installments: 1, first_invoice_month: null,
+        invoice_month: null, source_ref: null,
+      });
+      month = val(f, "date").slice(0, 7);
+    } else if (f.getAttribute("id") === "category-preset-form") {
       const category = val(f, "category").trim();
       const subcategory = val(f, "subcategory").trim() || null;
       if (!category || category.length > 80 || (subcategory && subcategory.length > 80))
