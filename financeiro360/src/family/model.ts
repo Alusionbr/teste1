@@ -122,6 +122,10 @@ export interface InvoiceAlignmentException {
   entry_id: string;
   count_after: boolean;
 }
+export interface CategoryPreset extends RecordBase {
+  category: string;
+  subcategory: string | null;
+}
 export interface Goal extends RecordBase {
   name: string;
   target_cents: number;
@@ -194,6 +198,7 @@ export interface Data {
   cards: Card[];
   invoice_alignments: InvoiceAlignment[];
   invoice_alignment_exceptions: InvoiceAlignmentException[];
+  category_presets: CategoryPreset[];
   entries: Entry[];
   debts: Debt[];
   goals: Goal[];
