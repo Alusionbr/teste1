@@ -69,6 +69,7 @@ export function demoData(): Data {
     ],
     invoice_alignments: [],
     invoice_alignment_exceptions: [],
+    category_presets: [],
     entries: [
       {
         ...base,
