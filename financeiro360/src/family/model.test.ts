@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { demoData } from "./demo.ts";
 import { addMonths, invoiceMonth } from "../logic.ts";
+import { financialSeries, financialTotals, spendingGroups } from "./insights.ts";
 import {
   forecast,
   recommendations,
@@ -144,6 +145,27 @@ test("transfer and card payment require valid targets", () => {
     validateEntry({ ...e, kind: "card_payment", card_id: null }),
   );
   assert.throws(() => validateEntry({ ...e, installments: 49 }));
+});
+
+test("analysis separates purchases, actual cash and transfers across periods", () => {
+  const d = demoData();
+  const sample = d.entries[0];
+  d.entries = [
+    { ...sample, id: "income", kind: "income", payment: "cash", status: "paid", amount_cents: 100000, date: "2026-09-02" },
+    { ...sample, id: "card", kind: "expense", payment: "card", status: "paid", amount_cents: 40000, category: "Saúde", subcategory: "Vacinas", date: "2026-09-03" },
+    { ...sample, id: "cash", kind: "expense", payment: "cash", status: "pending", amount_cents: 15000, category: "Saúde", subcategory: "Consulta", date: "2026-09-04" },
+    { ...sample, id: "bill", kind: "card_payment", payment: "cash", status: "paid", amount_cents: 20000, date: "2026-10-02" },
+    { ...sample, id: "transfer", kind: "transfer", payment: "cash", status: "paid", amount_cents: 30000, date: "2026-10-03" },
+    { ...sample, id: "review", kind: "expense", payment: "cash", status: "pending_review", amount_cents: 50000, date: "2026-10-03" },
+  ];
+  assert.deepEqual(financialTotals(d.entries, "2026-09"), { received: 100000, paid: 0, spending: 55000 });
+  assert.deepEqual(financialTotals(d.entries, "2026-10"), { received: 0, paid: 20000, spending: 0 });
+  assert.deepEqual(financialTotals(d.entries, "2026"), { received: 100000, paid: 20000, spending: 55000 });
+  assert.deepEqual(spendingGroups(d, "2026-09"), [{ name: "Saúde", total: 55000,
+    subcategories: [["Vacinas", 40000], ["Consulta", 15000]] }]);
+  assert.equal(financialSeries(d, "2026-10", "monthly").length, 12);
+  assert.deepEqual(financialSeries(d, "2026-10", "yearly").at(-1),
+    { key: "2026", label: "2026", received: 100000, paid: 20000, spending: 55000 });
 });
 
 test("financial overview separates consumption from financial movements", () => {
