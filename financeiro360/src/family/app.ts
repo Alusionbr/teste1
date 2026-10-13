@@ -15,6 +15,7 @@ import {
   validIsoDate,
   type Data,
   type Entry,
+  type Debt,
   type Permission,
   type Member,
   type Reminder,
@@ -252,6 +253,9 @@ function quickPanel() {
 function summary() {
   const d = api.data!,
     m = metrics(d, month);
+  const destinations = new Map<string, number>();
+  d.entries.filter((entry) => entry.kind === "expense" && entry.status !== "pending_review" && entry.date.startsWith(month) && entry.payee?.trim())
+    .forEach((entry) => destinations.set(entry.payee!.trim(), (destinations.get(entry.payee!.trim()) || 0) + entry.amount_cents));
   const percent = d.home.budget_cents
     ? Math.round((m.home / d.home.budget_cents) * 100)
     : 0;
@@ -279,7 +283,7 @@ function summary() {
           )
           .join("")}</div>`
       : empty("Seu primeiro gasto conta a história", "add-entry")
-  }</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
+  }${destinations.size ? `<details><summary>Onde o dinheiro foi gasto</summary>${[...destinations].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, total]) => `<p class="detail-line">${esc(name)} <strong>${brl(total)}</strong></p>`).join("")}</details>` : ""}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">OLHAR INTELIGENTE</span><h3>Seu próximo passo</h3></div><span class="spark">✦</span></div>${m.overdue.length ? `<article class="insight warning"><span>${icon("debt")}</span><div><strong>${m.overdue.length} conta(s) para conferir</strong><p>${brl(m.overdue.reduce((s, e) => s + e.amount_cents, 0))} com vencimento anterior a hoje. Confira antes de marcar como pago.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem atrasos registrados</strong><p>Os registros disponíveis não mostram contas pendentes vencidas.</p></div></article>`}${percent >= 80 ? `<article class="insight warning"><span>${icon("goals")}</span><div><strong>Orçamento merece atenção</strong><p>Os gastos visíveis do lar já usam ${percent}% do limite mensal.</p></div></article>` : ""}<article class="insight"><span>${icon("pantry")}</span><div><strong>${low.length ? `${low.length} produto(s) para repor` : "Despensa sob controle"}</strong><p>${
     low.length
       ? low
           .slice(0, 3)
@@ -297,7 +301,7 @@ function entryList(rows: Entry[]) {
           : null;
         const invoiceLabel = invoice ? ` · ${esc(card!.name)} · fatura ${invoice.split("-").reverse().join("/")}` : "";
         const canManage = (admin() || own(e)) && api.allowed("entries");
-        return `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)}${e.subcategory ? ` › ${esc(e.subcategory)}` : ""} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}${invoiceLabel}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${invoice ? button("entry-invoice", `Ver fatura ${invoice.split("-").reverse().join("/")}`, "text-button", `data-id="${e.id}"`) : ""}${canManage ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${canManage ? deleteButton("entries", e.id) : ""}</div></article>`;
+        return `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.payee ? `${esc(e.payee)} · ` : ""}${e.date.split("-").reverse().join("/")} · ${esc(e.category)}${e.subcategory ? ` › ${esc(e.subcategory)}` : ""} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}${invoiceLabel}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}${e.debt_installment_number ? ` · parcela ${e.debt_installment_number}` : ""}</small></div><div class="record-actions">${share("entries", e)}${invoice ? button("entry-invoice", `Ver fatura ${invoice.split("-").reverse().join("/")}`, "text-button", `data-id="${e.id}"`) : ""}${canManage ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && canManage && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && canManage ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${canManage ? deleteButton("entries", e.id) : ""}</div></article>`;
       }).join("")}</div>`
     : empty("Nenhum lançamento por aqui", "add-entry");
 }
@@ -308,7 +312,7 @@ function entries() {
       (area === "all" || e.area === area) &&
       (owner === "all" || e.owner_id === owner) &&
       (status === "all" || e.status === status) &&
-      `${e.description} ${e.category} ${e.subcategory || ""}`
+      `${e.description} ${e.payee || ""} ${e.category} ${e.subcategory || ""}`
         .toLocaleLowerCase()
         .includes(filter.toLocaleLowerCase()),
   );
@@ -346,6 +350,24 @@ function cards() {
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>${d.cards.some((c) => c.archived_at) ? `<details class="panel section-gap"><summary>Cartões arquivados (${d.cards.filter((c) => c.archived_at).length})</summary>${d.cards.filter((c) => c.archived_at).map((c) => `<p class="detail-line">${esc(c.name)} · ${esc(names(c.owner_id))}${c.merged_into_id ? ` · unido a ${esc(d.cards.find((item) => item.id === c.merged_into_id)?.name || "outro cartão")}` : ""}${!c.merged_into_id && own(c) && api.allowed("cards") ? button("restore-card", "Restaurar", "text-button", `data-id="${c.id}"`) : ""}</p>`).join("")}</details>` : ""}`;
 }
+function loanSchedule(debt: Debt, entries: Entry[]) {
+  if (!debt.installment_count || !debt.first_due_date || !debt.installment_cents) return "";
+  const payments = entries.filter((entry) => entry.kind === "debt_payment" && entry.debt_id === debt.id && entry.status === "paid");
+  const unlinked = payments.filter((entry) => !entry.debt_installment_number).reduce((sum, entry) => sum + entry.amount_cents, 0);
+  const rows = Array.from({ length: debt.installment_count }, (_, index) => {
+    const number = index + 1;
+    const date = new Date(`${debt.first_due_date}T12:00:00Z`);
+    const day = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + index);
+    const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(day, last));
+    const paid = payments.filter((entry) => entry.debt_installment_number === number).reduce((sum, entry) => sum + entry.amount_cents, 0);
+    const label = paid >= debt.installment_cents! ? "Pago" : paid ? `Parcial: ${brl(paid)}` : "Em aberto";
+    return `<p class="detail-line">${number}/${debt.installment_count} · ${date.toISOString().slice(0, 10).split("-").reverse().join("/")} · ${brl(debt.installment_cents!)} <small>${label}</small></p>`;
+  });
+  return `<details><summary>Ver calendário de parcelas</summary>${rows.join("")}${unlinked ? `<p class="fine">${brl(unlinked)} em pagamentos sem parcela vinculada. Edite o lançamento para associar.</p>` : ""}</details>`;
+}
 function accounts() {
   const d = api.data!;
   return `<section class="page-intro"><div><h2>Cada conta, cada compromisso.</h2><p>Saldos conhecidos, transferências e pagamentos de principal.</p></div><div class="button-row">${api.allowed("cards") ? button("add-account", "Nova conta") : ""}${api.allowed("entries") ? button("transfer", "Transferir entre contas", "secondary") + button("add-debt", "Novo empréstimo ou dívida", "secondary") : ""}</div></section><div class="card-grid">${d.accounts
@@ -368,7 +390,7 @@ function accounts() {
               e.status === "paid",
           )
           .reduce((s, e) => s + e.amount_cents, 0);
-        return `<article class="record"><span class="record-icon">${icon("debt")}</span><div class="record-info"><strong>${esc(debt.name)}</strong><small>${esc(debt.creditor)} · ${esc(names(debt.owner_id))}${debt.due_date ? " · vence " + debt.due_date : ""}${debt.installment_count ? ` · ${debt.installment_count} parcelas de ${brl(debt.installment_cents || 0)}` : ""}</small>${debt.installment_count && debt.first_due_date ? `<details><summary>Ver calendário de parcelas</summary>${Array.from({ length: Math.min(debt.installment_count, 360) }, (_, index) => { const start = new Date(`${debt.first_due_date}T12:00:00Z`); const day = start.getUTCDate(); start.setUTCDate(1); start.setUTCMonth(start.getUTCMonth() + index); const last = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate(); start.setUTCDate(Math.min(day, last)); return `<p class="detail-line">${index + 1}/${debt.installment_count} · ${start.toISOString().slice(0, 10).split("-").reverse().join("/")} · ${brl(debt.installment_cents || 0)}</p>`; }).join("")}</details>` : ""}</div><strong>${debt.balance_cents === null ? "Saldo desconhecido" : brl(Math.max(0, debt.balance_cents - paid))}</strong><div class="record-actions">${share("debts", debt)}${own(debt) && api.allowed("payments") ? button("debt-payment", "Pagar principal", "secondary", `data-id="${debt.id}"`) : ""}${own(debt) && api.allowed("entries") ? button("edit-debt", "Editar plano", "text-button", `data-id="${debt.id}"`) + deleteButton("debts", debt.id) : ""}</div></article>`;
+        return `<article class="record"><span class="record-icon">${icon("debt")}</span><div class="record-info"><strong>${esc(debt.name)}</strong><small>${esc(debt.creditor)} · ${esc(names(debt.owner_id))}${debt.due_date ? " · vence " + debt.due_date : ""}${debt.installment_count ? ` · ${debt.installment_count} parcelas de ${brl(debt.installment_cents || 0)}` : ""}</small>${loanSchedule(debt, d.entries)}</div><strong>${debt.balance_cents === null ? "Saldo desconhecido" : brl(Math.max(0, debt.balance_cents - paid))}</strong><div class="record-actions">${share("debts", debt)}${own(debt) && api.allowed("payments") ? button("debt-payment", "Pagar principal", "secondary", `data-id="${debt.id}"`) : ""}${own(debt) && api.allowed("entries") ? button("edit-debt", "Editar plano", "text-button", `data-id="${debt.id}"`) + deleteButton("debts", debt.id) : ""}</div></article>`;
       })
       .join("") || empty("Nenhuma dívida cadastrada", "add-debt")
   }<p class="fine">Juros e taxas devem ser registrados como despesa. Pagamentos de principal não são contados novamente nos gastos.</p></section>`;
@@ -512,7 +534,7 @@ function entryForm(preset: Partial<Entry> = {}) {
       .filter(([v]) => !api.preferences.simple_mode || ["expense", "payable", "income"].includes(v) || v === e.kind)
       .map(([v, l]) => opt(v, l, e.kind === "expense" && e.status === "pending" && e.payment === "cash" ? "payable" : e.kind))
       .join("")}</select>`,
-  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Selecione uma categoria", e.category)}${categoryOptions(e.category)}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", e.subcategory || "", 'list="subcategories" maxlength="80" placeholder="Ex.: vacinas"') + subcategoryList(e.category))}<p class="fine wide">Escolha uma categoria e, se ajudar, detalhe o tipo do gasto. Ex.: Saúde → Vacinas. Você pode digitar outra subcategoria.</p>${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field(
+  )}${conditional("payment", field("payment", "Como pagou?", `<select name="payment">${opt("cash", "Pix, débito ou dinheiro", e.payment) + opt("card", "Cartão", e.payment)}</select>`))}${conditional("card", field("card_id", "Cartão", `<select name="card_id">${cardOptions(e.card_id)}</select>`))}${conditional("installment-basis", field("installment_basis", "Qual valor você tem?", `<select name="installment_basis">${opt("total", "Tenho o total da compra", "total") + opt("each", "Tenho o valor da parcela", "total")}</select>`))}<label><span id="amount-label">Valor (R$)</span>${moneyInput("amount", e.amount_cents ? (e.amount_cents / 100).toFixed(2).replace(".", ",") : "")}</label>${conditional("installments", field("installments", "Número de parcelas", input("installments", "number", e.installments, 'min="1" max="48" required')))}${conditional("first-invoice", field("first_invoice_month", "Primeira fatura (se precisar ajustar)", input("first_invoice_month", "month", e.first_invoice_month || "") + '<small>Se deixar vazio, usamos o fechamento atual do cartão.</small>'))}${field("description", "Descrição", input("description", "text", e.description || "", 'maxlength="160" placeholder="Ex.: compras da semana" required'), true)}${field("payee", "Estabelecimento ou destinatário (opcional)", input("payee", "text", e.payee || "", 'maxlength="160" list="payees" placeholder="Ex.: farmácia, iFood ou pessoa"') + `<datalist id="payees">${[...new Set(api.data!.entries.map((item) => item.payee).filter(Boolean))].map((item) => `<option value="${esc(item)}"></option>`).join("")}</datalist>`, true)}${field("date", "Data da compra", input("date", "date", e.date, "required"))}${field("category", "Categoria", `<select name="category" required>${opt("", "Selecione uma categoria", e.category)}${categoryOptions(e.category)}</select>`)}${field("subcategory", "Subcategoria (opcional)", input("subcategory", "text", e.subcategory || "", 'list="subcategories" maxlength="80" placeholder="Ex.: vacinas"') + subcategoryList(e.category))}<p class="fine wide">Escolha uma categoria e, se ajudar, detalhe o tipo do gasto. Ex.: Saúde → Vacinas. Você pode digitar outra subcategoria.</p>${conditional("due-date", field("due_date", "Vencimento", input("due_date", "date", e.due_date || "")))}<details class="more-details wide" ${api.preferences.simple_mode ? "" : "open"}><summary>Mais detalhes</summary><div class="form-grid">${field(
     "area",
     "Área",
     `<select name="area">${[
@@ -542,7 +564,7 @@ function entryForm(preset: Partial<Entry> = {}) {
         .map((d) => opt(d.id, d.name, e.debt_id))
         .join("")
     }</select>`,
-  ))}<p class="fine wide">${admin() ? "Seus gastos pessoais ficam visíveis para você. Os gastos da casa são compartilhados com a família." : "Gastos da casa são compartilhados automaticamente. Gastos pessoais ficam só para você até escolher compartilhar."}</p>${formEnd("Salvar lançamento")}</form>`;
+  ))}${conditional("debt-installment", field("debt_installment_number", "Parcela deste empréstimo (opcional)", `<select name="debt_installment_number" data-selected="${e.debt_installment_number || ""}"><option value="">Sem parcela vinculada</option></select>`))}<p class="fine wide">${admin() ? "Seus gastos pessoais ficam visíveis para você. Os gastos da casa são compartilhados com a família." : "Gastos da casa são compartilhados automaticamente. Gastos pessoais ficam só para você até escolher compartilhar."}</p>${formEnd("Salvar lançamento")}</form>`;
 }
 function modalContent() {
   const d = api.data!;
@@ -561,13 +583,16 @@ function modalContent() {
         amount_cents: invoice(d, d.cards.find((c) => c.id === editId)!, month)
           .remaining,
       });
-    case "debt-payment":
-      return entryForm({
-        kind: "debt_payment",
-        debt_id: editId,
-        description: "Pagamento de principal",
-        category: "Dívidas",
-      });
+    case "debt-payment": {
+      const debt = d.debts.find((item) => item.id === editId);
+      const next = debt?.installment_count && debt.installment_cents
+        ? Array.from({ length: debt.installment_count }, (_, index) => index + 1).find((number) =>
+            d.entries.filter((item) => item.kind === "debt_payment" && item.debt_id === editId && item.debt_installment_number === number && item.status === "paid")
+              .reduce((sum, item) => sum + item.amount_cents, 0) < debt.installment_cents!) : undefined;
+      return entryForm({ kind: "debt_payment", debt_id: editId, debt_installment_number: next || null,
+        description: "Pagamento de principal", payee: debt?.creditor || null,
+        amount_cents: debt?.installment_cents || undefined, category: "Dívidas" });
+    }
     case "transfer":
       return entryForm({ kind: "transfer", account_id: editId || null, description: "Transferência entre contas", category: "Transferência" });
     case "alignment": {
@@ -1203,6 +1228,14 @@ function syncEntryForm() {
       ...(api.data?.entries || []).filter((entry) => entry.category === category.value).map((entry) => entry.subcategory || ""),
     ])).filter(Boolean).map((item) => `<option value="${esc(item)}"></option>`).join("");
   }
+  const installmentSelect = form.elements.namedItem("debt_installment_number");
+  if (installmentSelect instanceof HTMLSelectElement) {
+    const selected = installmentSelect.dataset.selected || installmentSelect.value;
+    delete installmentSelect.dataset.selected;
+    const debt = api.data?.debts.find((item) => item.id === raw("debt_id"));
+    installmentSelect.innerHTML = opt("", "Sem parcela vinculada", selected) +
+      Array.from({ length: debt?.installment_count || 0 }, (_, index) => opt(String(index + 1), `Parcela ${index + 1}/${debt!.installment_count}`, selected)).join("");
+  }
   form.dataset.lastKind = kind;
   const enabled =
     kind === "expense" && raw("payment") === "card";
@@ -1217,6 +1250,7 @@ function syncEntryForm() {
     "target-account": kind === "transfer",
     "invoice-month": kind === "card_payment",
     debt: kind === "debt_payment",
+    "debt-installment": kind === "debt_payment" && !!api.data?.debts.find((item) => item.id === raw("debt_id"))?.installment_count,
     source: true,
     status: kind !== "payable",
   };
@@ -1466,6 +1500,7 @@ root.addEventListener("submit", (event) => {
         ...(existing || {}),
         ...(id ? { id } : {}),
         description: val(f, "description"),
+        payee: val(f, "payee") || null,
         amount_cents: (() => {
           const amount = cash(f, "amount");
           const count = payment === "card" ? Number(val(f, "installments")) : 1;
@@ -1494,6 +1529,8 @@ root.addEventListener("submit", (event) => {
         target_account_id:
           kind === "transfer" ? val(f, "target_account_id") || null : null,
         debt_id: kind === "debt_payment" ? val(f, "debt_id") || null : null,
+        debt_installment_number: kind === "debt_payment" && val(f, "debt_installment_number")
+          ? Number(val(f, "debt_installment_number")) : null,
         installments: payment === "card" ? Number(val(f, "installments")) : 1,
         first_invoice_month: payment === "card" ? val(f, "first_invoice_month") || null : null,
         invoice_month:
