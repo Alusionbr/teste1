@@ -293,7 +293,14 @@ export class FamilyAPI {
     const payload: Record<string, unknown> = { ...(previous || base), ...record };
     if (collection === "entries" && this.me?.role === "member" && payload.area !== "personal")
       payload.shared = true;
-    if (collection === "entries") validateEntry(payload as unknown as Entry);
+    if (collection === "entries") {
+      const entry = validateEntry(payload as unknown as Entry);
+      if (entry.debt_installment_number != null) {
+        const debt = this.data!.debts.find((item) => item.id === entry.debt_id);
+        if (!debt?.installment_count || entry.debt_installment_number > debt.installment_count)
+          throw Error("Esta parcela não pertence ao plano do empréstimo.");
+      }
+    }
     if (this.demo) {
       const list = this.demoStore![collection] as unknown as Record<
         string,
