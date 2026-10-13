@@ -50,14 +50,12 @@ jobs:
 
       - name: Install Financeiro360
         id: financeiro_install
-        continue-on-error: true
         working-directory: financeiro360
         run: npm ci
 
       - name: Validate Financeiro360
         id: financeiro_validation
         if: steps.financeiro_install.outcome == 'success'
-        continue-on-error: true
         working-directory: financeiro360
         run: |
           npm test
@@ -66,7 +64,6 @@ jobs:
       - name: Build Financeiro360
         id: financeiro_build
         if: steps.financeiro_install.outcome == 'success' && steps.financeiro_validation.outcome == 'success'
-        continue-on-error: true
         working-directory: financeiro360
         env:
           # Public browser configuration; financial access is enforced by RLS.
