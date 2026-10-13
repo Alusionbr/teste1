@@ -89,6 +89,9 @@ export class FamilyAPI {
         admin ? "admin" : "member",
         d.members,
       ));
+      d.invoice_alignments = d.invoice_alignments.filter((item) => admin || item.owner_id === this.userId);
+      d.invoice_alignment_exceptions = d.invoice_alignment_exceptions.filter((item) => admin || item.owner_id === this.userId);
+      d.account_balance_checks = d.account_balance_checks.filter((item) => admin || item.owner_id === this.userId);
       if (!admin) d.audit = [];
       if (!admin) d.accounts = d.accounts.map((account) => ({
         ...account,
@@ -131,6 +134,9 @@ export class FamilyAPI {
       "fin_audit",
       "fin_recurring",
       "fin_reminders",
+      "fin_invoice_alignments",
+      "fin_invoice_alignment_exceptions",
+      "fin_account_balance_checks",
     ];
     const results = await Promise.all(
       tables.map(async (t) => {
@@ -184,6 +190,9 @@ export class FamilyAPI {
       audit: results[10].data!,
       recurring: results[11].data!,
       reminders: results[12].data!,
+      invoice_alignments: results[13].data!,
+      invoice_alignment_exceptions: results[14].data!,
+      account_balance_checks: results[15].data!,
     } as Data;
   }
   async savePreferences(next: Partial<Preferences>) {
@@ -212,6 +221,64 @@ export class FamilyAPI {
     this.preferences = settings;
     this.preferencesRevision = result.data.revision;
   }
+  async alignInvoice(cardId: string, invoiceMonth: string, cutoffOn: string, totalCents: number, note: string) {
+    const card = this.data!.cards.find((item) => item.id === cardId);
+    if (!card || card.archived_at || !/^\d{4}-(0[1-9]|1[0-2])$/.test(invoiceMonth) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(cutoffOn) || !Number.isSafeInteger(totalCents) || totalCents < 0)
+      throw Error("Confira o cartão, a fatura, a data e o total.");
+    if (this.demo) {
+      this.demoStore!.invoice_alignments.forEach((item) => {
+        if (item.card_id === cardId && item.invoice_month === invoiceMonth) item.active = false;
+      });
+      this.demoStore!.invoice_alignments.push({ id: crypto.randomUUID(), home_id: card.home_id,
+        owner_id: card.owner_id, card_id: cardId, invoice_month: invoiceMonth, cutoff_on: cutoffOn,
+        total_cents: totalCents, note, active: true, created_at: new Date().toISOString() });
+    } else {
+      const { error } = await this.client!.rpc("fin_align_invoice", { p_card: cardId, p_month: invoiceMonth,
+        p_cutoff: cutoffOn, p_total: totalCents, p_note: note });
+      if (error) throw Error(error.message);
+    }
+    await this.load();
+  }
+  async setAlignmentException(alignmentId: string, entryId: string, countAfter: boolean) {
+    const alignment = this.data!.invoice_alignments.find((item) => item.id === alignmentId && item.active);
+    const entry = this.data!.entries.find((item) => item.id === entryId);
+    if (!alignment || !entry || entry.card_id !== alignment.card_id) throw Error("Compra ou alinhamento indisponível.");
+    const existing = this.data!.invoice_alignment_exceptions.find((item) => item.alignment_id === alignmentId && item.entry_id === entryId);
+    if (this.demo) {
+      const list = this.demoStore!.invoice_alignment_exceptions;
+      const row = list.find((item) => item.id === existing?.id);
+      if (row) row.count_after = countAfter;
+      else list.push({ id: crypto.randomUUID(), home_id: alignment.home_id, owner_id: alignment.owner_id,
+        alignment_id: alignmentId, entry_id: entryId, count_after: countAfter });
+    } else {
+      const result = existing
+        ? await this.client!.from("fin_invoice_alignment_exceptions").update({ count_after: countAfter }).eq("id", existing.id)
+        : await this.client!.from("fin_invoice_alignment_exceptions").insert({ home_id: alignment.home_id,
+          owner_id: alignment.owner_id, alignment_id: alignmentId, entry_id: entryId, count_after: countAfter });
+      if (result.error) throw Error(result.error.message);
+    }
+    await this.load();
+  }
+  async mergeCards(sourceId: string, targetId: string) {
+    const source = this.data!.cards.find((item) => item.id === sourceId);
+    const target = this.data!.cards.find((item) => item.id === targetId);
+    if (!source || !target || source.id === target.id || source.owner_id !== target.owner_id ||
+      source.home_id !== target.home_id || source.closing_day !== target.closing_day || source.due_day !== target.due_day ||
+      source.archived_at || target.archived_at || this.data!.invoice_alignments.some((item) => item.card_id === sourceId))
+      throw Error("Escolha dois cartões ativos do mesmo titular, com o mesmo fechamento e vencimento. Revise alinhamentos do duplicado antes de unir.");
+    if (this.demo) {
+      this.demoStore!.entries.forEach((item) => { if (item.card_id === sourceId) item.card_id = targetId; });
+      this.demoStore!.documents.forEach((item) => { if (item.card_id === sourceId) item.card_id = targetId; });
+      const card = this.demoStore!.cards.find((item) => item.id === sourceId)!;
+      card.archived_at = new Date().toISOString();
+      card.merged_into_id = targetId;
+    } else {
+      const { error } = await this.client!.rpc("fin_merge_cards", { p_source: sourceId, p_target: targetId });
+      if (error) throw Error(error.message);
+    }
+    await this.load();
+  }
   async save(collection: keyof Data, record: Record<string, unknown>) {
     const base = collection === "pantry" || collection === "shopping"
       ? { home_id: this.data!.home.id }
@@ -233,6 +300,15 @@ export class FamilyAPI {
         unknown
       >[];
       const index = list.findIndex((x) => x.id === record.id);
+      if (collection === "accounts" && index >= 0) {
+        const before = list[index] as unknown as Data["accounts"][number];
+        const after = payload as unknown as Data["accounts"][number];
+        if (before.opening_cents !== after.opening_cents || before.balance_date !== after.balance_date)
+          this.demoStore!.account_balance_checks.push({ id: crypto.randomUUID(), home_id: before.home_id,
+            owner_id: before.owner_id, account_id: before.id, previous_cents: before.opening_cents,
+            previous_date: before.balance_date, balance_cents: after.opening_cents,
+            balance_date: after.balance_date, created_at: new Date().toISOString() });
+      }
       if (collection === "cards" && index >= 0) {
         const previousCard = list[index] as unknown as Data["cards"][number];
         const nextCard = payload as unknown as Data["cards"][number];
@@ -411,6 +487,7 @@ export class FamilyAPI {
         date,
         kind: "expense",
         category: "Mercado",
+        subcategory: null,
         area: "household",
         status: "paid",
         payment: "cash",
