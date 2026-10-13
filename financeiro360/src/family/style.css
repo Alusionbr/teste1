@@ -1901,6 +1901,34 @@ input[type="checkbox"] {
   .invoice-stats strong { font-size: 17px; }
 }
 
+/* Keep every dashboard section inside a narrow phone viewport. */
+@media (max-width: 640px) {
+  html, body, #app { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .app-shell, .main-shell { width: 100%; max-width: 100%; min-width: 0; }
+  .main-shell { overflow-x: clip; }
+  .topbar { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .topbar > div:first-child { min-width: 0; }
+  .topbar-actions { min-width: 0; flex-shrink: 1; }
+  .month-picker { gap: 0; min-width: 0; }
+  .month-picker > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .month-picker input { width: min(108px, 29vw); max-width: 100%; min-width: 0; }
+  .content { width: 100%; max-width: 100%; min-width: 0; overflow-x: clip; }
+  .content > * { width: 100%; max-width: 100%; min-width: 0; }
+  .overview-heading > div { width: 100%; min-width: 0; }
+  .overview-heading h2 { max-width: 100%; font-size: clamp(21px, 6vw, 26px); overflow-wrap: anywhere; }
+  .overview-heading p { max-width: 100%; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+  .overview-hero { width: 100%; min-width: 0; padding: 16px; }
+  .overview-hero > div:first-child { width: 100%; min-width: 0; }
+  .overview-hero strong { max-width: 100%; font-size: clamp(27px, 8vw, 34px); overflow-wrap: anywhere; }
+  .overview-hero strong .private-amount { white-space: normal; }
+  .overview-hero p { width: 100%; max-width: 100%; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  .cash-summary { grid-template-columns: minmax(0, 1fr); width: 100%; gap: 9px; }
+  .cash-tile { width: 100%; min-width: 0; padding: 13px; }
+  .cash-tile > span { min-width: 0; flex-wrap: wrap; overflow-wrap: anywhere; }
+  .cash-tile strong, .cash-tile small { min-width: 0; overflow-wrap: anywhere; }
+  .quick-create, .overview-status, .budget-strip, .overview-alert { width: 100%; min-width: 0; }
+}
+
 /* Compact phone viewport while keeping controls comfortable to tap. */
 @media(max-width:640px) {
   html { -webkit-text-size-adjust: 100%; }
