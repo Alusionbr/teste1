@@ -83,6 +83,7 @@ export class FamilyAPI {
         d[key] = d[key].filter(
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
+      d.category_presets = d.category_presets.filter((item) => item.owner_id === this.userId || item.shared);
       d.entries = d.entries.filter((entry) => entryVisibleTo(
         entry,
         this.userId,
@@ -137,6 +138,7 @@ export class FamilyAPI {
       "fin_invoice_alignments",
       "fin_invoice_alignment_exceptions",
       "fin_account_balance_checks",
+      "fin_category_presets",
     ];
     const results = await Promise.all(
       tables.map(async (t) => {
@@ -193,6 +195,7 @@ export class FamilyAPI {
       invoice_alignments: results[13].data!,
       invoice_alignment_exceptions: results[14].data!,
       account_balance_checks: results[15].data!,
+      category_presets: results[16].data!,
     } as Data;
   }
   async savePreferences(next: Partial<Preferences>) {
