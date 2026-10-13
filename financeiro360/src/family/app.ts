@@ -46,6 +46,9 @@ let page = "overview",
   entryCategory = "all",
   entrySubcategory = "all",
   entryFiltersOpen = false,
+  cardIdFilter = "all",
+  cardOwnerFilter = "all",
+  cardStatusFilter: "all" | "open" | "paid" = "all",
   analysisPeriod: "monthly" | "yearly" = "monthly",
   editId = "",
   modal = "",
@@ -163,12 +166,27 @@ const subcategorySuggestions: Record<string, string[]> = {
   "Taxas bancárias": ["Tarifa", "Anuidade", "Juros", "Multa"],
   Outros: ["A confirmar"],
 };
-const categoryOptions = (current: string) => Array.from(new Set([
-  ...commonCategories,
-  ...(api.data?.category_presets || []).map((item) => item.category),
-  ...(api.data?.entries || []).map((entry) => entry.category),
-  ...(api.data?.recurring || []).map((entry) => entry.category),
-])).filter(Boolean).map((category) => opt(category, category, current)).join("");
+const categoryIsHidden = (category: string) => category.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase() === "maconha";
+const sortCategoriesByUse = (categories: Iterable<string>) => {
+  const counts = new Map<string, number>();
+  for (const entry of api.data?.entries || []) {
+    if (entry.status !== "pending_review") counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
+  }
+  const defaultOrder = new Map(commonCategories.map((category, index) => [category, index]));
+  return Array.from(new Set(categories)).filter((category) => !!category && !categoryIsHidden(category))
+    .sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) ||
+      (defaultOrder.get(a) ?? 999) - (defaultOrder.get(b) ?? 999) || a.localeCompare(b, "pt-BR"));
+};
+const categoryOptions = (current: string) => {
+  const categories = sortCategoriesByUse([
+    ...commonCategories,
+    ...(api.data?.category_presets || []).map((item) => item.category),
+    ...(api.data?.entries || []).map((entry) => entry.category),
+    ...(api.data?.recurring || []).map((entry) => entry.category),
+  ]);
+  if (current && categoryIsHidden(current)) categories.push(current);
+  return categories.map((category) => opt(category, categoryIsHidden(category) ? `${category} · lançamento antigo` : category, current)).join("");
+};
 const subcategoriesFor = (category: string) => Array.from(new Set([
   ...(api.data?.category_presets || []).filter((item) => item.category === category).map((item) => item.subcategory || ""),
   ...(subcategorySuggestions[category] || []),
@@ -346,10 +364,10 @@ function analysis() {
 }
 function categories() {
   const presets = api.data!.category_presets;
-  const names = Array.from(new Set([...commonCategories, ...presets.map((item) => item.category),
-    ...api.data!.entries.map((item) => item.category)])).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const names = sortCategoriesByUse([...commonCategories, ...presets.map((item) => item.category),
+    ...api.data!.entries.map((item) => item.category)]);
   return `<section class="page-intro"><div><h2>Classifique sem esforço.</h2><p>Escolha sugestões prontas ou crie opções para usar nos próximos lançamentos.</p></div>${api.allowed("entries") ? button("add-category-preset", icon("plus") + " Criar opção") : ""}</section><div class="category-library">${names.map((name) => {
-    const custom = presets.filter((item) => item.category === name);
+    const custom = presets.filter((item) => item.category === name && !categoryIsHidden(item.category));
     const suggestions = Array.from(new Set([...(subcategorySuggestions[name] || []),
       ...custom.map((item) => item.subcategory || ""),
       ...api.data!.entries.filter((item) => item.category === name).map((item) => item.subcategory || "")])).filter(Boolean);
@@ -358,7 +376,7 @@ function categories() {
 }
 function entries() {
   const data = api.data!;
-  const categoryNames = Array.from(new Set(data.entries.map((item) => item.category))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const categoryNames = sortCategoriesByUse(data.entries.map((item) => item.category));
   const subcategoryNames = Array.from(new Set(data.entries.filter((item) => entryCategory === "all" || item.category === entryCategory)
     .map((item) => item.subcategory).filter((item): item is string => !!item))).sort((a, b) => a.localeCompare(b, "pt-BR"));
   const rows = data.entries.filter((entry) => entry.date.startsWith(month) &&
@@ -378,11 +396,26 @@ function entries() {
     ["payments", "Pagamentos"], ["transfers", "Transferências"]];
   return `<section class="page-intro"><div><h2>Todos os movimentos, no lugar certo.</h2><p>Veja gastos, dinheiro recebido e pagamentos sem misturar os totais.</p></div><div class="button-row">${button("nav", "Categorias", "secondary", 'data-page="categories"')}${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</div></section><div class="entry-overview"><div><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong></div><div><span>Entrou</span><strong>${brl(totals.received)}</strong></div><div><span>Saiu das contas</span><strong>${brl(totals.paid)}</strong></div></div><section class="panel entry-panel"><div class="entry-tabs" role="group" aria-label="Tipo de lançamento">${tabs.map(([kind, label]) => button("entry-kind", label, entryKind === kind ? "active" : "", `data-kind="${kind}" aria-pressed="${entryKind === kind}"`)).join("")}</div><div class="entry-search">${input("search", "search", filter, 'placeholder="Buscar descrição, lugar ou categoria" aria-label="Buscar lançamentos"')}<span>${rows.length} registro(s)</span></div><details class="entry-extra-filters" ${entryFiltersOpen ? "open" : ""}><summary>Filtrar por pessoa, categoria ou situação</summary><div class="filters"><select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Casa", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todas as pessoas", owner) + data.members.map((item) => opt(item.user_id, item.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select><select name="entry_category" aria-label="Filtrar categoria">${opt("all", "Todas as categorias", entryCategory) + categoryNames.map((item) => opt(item, item, entryCategory)).join("")}</select><select name="entry_subcategory" aria-label="Filtrar subcategoria">${opt("all", "Todas as subcategorias", entrySubcategory) + subcategoryNames.map((item) => opt(item, item, entrySubcategory)).join("")}</select></div></details>${entryList(rows)}</section>`;
 }
+const cardDueDate = (card: Data["cards"][number]) => dueDate(month, {
+  id: card.id, name: card.name, owner: "wife", limitCents: card.limit_cents || 0,
+  closingDay: card.closing_day, dueDay: card.due_day,
+});
 function cards() {
   const d = api.data!;
   const duplicates = d.cards.filter((card) => !card.archived_at && d.cards.some((other) => other.id !== card.id && !other.archived_at && other.owner_id === card.owner_id && other.name.trim().toLocaleLowerCase() === card.name.trim().toLocaleLowerCase() && other.closing_day === card.closing_day && other.due_day === card.due_day));
-  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Parcelas previstas e pagamentos informados em um só lugar.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section>${duplicates.length ? `<div class="hint-banner">${icon("cards")}<div><strong>Possíveis cartões duplicados</strong><p>${[...new Set(duplicates.map((item) => item.name))].map(esc).join(", ")}. Abra o cartão que será removido e toque em “Unir duplicado”. Compras e anexos serão preservados.</p></div></div>` : ""}<div class="card-grid">${
-    d.cards.filter((c) => !c.archived_at)
+  const availableCards = d.cards.filter((card) => !card.archived_at);
+  const owners = d.members.filter((member) => availableCards.some((card) => card.owner_id === member.user_id));
+  const visibleCards = availableCards.filter((card) =>
+    (cardIdFilter === "all" || card.id === cardIdFilter) &&
+    (cardOwnerFilter === "all" || card.owner_id === cardOwnerFilter) &&
+    (cardStatusFilter === "all" || (cardStatusFilter === "open" ? invoice(d, card, month).remaining > 0 : invoice(d, card, month).remaining === 0)))
+    .sort((a, b) => cardDueDate(a).localeCompare(cardDueDate(b)));
+  const invoiceTotal = visibleCards.reduce((sum, card) => sum + invoice(d, card, month).total, 0);
+  const openTotal = visibleCards.reduce((sum, card) => sum + invoice(d, card, month).remaining, 0);
+  const nextDue = visibleCards.filter((card) => invoice(d, card, month).remaining > 0)
+    .map((card) => ({ card, date: cardDueDate(card) })).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Confira o total de cada cartão e seu próprio vencimento.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section>${duplicates.length ? `<div class="hint-banner">${icon("cards")}<div><strong>Possíveis cartões duplicados</strong><p>${[...new Set(duplicates.map((item) => item.name))].map(esc).join(", ")}. Abra o cartão que será removido e toque em “Unir duplicado”. Compras e anexos serão preservados.</p></div></div>` : ""}<section class="panel card-filter-panel"><div class="card-filter-heading"><div><span class="eyebrow">FATURAS PREVISTAS</span><strong>${brl(invoiceTotal)}</strong></div><div><span class="eyebrow">EM ABERTO</span><strong>${brl(openTotal)}</strong></div><div><span class="eyebrow">PRÓXIMO VENCIMENTO</span><strong>${nextDue ? `${esc(nextDue.card.name)} · ${nextDue.date.split("-").reverse().join("/")}` : "Nenhum"}</strong></div></div><div class="card-filters"><label><span>Cartão</span><select name="card_id_filter">${opt("all", "Todos os cartões", cardIdFilter)}${availableCards.map((card) => opt(card.id, card.name, cardIdFilter)).join("")}</select></label><label><span>Titular</span><select name="card_owner_filter">${opt("all", "Todos os titulares", cardOwnerFilter)}${owners.map((member) => opt(member.user_id, member.display_name, cardOwnerFilter)).join("")}</select></label><label><span>Situação</span><select name="card_status_filter">${opt("all", "Todas as faturas", cardStatusFilter)}${opt("open", "Com valor em aberto", cardStatusFilter)}${opt("paid", "Quitadas", cardStatusFilter)}</select></label></div><p class="fine">Os totais respeitam a fatura e o vencimento cadastrados em cada cartão.</p></section><div class="card-grid">${
+    visibleCards
       .map((c, i) => {
         const f = invoice(d, c, month),
           openMonth = invoiceMonth(today(), c.closing_day),
@@ -390,22 +423,7 @@ function cards() {
           categoryTotals = Array.from(lines.reduce((totals, line) =>
             totals.set(line.entry.category, (totals.get(line.entry.category) || 0) + line.amount_cents),
           new Map<string, number>()).entries()).sort((a, b) => b[1] - a[1]);
-        return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><p class="invoice-open-hint">Compras feitas agora entram na fatura de <strong>${openMonth.split("-").reverse().join("/")}</strong> ${month !== openMonth ? button("open-invoice", "Abrir fatura em aberto", "text-button", `data-month="${openMonth}"`) : ""}</p><div class="invoice-stats"><div><span>Fatura prevista · ${month.split("-").reverse().join("/")}</span><strong>${brl(f.total)}</strong></div><div><span>A pagar</span><strong>${brl(f.remaining)}</strong></div></div>${f.alignment ? `<p class="fine">Alinhada em ${f.alignment.cutoff_on.split("-").reverse().join("/")}: ${brl(f.alignment.total_cents)} + ${brl(f.added)} em compras posteriores. ${f.untracked > 0 ? `${brl(f.untracked)} sem compra detalhada.` : f.untracked < 0 ? `Confira ${brl(-f.untracked)} em compras anteriores acima do valor informado.` : "Compras anteriores conferidas."}${f.overpaid ? ` Crédito: ${brl(f.overpaid)}.` : ""}</p>` : ""}<p class="fine">Fecha dia ${c.closing_day} · vence ${dueDate(
-          month,
-          {
-            id: c.id,
-            name: c.name,
-            owner: "wife",
-            limitCents: c.limit_cents || 0,
-            closingDay: c.closing_day,
-            dueDay: c.due_day,
-          },
-        )
-          .split("-")
-          .reverse()
-          .join(
-            "/",
-        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}${c.created_at ? ` · cadastrado em ${c.created_at.slice(0, 10).split("-").reverse().join("/")}` : ""}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("cards") ? button("align-invoice", "Alinhar fatura", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + button("merge-card", "Unir duplicado", "text-button", `data-id="${c.id}"`) + button("archive-card", "Arquivar", "text-button", `data-id="${c.id}"`) + (!d.entries.some((item) => item.card_id === c.id) && !d.documents.some((item) => item.card_id === c.id) && !d.invoice_alignments.some((item) => item.card_id === c.id) ? deleteButton("cards", c.id) : "") : ""}</div><details><summary>Ver ${lines.length} compra(s) e categorias</summary>${categoryTotals.length ? `<div class="card-category-breakdown"><h4>Gastos por categoria</h4><div class="category-chart">${categoryTotals.map(([category, amount], index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(category)}</span><strong>${brl(amount)}</strong><div class="bar"><b style="width:${f.total ? Math.round((amount / f.total) * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div></div>` : '<p class="fine">Ainda não há compras nesta fatura.</p>'}${lines.length ? lines.map((line) => { const ex = f.alignment && d.invoice_alignment_exceptions.find((item) => item.alignment_id === f.alignment!.id && item.entry_id === line.entry.id); const after = ex?.count_after ?? (f.alignment ? line.entry.date > f.alignment.cutoff_on : false); return `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>${esc(line.entry.category)} · compra em ${line.entry.date.split("-").reverse().join("/")}</small>${f.alignment && own(c) ? button("toggle-alignment-entry", after ? "Já estava no valor alinhado" : "Somar ao valor alinhado", "text-button", `data-id="${line.entry.id}" data-alignment="${f.alignment.id}" data-after="${after}"`) : ""}</p>`; }).join("") : ""}</details></section>`;
+        return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><p class="invoice-open-hint">Compras feitas agora entram na fatura de <strong>${openMonth.split("-").reverse().join("/")}</strong> ${month !== openMonth ? button("open-invoice", "Abrir fatura em aberto", "text-button", `data-month="${openMonth}"`) : ""}</p><div class="invoice-stats"><div><span>Fatura prevista · ${month.split("-").reverse().join("/")}</span><strong>${brl(f.total)}</strong></div><div><span>A pagar · vence ${cardDueDate(c).split("-").reverse().join("/")}</span><strong>${brl(f.remaining)}</strong></div></div>${f.alignment ? `<p class="fine">Alinhada em ${f.alignment.cutoff_on.split("-").reverse().join("/")}: ${brl(f.alignment.total_cents)} + ${brl(f.added)} em compras posteriores. ${f.untracked > 0 ? `${brl(f.untracked)} sem compra detalhada.` : f.untracked < 0 ? `Confira ${brl(-f.untracked)} em compras anteriores acima do valor informado.` : "Compras anteriores conferidas."}${f.overpaid ? ` Crédito: ${brl(f.overpaid)}.` : ""}</p>` : ""}<p class="fine">Fecha dia ${c.closing_day} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}${c.created_at ? ` · cadastrado em ${c.created_at.slice(0, 10).split("-").reverse().join("/")}` : ""}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("cards") ? button("align-invoice", "Alinhar fatura", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + button("merge-card", "Unir duplicado", "text-button", `data-id="${c.id}"`) + button("archive-card", "Arquivar", "text-button", `data-id="${c.id}"`) + (!d.entries.some((item) => item.card_id === c.id) && !d.documents.some((item) => item.card_id === c.id) && !d.invoice_alignments.some((item) => item.card_id === c.id) ? deleteButton("cards", c.id) : "") : ""}</div><details><summary>Ver ${lines.length} compra(s) e categorias</summary>${categoryTotals.length ? `<div class="card-category-breakdown"><h4>Gastos por categoria</h4><div class="category-chart">${categoryTotals.map(([category, amount], index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(category)}</span><strong>${brl(amount)}</strong><div class="bar"><b style="width:${f.total ? Math.round((amount / f.total) * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div></div>` : '<p class="fine">Ainda não há compras nesta fatura.</p>'}${lines.length ? lines.map((line) => { const ex = f.alignment && d.invoice_alignment_exceptions.find((item) => item.alignment_id === f.alignment!.id && item.entry_id === line.entry.id); const after = ex?.count_after ?? (f.alignment ? line.entry.date > f.alignment.cutoff_on : false); return `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>${esc(line.entry.category)} · compra em ${line.entry.date.split("-").reverse().join("/")}</small>${f.alignment && own(c) ? button("toggle-alignment-entry", after ? "Já estava no valor alinhado" : "Somar ao valor alinhado", "text-button", `data-id="${line.entry.id}" data-alignment="${f.alignment.id}" data-after="${after}"`) : ""}</p>`; }).join("") : ""}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>${d.cards.some((c) => c.archived_at) ? `<details class="panel section-gap"><summary>Cartões arquivados (${d.cards.filter((c) => c.archived_at).length})</summary>${d.cards.filter((c) => c.archived_at).map((c) => `<p class="detail-line">${esc(c.name)} · ${esc(names(c.owner_id))}${c.merged_into_id ? ` · unido a ${esc(d.cards.find((item) => item.id === c.merged_into_id)?.name || "outro cartão")}` : ""}${!c.merged_into_id && own(c) && api.allowed("cards") ? button("restore-card", "Restaurar", "text-button", `data-id="${c.id}"`) : ""}</p>`).join("")}</details>` : ""}`;
@@ -1254,6 +1272,12 @@ root.addEventListener("change", (event) => {
     if (el.name === "status") status = el.value;
     if (el.name === "entry_category") { entryCategory = el.value; entrySubcategory = "all"; }
     if (el.name === "entry_subcategory") entrySubcategory = el.value;
+    render();
+  }
+  if (["card_id_filter", "card_owner_filter", "card_status_filter"].includes(el.name)) {
+    if (el.name === "card_id_filter") cardIdFilter = el.value;
+    if (el.name === "card_owner_filter") cardOwnerFilter = el.value;
+    if (el.name === "card_status_filter") cardStatusFilter = el.value as typeof cardStatusFilter;
     render();
   }
 });
