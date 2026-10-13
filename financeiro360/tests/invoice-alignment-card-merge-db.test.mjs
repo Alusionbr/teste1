@@ -29,6 +29,7 @@ test('invoice checkpoints, card consolidation and balance history obey RLS', asy
     '20261004024051_family_app.sql',
     '20261005140612_family_installment_schedule.sql',
     '20261013162000_invoice_alignment_card_archive_loans.sql',
+    '20261013164000_payees_and_loan_installments.sql',
   ]) await db.exec(readFileSync(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8'));
   await db.exec(`insert into auth.users values('${admin}'),('${member}');
     insert into fin_homes(id,name,owner_id) values('${home}','Synthetic','${admin}');
@@ -62,6 +63,14 @@ test('invoice checkpoints, card consolidation and balance history obey RLS', asy
   await db.exec(`update fin_accounts set opening_cents=12000,balance_date='2026-10-10' where id='${accountId}'`);
   assert.deepEqual((await db.query(`select previous_cents,balance_cents from fin_account_balance_checks where account_id='${accountId}'`)).rows[0],
     { previous_cents: 10000, balance_cents: 12000 });
+  const debtId = (await db.query(`insert into fin_debts(home_id,owner_id,name,creditor,balance_cents,area,installment_count,installment_cents,first_due_date)
+    values('${home}','${admin}','Loan','Bank',50000,'household',5,10000,'2026-11-10') returning id`)).rows[0].id;
+  await db.exec(`insert into fin_entries(home_id,owner_id,description,payee,amount_cents,date,kind,category,area,status,payment,debt_id,debt_installment_number)
+    values('${home}','${admin}','Loan principal','Bank',10000,'2026-11-10','debt_payment','Debts','household','paid','cash','${debtId}',1)`);
+  assert.equal((await db.query(`select payee,debt_installment_number from fin_entries where debt_id='${debtId}'`)).rows[0].payee, 'Bank');
+  await assert.rejects(db.exec(`insert into fin_entries(home_id,owner_id,description,amount_cents,date,kind,category,area,status,payment,debt_id,debt_installment_number)
+    values('${home}','${admin}','Invalid installment',10000,'2026-11-10','debt_payment','Debts','household','paid','cash','${debtId}',6)`));
+  await assert.rejects(db.exec(`update fin_debts set installment_count=null where id='${debtId}'`));
   await asUser(member);
   assert.equal((await db.query('select count(*)::int as n from fin_account_balance_checks')).rows[0].n, 0);
 });
