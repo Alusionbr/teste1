@@ -72,6 +72,7 @@ export interface Card extends RecordBase {
 }
 export interface Entry extends RecordBase {
   description: string;
+  payee?: string | null;
   amount_cents: number;
   date: string;
   due_date: string | null;
@@ -85,6 +86,7 @@ export interface Entry extends RecordBase {
   account_id: string | null;
   target_account_id: string | null;
   debt_id: string | null;
+  debt_installment_number?: number | null;
   installments: number;
   invoice_month: string | null;
   first_invoice_month?: string | null;
@@ -446,6 +448,7 @@ export function validateEntry(e: Entry) {
     !e.category.trim() ||
     e.category.length > 80 ||
     (e.subcategory != null && e.subcategory.length > 80) ||
+    (e.payee != null && e.payee.length > 160) ||
     !Number.isSafeInteger(e.amount_cents) ||
     e.amount_cents <= 0 ||
     !validIsoDate(e.date) ||
@@ -477,5 +480,8 @@ export function validateEntry(e: Entry) {
     throw Error("Transferência exige duas contas diferentes.");
   if (e.kind === "debt_payment" && !e.debt_id)
     throw Error("Selecione a dívida.");
+  if (e.debt_installment_number != null &&
+    (e.kind !== "debt_payment" || !Number.isInteger(e.debt_installment_number) || e.debt_installment_number < 1 || e.debt_installment_number > 360))
+    throw Error("Selecione uma parcela válida deste empréstimo.");
   return e;
 }
