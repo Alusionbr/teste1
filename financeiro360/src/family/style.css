@@ -1869,3 +1869,75 @@ input[type="checkbox"] {
 :root[data-theme="dark"] .post-it-board { background: #1d2c27; }
 @media(max-width:720px) { .post-it-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media(max-width:420px) { .post-it-grid { grid-template-columns: 1fr; } }
+
+/* Compact phone viewport while keeping controls comfortable to tap. */
+@media(max-width:640px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { min-height: 100dvh; }
+  .topbar { height: 70px; min-height: 70px; padding: 9px 12px; gap: 7px; }
+  .topbar > div:first-child .eyebrow { font-size: 7px; }
+  .topbar h1 { font-size: 16px; line-height: 1.15; }
+  .topbar-actions { gap: 5px; }
+  .month-picker input { width: 112px; min-height: 37px; padding: 7px; font-size: 10px; }
+  .topbar-actions > .primary { min-height: 38px; min-width: 38px; padding: 8px; }
+  .content { padding: 14px 12px calc(82px + env(safe-area-inset-bottom)); }
+  .content > * { min-width: 0; }
+  .panel { padding: 15px; border-radius: 14px; }
+  .overview-heading { margin-bottom: 13px; }
+  .overview-heading h2 { font-size: 22px; line-height: 1.2; }
+  .overview-heading p { font-size: 11px; }
+  .overview-hero { min-height: 154px; padding: 17px; border-radius: 16px; }
+  .overview-hero strong { font-size: clamp(27px, 8vw, 34px); letter-spacing: -1px; }
+  .overview-hero p { margin: 7px 0 11px; font-size: 10px; line-height: 1.4; }
+  .overview-trend { padding: 5px 8px; font-size: 9px; }
+  .cash-summary { gap: 7px; margin: 10px 0; }
+  .cash-tile { gap: 5px; padding: 11px 9px; border-radius: 13px; }
+  .cash-tile > span { gap: 5px; font-size: 9px; }
+  .cash-tile svg { width: 16px; height: 16px; }
+  .cash-tile strong { font-size: clamp(15px, 4.7vw, 20px); letter-spacing: -.5px; }
+  .cash-tile small { font-size: 8px; }
+  .quick-create { gap: 10px; margin: 12px 0; padding: 13px; border-radius: 14px; }
+  .quick-create h3 { font-size: 14px; }
+  .quick-create-actions { gap: 6px; }
+  .quick-create-actions button { min-height: 40px; padding: 7px; font-size: 10px; }
+  .overview-status { gap: 7px; margin: 11px 0; }
+  .overview-status article { padding: 11px; border-radius: 13px; }
+  .overview-status span { font-size: 9px; }
+  .overview-status strong { margin: 6px 0 3px; font-size: 15px; }
+  .overview-status small { font-size: 9px; }
+  .budget-strip { margin: 11px 0; padding: 12px; }
+  .budget-strip > div:first-child { font-size: 10px; }
+  .overview-chart { margin: 13px 0 17px; }
+  .flow-chart-panel { padding: 13px; }
+  .flow-chart { height: 174px; min-width: 540px; }
+  .flow-bars { height: 133px; }
+  .flow-label { font-size: 9px; }
+  .analysis-summary { margin-bottom: 12px; }
+  .analysis-total { gap: 4px; padding: 11px; border-radius: 14px; }
+  .analysis-total span,.analysis-total small { font-size: 9px; }
+  .analysis-total strong { font-size: 16px; }
+  .analysis-breakdown { gap: 12px; margin-top: 12px; }
+  .spending-donut { width: min(220px, 100%); }
+  .entry-overview { margin-bottom: 10px; }
+  .entry-overview > div { padding: 9px 7px; }
+  .entry-overview span { font-size: 8px; }
+  .entry-overview strong { margin-top: 5px; font-size: 12px; }
+  .entry-panel { padding: 12px; }
+  .entry-tabs button { min-height: 36px; padding: 7px 11px; font-size: 11px; }
+  .entry-search input { min-height: 42px; }
+  .entry-extra-filters .filters { gap: 6px; }
+  .entry-extra-filters select { min-height: 40px; padding: 8px; font-size: 10px; }
+  .money-record { min-height: 72px; }
+  .money-record .record-icon { width: 34px; height: 34px; }
+  .money-record .record-info strong { font-size: 11px; }
+  .money-record .record-info small,.record-owner { font-size: 9px; line-height: 1.35; }
+  .money-record .record-value strong { font-size: 11px; }
+  .record-menu > summary { width: 32px; height: 32px; }
+  .mobile-nav { padding: 6px 4px max(8px, env(safe-area-inset-bottom)); }
+  .mobile-nav button { gap: 3px; min-width: 48px; min-height: 43px; padding: 3px 6px; font-size: 8px; }
+  .mobile-nav svg { width: 19px; height: 19px; }
+  .page-intro { gap: 10px; margin-bottom: 15px; }
+  .page-intro h2 { font-size: 21px; }
+  .page-intro p { font-size: 11px; }
+  .modal { width: calc(100vw - 20px); max-width: 520px; max-height: calc(100dvh - 20px); padding: 17px; }
+}
