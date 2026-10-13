@@ -47,6 +47,7 @@ export function demoData(): Data {
         balance_date: `${m}-01`,
       },
     ],
+    account_balance_checks: [],
     cards: [
       {
         ...base,
@@ -66,6 +67,8 @@ export function demoData(): Data {
         due_day: 22,
       },
     ],
+    invoice_alignments: [],
+    invoice_alignment_exceptions: [],
     entries: [
       {
         ...base,
