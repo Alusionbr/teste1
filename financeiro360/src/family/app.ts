@@ -116,7 +116,7 @@ const accountOptions = (current?: string | null) =>
 const cardOptions = (current?: string | null) =>
   opt("", "Selecione um cartão", current) +
   api
-    .data!.cards.filter(own)
+    .data!.cards.filter((c) => own(c) && !c.archived_at)
     .map((c) => opt(c.id, c.name, current))
     .join("");
 const commonCategories = [
@@ -312,12 +312,13 @@ function entries() {
         .toLocaleLowerCase()
         .includes(filter.toLocaleLowerCase()),
   );
-  return `<section class="page-intro"><div><h2>O dia a dia, registrado.</h2><p>Gastos, receitas e pagamentos com clareza.</p></div>${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</section><section class="panel"><div class="filters">${input("search", "search", filter, 'placeholder="Buscar descrição, categoria ou subcategoria" aria-label="Buscar lançamentos"')}<select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Lar", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todos os responsáveis", owner) + api.data!.members.map((m) => opt(m.user_id, m.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select></div>${entryList(rows)}</section>`;
+  return `<section class="page-intro"><div><h2>O dia a dia, registrado.</h2><p>Gastos, receitas e pagamentos com clareza.</p></div>${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</section><section class="panel"><div class="filters">${input("search", "search", filter, 'placeholder="Buscar descrição ou categoria" aria-label="Buscar lançamentos"')}<select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Lar", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todos os responsáveis", owner) + api.data!.members.map((m) => opt(m.user_id, m.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select></div>${entryList(rows)}</section>`;
 }
 function cards() {
   const d = api.data!;
-  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Parcelas previstas e pagamentos informados em um só lugar.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section><div class="card-grid">${
-    d.cards
+  const duplicates = d.cards.filter((card) => !card.archived_at && d.cards.some((other) => other.id !== card.id && !other.archived_at && other.owner_id === card.owner_id && other.name.trim().toLocaleLowerCase() === card.name.trim().toLocaleLowerCase() && other.closing_day === card.closing_day && other.due_day === card.due_day));
+  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Parcelas previstas e pagamentos informados em um só lugar.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section>${duplicates.length ? `<div class="hint-banner">${icon("cards")}<div><strong>Possíveis cartões duplicados</strong><p>${[...new Set(duplicates.map((item) => item.name))].map(esc).join(", ")}. Abra o cartão que será removido e toque em “Unir duplicado”. Compras e anexos serão preservados.</p></div></div>` : ""}<div class="card-grid">${
+    d.cards.filter((c) => !c.archived_at)
       .map((c, i) => {
         const f = invoice(d, c, month),
           openMonth = invoiceMonth(today(), c.closing_day),
@@ -325,7 +326,7 @@ function cards() {
           categoryTotals = Array.from(lines.reduce((totals, line) =>
             totals.set(line.entry.category, (totals.get(line.entry.category) || 0) + line.amount_cents),
           new Map<string, number>()).entries()).sort((a, b) => b[1] - a[1]);
-        return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><p class="invoice-open-hint">Compras feitas agora entram na fatura de <strong>${openMonth.split("-").reverse().join("/")}</strong> ${month !== openMonth ? button("open-invoice", "Abrir fatura em aberto", "text-button", `data-month="${openMonth}"`) : ""}</p><div class="invoice-stats"><div><span>Fatura prevista · ${month.split("-").reverse().join("/")}</span><strong>${brl(f.total)}</strong></div><div><span>A pagar</span><strong>${brl(f.remaining)}</strong></div></div><p class="fine">Fecha dia ${c.closing_day} · vence ${dueDate(
+        return `<section class="panel card-panel"><div class="credit-card cc-${i % 3}"><span>${esc(c.name)}</span>${icon("cards")}<strong>•••• &nbsp; •••• &nbsp; ••••</strong><small>${esc(names(c.owner_id))}</small></div><p class="invoice-open-hint">Compras feitas agora entram na fatura de <strong>${openMonth.split("-").reverse().join("/")}</strong> ${month !== openMonth ? button("open-invoice", "Abrir fatura em aberto", "text-button", `data-month="${openMonth}"`) : ""}</p><div class="invoice-stats"><div><span>Fatura prevista · ${month.split("-").reverse().join("/")}</span><strong>${brl(f.total)}</strong></div><div><span>A pagar</span><strong>${brl(f.remaining)}</strong></div></div>${f.alignment ? `<p class="fine">Alinhada em ${f.alignment.cutoff_on.split("-").reverse().join("/")}: ${brl(f.alignment.total_cents)} + ${brl(f.added)} em compras posteriores. ${f.untracked > 0 ? `${brl(f.untracked)} sem compra detalhada.` : f.untracked < 0 ? `Confira ${brl(-f.untracked)} em compras anteriores acima do valor informado.` : "Compras anteriores conferidas."}${f.overpaid ? ` Crédito: ${brl(f.overpaid)}.` : ""}</p>` : ""}<p class="fine">Fecha dia ${c.closing_day} · vence ${dueDate(
           month,
           {
             id: c.id,
@@ -340,18 +341,19 @@ function cards() {
           .reverse()
           .join(
             "/",
-        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + deleteButton("cards", c.id) : ""}</div><details><summary>Ver ${lines.length} compra(s) e categorias</summary>${categoryTotals.length ? `<div class="card-category-breakdown"><h4>Gastos por categoria</h4><div class="category-chart">${categoryTotals.map(([category, amount], index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(category)}</span><strong>${brl(amount)}</strong><div class="bar"><b style="width:${f.total ? Math.round((amount / f.total) * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div></div>` : '<p class="fine">Ainda não há compras nesta fatura.</p>'}${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>${esc(line.entry.category)} · compra em ${line.entry.date.split("-").reverse().join("/")}</small></p>`).join("") : ""}</details></section>`;
+        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}${c.created_at ? ` · cadastrado em ${c.created_at.slice(0, 10).split("-").reverse().join("/")}` : ""}</p><p class="fine">Fatura selecionada: ${month.split("-").reverse().join("/")} · compras até o fechamento entram nela; depois do fechamento, passam para a próxima competência.</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("cards") ? button("align-invoice", "Alinhar fatura", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? button("edit-card", "Editar cartão", "text-button", `data-id="${c.id}"`) + button("merge-card", "Unir duplicado", "text-button", `data-id="${c.id}"`) + button("archive-card", "Arquivar", "text-button", `data-id="${c.id}"`) + (!d.entries.some((item) => item.card_id === c.id) && !d.documents.some((item) => item.card_id === c.id) && !d.invoice_alignments.some((item) => item.card_id === c.id) ? deleteButton("cards", c.id) : "") : ""}</div><details><summary>Ver ${lines.length} compra(s) e categorias</summary>${categoryTotals.length ? `<div class="card-category-breakdown"><h4>Gastos por categoria</h4><div class="category-chart">${categoryTotals.map(([category, amount], index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(category)}</span><strong>${brl(amount)}</strong><div class="bar"><b style="width:${f.total ? Math.round((amount / f.total) * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div></div>` : '<p class="fine">Ainda não há compras nesta fatura.</p>'}${lines.length ? lines.map((line) => { const ex = f.alignment && d.invoice_alignment_exceptions.find((item) => item.alignment_id === f.alignment!.id && item.entry_id === line.entry.id); const after = ex?.count_after ?? (f.alignment ? line.entry.date > f.alignment.cutoff_on : false); return `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>${esc(line.entry.category)} · compra em ${line.entry.date.split("-").reverse().join("/")}</small>${f.alignment && own(c) ? button("toggle-alignment-entry", after ? "Já estava no valor alinhado" : "Somar ao valor alinhado", "text-button", `data-id="${line.entry.id}" data-alignment="${f.alignment.id}" data-after="${after}"`) : ""}</p>`; }).join("") : ""}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
-  }</div>`;
+  }</div>${d.cards.some((c) => c.archived_at) ? `<details class="panel section-gap"><summary>Cartões arquivados (${d.cards.filter((c) => c.archived_at).length})</summary>${d.cards.filter((c) => c.archived_at).map((c) => `<p class="detail-line">${esc(c.name)} · ${esc(names(c.owner_id))}${c.merged_into_id ? ` · unido a ${esc(d.cards.find((item) => item.id === c.merged_into_id)?.name || "outro cartão")}` : ""}${!c.merged_into_id && own(c) && api.allowed("cards") ? button("restore-card", "Restaurar", "text-button", `data-id="${c.id}"`) : ""}</p>`).join("")}</details>` : ""}`;
 }
 function accounts() {
   const d = api.data!;
-  return `<section class="page-intro"><div><h2>Cada conta, cada compromisso.</h2><p>Saldos conhecidos, transferências e pagamentos de principal.</p></div><div class="button-row">${api.allowed("cards") ? button("add-account", "Nova conta") : ""}${api.allowed("entries") ? button("add-debt", "Nova dívida", "secondary") : ""}</div></section><div class="card-grid">${d.accounts
+  return `<section class="page-intro"><div><h2>Cada conta, cada compromisso.</h2><p>Saldos conhecidos, transferências e pagamentos de principal.</p></div><div class="button-row">${api.allowed("cards") ? button("add-account", "Nova conta") : ""}${api.allowed("entries") ? button("transfer", "Transferir entre contas", "secondary") + button("add-debt", "Novo empréstimo ou dívida", "secondary") : ""}</div></section><div class="card-grid">${d.accounts
     .map((a) => {
       const canSeeBalance = own(a) || admin() || (a.shared && a.share_balance);
       const b = canSeeBalance ? balance(d, a) : null;
-      return `<section class="panel"><span class="eyebrow">${esc(a.area === "business" ? "EMPRESA" : a.area === "household" ? "LAR" : "PESSOAL")}</span><h3>${esc(a.name)}</h3><strong class="large-number">${!canSeeBalance ? "Saldo privado" : b === null ? "Saldo desconhecido" : brl(b)}</strong><p class="fine">${!canSeeBalance ? "O titular não compartilhou o saldo desta conta." : a.balance_date ? `Base em ${a.balance_date}. Pagamentos, receitas e transferências posteriores já entram no saldo.` : "Informe saldo e data-base para calcular movimentos."}</p><div class="button-row">${share("accounts", a)}${admin() && a.shared ? button("share-balance", a.share_balance ? "Ocultar saldo da família" : "Compartilhar saldo com a família", "text-button", `data-id="${a.id}"`) : ""}${own(a) && api.allowed("cards") ? button("edit-account", "Editar conta ou saldo-base", "text-button", `data-id="${a.id}"`) + deleteButton("accounts", a.id) : ""}</div></section>`;
+      const checks = d.account_balance_checks.filter((item) => item.account_id === a.id).sort((x, y) => y.created_at.localeCompare(x.created_at));
+      return `<section class="panel"><span class="eyebrow">${esc(a.area === "business" ? "EMPRESA" : a.area === "household" ? "LAR" : "PESSOAL")}</span><h3>${esc(a.name)}</h3><strong class="large-number">${!canSeeBalance ? "Saldo privado" : b === null ? "Saldo desconhecido" : brl(b)}</strong><p class="fine">${!canSeeBalance ? "O titular não compartilhou o saldo desta conta." : a.balance_date ? `Base em ${a.balance_date}. Pagamentos, receitas e transferências posteriores já entram no saldo.` : "Informe saldo e data-base para calcular movimentos."}</p><div class="button-row">${share("accounts", a)}${admin() && a.shared ? button("share-balance", a.share_balance ? "Ocultar saldo da família" : "Compartilhar saldo com a família", "text-button", `data-id="${a.id}"`) : ""}${own(a) && api.allowed("entries") ? button("transfer", "Transferir", "secondary", `data-id="${a.id}"`) : ""}${own(a) && api.allowed("cards") ? button("edit-account", "Conferir saldo / editar", "text-button", `data-id="${a.id}"`) + deleteButton("accounts", a.id) : ""}</div>${checks.length && own(a) ? `<details><summary>Histórico de saldos conferidos</summary>${checks.map((item) => `<p class="detail-line">${item.balance_date || "Sem data"} · ${item.balance_cents === null ? "Saldo removido" : brl(item.balance_cents)} <small>registrado em ${item.created_at.slice(0, 10).split("-").reverse().join("/")}</small></p>`).join("")}</details>` : ""}</section>`;
     })
     .join(
       "",
@@ -366,7 +368,7 @@ function accounts() {
               e.status === "paid",
           )
           .reduce((s, e) => s + e.amount_cents, 0);
-        return `<article class="record"><span class="record-icon">${icon("debt")}</span><div class="record-info"><strong>${esc(debt.name)}</strong><small>${esc(debt.creditor)} · ${esc(names(debt.owner_id))}${debt.due_date ? " · vence " + debt.due_date : ""}</small></div><strong>${debt.balance_cents === null ? "Saldo desconhecido" : brl(debt.balance_cents - paid)}</strong><div class="record-actions">${share("debts", debt)}${own(debt) && api.allowed("payments") ? button("debt-payment", "Pagar principal", "secondary", `data-id="${debt.id}"`) : ""}${own(debt) && api.allowed("entries") ? deleteButton("debts", debt.id) : ""}</div></article>`;
+        return `<article class="record"><span class="record-icon">${icon("debt")}</span><div class="record-info"><strong>${esc(debt.name)}</strong><small>${esc(debt.creditor)} · ${esc(names(debt.owner_id))}${debt.due_date ? " · vence " + debt.due_date : ""}${debt.installment_count ? ` · ${debt.installment_count} parcelas de ${brl(debt.installment_cents || 0)}` : ""}</small>${debt.installment_count && debt.first_due_date ? `<details><summary>Ver calendário de parcelas</summary>${Array.from({ length: Math.min(debt.installment_count, 360) }, (_, index) => { const start = new Date(`${debt.first_due_date}T12:00:00Z`); const day = start.getUTCDate(); start.setUTCDate(1); start.setUTCMonth(start.getUTCMonth() + index); const last = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate(); start.setUTCDate(Math.min(day, last)); return `<p class="detail-line">${index + 1}/${debt.installment_count} · ${start.toISOString().slice(0, 10).split("-").reverse().join("/")} · ${brl(debt.installment_cents || 0)}</p>`; }).join("")}</details>` : ""}</div><strong>${debt.balance_cents === null ? "Saldo desconhecido" : brl(Math.max(0, debt.balance_cents - paid))}</strong><div class="record-actions">${share("debts", debt)}${own(debt) && api.allowed("payments") ? button("debt-payment", "Pagar principal", "secondary", `data-id="${debt.id}"`) : ""}${own(debt) && api.allowed("entries") ? button("edit-debt", "Editar plano", "text-button", `data-id="${debt.id}"`) + deleteButton("debts", debt.id) : ""}</div></article>`;
       })
       .join("") || empty("Nenhuma dívida cadastrada", "add-debt")
   }<p class="fine">Juros e taxas devem ser registrados como despesa. Pagamentos de principal não são contados novamente nos gastos.</p></section>`;
@@ -566,6 +568,18 @@ function modalContent() {
         description: "Pagamento de principal",
         category: "Dívidas",
       });
+    case "transfer":
+      return entryForm({ kind: "transfer", account_id: editId || null, description: "Transferência entre contas", category: "Transferência" });
+    case "alignment": {
+      const card = d.cards.find((item) => item.id === editId)!;
+      const current = invoice(d, card, month);
+      return `<form id="alignment-form" class="form-grid">${field("invoice_month", "Fatura", input("invoice_month", "month", month, "required"))}${field("cutoff_on", "Data da conferência", input("cutoff_on", "date", today(), "required"))}${field("total", "Total informado na fatura, antes de pagamentos (R$)", moneyInput("total", current.alignment ? (current.total / 100).toFixed(2).replace(".", ",") : ""), true)}${field("note", "Observação (opcional)", input("note", "text", "", 'maxlength="500" placeholder="Ex.: valor visto no app do banco"'), true)}<p class="fine wide">Este total substitui a soma das compras anteriores à data de conferência. Compras posteriores desta fatura serão somadas. Pagamentos serão abatidos à parte. O alinhamento anterior continua no histórico.</p>${formEnd("Alinhar fatura")}</form>`;
+    }
+    case "merge-card": {
+      const source = d.cards.find((item) => item.id === editId)!;
+      const targets = d.cards.filter((item) => item.id !== source.id && !item.archived_at && item.owner_id === source.owner_id && item.closing_day === source.closing_day && item.due_day === source.due_day);
+      return `<form id="merge-card-form" class="form-grid"><p class="fine wide">As compras, pagamentos e anexos de ${esc(source.name)} passarão para o cartão escolhido. O cartão duplicado ficará arquivado com histórico.</p>${field("target", "Cartão que vai permanecer", `<select name="target" required>${opt("", "Escolha o cartão")}${targets.map((item) => opt(item.id, `${item.name} · ${item.created_at?.slice(0, 10) || "sem data"} · ${d.entries.filter((entry) => entry.card_id === item.id).length} lançamento(s)`)).join("")}</select>`, true)}${targets.length ? formEnd("Consolidar cartões") : '<p class="fine wide">Não há outro cartão do mesmo titular com datas iguais. Confira o cadastro primeiro.</p>'}</form>`;
+    }
     case "card": {
       const card = d.cards.find((item) => item.id === editId);
       return `<form id="card-form" class="form-grid">${input("id", "hidden", card?.id || "")}${field("name", "Nome do cartão", input("name", "text", card?.name || "", 'maxlength="160" required'), true)}${field("limit", "Limite (R$, opcional)", moneyInput("limit", card?.limit_cents == null ? "" : (card.limit_cents / 100).toFixed(2).replace(".", ",")))}${field("closing_day", "Dia de fechamento", input("closing_day", "number", card?.closing_day ?? 10, 'min="1" max="31" required'))}${field("due_day", "Dia de vencimento", input("due_day", "number", card?.due_day ?? 17, 'min="1" max="31" required'))}${card ? '<p class="fine wide">Ao mudar o fechamento, as compras antigas mantêm a primeira fatura que já era exibida.</p>' : '<p class="fine wide">Sugestão padrão: fechamento dia 10 e vencimento dia 17. Ajuste conforme a fatura do cartão. Não informe número completo nem código de segurança.</p>'}${formEnd()}</form>`;
@@ -574,8 +588,10 @@ function modalContent() {
       const a = d.accounts.find((item) => item.id === editId);
       return `<form id="account-form" class="form-grid">${input("id", "hidden", a?.id || "")}${field("name", "Nome", input("name", "text", a?.name || "", 'maxlength="160" required'), true)}${field("area", "Área", `<select name="area">${opt("personal", "Pessoal", a?.area) + opt("household", "Lar", a?.area) + opt("business", "Empresa", a?.area)}</select>`)}${field("opening", "Saldo ao fim da data-base (R$, opcional)", moneyInput("opening", a?.opening_cents == null ? "" : (a.opening_cents / 100).toFixed(2).replace(".", ",")))}${field("date", "Data-base do saldo", input("date", "date", a?.balance_date || today()))}<p class="fine wide">Pagamentos, receitas e transferências após essa data atualizam o saldo. Ao alterar a data-base, informe o saldo que havia no fim daquele dia.</p>${formEnd()}</form>`;
     }
-    case "debt":
-      return `<form id="debt-form" class="form-grid">${field("name", "Descrição", input("name", "text", "", 'maxlength="160" required'), true)}${field("creditor", "Credor", input("creditor", "text", "", 'maxlength="160" required'))}${field("balance", "Principal devido (R$, opcional)", moneyInput("balance"))}${field("due_date", "Vencimento", input("due_date", "date"))}${field("area", "Área", `<select name="area">${opt("household", "Lar") + opt("personal", "Pessoal") + opt("business", "Empresa")}</select>`)}${formEnd()}</form>`;
+    case "debt": {
+      const debt = d.debts.find((item) => item.id === editId);
+      return `<form id="debt-form" class="form-grid">${input("id", "hidden", debt?.id || "")}${field("name", "Descrição", input("name", "text", debt?.name || "", 'maxlength="160" required'), true)}${field("creditor", "Credor", input("creditor", "text", debt?.creditor || "", 'maxlength="160" required'))}${field("balance", "Principal devido (R$, opcional)", moneyInput("balance", debt?.balance_cents == null ? "" : (debt.balance_cents / 100).toFixed(2).replace(".", ",")))}${field("due_date", "Vencimento geral", input("due_date", "date", debt?.due_date || ""))}${field("area", "Área", `<select name="area">${opt("household", "Lar", debt?.area) + opt("personal", "Pessoal", debt?.area) + opt("business", "Empresa", debt?.area)}</select>`)}${field("installment_count", "Número de parcelas (opcional)", input("installment_count", "number", debt?.installment_count || "", 'min="1" max="360"'))}${field("installment", "Valor de cada parcela (R$)", moneyInput("installment", debt?.installment_cents ? (debt.installment_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("first_due_date", "Vencimento da primeira parcela", input("first_due_date", "date", debt?.first_due_date || ""))}<p class="fine wide">A agenda de parcelas é uma previsão. Pagamentos de principal abatem o saldo da dívida; juros e taxas são despesas separadas.</p>${formEnd()}</form>`;
+    }
     case "pantry":
       return `<form id="pantry-form" class="form-grid">${input("id", "hidden", p?.id || "")}${field("name", "Produto", input("name", "text", p?.name || "", 'maxlength="151" required'), true)}${field("quantity", "Estoque contado hoje", input("quantity", "number", p ? forecast(p).stock : 0, 'min="0" step="0.01" required'))}${field("unit", "Unidade", `<select name="unit">${["unidade", "kg", "litro", "pacote", "caixa"].map((u) => opt(u, u, p?.unit)).join("")}</select>`)}${field("minimum", "Estoque mínimo", input("minimum", "number", p?.minimum || 1, 'min="0" step="0.01" required'))}${field("daily_use", "Consumo por dia", input("daily_use", "number", p?.daily_use || 0, 'min="0" step="0.01" required'))}${field("price", "Preço por unidade (R$)", moneyInput("price", p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : ""))}${field("expires_on", "Validade (opcional)", input("expires_on", "date", p?.expires_on || ""))}<p class="fine wide">O consumo diário gera uma estimativa. Zero mantém o estoque fixo até a próxima contagem.</p>${formEnd()}</form>`;
     case "reminder": {
@@ -637,11 +653,14 @@ function render() {
   }
   const titles: Record<string, string> = {
     entry: "Novo lançamento",
+    transfer: "Transferir entre contas",
+    alignment: "Alinhar fatura",
+    "merge-card": "Unir cartões duplicados",
     "card-payment": "Pagamento de fatura",
     "debt-payment": "Pagamento de principal",
     card: editId ? "Editar cartão" : "Novo cartão",
-    account: "Nova conta",
-    debt: "Nova dívida",
+    account: editId ? "Conferir saldo ou editar conta" : "Nova conta",
+    debt: editId ? "Editar empréstimo ou dívida" : "Novo empréstimo ou dívida",
     pantry: editId ? "Contagem da despensa" : "Novo produto",
     shopping: "Adicionar à lista",
     reminder: editId ? "Editar lembrete" : "Novo lembrete",
@@ -870,9 +889,13 @@ root.addEventListener("click", (event) => {
     "add-card": "card",
     "edit-card": "card",
     "card-payment": "card-payment",
+    "align-invoice": "alignment",
+    "merge-card": "merge-card",
+    "transfer": "transfer",
     "add-account": "account",
     "edit-account": "account",
     "add-debt": "debt",
+    "edit-debt": "debt",
     "debt-payment": "debt-payment",
     "add-pantry": "pantry",
     "edit-pantry": "pantry",
@@ -923,6 +946,27 @@ root.addEventListener("click", (event) => {
   if (a === "share-balance") {
     const account = api.data!.accounts.find((item) => item.id === id)!;
     void run(() => api.save("accounts", { id, share_balance: !account.share_balance }), "Compartilhamento do saldo atualizado.");
+    return;
+  }
+  if (a === "toggle-alignment-entry") {
+    void run(() => api.setAlignmentException(b.dataset.alignment!, id, b.dataset.after !== "true"), "Compra conferida na fatura.");
+    return;
+  }
+  if (a === "archive-card") {
+    const linked = api.data!.entries.some((item) => item.card_id === id) ||
+      api.data!.documents.some((item) => item.card_id === id) ||
+      api.data!.invoice_alignments.some((item) => item.card_id === id);
+    if (linked) {
+      notice = "Este cartão tem lançamentos ou documentos. Use ‘Unir duplicado’ para preservar e mover os vínculos.";
+      render();
+      return;
+    }
+    if (!confirm("Arquivar este cartão vazio? Ele poderá ser restaurado depois.")) return;
+    void run(() => api.save("cards", { id, archived_at: new Date().toISOString() }), "Cartão arquivado.");
+    return;
+  }
+  if (a === "restore-card") {
+    void run(() => api.save("cards", { id, archived_at: null, merged_into_id: null }), "Cartão restaurado.");
     return;
   }
   if (a === "delete") {
@@ -1404,7 +1448,13 @@ root.addEventListener("submit", (event) => {
       modal = "import-preview";
       return;
     }
-    if (f.getAttribute("id") === "entry-form") {
+    if (f.getAttribute("id") === "alignment-form") {
+      await api.alignInvoice(editId, val(f, "invoice_month"), val(f, "cutoff_on"), cash(f, "total", true), val(f, "note"));
+      month = val(f, "invoice_month");
+    } else if (f.getAttribute("id") === "merge-card-form") {
+      if (!val(f, "target")) throw Error("Escolha o cartão que permanecerá.");
+      await api.mergeCards(editId, val(f, "target"));
+    } else if (f.getAttribute("id") === "entry-form") {
       const task = val(f, "kind"),
         kind = (task === "payable" ? "expense" : task) as Entry["kind"],
         payment: Entry["payment"] =
@@ -1460,7 +1510,11 @@ root.addEventListener("submit", (event) => {
         category: val(f, "category"),
         area: val(f, "area"),
       });
-    else if (f.getAttribute("id") === "card-form")
+    else if (f.getAttribute("id") === "card-form") {
+      if (!id && api.data!.cards.some((item) => !item.archived_at && item.owner_id === api.userId &&
+        item.name.trim().toLocaleLowerCase() === val(f, "name").trim().toLocaleLowerCase() &&
+        item.closing_day === Number(val(f, "closing_day")) && item.due_day === Number(val(f, "due_day"))))
+        throw Error("Este cartão já parece cadastrado. Abra o cartão existente antes de criar outro.");
       await api.save("cards", {
         ...(id ? { id } : {}),
         name: val(f, "name"),
@@ -1468,6 +1522,7 @@ root.addEventListener("submit", (event) => {
         closing_day: Number(val(f, "closing_day")),
         due_day: Number(val(f, "due_day")),
       });
+    }
     else if (f.getAttribute("id") === "account-form") {
       const raw = val(f, "opening");
       const negative = raw.startsWith("-");
@@ -1480,14 +1535,25 @@ root.addEventListener("submit", (event) => {
         opening_cents: cents === null ? null : negative ? -cents : cents,
         balance_date: raw ? val(f, "date") : null,
       });
-    } else if (f.getAttribute("id") === "debt-form")
+    } else if (f.getAttribute("id") === "debt-form") {
+      const count = val(f, "installment_count") ? Number(val(f, "installment_count")) : null;
+      const installment = val(f, "installment") ? cash(f, "installment", true) : null;
+      const firstDue = val(f, "first_due_date") || null;
+      if ([count, installment, firstDue].filter((item) => item !== null).length !== 0 &&
+        [count, installment, firstDue].filter((item) => item !== null).length !== 3)
+        throw Error("Para planejar parcelas, informe quantidade, valor e primeiro vencimento.");
       await api.save("debts", {
+        ...(id ? { id } : {}),
         name: val(f, "name"),
         creditor: val(f, "creditor"),
         balance_cents: val(f, "balance") ? cash(f, "balance", true) : null,
         due_date: val(f, "due_date") || null,
         area: val(f, "area"),
+        installment_count: count,
+        installment_cents: installment,
+        first_due_date: firstDue,
       });
+    }
     else if (f.getAttribute("id") === "pantry-form")
       await api.save("pantry", {
         ...(id ? { id } : {}),
