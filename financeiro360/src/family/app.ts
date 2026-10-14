@@ -20,6 +20,7 @@ import {
   type Member,
   type Reminder,
 } from "./model.ts";
+import { financialCalendarEvents, upcomingFinanceAlerts, financialCashCoverage, type FinanceCalendarEvent } from "./financial-calendar.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import { financialSeries, financialTotals, spendingGroups, type FlowPoint } from "./insights.ts";
 import {
@@ -213,6 +214,15 @@ const quickGroceries = [
   ["Banana", "kg"], ["Frango", "kg"], ["Óleo", "garrafa"],
   ["Papel higiênico", "pacote"], ["Detergente", "unidade"], ["Sabão em pó", "pacote"],
 ] as const;
+const financeAlertDays = () => {
+  try {
+    const value = localStorage.getItem("financeiro360-alert-days:" + api.userId);
+    const days = value === null ? 5 : Number(value);
+    return [0, 1, 3, 5, 7, 14, 30].includes(days) ? days : 5;
+  } catch { return 5; }
+};
+const financeStatus = (event: FinanceCalendarEvent) => event.status === "paid" ? "Paga" :
+  event.status === "pending" ? "A pagar" : "Não conferida";
 const daysFromToday = (date: string) => Math.floor(
   (Date.parse(`${date}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 86400000,
 );
@@ -313,6 +323,16 @@ function summary() {
   const accountBalances = data.accounts.map((account) => balance(data, account)).filter((value): value is number => value !== null);
   const knownBalance = accountBalances.reduce((sum, value) => sum + value, 0);
   const pendingReviews = data.entries.filter((entry) => entry.status === "pending_review").length;
+  const financialUpcoming = upcomingFinanceAlerts(data, today(), financeAlertDays());
+  const financialCoverage = financialCashCoverage(data, financialUpcoming);
+  const financeBanner = '<section class="overview-alert finance-warning"><span>' + icon("calendar") +
+    '</span><div><strong>' + financialUpcoming.length + ' pagamento(s) próximos ou vencidos · ' +
+    brl(financialCoverage.dueCents) + '</strong><p>' +
+    (financialCoverage.status === "unconfirmed" ? "Saldo bancário incompleto: confira o caixa antes de pagar." :
+      financialCoverage.status === "short" ? "Faltam " + brl(financialCoverage.missingCents) + " no saldo conhecido." :
+      "Saldo conhecido cobre esses vencimentos.") +
+    ' · Aviso com ' + financeAlertDays() + ' dia(s) de antecedência.</p></div>' +
+    button("nav", "Ver calendário", "text-button", 'data-page="calendar"') + '</section>';
   const urgentReminders = data.reminders.filter((item) => item.kind !== "post_it" && item.due_on && !item.completed && daysFromToday(item.due_on) <= 7)
     .sort((x, y) => x.due_on!.localeCompare(y.due_on!));
   const lowPantry = data.pantry.filter((item) => {
@@ -326,7 +346,8 @@ function summary() {
   <section class="quick-create"><div><span class="eyebrow">REGISTRE EM SEGUNDOS</span><h3>O que aconteceu agora?</h3></div><div class="quick-create-actions">${api.allowed("entries") ? (api.preferences.quick_actions.includes("expense") ? button("quick-expense", `${icon("plus")} Gasto rápido`, "primary") : "") + button("add-entry", "Mais detalhes", "secondary") + button("add-income", `${icon("accounts")} Receita`, "secondary") + button("add-payable", `${icon("calendar")} Conta a pagar`, "secondary") + button("transfer", `${icon("arrow")} Transferência`, "secondary") : ""}</div></section>${quickPanel()}
   <div class="overview-status"><article><span>A pagar neste mês</span><strong>${brl(picture.due)}</strong><small>Contas pendentes e faturas por vencimento</small></article><article><span>Saldo conhecido em contas</span><strong>${accountBalances.length ? brl(knownBalance) : "Ainda não informado"}</strong><small>${accountBalances.length} conta(s) com saldo visível</small></article><article><span>Para conferir</span><strong>${pendingReviews}</strong><small>Lançamentos fora dos totais até confirmar</small></article></div>
   ${data.home.budget_cents ? `<section class="budget-strip"><div><span>Orçamento do lar</span><strong>${brl(monthly.home)} de ${brl(data.home.budget_cents)}</strong></div><div class="bar"><b style="width:${householdPercent}%"></b></div><small>${householdPercent}% usado pelos gastos visíveis da casa</small></section>` : ""}
-  ${urgentReminders.length ? `<section class="overview-alert"><span>${icon("reminders")}</span><div><strong>${urgentReminders.length} aviso(s) próximos</strong><p>${urgentReminders.slice(0, 2).map((item) => `${esc(item.title)} · ${reminderTiming(item.due_on!)}`).join("<br>")}</p></div>${button("nav", "Abrir calendário", "text-button", 'data-page="calendar"')}</section>` : ""}
+  ${financialUpcoming.length ? financeBanner : ""}
+   ${urgentReminders.length ? `<section class="overview-alert"><span>${icon("reminders")}</span><div><strong>${urgentReminders.length} aviso(s) próximos</strong><p>${urgentReminders.slice(0, 2).map((item) => `${esc(item.title)} · ${reminderTiming(item.due_on!)}`).join("<br>")}</p></div>${button("nav", "Abrir calendário", "text-button", 'data-page="calendar"')}</section>` : ""}
   <div class="overview-chart">${flowChart(financialSeries(data, month, "monthly").slice(-6), "Entradas e saídas · 6 meses")}${button("nav", "Explorar meses e anos", "text-button", 'data-page="analysis"')}</div>
   <div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">ONDE FOI GASTO</span><h3>Principais categorias</h3></div>${button("nav", "Ver detalhes", "text-button", 'data-page="analysis"')}</div>${groups.length ? `<div class="category-chart">${groups.slice(0, 5).map((group, index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong><div class="bar"><b style="width:${monthly.spend ? Math.round(group.total / monthly.spend * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div>` : '<p class="fine">Os gastos classificados aparecerão aqui.</p>'}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">PRECISA DE ATENÇÃO</span><h3>Próximos passos</h3></div></div>${monthly.overdue.length ? `<article class="insight warning"><span>${icon("calendar")}</span><div><strong>${monthly.overdue.length} conta(s) vencida(s)</strong><p>Confira ${brl(monthly.overdue.reduce((sum, item) => sum + item.amount_cents, 0))} em pendências.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem vencimentos atrasados</strong><p>Os registros visíveis estão em dia.</p></div></article>`}<article class="insight"><span>${icon("pantry")}</span><div><strong>${lowPantry.length ? `${lowPantry.length} produto(s) para repor` : "Despensa em ordem"}</strong><p>${lowPantry.length ? lowPantry.slice(0, 3).map((item) => esc(item.name)).join(", ") : "O estoque cadastrado não pede reposição agora."}</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">ÚLTIMOS REGISTROS</span><h3>Movimentações recentes</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...data.entries].sort((x, y) => y.date.localeCompare(x.date)).slice(0, 5))}</section></div><p class="fine overview-footnote">Recebido e pago consideram apenas operações confirmadas. Transferências entre contas não entram como receita ou despesa. Gastos incluem o valor integral da compra na data do lançamento.</p>`;
 }
@@ -971,6 +992,7 @@ root.addEventListener("click", (event) => {
   }
   if (a === "open-invoice") {
     const targetMonth = b.dataset.month;
+    if (b.dataset.card) cardIdFilter = b.dataset.card;
     if (targetMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth)) {
       month = targetMonth;
       page = "cards";
@@ -1286,6 +1308,14 @@ root.addEventListener("change", (event) => {
     form.querySelector<HTMLElement>("[data-quick-subcategory-chips]")!.innerHTML = subcategoryChips(changed.value);
   }
   if ((event.target as HTMLInputElement).name === "kind" && (event.target as HTMLInputElement).closest("#reminder-form")) syncReminderForm();
+  if (changed.name === "finance_alert_days") {
+    const days = Number(changed.value);
+    if ([0, 1, 3, 5, 7, 14, 30].includes(days)) {
+      try { localStorage.setItem("financeiro360-alert-days:" + api.userId, String(days)); } catch { /* storage restricted */ }
+    }
+    render();
+    return;
+  }
   if (modal) return;
   const el = event.target as HTMLInputElement;
   if (el.name === "navigate") {
