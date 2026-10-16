@@ -9,7 +9,7 @@
  */
 "use strict";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 const CATEGORIES = {
   montanha:       { label: "Montanhas-russas", icon: "🎢", color: "#ff4d6d" },
@@ -44,6 +44,7 @@ const STORE = (() => {
     hidden: {},           // categoria -> true (filtro do mapa)
     profile: { name: "", color: "" },
     group: { code: "", memberId: "" },
+    deviceId: "",         // id anônimo do aparelho para a fila compartilhada
     showLabels: true
   });
 
@@ -110,6 +111,11 @@ const STORE = (() => {
     return !!data[field][id];
   }
 
+  function deviceId() {
+    if (!data.deviceId) { data.deviceId = uid("d"); save(); }
+    return data.deviceId;
+  }
+
   function setWait(id, min) {
     if (min == null || isNaN(min)) delete data.waits[id];
     else data.waits[id] = { min: Math.max(0, Math.round(min)), at: Date.now() };
@@ -142,7 +148,7 @@ const STORE = (() => {
 
   return {
     get data() { return data; },
-    save, uid, places, placeById, iconOf, setPin, removePin, toggle, setWait, setNote,
+    save, uid, deviceId, places, placeById, iconOf, setPin, removePin, toggle, setWait, setNote,
     exportJson, importJson, resetDay
   };
 })();

@@ -11,9 +11,10 @@ Endereço publicado: `https://alusionbr.github.io/teste1/parque/`
 3. **Ir até lá**: toque num lugar → *Ir até lá*. A faixa de baixo mostra distância, tempo a pé e uma seta. Quando o mapa conhece o caminho, a rota segue por ele; quando não conhece, é linha reta e a seta funciona como bússola. O celular vibra ao chegar.
 4. **◎** centraliza em você. Tocar de novo faz o mapa **girar junto com você**. O botão **▲ N** volta o norte para cima.
 5. **Segure o dedo no mapa** para: marcar o carro, criar ponto de encontro, marcar um lugar, pedir rota até ali ou **corrigir sua posição** quando o GPS falhar dentro de prédio.
-6. Em cada lugar: ☆ favoritar, ✓ já fui (guarda o horário), ⏱ fila em minutos, 📝 nota.
-7. **Roteiro** (☰ → Roteiro): progresso do dia, próximo favorito mais perto e linha do tempo do que você já foi.
-8. Para instalar: no iPhone, Compartilhar → *Adicionar à Tela de Início*; no Android, menu → *Instalar app*.
+6. Em cada lugar: ☆ favoritar, ✓ já fui (guarda o horário), ⏱ informar fila, 📝 nota.
+7. **Fila ao vivo**: quando alguém informa a fila de uma atração, todo mundo que usa o app vê "~X min" no mapa e no detalhe (mediana da última hora; só vai o número, sem posição nem nome). Quanto mais gente informar, melhor fica.
+8. **Roteiro** (☰ → Roteiro): progresso do dia, próximo favorito mais perto e linha do tempo do que você já foi.
+9. Para instalar: no iPhone, Compartilhar → *Adicionar à Tela de Início*; no Android, menu → *Instalar app*.
 
 ## Grupo (até umas 3–10 pessoas)
 
@@ -45,10 +46,11 @@ parque/
 ├── map.js               desenho SVG, zoom, giro, gestos, rótulos
 ├── gps.js               posição em tempo real e bússola
 ├── group.js             grupo no Supabase (RPC por fetch, sem biblioteca)
+├── filas.js             fila ao vivo compartilhada
 ├── ui.js                telas e eventos
 ├── sw.js                cache offline
 ├── manifest.webmanifest / icon.svg
-└── supabase/001_grupo.sql   tabelas e funções do grupo
+└── supabase/            001_grupo.sql e 002_schema_e_filas.sql (aplicar em ordem)
 ```
 
 ## Para continuar o desenvolvimento (com outra pessoa ou outra IA)
@@ -63,13 +65,12 @@ Leia este README e a seção **Mapa do Parque** do `CLAUDE.md` na raiz. Pontos q
   ```
   Categorias escolhidas pelo nome ficam em `NAME_CATEGORY` dentro de `tools/make-park-data.js`.
 - **Outro parque**: troque `PARK_WAY_ID` (id do contorno do parque no OSM) e o recorte `bbox`. O resto do app não tem nada preso ao Beto Carrero além do texto.
-- **Servidor do grupo**: projeto Supabase `iowuejrpzoibyidiuvpt`, tabelas `parque_membros` e `parque_pinos`. As tabelas ficam trancadas (RLS sem política); o navegador só chama as funções `parque_sync`, `parque_pin_set`, `parque_pin_del` e `parque_sair`, que exigem o código do grupo. Nada é apagado: sair marca `active=false` e remover pino marca `removed=true`.
+- **Servidor**: projeto Supabase `iowuejrpzoibyidiuvpt` (dividido com outros apps). Tudo do parque fica no schema separado `parque` (tabelas `membros`, `pinos`, `filas`), que a API não expõe. O navegador só chama as funções `public.parque_*` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`, `parque_fila_set`, `parque_filas`). Nada é apagado: sair marca `active=false` e remover pino marca `removed=true`.
 - Teste servindo por HTTP (`python3 -m http.server` na raiz e abra `/parque/`); o service worker não roda em `file://`. Use as DevTools → *Sensors* para simular posição.
 
 Ideias para a próxima etapa:
 
 1. Desenhar à mão os caminhos internos que faltam no OSM (ou mandar para o próprio OSM) para a rota seguir as ruas do parque.
-2. Fila compartilhada no grupo (cada um anota, todos veem a média recente).
-3. Horários de shows do dia com lembrete 15 min antes.
-4. Rastro do dia (por onde andou) e passos/quilômetros.
-5. Altura mínima por brinquedo, conferida no site oficial do parque.
+2. Horários de shows do dia com lembrete 15 min antes.
+3. Rastro do dia (por onde andou) e passos/quilômetros.
+4. Altura mínima por brinquedo, conferida no site oficial do parque.

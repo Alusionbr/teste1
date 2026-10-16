@@ -107,10 +107,10 @@ const UI = (() => {
   function placeRow(p) {
     const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
     const d = STORE.data;
-    const wait = d.waits[p.id];
+    const wait = FILAS.info(p.id);
     const flags = (d.done[p.id] ? '<span class="flag ok">✓ fui</span>' : "") +
       (d.favorites[p.id] ? '<span class="flag fav">★</span>' : "") +
-      (wait && Date.now() - wait.at < 3 * 3600e3 ? `<span class="flag wait">⏱ ${wait.min} min</span>` : "");
+      (wait ? `<span class="flag wait">⏱ ${wait.min} min</span>` : "");
     return `<button class="row" data-open="${esc(p.id)}">
       <span class="row-icon" style="background:${cat.color}">${STORE.iconOf(p)}</span>
       <span class="row-main"><strong>${esc(p.name)}</strong><small>${esc(cat.label)}${distTo(p) != null ? " · " + distLabel(p) : ""}</small></span>
@@ -159,7 +159,8 @@ const UI = (() => {
     const d = STORE.data;
     const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
     const me = myPos();
-    const wait = d.waits[p.id];
+    const wait = FILAS.info(p.id);
+    const mine = d.waits[p.id];
     const dist = me ? GEO.dist(me, p) : null;
     const dir = me ? GEO.compassName(GEO.bearing(me, p)) : "";
     const info = (p.info || []).map(i => `<li>${esc(i)}</li>`).join("");
@@ -174,14 +175,14 @@ const UI = (() => {
         </div>
       </div>
       ${info ? `<ul class="info">${info}</ul>` : ""}
-      ${wait ? `<p class="wait-line">⏱ Fila anotada: <b>${wait.min} min</b> <span class="muted">(${ago(wait.at)})</span></p>` : ""}
+      ${waitLine(wait, mine)}
       ${d.done[p.id] ? `<p class="done-line">✓ Você foi às ${clock(d.done[p.id])}</p>` : ""}
       ${note ? `<p class="note-line">📝 ${esc(note)}</p>` : ""}
       <div class="actions">
         <button class="btn btn-primary" data-act="${isRouting ? "stop" : "go"}">${isRouting ? "✕ Parar rota" : "🧭 Ir até lá"}</button>
         <button class="btn ${d.favorites[p.id] ? "on" : ""}" data-act="fav">${d.favorites[p.id] ? "★ Favorito" : "☆ Favoritar"}</button>
         <button class="btn ${d.done[p.id] ? "on" : ""}" data-act="done">${d.done[p.id] ? "✓ Já fui" : "○ Já fui?"}</button>
-        <button class="btn" data-act="wait">⏱ Fila</button>
+        <button class="btn" data-act="wait">⏱ ${FILAS.shareable(p.id) ? "Informar fila" : "Fila"}</button>
         <button class="btn" data-act="note">📝 Nota</button>
         ${GROUP.active && p.cat !== "grupo" ? `<button class="btn" data-act="share">👥 Mandar pro grupo</button>` : ""}
         ${p.pin ? `<button class="btn btn-danger" data-act="remove">🗑 Remover</button>` : ""}
@@ -202,9 +203,16 @@ const UI = (() => {
     }
     if (act === "wait") {
       const prev = STORE.data.waits[p.id];
-      const v = prompt(`Quantos minutos de fila em ${p.name}? (vazio apaga)`, prev ? prev.min : "");
+      const ask = FILAS.shareable(p.id)
+        ? `Quantos minutos de fila você está vendo em ${p.name}?\n(Vai para a fila ao vivo de todo mundo que usa o app.)`
+        : `Quantos minutos de fila em ${p.name}? (vazio apaga)`;
+      const v = prompt(ask, prev ? prev.min : "");
       if (v === null) return;
-      STORE.setWait(p.id, v.trim() === "" ? null : parseInt(v, 10));
+      const min = v.trim() === "" ? null : parseInt(v, 10);
+      if (min != null && (isNaN(min) || min < 0 || min > 300)) { toast("Digite um número de 0 a 300"); return; }
+      const sent = await FILAS.report(p.id, min);
+      if (sent) toast("Obrigado! Fila compartilhada com o parque");
+      else if (min != null && FILAS.shareable(p.id)) toast("Anotado no aparelho (sem internet para compartilhar)");
     }
     if (act === "note") {
       const v = prompt(`Anotação para ${p.name}:`, STORE.data.notes[p.id] || "");
@@ -231,6 +239,17 @@ const UI = (() => {
     }
     MAP.buildMarkers();
     renderPlaceSheet();
+  }
+
+  function waitLine(wait, mine) {
+    if (!wait) return "";
+    const fresh = Date.now() - wait.at < 20 * 60000 ? "" : " ⚠️";
+    if (wait.shared) {
+      const who = wait.reports === 1 ? "1 relato" : `${wait.reports} relatos`;
+      const me = mine && Date.now() - mine.at < 3 * 3600e3 ? ` · você disse ${mine.min} min` : "";
+      return `<p class="wait-line">⏱ Fila agora: <b>~${wait.min} min</b> <span class="muted">(${who}, último ${ago(wait.at)}${me})${fresh}</span></p>`;
+    }
+    return `<p class="wait-line">⏱ Fila anotada: <b>${wait.min} min</b> <span class="muted">(${ago(wait.at)})</span>${fresh}</p>`;
   }
 
   function countDone() {
@@ -768,6 +787,11 @@ const UI = (() => {
 
     GPS.onChange(onGps);
     GROUP.onChange(onGroupChange);
+    FILAS.onChange(() => {
+      MAP.buildMarkers();
+      if (!$("sheet").hidden && state.selected) renderPlaceSheet();
+      if (!$("panel").hidden && document.activeElement?.tagName !== "INPUT") renderPanel();
+    });
 
     $("welcomeGo").addEventListener("click", () => { $("welcome").hidden = true; enableSensors(); });
     $("welcomeSkip").addEventListener("click", () => {
@@ -811,6 +835,7 @@ const UI = (() => {
     } else if (!seen) $("welcome").hidden = false;
 
     if (GROUP.active) GROUP.start();
+    FILAS.start();
     updateGroupPill();
     if (/grupo=/.test(location.hash) && !GROUP.active) openPanel("grupo");
     // Convite aberto com o app já na tela: o navegador só troca o #, não recarrega.

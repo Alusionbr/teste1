@@ -683,10 +683,11 @@ parque/
 ├── route.js       grafo de caminhos do OSM + Dijkstra; cai para linha reta
 ├── map.js         SVG, câmera {cx, cy, s, rot}, gestos, rótulos sem sobreposição
 ├── gps.js         watchPosition suavizado pela precisão + bússola
-├── group.js       grupo no Supabase por RPC (fetch puro)
+├── group.js       grupo no Supabase por RPC (fetch puro); expõe GROUP.rpc
+├── filas.js       fila ao vivo compartilhada (mediana da última hora)
 ├── ui.js          telas e eventos; só liga os módulos
 ├── sw.js          cache do casco (inclui park-data.js)
-└── supabase/001_grupo.sql
+└── supabase/        001_grupo.sql, 002_schema_e_filas.sql (aplicar em ordem)
 ```
 
 Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no `index.html` **e** no `SHELL` do `sw.js`.
@@ -698,7 +699,8 @@ Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no
 3. **Rota honesta**: o OSM tem poucos caminhos dentro do parque. `ROUTE.plan` só usa o grafo quando há caminho a até 35 m da saída e 50 m da chegada e o trajeto fica até 1,8× a linha reta; senão devolve linha reta (`straight:true`) e a faixa diz "siga a seta". Não afrouxar esses limites sem conferir no mapa: o resultado era volta de 1 km por um caminho fora do parque.
 4. **Não inventar dado de segurança**: altura mínima, horário e restrição de brinquedo só entram com fonte conferida.
 5. **Grupo é opcional**: o mapa, o GPS e a rota funcionam sem rede. Exceção registrada à regra "nada de servidor": o grupo usa o Supabase do projeto `iowuejrpzoibyidiuvpt` (o mesmo do Financeiro360), sem biblioteca, por `fetch` em `/rest/v1/rpc/`.
-6. **Tabelas trancadas**: `parque_membros` e `parque_pinos` têm RLS sem política e sem GRANT para `anon`. Acesso só pelas funções `SECURITY DEFINER` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`), que validam o código do grupo (`^[A-Z0-9]{6,16}$`). Não abrir SELECT direto nas tabelas: seria publicar a posição de todo mundo.
+6. **Gaveta própria e tabelas trancadas**: o banco é dividido com o futebol e o Financeiro360, então tudo do parque mora no schema `parque` (`parque.membros`, `parque.pinos`, `parque.filas`), que a API não expõe. RLS ligado, sem política, sem GRANT para `anon`. A única porta são as funções `SECURITY DEFINER` em `public`, todas com prefixo `parque_` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`, `parque_fila_set`, `parque_filas`). As do grupo validam o código (`^[A-Z0-9]{6,16}$`). Não criar tabela do parque em `public` nem abrir SELECT direto: seria publicar a posição de todo mundo.
+6b. **Fila ao vivo**: só lugares `osm-…` (iguais em todo aparelho) vão para `parque.filas`, um relato por aparelho (`STORE.deviceId()`, anônimo) por atração; a leitura é a mediana da última hora. Não enviar posição, nome nem grupo junto com a fila.
 7. **Nada é apagado no servidor**: sair marca `active=false`, remover pino marca `removed=true`; a leitura filtra membros parados há mais de 3 h e pinos com mais de 24 h.
 8. **Gravar posição é barato, redesenhar lista não**: listas e folha redesenham no máximo a cada 2,5 s (`throttledUiRefresh`), e nunca com um campo de texto em foco.
 

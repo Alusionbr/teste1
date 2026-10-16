@@ -1,3 +1,6 @@
+-- ATENÇÃO: versão inicial. As tabelas foram movidas para o schema "parque" em
+-- 002_schema_e_filas.sql (parque.membros e parque.pinos).
+--
 -- Mapa do Parque — sincronização do grupo (posição de cada pessoa e pinos compartilhados).
 --
 -- As tabelas ficam trancadas (RLS ligado, nenhuma política, sem GRANT para anon):

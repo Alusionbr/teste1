@@ -204,7 +204,7 @@ const GROUP = (() => {
   }
 
   return {
-    create, join, leave, start, sync, onMove, sharePin, removePin, setStatus, placeList, shareLink,
+    rpc, create, join, leave, start, sync, onMove, sharePin, removePin, setStatus, placeList, shareLink,
     onChange(fn) { listeners.push(fn); },
     get members() { return members; },
     get active() { return active(); },

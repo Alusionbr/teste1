@@ -102,9 +102,9 @@ const MAP = (() => {
         const s = el("text", { class: "m-badge-star", y: 0.5 }, c);
         s.textContent = "★";
       }
-      const wait = d.waits[p.id];
+      const wait = FILAS.info(p.id);
       const label = el("text", { class: "m-label", y: 29 }, g);
-      label.textContent = p.name + (wait && Date.now() - wait.at < 3 * 3600e3 ? ` · ${wait.min} min` : "");
+      label.textContent = p.name + (wait ? ` · ⏱${wait.min} min` : "");
       const sel = p.id === selectedId;
       const prio = (sel ? 100 : 0) + (d.favorites[p.id] ? 10 : 0) + (LABEL_PRIORITY[p.cat] || 0);
       markerEls.push({ g, label, x: p.x, y: p.y, fav: !!d.favorites[p.id], cat: p.cat, sel, prio });
