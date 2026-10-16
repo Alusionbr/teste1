@@ -19,7 +19,7 @@
 
 const OFICIAL_FONTE = "Lista oficial do parque (betocarrero.com.br), conferida em 16/10/2026";
 
-// Shows: horário oficial de cada sessão. DURACAO_SHOW_MIN é estimativa.
+// Shows: horários salvos na data indicada em OFICIAL_FONTE; confirme a programação do dia. DURACAO_SHOW_MIN é estimativa.
 const DURACAO_SHOW_MIN = 40;
 
 const OFICIAL = [

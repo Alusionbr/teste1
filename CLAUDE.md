@@ -689,7 +689,7 @@ parque/
 ├── lugares.js     catálogo único: oficial + OSM + marcações da comunidade (bebedouro, lixeira…)
 ├── show.js        "Hora do Show": sessões do dia e plano dos disputados por caminhada
 ├── dia.js         almoço (fase, restaurantes mais perto, aviso) e plano do dia simulado
-├── trilhas.js     caminhos aprendidos: grava trajeto anônimo e alimenta route.js
+├── trilhas.js     contribuição opcional de trajetos, desligada por padrão, alimenta route.js
 ├── ui.js          telas e eventos; só liga os módulos
 ├── sw.js          cache do casco (inclui park-data.js)
 └── supabase/        001, 002, 003 (aplicar em ordem)
@@ -708,7 +708,7 @@ Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no
 5. **Grupo é opcional**: o mapa, o GPS e a rota funcionam sem rede. Exceção registrada à regra "nada de servidor": o grupo usa o Supabase do projeto `iowuejrpzoibyidiuvpt` (o mesmo do Financeiro360), sem biblioteca, por `fetch` em `/rest/v1/rpc/`.
 6. **Gaveta própria e tabelas trancadas**: o banco é dividido com o futebol e o Financeiro360, então tudo do parque mora no schema `parque` (`parque.membros`, `parque.pinos`, `parque.filas`), que a API não expõe. RLS ligado, sem política, sem GRANT para `anon`. A única porta são as funções `SECURITY DEFINER` em `public`, todas com prefixo `parque_` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`, `parque_fila_set`, `parque_filas`). As do grupo validam o código (`^[A-Z0-9]{6,16}$`). Não criar tabela do parque em `public` nem abrir SELECT direto: seria publicar a posição de todo mundo.
 6d. **Almoço e plano do dia** (`dia.js`): o pico de almoço 12:00–13:30 é heurística de visitantes, não dado do parque — a tela diz isso; a fila ao vivo manda. O plano é simulação: disputados antes do almoço e na janela do Hot Wheels Epic Show (13:30), outros à tarde, shows de fim de tarde fecham o dia, e um brinquedo que faria perder o show é trocado pelo show. Lugares `ver: true` (castelo, memorial, estação, ponte) não entram em plano nem em progresso; pagos à parte não são escolhidos sozinhos.
-6c. **Comunidade e trilhas**: `parque.lugares` (marcações; a leitura nunca devolve `device_id`, e só o aparelho autor tira a sua com `parque_lugar_del`) e `parque.trilhas` (trechos `[[lat, lon], …]`, validados dentro do retângulo do parque). Limites diários por aparelho nas funções. Mapear caminhos pode ser desligado em Ajustes.
+6c. **Comunidade e trilhas**: `parque.lugares` (marcações; a leitura nunca devolve `device_id`, e só o aparelho autor tira a sua com `parque_lugar_del`) e `parque.trilhas` (trechos `[[lat, lon], …]`, validados dentro do retângulo do parque). Limites diários por aparelho nas funções. A contribuição de caminhos começa desligada, usa identificador estável do aparelho e precisa de escolha explícita em Ajustes.
 6b. **Fila ao vivo**: só lugares `osm-…` (iguais em todo aparelho) vão para `parque.filas`, um relato por aparelho (`STORE.deviceId()`, anônimo) por atração; a leitura é a mediana da última hora. Não enviar posição, nome nem grupo junto com a fila.
 7. **Nada é apagado no servidor**: sair marca `active=false`, remover pino marca `removed=true`; a leitura filtra membros parados há mais de 3 h e pinos com mais de 24 h.
 8. **Gravar posição é barato, redesenhar lista não**: listas e folha redesenham no máximo a cada 2,5 s (`throttledUiRefresh`), e nunca com um campo de texto em foco.
