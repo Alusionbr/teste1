@@ -9,7 +9,7 @@
  * APP_VERSION em store.js e o ?v= do index.html.
  */
 "use strict";
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const CACHE = `parque-${VERSION}`;
 const SHELL = [
   "./",
@@ -26,6 +26,7 @@ const SHELL = [
   `./oficial.js?v=${VERSION}`,
   `./lugares.js?v=${VERSION}`,
   `./show.js?v=${VERSION}`,
+  `./dia.js?v=${VERSION}`,
   `./trilhas.js?v=${VERSION}`,
   `./ui.js?v=${VERSION}`,
   "./manifest.webmanifest",

@@ -59,10 +59,11 @@ const MAP = (() => {
     layer(L.green, "m-green", true);
     layer(L.wood, "m-wood", true);
     layer(L.water, "m-water", true);
-    layer(L.roads, "m-road", false);
-    layer(L.paths, "m-path-case", false);
-    layer(L.paths, "m-path", false);
-    layerTrilhas = el("g", {}, world);
+    const camada = (nome, fn) => { const g = el("g", { class: "cam-" + nome }, world); const prev = world; world = g; fn(); world = prev; };
+    camada("ruas", () => { layer(L.roadsMain, "m-road-main", false); layer(L.roads, "m-road", false); layer(L.aisles, "m-aisle", false); });
+    camada("servicos", () => layer(L.services, "m-service", false));
+    camada("caminhos", () => { layer(L.paths, "m-path-case", false); layer(L.paths, "m-path", false); });
+    camada("aprendidos", () => { layerTrilhas = el("g", {}, world); });
     layer(L.buildings, "m-building", true);
     layer(L.rapids, "m-rapids", false);
     layer(L.rails, "m-rail", false);
@@ -91,6 +92,7 @@ const MAP = (() => {
       if (d.favorites[p.id]) g.classList.add("is-fav");
       if (p.id === selectedId) g.classList.add("is-sel");
       if (p.fechado) g.classList.add("is-closed");
+      if (p.fonte === "aprox") g.classList.add("is-approx");
       el("circle", { r: 15, class: "m-mark-bg", style: "fill:" + cat.color }, g);
       const t = el("text", { class: "m-mark-icon", y: 1 }, g);
       t.textContent = STORE.iconOf(p);
@@ -106,7 +108,7 @@ const MAP = (() => {
       }
       const wait = FILAS.info(p.id);
       const label = el("text", { class: "m-label", y: 29 }, g);
-      label.textContent = p.name + (wait ? ` · ⏱${wait.min} min` : "");
+      label.textContent = (p.fonte === "aprox" ? "≈ " : "") + p.name + (wait ? ` · ⏱${wait.min} min` : "");
       const sel = p.id === selectedId;
       const prio = (sel ? 100 : 0) + (d.favorites[p.id] ? 10 : 0) + (LABEL_PRIORITY[p.cat] || 0);
       markerEls.push({ g, label, x: p.x, y: p.y, fav: !!d.favorites[p.id], cat: p.cat, sel, prio });
@@ -132,7 +134,7 @@ const MAP = (() => {
     layerRoute.textContent = "";
     if (!route) return;
     el("path", { d: pathD(route.points, false), class: "m-route-case" }, layerRoute);
-    el("path", { d: pathD(route.points, false), class: "m-route" + (route.straight ? " is-straight" : "") }, layerRoute);
+    el("path", { d: pathD(route.points, false), class: "m-route k-" + (route.kind || "reta") }, layerRoute);
     schedule();
   }
 
@@ -402,6 +404,13 @@ const MAP = (() => {
     setMembers(list) {
       members = list.map(m => Object.assign({}, m, { _xy: GEO.toXY(m.lat, m.lon) }));
       drawMembers();
+    },
+    // Liga/desliga camadas de ruas e caminhos: { caminhos, aprendidos, servicos, ruas }.
+    setCamadas(c) {
+      for (const k of ["caminhos", "aprendidos", "servicos", "ruas"]) {
+        const g = svg.querySelector(".cam-" + k);
+        if (g) g.style.display = c && c[k] === false ? "none" : "";
+      }
     },
     setRotation(deg) { view.rot = (deg + 360) % 360; schedule(); },
     select(id) { selectedId = id; buildMarkers(); },

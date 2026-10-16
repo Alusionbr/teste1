@@ -7,9 +7,14 @@
  *      no parque — atrações que o OSM não tem, bebedouros, lixeiras,
  *      banheiros, lanchonetes, lojas…
  *
- * Regra de posição de uma atração oficial: OSM primeiro (medido no mapa);
- * sem OSM, a mediana das marcações da comunidade; sem nada, fica na lista
- * como "sem posição" com o botão "Estou aqui agora".
+ * Regra de posição de uma atração oficial, da mais confiável para a menos:
+ *   1. OSM (medido no mapa)                         fonte "mapa"
+ *   2. mediana das marcações da comunidade          fonte "comunidade"
+ *   3. pista do texto oficial ("ao lado do X")      fonte "aprox"
+ *   4. centro da área temática (AREAS, oficial.js)  fonte "aprox"
+ *   5. nada: fica na lista com "Estou aqui agora"   fonte "sem-posicao"
+ * Posição aproximada (3 e 4) sai com marcador tracejado e aviso; é um ponto
+ * de partida honesto, nunca apresentado como medido.
  *
  * Marcações de comunidade a menos de JUNTAR_M metros e do mesmo tipo viram
  * um ponto só (vários visitantes marcando o mesmo bebedouro).
@@ -41,8 +46,11 @@ const LUGARES = (() => {
   let timer = 0;
   const listeners = [];
 
+  const TODOS_OFICIAIS = OFICIAL.concat(COMIDA);
+  const TIPO_COMIDA = { refeicao: "Refeição", lanche: "Lanche", doce: "Doce", bebida: "Bebida" };
+
   const oficialPorOsm = new Map();
-  for (const o of OFICIAL) for (const id of o.osm || []) oficialPorOsm.set(id, o);
+  for (const o of TODOS_OFICIAIS) for (const id of o.osm || []) oficialPorOsm.set(id, o);
   const osmPorId = new Map(PARK_DATA.pois.map(p => [p.id, p]));
 
   function mediana(nums) {
@@ -53,6 +61,10 @@ const LUGARES = (() => {
 
   function infoOficial(o) {
     const info = [];
+    if (o.comida) {
+      info.push(`${TIPO_COMIDA[o.tipo] || "Comida"}${o.desc ? ": " + o.desc : ""}`);
+      if (o.textoLocal) info.push(`Fica ${o.textoLocal} (texto oficial).`);
+    }
     if (o.area) info.push(`Área: ${o.area}`);
     if (o.altura) info.push(`Altura mínima: ${o.altura.toFixed(2).replace(".", ",")} m`);
     if (o.horarios) info.push(`Sessões: ${o.horarios.join(", ")}`);
@@ -61,22 +73,49 @@ const LUGARES = (() => {
     return info;
   }
 
-  // Atrações oficiais com posição (OSM ou comunidade) ou sem posição.
+  function centroDeAncoras(refs) {
+    const pts = refs.map(id => osmPorId.get(id)).filter(Boolean);
+    if (!pts.length) return null;
+    return { x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length };
+  }
+
+  // Atrações e alimentação oficiais, cada uma com a melhor posição disponível.
   function oficiais() {
-    return OFICIAL.map(o => {
-      const base = { id: o.id, name: o.name, cat: o.cat, info: infoOficial(o), oficial: o };
+    const out = [];
+    const porArea = {};
+    for (const o of TODOS_OFICIAIS) {
+      const base = { id: o.id, name: o.name, cat: o.cat, info: infoOficial(o), oficial: o, x: null, y: null, fonte: "sem-posicao" };
+      out.push(base);
       const osm = (o.osm || []).map(id => osmPorId.get(id)).find(Boolean);
-      if (osm) return Object.assign(base, { x: osm.x, y: osm.y, fonte: "mapa" });
       const marcas = crowd.filter(c => c.kind === "atracao" && c.ref_id === o.id);
+      if (osm) { Object.assign(base, { x: osm.x, y: osm.y, fonte: "mapa" }); continue; }
       if (marcas.length) {
         const xy = marcas.map(c => GEO.toXY(c.lat, c.lon));
-        return Object.assign(base, {
-          x: mediana(xy.map(p => p.x)), y: mediana(xy.map(p => p.y)),
-          fonte: "comunidade", marcas: marcas.length
-        });
+        Object.assign(base, { x: mediana(xy.map(p => p.x)), y: mediana(xy.map(p => p.y)), fonte: "comunidade", marcas: marcas.length });
+        continue;
       }
-      return Object.assign(base, { x: null, y: null, fonte: "sem-posicao" });
-    });
+      const ref = o.perto && osmPorId.get(o.perto.ref);
+      if (ref) {
+        Object.assign(base, { x: ref.x + o.perto.dx, y: ref.y + o.perto.dy, fonte: "aprox", aproxTexto: `${o.perto.texto} (texto oficial)` });
+        continue;
+      }
+      if (o.area && AREAS[o.area]) (porArea[o.area] = porArea[o.area] || []).push(base);
+    }
+    // Quem só tem a área: espalha em anel em volta do centro, para os marcadores não se empilharem.
+    for (const [area, lista] of Object.entries(porArea)) {
+      const c = centroDeAncoras(AREAS[area].ancoras);
+      if (!c) continue;
+      const raio = lista.length === 1 ? 0 : Math.min(45, 14 + lista.length * 5);
+      lista.forEach((item, i) => {
+        const ang = (i / lista.length) * 2 * Math.PI + 0.6;
+        const tema = item.oficial.areaTema ? " pelo tema" : "";
+        Object.assign(item, {
+          x: c.x + raio * Math.cos(ang), y: c.y + raio * Math.sin(ang), fonte: "aprox",
+          aproxTexto: `área ${area}${tema}${AREAS[area].nota ? ". " + AREAS[area].nota : ""}`
+        });
+      });
+    }
+    return out;
   }
 
   // Lugares do OSM que não são atração oficial (banheiros, restaurantes,
@@ -85,7 +124,7 @@ const LUGARES = (() => {
     return PARK_DATA.pois.filter(p => !oficialPorOsm.has(p.id)).map(p => {
       const aviso = OSM_FORA_DA_LISTA[p.id];
       return aviso
-        ? Object.assign({}, p, { info: [aviso].concat(p.info || []), fechado: true })
+        ? Object.assign({}, p, { info: [aviso].concat(p.info || []), fechado: !/pode ser a mesma/.test(aviso) })
         : p;
     });
   }
@@ -169,7 +208,7 @@ const LUGARES = (() => {
 
   return {
     TIPOS, todos, oficiais, refresh, marcar, desmarcar, souAutor, start,
-    oficialDe: id => OFICIAL.find(o => o.id === id) || null,
+    oficialDe: id => TODOS_OFICIAIS.find(o => o.id === id) || null,
     onChange(fn) { listeners.push(fn); }
   };
 })();

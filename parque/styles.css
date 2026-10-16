@@ -229,3 +229,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .sheet { left: 12px; right: auto; width: 420px; bottom: 12px; border-radius: 22px; border: 1px solid var(--line); }
   .near-strip { left: 0; right: 80px; }
 }
+
+/* ---- v1.3: ruas, caminhos, rota estimada, almoço, plano do dia ---- */
+.m-road-main { fill: none; stroke: #3a2f3d; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .9; }
+.m-aisle { fill: none; stroke: #2a3354; stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .7; }
+.m-service { fill: none; stroke: #8d99ae; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .8; }
+.m-path { stroke: #e7d8b1; stroke-width: 3.5; opacity: .95; }
+.m-learned { stroke: #7ae582; stroke-width: 3.5; opacity: .85; }
+.m-route.k-caminho { stroke: var(--accent-2); }
+.m-route.k-estimada { stroke: #a78bfa; stroke-dasharray: 1 12; }
+.m-route.k-reta { stroke: var(--warn); }
+.m-mark.is-approx .m-mark-bg { stroke-dasharray: 4 3; stroke: #fff; stroke-width: 2.5; }
+.m-mark.is-approx .m-mark-icon { opacity: .85; }
+#navTurn { color: #fff; font-weight: 700; font-size: 14px; }
+.pill-lunch { color: #0b1020; background: #ffb4a2; border-color: #ffb4a2; font-weight: 700; }
+.day-card { border-radius: 18px; padding: 14px 16px; background: var(--glass-2); border: 1px solid var(--line); }
+.day-card strong { display: block; font-size: 17px; }
+.day-card p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+.day-card.lunch { background: linear-gradient(135deg, #9a3412, #f59e0b); border: 0; }
+.day-card.lunch p { color: #fff3e0; }
+.day-card.peak { background: linear-gradient(135deg, #7f1d1d, #b45309); border: 0; }
+.day-card.peak p { color: #ffe4d6; }
+.day-card.done { background: linear-gradient(135deg, #14532d, #15803d); border: 0; }
+.day-card.done p { color: #dcfce7; }
+.step { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; background: var(--glass-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.step .hm { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 50px; }
+.step .what { display: flex; flex-direction: column; min-width: 0; }
+.step .what small { color: var(--muted); font-size: 12.5px; }
+.step.is-lunch { border-left: 4px solid #f59e0b; }
+.step.is-show { border-left: 4px solid #a78bfa; }
+.step.is-janela { border-left: 4px solid #ff4d6d; }
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-top: 6px; }
+.legend i { display: inline-block; width: 28px; height: 0; border-top: 4px solid; vertical-align: middle; margin-right: 8px; border-radius: 2px; }

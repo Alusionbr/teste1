@@ -9,7 +9,7 @@
  */
 "use strict";
 
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.3.0";
 
 const CATEGORIES = {
   montanha:       { label: "Montanhas-russas", icon: "🎢", color: "#ff4d6d" },
@@ -59,6 +59,9 @@ const STORE = (() => {
     crowdIds: [],         // ids das marcações de comunidade feitas neste aparelho
     alturaCm: 0,          // altura da pessoa mais baixa do grupo (0 = não filtrar)
     mapearCaminhos: true, // grava trajeto anônimo para o mapa aprender os caminhos
+    almocoHm: "11:30",    // horário do almoço (aviso 15 min antes)
+    almocouEm: "",        // data (AAAA-MM-DD) em que marcou "já almocei"
+    camadas: { caminhos: true, aprendidos: true, servicos: true, ruas: true }, // o que desenhar no mapa
     showLabels: true
   });
 
@@ -180,6 +183,7 @@ const STORE = (() => {
   function resetDay() {
     data.done = {};
     data.waits = {};
+    data.almocouEm = "";
     save();
   }
 

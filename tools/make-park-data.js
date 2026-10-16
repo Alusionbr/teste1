@@ -89,17 +89,20 @@ function main() {
   const box = { minX: Math.min(...xs) - PAD, maxX: Math.max(...xs) + PAD, minY: Math.min(...ys) - PAD, maxY: Math.max(...ys) + PAD };
   const inBox = p => p[0] >= box.minX && p[0] <= box.maxX && p[1] >= box.minY && p[1] <= box.maxY;
 
-  const out = { water: [], green: [], wood: [], buildings: [], paths: [], roads: [], rails: [], coasters: [], rapids: [] };
-  // Grafo de caminhada: nós compartilhados entre vias viram cruzamentos.
-  const graphNodes = new Map();     // id OSM -> índice
-  const graphXY = [];
-  const graphEdges = [];
-  const nodeIndex = n => {
-    if (!graphNodes.has(n.id)) { graphNodes.set(n.id, graphXY.length); graphXY.push(toXY(n)); }
-    return graphNodes.get(n.id);
+  // paths: caminhos de pedestre; services: vias de serviço; aisles: corredores de estacionamento;
+  // roads: ruas locais; roadsMain: rodovias e vias principais (não andar por elas);
+  // blocks: prédios e águas (o roteador desvia deles); raceways: pista de motocross.
+  const out = { water: [], green: [], wood: [], buildings: [], paths: [], services: [], aisles: [], roads: [], roadsMain: [], raceways: [], blocks: [], rails: [], coasters: [], rapids: [] };
+  const skipped = { blocks: 0 };
+  const areaOf = pts => {
+    let a = 0;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]);
+    return Math.abs(a / 2);
   };
+  const MAX_BLOCK_M2 = 15000;       // polígono maior que isso quase sempre é zona, não prédio
 
-  const WALK = new Set(['footway', 'path', 'pedestrian', 'steps', 'service', 'corridor', 'living_street', 'track']);
+  const WALK = new Set(['footway', 'path', 'pedestrian', 'steps', 'corridor', 'living_street', 'track']);
+  const MAIN_ROADS = new Set(['primary', 'secondary', 'trunk', 'primary_link', 'secondary_link', 'trunk_link', 'motorway']);
   const poiByName = new Map();
 
   for (const w of ways) {
@@ -110,31 +113,30 @@ function main() {
     const t = w.tags;
     const closed = w.refs[0] === w.refs[w.refs.length - 1];
 
+    // Obstáculos: prédios (menos coberturas) e água. Prédio de atração também entra:
+    // o roteador libera um raio em volta do destino e da origem.
+    if (closed && ((t.building && t.building !== 'roof') || t.natural === 'water' || t.leisure === 'swimming_pool' || t.water)) {
+      if (areaOf(xy) <= MAX_BLOCK_M2) out.blocks.push(xy); else skipped.blocks++;
+    }
+
     if (t.attraction === 'roller_coaster') out.coasters.push(xy);
     else if (t.attraction === 'river_rafting' && !closed) out.rapids.push(xy);
     else if (t.railway) out.rails.push(xy);
-    else if (t.highway && WALK.has(t.highway)) {
-      out.paths.push(xy);
-      for (let i = 1; i < pts.length; i++) {
-        const a = nodeIndex(pts[i - 1]), b = nodeIndex(pts[i]);
-        graphEdges.push([a, b]);
-      }
-    } else if (t.highway) out.roads.push(xy);
+    else if (t.highway === 'raceway') out.raceways.push(xy);
+    else if (t.highway === 'service') (t.service === 'parking_aisle' ? out.aisles : out.services).push(xy);
+    else if (t.highway && WALK.has(t.highway)) out.paths.push(xy);
+    else if (t.highway) (MAIN_ROADS.has(t.highway) ? out.roadsMain : out.roads).push(xy);
     else if (closed && (t.natural === 'water' || t.leisure === 'swimming_pool' || t.water)) out.water.push(xy);
     else if (closed && (t.natural === 'wood' || t.natural === 'heath' || t.natural === 'wetland')) out.wood.push(xy);
     else if (closed && (t.landuse === 'grass' || t.leisure === 'park' || t.leisure === 'pitch' || t.tourism === 'zoo')) out.green.push(xy);
     else if (closed && (t.building || t.amenity || t.tourism)) out.buildings.push(xy);
-
-    // Caminho de pedestres em área (praça) também entra no grafo pelo contorno.
-    if (t.highway === 'pedestrian' && closed) {
-      // já tratado acima: os segmentos do contorno ligam as entradas da praça
-    }
 
     if (t.name && !SKIP_NAMES.has(t.name) && !(t.highway && !t.area) && !t.boundary) {
       addPoi(poiByName, t, xy);
     }
     if (!t.name && t.amenity === 'toilets') addPoi(poiByName, Object.assign({ name: 'Banheiro' }, t), xy, true);
     if (!t.name && t.amenity === 'parking') addPoi(poiByName, Object.assign({ name: 'Estacionamento' }, t), xy, true);
+    if (!t.name && t.amenity === 'food_court') addPoi(poiByName, Object.assign({}, t, { name: 'Praça de alimentação' }), xy);
   }
 
   for (const n of nodes.values()) {
@@ -144,6 +146,7 @@ function main() {
     if (t.name && !SKIP_NAMES.has(t.name) && !t.highway) addPoi(poiByName, t, xy);
     else if (!t.name && t.amenity === 'toilets') addPoi(poiByName, Object.assign({ name: 'Banheiro' }, t), xy, true);
     else if (!t.name && t.amenity === 'parking') addPoi(poiByName, Object.assign({ name: 'Estacionamento' }, t), xy, true);
+    else if (!t.name && t.amenity === 'ice_cream') addPoi(poiByName, Object.assign({}, t, { name: 'Sorveteria' }), xy);
   }
 
   const pois = [];
@@ -164,13 +167,13 @@ function main() {
     box,
     outline: parkXY,
     layers: out,
-    graph: { nodes: graphXY, edges: graphEdges },
     pois
   };
 
   const header = '/* Gerado por tools/make-park-data.js a partir do OpenStreetMap (ODbL). Não editar à mão. */\n"use strict";\n';
   fs.writeFileSync(OUT, header + 'const PARK_DATA = ' + JSON.stringify(data) + ';\n');
-  console.log(`ok: ${pois.length} lugares, ${out.paths.length} caminhos, ${graphXY.length} nós de rota -> ${path.relative(process.cwd(), OUT)}`);
+  const resumo = Object.entries(out).map(([k, v]) => `${k}:${v.length}`).join(' ');
+  console.log(`ok: ${pois.length} lugares | ${resumo} | blocos grandes ignorados: ${skipped.blocks} -> ${path.relative(process.cwd(), OUT)}`);
 }
 
 function categoryOf(t) {

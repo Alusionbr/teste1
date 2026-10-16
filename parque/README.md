@@ -17,9 +17,12 @@ Endereço publicado: `https://alusionbr.github.io/teste1/parque/`
 9. **⏰ Hora do Show** (atalho no topo ou aba *Shows*): horários oficiais do dia e, quando um show grande vai começar (Hot Wheels Epic Show, Excalibur, Madagascar Circus), aviso com vibração e o **plano dos brinquedos disputados** em ordem de caminhada. *Seguir o plano* traça a rota de um por um.
 10. **Altura**: em Ajustes, coloque a altura da pessoa mais baixa; o app marca ⛔ o que ela não pode ir (altura mínima oficial) e tira do plano.
 11. **Caminhos aprendidos**: enquanto vocês andam, o trajeto (sem nome, só com GPS bom) ensina o mapa por onde dá para passar. As rotas deixam de ser linha reta e passam a seguir os caminhos reais, e ficam melhores ao longo do dia. Dá para desligar em Ajustes.
-12. **Fila ao vivo**: quando alguém informa a fila de uma atração, todo mundo que usa o app vê "~X min" no mapa e no detalhe (mediana da última hora; só vai o número, sem posição nem nome). Quanto mais gente informar, melhor fica.
-13. **Roteiro** (☰ → Roteiro): progresso do dia, próximo favorito mais perto e linha do tempo do que você já foi.
-14. Para instalar: no iPhone, Compartilhar → *Adicionar à Tela de Início*; no Android, menu → *Instalar app*.
+12. **Almoço**: em Ajustes defina o horário (padrão 11:30). O app avisa 15 min antes e a aba *Dia* lista os restaurantes oficiais, os mais perto primeiro, com a fila ao vivo. Botões: *Estou comendo aqui* (o grupo vê) e *Chamar grupo p/ almoçar* (manda o restaurante como ponto de encontro). Sobre o pico (12:00–13:30): é uma dica comum de visitantes, não dado do parque.
+13. **Meu dia**: a aba *Dia* monta uma linha do tempo a partir de agora: disputados antes do almoço, almoço, disputados de novo durante o Hot Wheels Epic Show, o resto à tarde e os shows do fim da tarde. *Seguir o plano do dia* traça a rota de uma parada para a outra.
+14. **Rota com curvas**: a faixa de navegação diz "Em 40 m vire à esquerda" e recalcula sozinha se você sair da rota.
+15. **Fila ao vivo**: quando alguém informa a fila de uma atração, todo mundo que usa o app vê "~X min" no mapa e no detalhe (mediana da última hora; só vai o número, sem posição nem nome). Quanto mais gente informar, melhor fica.
+16. **Roteiro** (☰ → Roteiro): progresso do dia, próximo favorito mais perto e linha do tempo do que você já foi.
+17. Para instalar: no iPhone, Compartilhar → *Adicionar à Tela de Início*; no Android, menu → *Instalar app*.
 
 ## Grupo (até umas 3–10 pessoas)
 
@@ -34,7 +37,10 @@ Privacidade: a posição só é enviada com o app aberto e só quem tem o códig
 ## Limitações conhecidas
 
 - O desenho vem do **OpenStreetMap** (outubro de 2026). Atrações e horários vêm da **lista oficial do parque** (conferida em 16/10/2026, em `oficial.js`). Atração sem posição no OSM depende de alguém marcar "Estou aqui agora".
-- Enquanto ninguém andou por um trecho, a rota ali é linha reta com seta. Cada pessoa com o app aberto ensina os caminhos.
+- Ruas e caminhos: o mapa público tem só ~100 trechos dentro do parque. A rota é calculada numa grade que desvia de prédios e lagos e prefere caminhos conhecidos; quando não há caminho conhecido ela aparece em roxo ("rota estimada"). Cada pessoa com o app aberto ensina os caminhos (linha verde no mapa). Dá para ligar/desligar cada camada em Ajustes.
+- **Posições aproximadas (≈)**: atração que o mapa público não tem aparece pela pista do texto oficial ou pelo centro da área onde o parque diz que ela fica (marcador tracejado). Na frente dela, *Estou aqui agora* marca o ponto exato para todo mundo.
+- Ainda sem nenhuma posição: Vila da Galinha Pintadinha (Papo de Galinheiro, Dodói), fotos com personagens, Esculturas Romero Britto, Trem Zaragoza e Fini — o texto oficial não dá pista.
+- Hot Wheels Extreme Kids (jipes elétricos, 4 a 10 anos, pago à parte) não está na lista oficial de atrações; veio de guias de visitantes. Confirme no parque.
 - Lugares do OSM que saíram da lista oficial (Star Mountain, cinemas, zoológico…) aparecem apagados com aviso de "pode estar fechado".
 - O GPS do celular tem erro de 5 a 30 m, maior perto de prédios altos e embaixo de árvores. O número ao lado de "GPS ±" mostra o erro atual.
 - A duração dos shows é estimada em 40 min (o parque não publica). Confira sempre a placa de altura na entrada do brinquedo.
@@ -56,6 +62,7 @@ parque/
 ├── oficial.js           lista oficial: altura, horários, área, disputados (editar à mão)
 ├── lugares.js           junta oficial + OSM + marcações da comunidade
 ├── show.js              Hora do Show: sessões e plano dos disputados
+├── dia.js               almoço e plano do dia
 ├── trilhas.js           caminhos aprendidos (trajeto anônimo → rotas reais)
 ├── ui.js                telas e eventos
 ├── sw.js                cache offline
