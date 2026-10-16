@@ -10,7 +10,9 @@ hub/styles.css        visual da página de ferramentas
 hub/tools.js          lista das ferramentas: array HUB_TOOLS
 estante/              aplicativo de letras e cifras para palco (PWA)
 controle360/          aplicativo de estoque, custos, vendas e consignado
+parque/               mapa do Beto Carrero World com GPS, rotas e grupo (PWA)
 tools/make-icons.js   gera os ícones PNG do Estante com a zlib do Node
+tools/make-park-data.js  converte o recorte do OpenStreetMap em parque/park-data.js
 .github/workflows/    publica a raiz no GitHub Pages a cada push na main
 ```
 
@@ -21,7 +23,7 @@ Regras gerais:
 - Nada de servidor, login, banco externo ou biblioteca de terceiros: JavaScript puro, offline.
 - Cada ferramenta guarda os dados no armazenamento local do navegador e oferece exportação.
 
-As duas seções abaixo detalham cada ferramenta: primeiro o **Controle360 Multi**, depois o **Estante**.
+As seções abaixo detalham cada ferramenta: **Controle360 Multi**, **Estante** e **Mapa do Parque**.
 
 ---
 
@@ -660,3 +662,49 @@ Prioridade média:
 4. Conversão para IndexedDB quando o repertório crescer.
 5. Lembrete de backup: hoje o repertório vive só no `localStorage`.
 6. Busca de vídeo do YouTube **dentro do app**, com chave da API do YouTube (100 buscas/dia grátis, mesmo modelo de chave só-no-aparelho do Vagalume) — hoje o karaokê só aceita link colado ou o atalho que abre a busca numa aba do YouTube.
+
+---
+
+# Mapa do Parque (`parque/`)
+
+## Finalidade
+
+Mapa do Beto Carrero World para usar **andando no parque**: GPS em tempo real, rota a pé, fila anotada, roteiro do dia e grupo sincronizado. Prioridades: abrir rápido com sinal ruim, funcionar offline, ler no sol e não exigir digitação.
+
+Documentação de uso e de continuidade: `parque/README.md`.
+
+## Arquivos
+
+```txt
+parque/
+├── park-data.js   GERADO por tools/make-park-data.js (OSM, ODbL). Não editar à mão.
+├── geo.js         GPS ↔ plano local em metros (x leste, y sul), distância, direção
+├── store.js       localStorage "parque:v1", CATEGORIES, PIN_KINDS, APP_VERSION
+├── route.js       grafo de caminhos do OSM + Dijkstra; cai para linha reta
+├── map.js         SVG, câmera {cx, cy, s, rot}, gestos, rótulos sem sobreposição
+├── gps.js         watchPosition suavizado pela precisão + bússola
+├── group.js       grupo no Supabase por RPC (fetch puro)
+├── ui.js          telas e eventos; só liga os módulos
+├── sw.js          cache do casco (inclui park-data.js)
+└── supabase/001_grupo.sql
+```
+
+Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no `index.html` **e** no `SHELL` do `sw.js`.
+
+## Princípios
+
+1. **Versão única**: `APP_VERSION` (`store.js`), `VERSION` (`sw.js`) e `?v=` do `index.html` andam juntos. Alterou qualquer arquivo, suba os três.
+2. **Plano local em metros**: tudo no mapa é `{x, y}` em metros a partir de `PARK_DATA.origin`. GPS entra por `GEO.toXY`; o servidor guarda lat/lon e o cliente converte. Não misturar graus com metros.
+3. **Rota honesta**: o OSM tem poucos caminhos dentro do parque. `ROUTE.plan` só usa o grafo quando há caminho a até 35 m da saída e 50 m da chegada e o trajeto fica até 1,8× a linha reta; senão devolve linha reta (`straight:true`) e a faixa diz "siga a seta". Não afrouxar esses limites sem conferir no mapa: o resultado era volta de 1 km por um caminho fora do parque.
+4. **Não inventar dado de segurança**: altura mínima, horário e restrição de brinquedo só entram com fonte conferida.
+5. **Grupo é opcional**: o mapa, o GPS e a rota funcionam sem rede. Exceção registrada à regra "nada de servidor": o grupo usa o Supabase do projeto `iowuejrpzoibyidiuvpt` (o mesmo do Financeiro360), sem biblioteca, por `fetch` em `/rest/v1/rpc/`.
+6. **Tabelas trancadas**: `parque_membros` e `parque_pinos` têm RLS sem política e sem GRANT para `anon`. Acesso só pelas funções `SECURITY DEFINER` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`), que validam o código do grupo (`^[A-Z0-9]{6,16}$`). Não abrir SELECT direto nas tabelas: seria publicar a posição de todo mundo.
+7. **Nada é apagado no servidor**: sair marca `active=false`, remover pino marca `removed=true`; a leitura filtra membros parados há mais de 3 h e pinos com mais de 24 h.
+8. **Gravar posição é barato, redesenhar lista não**: listas e folha redesenham no máximo a cada 2,5 s (`throttledUiRefresh`), e nunca com um campo de texto em foco.
+
+## Não fazer
+
+- Não adicionar Leaflet, Mapbox, Google Maps ou tiles remotos: quebraria o offline e o "sem biblioteca".
+- Não editar `park-data.js` à mão; ajuste `tools/make-park-data.js` e gere de novo.
+- Não guardar posição do GPS no `localStorage` nem enviar ao servidor sem estar num grupo.
+- Não usar a chave `service_role` no navegador; só a publishable.
