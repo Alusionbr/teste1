@@ -1,10 +1,16 @@
 /*
  * route.js — rota a pé pelos caminhos do parque.
  *
- * O grafo vem do OpenStreetMap (PARK_DATA.graph): cada nó é um ponto de
- * caminho e cada aresta um trecho de via. No OSM nem todo cruzamento está
- * ligado, então pontas soltas a até GAP_M metros de outro caminho ganham
- * uma ligação "de atalho" com custo um pouco maior.
+ * O grafo junta duas fontes:
+ *   1. Caminhos do OpenStreetMap (PARK_DATA.graph) — poucos dentro do parque.
+ *   2. Caminhos aprendidos (trilhas.js): trechos que visitantes realmente
+ *      andaram, com GPS bom. Cada trecho vira uma sequência de nós; pontos a
+ *      menos de JUNTAR_M de um nó existente reaproveitam esse nó, e é assim
+ *      que trilhas de pessoas diferentes se cruzam e formam uma rede.
+ *
+ * Pontas soltas a até GAP_M de outro caminho ganham uma ligação "de atalho"
+ * com custo um pouco maior (cruzamentos que nem o OSM nem as trilhas
+ * registraram).
  *
  * Sem caminho bom no grafo, a rota vira linha reta e a navegação vira
  * "siga a seta" (como bússola): melhor uma direção certa do que uma volta
@@ -15,27 +21,33 @@
 const ROUTE = (() => {
   const GAP_M = 14;
   const GAP_COST = 1.4;
-  const nodes = PARK_DATA.graph.nodes.map(([x, y]) => ({ x, y }));
-  const adj = nodes.map(() => []);
+  const JUNTAR_M = 6;
+  const SALTO_MAX_M = 45;      // dois pontos de trilha mais longe que isso não viram aresta
+  const SNAP_START_M = 35;
+  const SNAP_END_M = 50;
+  const MAX_DETOUR = 1.8;
+  const CELL = 20;
+
+  let nodes, adj, grid;
+
+  const cellKey = (x, y) => Math.floor(x / CELL) + ":" + Math.floor(y / CELL);
+
+  function addNode(p) {
+    const i = nodes.length;
+    nodes.push({ x: p.x, y: p.y });
+    adj.push([]);
+    const k = cellKey(p.x, p.y);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(i);
+    return i;
+  }
 
   function link(a, b, factor) {
-    if (a === b) return;
+    if (a === b || adj[a].some(e => e[0] === b)) return;
     const d = GEO.dist(nodes[a], nodes[b]) * factor;
     adj[a].push([b, d]);
     adj[b].push([a, d]);
   }
-
-  for (const [a, b] of PARK_DATA.graph.edges) link(a, b, 1);
-
-  // Grade espacial para achar vizinhos próximos sem comparar todos com todos.
-  const CELL = 20;
-  const grid = new Map();
-  const cellKey = (x, y) => Math.floor(x / CELL) + ":" + Math.floor(y / CELL);
-  nodes.forEach((n, i) => {
-    const k = cellKey(n.x, n.y);
-    if (!grid.has(k)) grid.set(k, []);
-    grid.get(k).push(i);
-  });
 
   function near(p, radius) {
     const out = [];
@@ -50,23 +62,51 @@ const ROUTE = (() => {
     return out;
   }
 
-  // Ligações de atalho: nós com poucas conexões (pontas e cruzamentos não
-  // marcados) ligam ao vizinho mais perto que não esteja já ligado.
-  nodes.forEach((n, i) => {
-    if (adj[i].length > 2) return;
-    const linked = new Set(adj[i].map(e => e[0]));
-    let best = -1, bestD = Infinity;
-    for (const j of near(n, GAP_M)) {
-      if (j === i || linked.has(j)) continue;
-      const d = GEO.dist(n, nodes[j]);
-      if (d < bestD) { bestD = d; best = j; }
+  function closest(p, radius) {
+    let best = -1, bestD = radius;
+    for (const i of near(p, radius)) {
+      const d = GEO.dist(p, nodes[i]);
+      if (d < bestD) { bestD = d; best = i; }
     }
-    if (best >= 0) link(i, best, GAP_COST);
-  });
+    return best;
+  }
+
+  // Monta o grafo do zero: OSM + trilhas (lista de listas de {x, y}).
+  function build(trilhas) {
+    nodes = [];
+    adj = [];
+    grid = new Map();
+    for (const [x, y] of PARK_DATA.graph.nodes) addNode({ x, y });
+    for (const [a, b] of PARK_DATA.graph.edges) link(a, b, 1);
+
+    for (const pts of trilhas || []) {
+      let prev = -1;
+      for (const p of pts) {
+        let i = closest(p, JUNTAR_M);
+        if (i < 0) i = addNode(p);
+        if (prev >= 0 && prev !== i && GEO.dist(nodes[prev], nodes[i]) <= SALTO_MAX_M) link(prev, i, 1);
+        prev = i;
+      }
+    }
+
+    // Ligações de atalho para pontas e cruzamentos não registrados.
+    const total = nodes.length;
+    for (let i = 0; i < total; i++) {
+      if (adj[i].length > 2) continue;
+      const linked = new Set(adj[i].map(e => e[0]));
+      let best = -1, bestD = Infinity;
+      for (const j of near(nodes[i], GAP_M)) {
+        if (j === i || linked.has(j)) continue;
+        const d = GEO.dist(nodes[i], nodes[j]);
+        if (d < bestD) { bestD = d; best = j; }
+      }
+      if (best >= 0) link(i, best, GAP_COST);
+    }
+  }
 
   function nearestNode(p, maxDist) {
     let best = -1, bestD = maxDist || Infinity;
-    for (let i = 0; i < nodes.length; i++) {
+    for (const i of near(p, maxDist)) {
       if (!adj[i].length) continue;
       const d = GEO.dist(p, nodes[i]);
       if (d < bestD) { bestD = d; best = i; }
@@ -124,15 +164,9 @@ const ROUTE = (() => {
   }
 
   // Rota de um ponto qualquer até outro: entra no caminho mais próximo,
-  // segue pelo grafo e sai no ponto mais perto do destino.
-  //
-  // O OSM tem poucos caminhos desenhados dentro do parque. Por isso o grafo
-  // só é usado quando há caminho perto da saída e da chegada e o trajeto
-  // não fica muito maior que a linha reta; fora disso, linha reta + seta.
-  const SNAP_START_M = 35;
-  const SNAP_END_M = 50;
-  const MAX_DETOUR = 1.8;
-
+  // segue pelo grafo e sai no ponto mais perto do destino. Só usa o grafo
+  // quando há caminho perto da saída e da chegada e o trajeto não fica muito
+  // maior que a linha reta; fora disso, linha reta + seta.
   function plan(from, to) {
     const straight = GEO.dist(from, to);
     const direct = { points: [from, to], length: straight, straight: true };
@@ -162,5 +196,7 @@ const ROUTE = (() => {
     return route.points[route.points.length - 1];
   }
 
-  return { plan, nextTarget };
+  build([]);
+
+  return { plan, nextTarget, setTrilhas: build, get tamanho() { return nodes.length; } };
 })();

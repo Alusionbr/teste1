@@ -17,7 +17,7 @@ const MAP = (() => {
   const MIN_S = 0.12, MAX_S = 14;
   const LABEL_MIN_S = 0.9;
 
-  let svg, world, layerMarks, layerMembers, layerMe, layerRoute;
+  let svg, world, layerMarks, layerMembers, layerMe, layerRoute, layerTrilhas;
   const view = { cx: 0, cy: 0, s: 1, rot: 0 };
   let W = 0, H = 0;
   let me = null;
@@ -62,6 +62,7 @@ const MAP = (() => {
     layer(L.roads, "m-road", false);
     layer(L.paths, "m-path-case", false);
     layer(L.paths, "m-path", false);
+    layerTrilhas = el("g", {}, world);
     layer(L.buildings, "m-building", true);
     layer(L.rapids, "m-rapids", false);
     layer(L.rails, "m-rail", false);
@@ -82,13 +83,14 @@ const MAP = (() => {
     layerMarks.textContent = "";
     markerEls = [];
     const d = STORE.data;
-    for (const p of STORE.places()) {
+    for (const p of STORE.placesNoMapa()) {
       if (d.hidden[p.cat]) continue;
       const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
       const g = el("g", { class: "m-mark", "data-id": p.id }, layerMarks);
       if (d.done[p.id]) g.classList.add("is-done");
       if (d.favorites[p.id]) g.classList.add("is-fav");
       if (p.id === selectedId) g.classList.add("is-sel");
+      if (p.fechado) g.classList.add("is-closed");
       el("circle", { r: 15, class: "m-mark-bg", style: "fill:" + cat.color }, g);
       const t = el("text", { class: "m-mark-icon", y: 1 }, g);
       t.textContent = STORE.iconOf(p);
@@ -391,6 +393,12 @@ const MAP = (() => {
     on(name, fn) { handlers[name] = fn; },
     setMe(p) { me = p; schedule(); },
     setRoute(r) { route = r; drawRoute(); },
+    // Caminhos aprendidos: desenhados como trilha clara por baixo de tudo.
+    setTrilhas(list) {
+      layerTrilhas.textContent = "";
+      if (list.length) el("path", { d: list.map(pts => pathD(pts, false)).join(""), class: "m-learned" }, layerTrilhas);
+      schedule();
+    },
     setMembers(list) {
       members = list.map(m => Object.assign({}, m, { _xy: GEO.toXY(m.lat, m.lon) }));
       drawMembers();

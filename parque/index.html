@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="styles.css?v=1.1.0">
+  <link rel="stylesheet" href="styles.css?v=1.2.0">
 </head>
 <body>
   <svg id="map" aria-label="Mapa do parque"></svg>
@@ -28,6 +28,7 @@
     <div class="status-row">
       <span id="gpsPill" class="pill">📡 GPS desligado</span>
       <span id="groupPill" class="pill" hidden></span>
+      <span id="showPill" class="pill pill-show" hidden></span>
     </div>
   </header>
 
@@ -43,6 +44,7 @@
 
   <!-- Botões flutuantes -->
   <div class="fabs">
+    <button class="fab fab-add" id="btnAdd" aria-label="Marcar bebedouro, lixeira, banheiro…">＋</button>
     <button class="fab" id="btnCompass" aria-label="Orientação do mapa"><span id="compassNeedle">▲</span><small>N</small></button>
     <button class="fab" id="btnZoomIn" aria-label="Aproximar">＋</button>
     <button class="fab" id="btnZoomOut" aria-label="Afastar">－</button>
@@ -63,6 +65,7 @@
     <header class="panel-head">
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="lugares" class="active">Lugares</button>
+        <button role="tab" data-tab="shows">Shows</button>
         <button role="tab" data-tab="roteiro">Roteiro</button>
         <button role="tab" data-tab="grupo">Grupo</button>
         <button role="tab" data-tab="ajustes">Ajustes</button>
@@ -91,14 +94,18 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <input type="file" id="importFile" accept="application/json,.json" hidden>
 
-  <script src="park-data.js?v=1.1.0"></script>
-  <script src="geo.js?v=1.1.0"></script>
-  <script src="store.js?v=1.1.0"></script>
-  <script src="route.js?v=1.1.0"></script>
-  <script src="map.js?v=1.1.0"></script>
-  <script src="gps.js?v=1.1.0"></script>
-  <script src="group.js?v=1.1.0"></script>
-  <script src="filas.js?v=1.1.0"></script>
-  <script src="ui.js?v=1.1.0"></script>
+  <script src="park-data.js?v=1.2.0"></script>
+  <script src="geo.js?v=1.2.0"></script>
+  <script src="store.js?v=1.2.0"></script>
+  <script src="route.js?v=1.2.0"></script>
+  <script src="map.js?v=1.2.0"></script>
+  <script src="gps.js?v=1.2.0"></script>
+  <script src="group.js?v=1.2.0"></script>
+  <script src="filas.js?v=1.2.0"></script>
+  <script src="oficial.js?v=1.2.0"></script>
+  <script src="lugares.js?v=1.2.0"></script>
+  <script src="show.js?v=1.2.0"></script>
+  <script src="trilhas.js?v=1.2.0"></script>
+  <script src="ui.js?v=1.2.0"></script>
 </body>
 </html>

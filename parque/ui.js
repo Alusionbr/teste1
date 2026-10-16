@@ -17,6 +17,8 @@ const UI = (() => {
     route: null,            // {targetId, target:{x,y,name}, plan}
     tab: "lugares",
     listCat: "",
+    plano: null,            // ids das atrações do plano "Hora do Show", em ordem
+    avisoShow: "",
     arrivedAt: 0
   };
   let wakeLock = null;
@@ -46,7 +48,7 @@ const UI = (() => {
 
   function distTo(place) {
     const me = myPos();
-    return me ? GEO.dist(me, place) : null;
+    return me && place.x != null ? GEO.dist(me, place) : null;
   }
 
   function distLabel(place) {
@@ -58,7 +60,9 @@ const UI = (() => {
   function sortedPlaces(filterFn) {
     const me = myPos();
     const list = STORE.places().filter(filterFn || (() => true));
-    if (me) list.sort((a, b) => GEO.dist(me, a) - GEO.dist(me, b));
+    // Sem posição vai para o fim; o resto pela distância (ou pelo nome sem GPS).
+    const key = p => p.x == null ? Infinity : me ? GEO.dist(me, p) : 0;
+    list.sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name, "pt-BR"));
     return list;
   }
 
@@ -84,13 +88,27 @@ const UI = (() => {
 
   // ---- busca e atalhos ----------------------------------------------------
 
-  const QUICK = ["montanha", "atracao", "aquatico", "infantil", "show", "comida", "banheiro", "animais"];
+  const QUICK = ["montanha", "atracao", "aquatico", "infantil", "show", "comida", "banheiro", "bebedouro", "foto"];
 
   function renderChips() {
-    $("quickChips").innerHTML = QUICK.map(c => {
-      const cat = CATEGORIES[c];
-      return `<button class="chip" data-cat="${c}" style="--c:${cat.color}">${cat.icon} ${esc(cat.label)}</button>`;
-    }).join("");
+    $("quickChips").innerHTML =
+      `<button class="chip chip-hot" data-tabgo="shows" style="--c:#ff9f1c">⏰ Hora do Show</button>` +
+      `<button class="chip chip-hot" data-cat="disputado" style="--c:#ff4d6d">🔥 Disputados</button>` +
+      QUICK.map(c => {
+        const cat = CATEGORIES[c];
+        return `<button class="chip" data-cat="${c}" style="--c:${cat.color}">${cat.icon} ${esc(cat.label)}</button>`;
+      }).join("");
+  }
+
+  // Filtro da lista: categoria comum ou o filtro especial "disputado".
+  function filtroLista(cat) {
+    if (!cat) return () => true;
+    if (cat === "disputado") return p => p.oficial && p.oficial.disputado;
+    return p => p.cat === cat;
+  }
+
+  function alturaBloqueia(p) {
+    return p.oficial && !SHOW.cabe(p.oficial);
   }
 
   function renderSearch() {
@@ -108,12 +126,18 @@ const UI = (() => {
     const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
     const d = STORE.data;
     const wait = FILAS.info(p.id);
+    const o = p.oficial;
     const flags = (d.done[p.id] ? '<span class="flag ok">✓ fui</span>' : "") +
       (d.favorites[p.id] ? '<span class="flag fav">★</span>' : "") +
+      (o && o.disputado ? '<span class="flag hot">🔥</span>' : "") +
+      (alturaBloqueia(p) ? '<span class="flag bad">⛔ altura</span>' : "") +
       (wait ? `<span class="flag wait">⏱ ${wait.min} min</span>` : "");
-    return `<button class="row" data-open="${esc(p.id)}">
+    const extra = p.x == null ? " · 📍 sem posição ainda"
+      : distTo(p) != null ? " · " + distLabel(p) : "";
+    const sub = (o && o.area ? o.area : cat.label) + (o && o.altura ? ` · ≥${o.altura.toFixed(2).replace(".", ",")} m` : "") + extra;
+    return `<button class="row${p.fechado ? " is-closed" : ""}" data-open="${esc(p.id)}">
       <span class="row-icon" style="background:${cat.color}">${STORE.iconOf(p)}</span>
-      <span class="row-main"><strong>${esc(p.name)}</strong><small>${esc(cat.label)}${distTo(p) != null ? " · " + distLabel(p) : ""}</small></span>
+      <span class="row-main"><strong>${esc(p.name)}</strong><small>${esc(sub)}</small></span>
       <span class="row-flags">${flags}</span>
     </button>`;
   }
@@ -127,7 +151,7 @@ const UI = (() => {
       strip.hidden = true;
       return;
     }
-    const list = sortedPlaces(p => !["estacionamento", "servico"].includes(p.cat)).slice(0, 8);
+    const list = sortedPlaces(p => p.x != null && !p.fechado && !["estacionamento", "servico", "lixeira"].includes(p.cat)).slice(0, 8);
     strip.hidden = false;
     strip.innerHTML = list.map(p => {
       const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
@@ -146,7 +170,7 @@ const UI = (() => {
     MAP.select(id);
     closePanel();
     $("searchResults").hidden = true;
-    if (fly) {
+    if (fly && p.x != null) {
       state.follow = false;
       MAP.flyTo(p, Math.max(MAP.view.s, 2.2));
     }
@@ -161,8 +185,10 @@ const UI = (() => {
     const me = myPos();
     const wait = FILAS.info(p.id);
     const mine = d.waits[p.id];
-    const dist = me ? GEO.dist(me, p) : null;
-    const dir = me ? GEO.compassName(GEO.bearing(me, p)) : "";
+    const temPos = p.x != null;
+    const dist = me && temPos ? GEO.dist(me, p) : null;
+    const dir = dist != null ? GEO.compassName(GEO.bearing(me, p)) : "";
+    const o = p.oficial;
     const info = (p.info || []).map(i => `<li>${esc(i)}</li>`).join("");
     const note = d.notes[p.id];
     const isRouting = state.route && state.route.targetId === p.id;
@@ -174,12 +200,18 @@ const UI = (() => {
           <p class="muted">${esc(cat.label)}${dist != null ? ` · <b>${GEO.fmtDist(dist)}</b> ao ${dir} · ~${GEO.walkMinutes(dist)} min a pé` : ""}</p>
         </div>
       </div>
+      ${alturaBloqueia(p) ? `<p class="warn-line">⛔ Altura mínima ${o.altura.toFixed(2).replace(".", ",")} m: acima da altura cadastrada (${STORE.data.alturaCm} cm).</p>` : ""}
       ${info ? `<ul class="info">${info}</ul>` : ""}
+      ${showLine(o)}
+      ${!temPos ? `<p class="warn-line">📍 O mapa ainda não sabe onde fica. Quando estiver na frente, toque em <b>Estou aqui agora</b>: a posição vai para todo mundo que usa o app.</p>` : ""}
+      ${p.fonte === "comunidade" ? `<p class="muted small">📍 Posição marcada por ${p.marcas === 1 ? "1 visitante" : p.marcas + " visitantes"}.</p>` : ""}
       ${waitLine(wait, mine)}
       ${d.done[p.id] ? `<p class="done-line">✓ Você foi às ${clock(d.done[p.id])}</p>` : ""}
       ${note ? `<p class="note-line">📝 ${esc(note)}</p>` : ""}
       <div class="actions">
-        <button class="btn btn-primary" data-act="${isRouting ? "stop" : "go"}">${isRouting ? "✕ Parar rota" : "🧭 Ir até lá"}</button>
+        ${temPos ? `<button class="btn btn-primary" data-act="${isRouting ? "stop" : "go"}">${isRouting ? "✕ Parar rota" : "🧭 Ir até lá"}</button>` : ""}
+        ${o && p.fonte !== "mapa" ? `<button class="btn ${temPos ? "" : "btn-primary"}" data-act="aqui">🙋 Estou aqui agora</button>` : ""}
+        ${state.plano && state.plano.length ? `<button class="btn" data-act="proximo">⏭ Próximo do plano</button>` : ""}
         <button class="btn ${d.favorites[p.id] ? "on" : ""}" data-act="fav">${d.favorites[p.id] ? "★ Favorito" : "☆ Favoritar"}</button>
         <button class="btn ${d.done[p.id] ? "on" : ""}" data-act="done">${d.done[p.id] ? "✓ Já fui" : "○ Já fui?"}</button>
         <button class="btn" data-act="wait">⏱ ${FILAS.shareable(p.id) ? "Informar fila" : "Fila"}</button>
@@ -187,6 +219,7 @@ const UI = (() => {
         ${GROUP.active && p.cat !== "grupo" ? `<button class="btn" data-act="share">👥 Mandar pro grupo</button>` : ""}
         ${p.pin ? `<button class="btn btn-danger" data-act="remove">🗑 Remover</button>` : ""}
         ${p.groupPin ? `<button class="btn btn-danger" data-act="gremove">🗑 Tirar do grupo</button>` : ""}
+        ${LUGARES.souAutor(p) ? `<button class="btn btn-danger" data-act="cremove">🗑 Apagar minha marcação</button>` : ""}
       </div>`;
     openSheet();
   }
@@ -195,11 +228,20 @@ const UI = (() => {
     const p = STORE.placeById(state.selected);
     if (!p) return;
     if (act === "go") return startRoute(p);
+    if (act === "proximo") return seguirPlano();
+    if (act === "aqui") return marcarAtracaoAqui(p);
+    if (act === "cremove") {
+      if (!confirm("Apagar a sua marcação deste lugar?")) return;
+      try { await LUGARES.desmarcar(p.comunidade.ids); toast("Marcação apagada"); } catch (e) { toast("Não foi: " + e.message); }
+      MAP.buildMarkers();
+      return closeSheet();
+    }
     if (act === "stop") { stopRoute(); return renderPlaceSheet(); }
     if (act === "fav") STORE.toggle("favorites", p.id);
     if (act === "done") {
       const on = STORE.toggle("done", p.id);
       if (on) toast(`Boa! ${countDone()} lugares no dia.`);
+      if (on && state.plano && state.plano[0] === p.id) state.plano.shift();
     }
     if (act === "wait") {
       const prev = STORE.data.waits[p.id];
@@ -252,6 +294,29 @@ const UI = (() => {
     return `<p class="wait-line">⏱ Fila anotada: <b>${wait.min} min</b> <span class="muted">(${ago(wait.at)})</span>${fresh}</p>`;
   }
 
+  function showLine(o) {
+    if (!o || !o.horarios) return "";
+    const prox = SHOW.sessoes().filter(s => s.show.id === o.id && s.fim > new Date())[0];
+    if (!prox) return `<p class="muted small">🎭 Sessões de hoje já passaram (${o.horarios.join(", ")}).</p>`;
+    const min = SHOW.minutosAte(prox.inicio);
+    const quando = min > 0 ? `começa em <b>${min} min</b> (${prox.hm})` : `<b>acontecendo agora</b> (começou ${prox.hm})`;
+    return `<p class="wait-line">🎭 Próxima sessão: ${quando}</p>`;
+  }
+
+  // Marca a posição de uma atração oficial com o GPS atual.
+  async function marcarAtracaoAqui(p) {
+    const me = myPos();
+    if (!me) { toast("Ligue o GPS primeiro (◎)"); return; }
+    if (!me.manual && me.acc > 35) { toast(`GPS impreciso agora (±${Math.round(me.acc)} m). Espere um pouco em lugar aberto.`); return; }
+    if (!confirm(`Você está na frente de “${p.name}” agora?\nA posição vai para o mapa de todo mundo.`)) return;
+    try {
+      await LUGARES.marcar("atracao", me, p.id, p.name);
+      toast("Valeu! Posição salva para todo mundo");
+      MAP.buildMarkers();
+      renderPlaceSheet();
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
   function countDone() {
     return Object.keys(STORE.data.done).length;
   }
@@ -272,7 +337,8 @@ const UI = (() => {
         <button class="btn btn-primary" data-lp="route">🧭 Rota até aqui</button>
         <button class="btn" data-lp="carro">🚗 Meu carro está aqui</button>
         <button class="btn" data-lp="encontro">🚩 Ponto de encontro aqui</button>
-        <button class="btn" data-lp="lugar">📍 Marcar lugar</button>
+        <button class="btn" data-lp="publico">➕ Bebedouro, lixeira, banheiro…</button>
+        <button class="btn" data-lp="lugar">📍 Lugar só meu</button>
         <button class="btn" data-lp="here">🙋 Estou aqui (corrigir GPS)</button>
       </div>`;
     openSheet();
@@ -282,6 +348,7 @@ const UI = (() => {
     const xy = pressPoint;
     if (!xy) return;
     if (act === "route") return startRoute({ id: null, name: "Ponto marcado", x: xy.x, y: xy.y });
+    if (act === "publico") return openMarcar(xy);
     if (act === "here") {
       GPS.setManual(xy);
       toast("Posição fixada aqui até o GPS mandar uma leitura melhor");
@@ -341,6 +408,7 @@ const UI = (() => {
     const body = $("panelBody");
     if (state.tab === "lugares") body.innerHTML = tabPlaces();
     if (state.tab === "roteiro") body.innerHTML = tabPlan();
+    if (state.tab === "shows") body.innerHTML = tabShows();
     if (state.tab === "grupo") body.innerHTML = tabGroup();
     if (state.tab === "ajustes") body.innerHTML = tabSettings();
   }
@@ -350,15 +418,17 @@ const UI = (() => {
     const chips = [`<button class="chip ${state.listCat ? "" : "active"}" data-listcat="">Todos</button>`]
       .concat(cats.map(c => `<button class="chip ${state.listCat === c ? "active" : ""}" data-listcat="${c}" style="--c:${CATEGORIES[c].color}">${CATEGORIES[c].icon} ${esc(CATEGORIES[c].label)}</button>`))
       .join("");
-    const list = sortedPlaces(p => !state.listCat || p.cat === state.listCat);
-    return `<div class="chips wrap">${chips}</div>
+    const list = sortedPlaces(filtroLista(state.listCat));
+    const hotChip = `<button class="chip ${state.listCat === "disputado" ? "active" : ""}" data-listcat="disputado" style="--c:#ff4d6d">🔥 Disputados</button>`;
+    return `<div class="chips wrap">${hotChip}${chips}</div>
+      <button class="btn wide" data-marcar="1">➕ Marcar bebedouro, lixeira, banheiro… onde estou</button>
       <p class="muted small">${myPos() ? "Ordenado pela distância de você." : "Ligue o GPS para ordenar pela distância."}</p>
       <div class="list">${list.map(placeRow).join("") || '<p class="empty">Nada nesta categoria.</p>'}</div>`;
   }
 
   function tabPlan() {
     const d = STORE.data;
-    const attractions = STORE.places().filter(p => ["montanha", "atracao", "aquatico", "infantil", "show", "animais"].includes(p.cat));
+    const attractions = STORE.places().filter(p => p.oficial && ["montanha", "atracao", "aquatico", "infantil", "show"].includes(p.cat));
     const doneCount = attractions.filter(p => d.done[p.id]).length;
     const pct = attractions.length ? Math.round(doneCount / attractions.length * 100) : 0;
     const favs = sortedPlaces(p => d.favorites[p.id] && !d.done[p.id]);
@@ -374,6 +444,135 @@ const UI = (() => {
       <div class="list">${favs.map(placeRow).join("") || '<p class="empty">Toque num lugar e em ☆ Favoritar para montar seu roteiro.</p>'}</div>
       <h3>✓ Já fui (${done.length})</h3>
       <div class="timeline">${done.map(p => `<button class="tl-item" data-open="${esc(p.id)}"><span class="tl-time">${clock(d.done[p.id])}</span><span>${STORE.iconOf(p)} ${esc(p.name)}</span></button>`).join("") || '<p class="empty">Marque “Já fui” em cada atração para ver sua linha do tempo.</p>'}</div>`;
+  }
+
+  function tabShows() {
+    const now = new Date();
+    const janela = SHOW.janelaAgora(now);
+    const prox = SHOW.proximoGrande(now);
+    const me = myPos();
+    const plano = SHOW.plano(me, 8);
+    const sess = SHOW.sessoes();
+    let topo;
+    if (janela) {
+      const min = SHOW.minutosAte(janela.inicio);
+      topo = `<div class="show-now"><strong>⏰ ${esc(janela.show.name)} ${min > 0 ? `começa em ${min} min` : "está rolando agora"}</strong>
+        <p>Hora boa para os brinquedos disputados: muita gente está indo para o show (estimativa até ~${janela.fim.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}).</p></div>`;
+    } else if (prox) {
+      const min = SHOW.minutosAte(prox.inicio);
+      topo = `<div class="show-now" style="background:linear-gradient(135deg,#1e3a8a,#7c3aed)"><strong>Próximo show grande: ${esc(prox.show.name)} às ${prox.hm}</strong>
+        <p>${min > 60 ? `Daqui a ${Math.floor(min / 60)} h ${min % 60} min.` : `Daqui a ${min} min.`} Nessa hora, siga o plano abaixo para pegar fila menor.</p></div>`;
+    } else {
+      topo = `<div class="show-now" style="background:var(--glass-2)"><strong>Shows grandes de hoje já passaram</strong><p>O plano abaixo continua valendo pela distância.</p></div>`;
+    }
+    const linhas = sess.map(s => {
+      const passou = s.fim < now;
+      const min = SHOW.minutosAte(s.inicio);
+      const when = passou ? "terminou" : min > 0 ? (min > 60 ? `em ${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}` : `em ${min} min`) : "agora";
+      return `<button class="show-row${passou ? " is-past" : ""}" data-open="${esc(s.show.id)}">
+        <span class="hm">${s.hm}</span><span>${s.show.grande ? "⭐ " : ""}${esc(s.show.name)}</span><span class="when">${when}</span></button>`;
+    }).join("");
+    const altura = STORE.data.alturaCm;
+    const passos = plano.map((st, i) => {
+      const w = FILAS.info(st.place.id);
+      return `<button class="row" data-open="${esc(st.place.id)}">
+        <span class="plan-step"><span class="n">${i + 1}</span></span>
+        <span class="row-main"><strong>${esc(st.place.name)}</strong><small>${st.andar ? `${st.andar} min a pé` : "comece por aqui"}${w ? ` · fila ~${w.min} min` : ""}${st.place.oficial.altura ? ` · ≥${st.place.oficial.altura.toFixed(2).replace(".", ",")} m` : ""}</small></span>
+      </button>`;
+    }).join("");
+    const semPos = LUGARES.oficiais().filter(p => p.oficial.disputado && p.x == null && !STORE.data.done[p.id]);
+    return `${topo}
+      <h3>🔥 Plano: disputados em ordem de caminhada</h3>
+      ${plano.length ? `<button class="btn btn-primary wide" data-plan="start">▶ Seguir o plano (${plano.length} paradas)</button>` : ""}
+      <div class="list">${passos || '<p class="empty">Nenhum disputado com posição conhecida e ainda não visitado.</p>'}</div>
+      ${semPos.length ? `<p class="muted small">Ainda sem posição no mapa: ${semPos.map(p => esc(p.name)).join(", ")}. Ao passar por eles, toque no nome → “Estou aqui agora”.</p>` : ""}
+      <p class="muted small">${altura ? `Filtrando pela altura de ${altura} cm.` : "Dica: cadastre a altura da pessoa mais baixa em Ajustes para tirar do plano o que ela não pode ir."} Pagos à parte ficam fora do plano.</p>
+      <h3>🎭 Shows de hoje (horário oficial)</h3>
+      <div class="list">${linhas}</div>
+      <p class="muted small">⭐ = show grande (puxa muito público). Duração estimada em ${DURACAO_SHOW_MIN} min. ${esc(OFICIAL_FONTE)}.</p>`;
+  }
+
+  function seguirPlano() {
+    if (!state.plano || !state.plano.length) {
+      state.plano = SHOW.plano(myPos(), 8).map(s => s.place.id);
+    }
+    // Pula o que já foi marcado.
+    state.plano = state.plano.filter(id => !STORE.data.done[id]);
+    const id = state.plano[0];
+    if (!id) { toast("Plano concluído! 🎉"); state.plano = null; return; }
+    const p = STORE.placeById(id);
+    if (p) { openPlace(id, false); startRoute(p); toast(`Parada ${1}: ${p.name}`); }
+  }
+
+  // Marcação pública rápida (bebedouro, lixeira…): no GPS ou no ponto tocado.
+  let marcarPonto = null;
+  function openMarcar(xy) {
+    marcarPonto = xy || null;
+    state.selected = null;
+    MAP.select(null);
+    closePanel();
+    const me = myPos();
+    const onde = xy ? "no ponto que você segurou no mapa" : me ? `onde você está (GPS ±${Math.round(me.acc)} m)` : "— ligue o GPS primeiro";
+    $("sheetBody").innerHTML = `
+      <h2>➕ Marcar para todo mundo</h2>
+      <p class="muted">Vai aparecer no mapa de todos que usam o app, ${esc(onde)}.</p>
+      <div class="tipo-grid">${Object.entries(LUGARES.TIPOS).map(([k, t]) => `<button class="btn" data-tipo="${k}"><span>${t.icon}</span>${esc(t.label)}</button>`).join("")}
+        <button class="btn" data-tipo="atracao"><span>🎢</span>Brinquedo / show da lista</button>
+      </div>`;
+    openSheet();
+  }
+
+  async function marcarTipo(kind) {
+    const xy = marcarPonto || myPos();
+    if (!xy) { toast("Ligue o GPS (◎) ou segure o dedo no mapa no lugar certo"); return; }
+    if (!marcarPonto && !xy.manual && xy.acc > 35) { toast(`GPS impreciso agora (±${Math.round(xy.acc)} m). Segure o dedo no mapa no lugar exato.`); return; }
+    if (kind === "atracao") {
+      const lista = LUGARES.oficiais().slice().sort((a, b) => (a.x == null ? 0 : 1) - (b.x == null ? 0 : 1) || a.name.localeCompare(b.name, "pt-BR"));
+      $("sheetBody").innerHTML = `<h2>Qual atração está aqui?</h2>
+        <p class="muted small">As sem posição no mapa vêm primeiro.</p>
+        <div class="list">${lista.map(p => `<button class="row" data-refpick="${esc(p.id)}"><span class="row-icon" style="background:${(CATEGORIES[p.cat] || CATEGORIES.meu).color}">${STORE.iconOf(p)}</span><span class="row-main"><strong>${esc(p.name)}</strong><small>${p.x == null ? "📍 sem posição ainda" : "já no mapa"}${p.oficial.area ? " · " + esc(p.oficial.area) : ""}</small></span></button>`).join("")}</div>`;
+      return;
+    }
+    let name = "";
+    if (kind === "comida" || kind === "loja") {
+      const v = prompt(`Nome (opcional):`, "");
+      if (v === null) return;
+      name = v.trim();
+    }
+    try {
+      await LUGARES.marcar(kind, xy, null, name);
+      toast(`${LUGARES.TIPOS[kind].icon} Marcado para todo mundo. Valeu!`);
+      MAP.buildMarkers();
+      closeSheet();
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
+  async function marcarRef(refId) {
+    const xy = marcarPonto || myPos();
+    const o = LUGARES.oficialDe(refId);
+    if (!xy || !o) return;
+    try {
+      await LUGARES.marcar("atracao", xy, refId, o.name);
+      toast(`Posição de ${o.name} salva para todo mundo`);
+      MAP.buildMarkers();
+      openPlace(refId, false);
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
+  // Aviso de show grande chegando (uma vez por sessão de show).
+  function checarShow() {
+    const j = SHOW.janelaAgora();
+    const pill = $("showPill");
+    if (!j) { pill.hidden = true; return; }
+    const min = SHOW.minutosAte(j.inicio);
+    pill.hidden = false;
+    pill.textContent = min > 0 ? `⏰ ${j.show.name} em ${min} min · hora dos disputados` : `⏰ ${j.show.name} agora · filas menores`;
+    const chave = j.show.id + j.hm;
+    if (state.avisoShow !== chave) {
+      state.avisoShow = chave;
+      toast(`⏰ ${j.show.name} ${min > 0 ? "em " + min + " min" : "começou"}: hora dos brinquedos disputados!`);
+      if (navigator.vibrate) navigator.vibrate([100, 60, 100, 60, 100]);
+    }
   }
 
   function tabGroup() {
@@ -424,6 +623,12 @@ const UI = (() => {
     return `
       <h3>Mapa</h3>
       <label class="toggle"><input type="checkbox" id="optLabels" ${d.showLabels ? "checked" : ""}> Mostrar nomes no mapa</label>
+      <h3>Altura</h3>
+      <label class="field-inline">Pessoa mais baixa do grupo: <input id="optAltura" type="number" inputmode="numeric" min="0" max="250" value="${d.alturaCm || ""}" placeholder="cm"> cm</label>
+      <p class="muted small">Marca com ⛔ e tira do plano o que ela não pode ir (altura mínima oficial). Vazio = não filtrar.</p>
+      <h3>Caminhos</h3>
+      <label class="toggle"><input type="checkbox" id="optMapear" ${d.mapearCaminhos !== false ? "checked" : ""}> Ajudar a mapear caminhos</label>
+      <p class="muted small">Grava seu trajeto a pé dentro do parque, sem nome, só com GPS bom, para as rotas seguirem os caminhos reais em vez de linha reta. Trechos aprendidos: ${TRILHAS.trechos}${TRILHAS.pendentes ? ` · ${TRILHAS.pendentes} esperando internet` : ""}.</p>
       <h3>Mostrar no mapa</h3>
       <div class="toggles">${cats}</div>
       <h3>Dados</h3>
@@ -434,7 +639,7 @@ const UI = (() => {
       </div>
       <p class="muted small">“Começar dia novo” limpa as atrações visitadas e as filas anotadas. Favoritos, notas e lugares marcados continuam.</p>
       <h3>Sobre</h3>
-      <p class="muted small">Mapa do Parque v${APP_VERSION}. Desenho e posições vêm do OpenStreetMap (© colaboradores do OpenStreetMap, licença ODbL), dados de ${esc(PARK_DATA.generated)}. Algumas atrações novas podem não estar no mapa: segure o dedo no lugar e marque você mesmo.</p>
+      <p class="muted small">Mapa do Parque v${APP_VERSION}. Desenho e posições vêm do OpenStreetMap (© colaboradores do OpenStreetMap, licença ODbL), dados de ${esc(PARK_DATA.generated)}. Atrações, alturas e horários: ${esc(OFICIAL_FONTE)}. Bebedouros, lixeiras e o que faltar no mapa são marcados pelos visitantes (botão ＋).</p>
       <p class="muted small">Funciona sem internet depois de aberto uma vez. Só o grupo precisa de conexão.</p>`;
   }
 
@@ -560,6 +765,7 @@ const UI = (() => {
           const id = state.route.targetId;
           stopRoute();
           if (id) openPlace(id);
+          if (state.plano && state.plano[0] === id) toast("No plano: marque “Já fui” e toque em ⏭ Próximo");
         }
       }, 4000);
     }
@@ -611,6 +817,7 @@ const UI = (() => {
     $("btnLocate").classList.toggle("active", state.follow);
     updateNav();
     GROUP.onMove(me);
+    TRILHAS.onGps(me);
     throttledUiRefresh();
   }
 
@@ -689,6 +896,8 @@ const UI = (() => {
     $("gpsPill").addEventListener("click", () => enableSensors());
     $("panelClose").addEventListener("click", closePanel);
     $("navStop").addEventListener("click", stopRoute);
+    $("btnAdd").addEventListener("click", () => openMarcar(null));
+    $("showPill").addEventListener("click", () => openPanel("shows"));
     $("btnZoomIn").addEventListener("click", () => MAP.zoomBy(1.6));
     $("btnZoomOut").addEventListener("click", () => MAP.zoomBy(1 / 1.6));
 
@@ -717,7 +926,7 @@ const UI = (() => {
 
     // Cliques delegados: listas, folha e painel usam data-atributos.
     document.addEventListener("click", e => {
-      const t = e.target.closest("[data-open],[data-act],[data-lp],[data-cat],[data-listcat],[data-group],[data-status],[data-color],[data-set],[data-member],[data-member-go]");
+      const t = e.target.closest("[data-open],[data-act],[data-lp],[data-cat],[data-listcat],[data-group],[data-status],[data-color],[data-set],[data-member],[data-member-go],[data-tabgo],[data-marcar],[data-tipo],[data-refpick],[data-plan]");
       if (!t) return;
       const ds = t.dataset;
       if (ds.open) {
@@ -725,7 +934,12 @@ const UI = (() => {
         $("searchInput").blur();
         openPlace(ds.open, true);
         if (ds.go) { const p = STORE.placeById(ds.open); if (p) startRoute(p); }
-      } else if (ds.act) placeAction(ds.act);
+      } else if (ds.tabgo) openPanel(ds.tabgo);
+      else if (ds.marcar) openMarcar(null);
+      else if (ds.tipo) marcarTipo(ds.tipo);
+      else if (ds.refpick) marcarRef(ds.refpick);
+      else if (ds.plan) { state.plano = null; closePanel(); seguirPlano(); }
+      else if (ds.act) placeAction(ds.act);
       else if (ds.lp) longPressAction(ds.lp);
       else if (ds.cat) { state.listCat = ds.cat; openPanel("lugares"); }
       else if (ds.listcat !== undefined) { state.listCat = ds.listcat; renderPanel(); }
@@ -746,6 +960,16 @@ const UI = (() => {
         else STORE.data.hidden[t.dataset.hide] = true;
         STORE.save();
         MAP.buildMarkers();
+      }
+      if (t.id === "optAltura") {
+        const v = parseInt(t.value, 10);
+        STORE.data.alturaCm = v > 0 && v < 250 ? v : 0;
+        STORE.save();
+        MAP.buildMarkers();
+      }
+      if (t.id === "optMapear") {
+        STORE.data.mapearCaminhos = t.checked;
+        STORE.save();
       }
       if (t.id === "optLabels") {
         STORE.data.showLabels = t.checked;
@@ -787,6 +1011,12 @@ const UI = (() => {
 
     GPS.onChange(onGps);
     GROUP.onChange(onGroupChange);
+    LUGARES.onChange(() => {
+      MAP.buildMarkers();
+      if (!$("sheet").hidden && state.selected) renderPlaceSheet();
+      if (!$("panel").hidden && document.activeElement?.tagName !== "INPUT") renderPanel();
+    });
+    TRILHAS.onChange(list => MAP.setTrilhas(list));
     FILAS.onChange(() => {
       MAP.buildMarkers();
       if (!$("sheet").hidden && state.selected) renderPlaceSheet();
@@ -836,6 +1066,11 @@ const UI = (() => {
 
     if (GROUP.active) GROUP.start();
     FILAS.start();
+    STORE.migrarIdsOficiais();
+    LUGARES.start();
+    TRILHAS.start();
+    checarShow();
+    setInterval(checarShow, 30000);
     updateGroupPill();
     if (/grupo=/.test(location.hash) && !GROUP.active) openPanel("grupo");
     // Convite aberto com o app já na tela: o navegador só troca o #, não recarrega.

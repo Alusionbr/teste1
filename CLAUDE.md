@@ -685,9 +685,13 @@ parque/
 ├── gps.js         watchPosition suavizado pela precisão + bússola
 ├── group.js       grupo no Supabase por RPC (fetch puro); expõe GROUP.rpc
 ├── filas.js       fila ao vivo compartilhada (mediana da última hora)
+├── oficial.js     lista OFICIAL de atrações: altura mínima, horários de show, área, disputado, ids OSM
+├── lugares.js     catálogo único: oficial + OSM + marcações da comunidade (bebedouro, lixeira…)
+├── show.js        "Hora do Show": sessões do dia e plano dos disputados por caminhada
+├── trilhas.js     caminhos aprendidos: grava trajeto anônimo e alimenta route.js
 ├── ui.js          telas e eventos; só liga os módulos
 ├── sw.js          cache do casco (inclui park-data.js)
-└── supabase/        001_grupo.sql, 002_schema_e_filas.sql (aplicar em ordem)
+└── supabase/        001, 002, 003 (aplicar em ordem)
 ```
 
 Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no `index.html` **e** no `SHELL` do `sw.js`.
@@ -696,10 +700,13 @@ Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no
 
 1. **Versão única**: `APP_VERSION` (`store.js`), `VERSION` (`sw.js`) e `?v=` do `index.html` andam juntos. Alterou qualquer arquivo, suba os três.
 2. **Plano local em metros**: tudo no mapa é `{x, y}` em metros a partir de `PARK_DATA.origin`. GPS entra por `GEO.toXY`; o servidor guarda lat/lon e o cliente converte. Não misturar graus com metros.
-3. **Rota honesta**: o OSM tem poucos caminhos dentro do parque. `ROUTE.plan` só usa o grafo quando há caminho a até 35 m da saída e 50 m da chegada e o trajeto fica até 1,8× a linha reta; senão devolve linha reta (`straight:true`) e a faixa diz "siga a seta". Não afrouxar esses limites sem conferir no mapa: o resultado era volta de 1 km por um caminho fora do parque.
+3. **Rota honesta**: o OSM tem poucos caminhos dentro do parque. O grafo de `route.js` junta OSM + **caminhos aprendidos** (`trilhas.js`: trechos andados por visitantes, GPS ≤ 20 m, velocidade de pedestre, pontos a menos de 6 m viram o mesmo nó). `ROUTE.plan` só usa o grafo quando há caminho a até 35 m da saída e 50 m da chegada e o trajeto fica até 1,8× a linha reta; senão devolve linha reta (`straight:true`) e a faixa diz "siga a seta". Não afrouxar esses limites sem conferir no mapa: o resultado era volta de 1 km por um caminho fora do parque.
+3b. **Fonte de cada dado**: nome, altura mínima e horário de show vêm só de `oficial.js` (lista oficial do parque, data anotada no topo). Posição: OSM primeiro; sem OSM, mediana das marcações da comunidade; sem nada, "sem posição" com botão "Estou aqui agora". Nunca inventar coordenada: atração sem posição confirmada fica sem posição.
+3c. **Ids**: atração oficial usa `of-…` (estável); lugares só do OSM usam `osm-…`; comunidade `c-<tipo>-<id>`. `STORE.migrarIdsOficiais()` move favoritos/visitas/filas/notas de `osm-` para `of-`.
 4. **Não inventar dado de segurança**: altura mínima, horário e restrição de brinquedo só entram com fonte conferida.
 5. **Grupo é opcional**: o mapa, o GPS e a rota funcionam sem rede. Exceção registrada à regra "nada de servidor": o grupo usa o Supabase do projeto `iowuejrpzoibyidiuvpt` (o mesmo do Financeiro360), sem biblioteca, por `fetch` em `/rest/v1/rpc/`.
 6. **Gaveta própria e tabelas trancadas**: o banco é dividido com o futebol e o Financeiro360, então tudo do parque mora no schema `parque` (`parque.membros`, `parque.pinos`, `parque.filas`), que a API não expõe. RLS ligado, sem política, sem GRANT para `anon`. A única porta são as funções `SECURITY DEFINER` em `public`, todas com prefixo `parque_` (`parque_sync`, `parque_pin_set`, `parque_pin_del`, `parque_sair`, `parque_fila_set`, `parque_filas`). As do grupo validam o código (`^[A-Z0-9]{6,16}$`). Não criar tabela do parque em `public` nem abrir SELECT direto: seria publicar a posição de todo mundo.
+6c. **Comunidade e trilhas**: `parque.lugares` (marcações; a leitura nunca devolve `device_id`, e só o aparelho autor tira a sua com `parque_lugar_del`) e `parque.trilhas` (trechos `[[lat, lon], …]`, validados dentro do retângulo do parque). Limites diários por aparelho nas funções. Mapear caminhos pode ser desligado em Ajustes.
 6b. **Fila ao vivo**: só lugares `osm-…` (iguais em todo aparelho) vão para `parque.filas`, um relato por aparelho (`STORE.deviceId()`, anônimo) por atração; a leitura é a mediana da última hora. Não enviar posição, nome nem grupo junto com a fila.
 7. **Nada é apagado no servidor**: sair marca `active=false`, remover pino marca `removed=true`; a leitura filtra membros parados há mais de 3 h e pinos com mais de 24 h.
 8. **Gravar posição é barato, redesenhar lista não**: listas e folha redesenham no máximo a cada 2,5 s (`throttledUiRefresh`), e nunca com um campo de texto em foco.

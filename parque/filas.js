@@ -18,7 +18,7 @@ const FILAS = (() => {
   let timer = 0;
   const listeners = [];
 
-  const shareable = id => /^osm-/.test(id);
+  const shareable = id => /^(osm|of)-/.test(id);
 
   async function refresh() {
     if (document.visibilityState === "hidden") return;

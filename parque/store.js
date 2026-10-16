@@ -9,7 +9,7 @@
  */
 "use strict";
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 const CATEGORIES = {
   montanha:       { label: "Montanhas-russas", icon: "🎢", color: "#ff4d6d" },
@@ -23,6 +23,17 @@ const CATEGORIES = {
   mirante:        { label: "Mirantes",         icon: "🔭", color: "#9bf6ff" },
   estacionamento: { label: "Estacionamento",   icon: "🅿️", color: "#bdb2ff" },
   servico:        { label: "Serviços",         icon: "🎟️", color: "#caffbf" },
+  foto:           { label: "Fotos e cenários", icon: "📸", color: "#f9c74f" },
+  bebedouro:      { label: "Bebedouros",       icon: "🚰", color: "#4cc9f0" },
+  lixeira:        { label: "Lixeiras",         icon: "🗑️", color: "#adb5bd" },
+  loja:           { label: "Lojas",            icon: "🛍️", color: "#f72585" },
+  socorro:        { label: "Primeiros socorros", icon: "⛑️", color: "#ef233c" },
+  fraldario:      { label: "Fraldário",        icon: "🚼", color: "#cdb4db" },
+  guarda:         { label: "Guarda-volumes",   icon: "🧳", color: "#b08968" },
+  carregador:     { label: "Carregar celular", icon: "🔌", color: "#90be6d" },
+  descanso:       { label: "Sombra / descanso", icon: "🪑", color: "#84a98c" },
+  info:           { label: "Informações",      icon: "ℹ️", color: "#8ecae6" },
+  saida:          { label: "Entrada / saída",  icon: "🚪", color: "#e9c46a" },
   meu:            { label: "Meus lugares",     icon: "📍", color: "#ff70a6" },
   grupo:          { label: "Do grupo",         icon: "🚩", color: "#ffbe0b" }
 };
@@ -44,7 +55,10 @@ const STORE = (() => {
     hidden: {},           // categoria -> true (filtro do mapa)
     profile: { name: "", color: "" },
     group: { code: "", memberId: "" },
-    deviceId: "",         // id anônimo do aparelho para a fila compartilhada
+    deviceId: "",         // id anônimo do aparelho (fila e marcações da comunidade)
+    crowdIds: [],         // ids das marcações de comunidade feitas neste aparelho
+    alturaCm: 0,          // altura da pessoa mais baixa do grupo (0 = não filtrar)
+    mapearCaminhos: true, // grava trajeto anônimo para o mapa aprender os caminhos
     showLabels: true
   });
 
@@ -54,6 +68,24 @@ const STORE = (() => {
     if (raw) data = Object.assign(empty(), JSON.parse(raw));
   } catch (e) {
     console.warn("Não foi possível ler os dados salvos", e);
+  }
+
+  // v1.2: atrações oficiais ganharam id próprio ("of-…"). Favoritos, visitas,
+  // filas e notas marcados no id antigo do OSM passam para o id novo.
+  function migrarIdsOficiais() {
+    let mudou = false;
+    for (const o of OFICIAL) {
+      for (const old of o.osm || []) {
+        for (const field of ["favorites", "done", "waits", "notes"]) {
+          if (data[field][old] != null) {
+            if (data[field][o.id] == null) data[field][o.id] = data[field][old];
+            delete data[field][old];
+            mudou = true;
+          }
+        }
+      }
+    }
+    if (mudou) save();
   }
 
   function save() {
@@ -75,11 +107,16 @@ const STORE = (() => {
       pin: p
     }));
     const shared = window.GROUP ? GROUP.placeList() : [];
-    return PARK_DATA.pois.concat(mine, shared);
+    return LUGARES.todos().concat(mine, shared);
   }
 
   function placeById(id) {
     return places().find(p => p.id === id) || null;
+  }
+
+  // Só o que tem posição vai para o mapa e para as rotas.
+  function placesNoMapa() {
+    return places().filter(p => p.x != null);
   }
 
   function iconOf(place) {
@@ -148,7 +185,7 @@ const STORE = (() => {
 
   return {
     get data() { return data; },
-    save, uid, deviceId, places, placeById, iconOf, setPin, removePin, toggle, setWait, setNote,
+    save, uid, deviceId, places, placesNoMapa, migrarIdsOficiais, placeById, iconOf, setPin, removePin, toggle, setWait, setNote,
     exportJson, importJson, resetDay
   };
 })();
