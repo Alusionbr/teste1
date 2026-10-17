@@ -134,7 +134,9 @@ export const repeatLabels: Record<TaskRepeat, string> = {
   monthly: "Todo mês",
 };
 // Modelos só preenchem o formulário; nada é cadastrado sem a pessoa salvar.
-export const taskTemplates: { title: string; kind: TaskKind; repeat: TaskRepeat }[] = [
+export const taskTemplates: { title: string; kind: TaskKind; repeat: TaskRepeat; steps?: string[] }[] = [
+  { title: "Rotina da manhã", kind: "other", repeat: "daily", steps: ["Tomar água", "Remédios", "Arrumar a cama", "Conferir a agenda do dia"] },
+  { title: "Rotina da noite", kind: "other", repeat: "daily", steps: ["Separar a roupa de amanhã", "Deixar chaves e carteira no lugar", "Carregar o celular"] },
   { title: "Tirar o lixo", kind: "cleaning", repeat: "daily" },
   { title: "Limpar o banheiro", kind: "cleaning", repeat: "weekly" },
   { title: "Trocar a roupa de cama", kind: "laundry", repeat: "biweekly" },

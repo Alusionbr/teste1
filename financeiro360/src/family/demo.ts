@@ -1,5 +1,7 @@
 import { type Data, type Member, today, permissions } from "./model.ts";
 import { addDays } from "./home.ts";
+import { addMonths } from "../logic.ts";
+import { carneSchedule } from "./plans.ts";
 export const ADMIN = "00000000-0000-4000-8000-000000000001",
   MEMBER = "00000000-0000-4000-8000-000000000002",
   HOME = "00000000-0000-4000-8000-000000000003";
@@ -7,6 +9,11 @@ export function demoData(): Data {
   const date = today(),
     m = date.slice(0, 7);
   const base = { home_id: HOME, owner_id: ADMIN, shared: false };
+  const blank = { account_id: null, card_id: null, target_account_id: null, debt_id: null, installments: 1, invoice_month: null, due_date: null, source_ref: null };
+  // Compromisso de demonstração daqui a cerca de uma hora, para a tela "Agora" ter o que mostrar.
+  const soon = new Date(Date.now() + 70 * 60000);
+  const soonTime = soon.getDate() === new Date().getDate() ? `${String(soon.getHours()).padStart(2, "0")}:${String(Math.floor(soon.getMinutes() / 5) * 5).padStart(2, "0")}` : "23:30";
+  const fridge = carneSchedule({ description: "Geladeira nova", total: 240000, count: 4, firstDue: `${m}-20` });
   return {
     home: {
       id: HOME,
@@ -171,6 +178,16 @@ export function demoData(): Data {
         due_date: null,
         source_ref: null,
       },
+      // Renda dos meses anteriores: base do simulador "Cabe no mês?".
+      ...[1, 2].map((back) => ({ ...base, ...blank, id: `demo-income-${back}`, description: "Renda do mês", amount_cents: 650000,
+        date: `${addMonths(m, -back)}-05`, kind: "income" as const, category: "Salário", area: "personal" as const, status: "paid" as const,
+        payment: "cash" as const, account_id: "demo-account" })),
+      { ...base, ...blank, id: "demo-tv", shared: true, description: "Televisão da sala", amount_cents: 299990, date: `${addMonths(m, -2)}-08`,
+        kind: "expense", category: "Casa", area: "household", status: "paid", payment: "card", card_id: "demo-card", installments: 5 },
+      // Carnê fictício em 4 parcelas: a primeira já paga.
+      ...fridge.map((row, i) => ({ ...base, ...blank, id: `demo-fridge-${i + 1}`, shared: true, ...row, date: `${m}-01`,
+        kind: "expense" as const, category: "Casa", area: "household" as const, status: i === 0 ? ("paid" as const) : ("pending" as const),
+        payment: "cash" as const, source_ref: "parc:demo-fridge" })),
     ],
     debts: [],
     goals: [
@@ -247,6 +264,9 @@ export function demoData(): Data {
         due_date: date, repeat: "daily", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
       { id: "demo-task-bath", home_id: HOME, title: "Limpar o banheiro", notes: "Inclui trocar as toalhas.", kind: "cleaning", assignee_id: ADMIN,
         due_date: addDays(date, -1), repeat: "weekly", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+      { id: "demo-task-morning", home_id: HOME, title: "Rotina da manhã", notes: "", kind: "other", assignee_id: ADMIN,
+        due_date: date, repeat: "daily", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z`,
+        steps: [{ text: "Tomar água", done: true }, { text: "Arrumar a cama", done: false }, { text: "Separar a roupa do dia", done: false }] },
       { id: "demo-task-filter", home_id: HOME, title: "Trocar o filtro de água", notes: "", kind: "maintenance", assignee_id: null,
         due_date: addDays(date, 10), repeat: "none", done_at: null, done_by: null, previous_id: null, created_by: ADMIN, created_at: `${date}T08:00:00Z` },
     ],
@@ -255,6 +275,33 @@ export function demoData(): Data {
       { id: "demo-offer", home_id: HOME, name: "Arroz", brand: "Camil", size: "5 kg", unit: "pacote", category: "mercearia",
         store: "Atacadão", price_cents: 2490, offer_until: addDays(date, 7), barcode: "", source: "manual",
         created_by: ADMIN, created_at: `${date}T08:00:00Z` },
+    ],
+    // Agenda fictícia: pessoal (só o dono vê), "ocupado" e da casa.
+    events: [
+      { id: "demo-event-soon", home_id: HOME, owner_id: ADMIN, title: "Ligar para o banco", notes: "Pedir a segunda via do boleto.", day: date,
+        start_time: soonTime, end_time: null, place: "", visibility: "private", people: [], repeat: "none", repeat_until: null,
+        remind_minutes: 10, created_at: `${date}T08:00:00Z` },
+      { id: "demo-event-doctor", home_id: HOME, owner_id: ADMIN, title: "Consulta médica", notes: "", day: addDays(date, 1), start_time: "15:00",
+        end_time: "16:00", place: "Clínica", visibility: "busy", people: [], repeat: "none", repeat_until: null, remind_minutes: 60,
+        created_at: `${date}T08:00:00Z` },
+      { id: "demo-event-therapy", home_id: HOME, owner_id: MEMBER, title: "Terapia", notes: "", day: date, start_time: "18:00", end_time: "19:00",
+        place: "", visibility: "busy", people: [], repeat: "weekly", repeat_until: null, remind_minutes: 30, created_at: `${date}T08:00:00Z` },
+      { id: "demo-event-school", home_id: HOME, owner_id: MEMBER, title: "Reunião da escola", notes: "Levar o caderno de recados.", day: addDays(date, 2),
+        start_time: "19:00", end_time: "20:00", place: "Escola", visibility: "home", people: [ADMIN, MEMBER], repeat: "none", repeat_until: null,
+        remind_minutes: 60, created_at: `${date}T08:00:00Z` },
+      { id: "demo-event-birthday", home_id: HOME, owner_id: ADMIN, title: "Aniversário da vó", notes: "", day: addDays(date, 5), start_time: null,
+        end_time: null, place: "", visibility: "home", people: [], repeat: "yearly", repeat_until: null, remind_minutes: null, created_at: `${date}T08:00:00Z` },
+    ],
+    busy: [],
+    inbox: [
+      { id: "demo-note-car", home_id: HOME, owner_id: ADMIN, text: "Ver orçamento do conserto do carro", created_at: `${date}T07:00:00Z`, done_at: null },
+      { id: "demo-note-gift", home_id: HOME, owner_id: ADMIN, text: "Comprar presente da vó", created_at: `${date}T07:30:00Z`, done_at: null },
+    ],
+    wishes: [
+      { id: "demo-wish-phones", home_id: HOME, owner_id: ADMIN, name: "Fone sem fio", price_cents: 25000, link: "", wait_until: date,
+        decision: null, decided_at: null, shared: false, created_at: `${date}T07:00:00Z` },
+      { id: "demo-wish-fryer", home_id: HOME, owner_id: ADMIN, name: "Air fryer", price_cents: 45000, link: "", wait_until: addDays(date, 5),
+        decision: null, decided_at: null, shared: true, created_at: `${date}T07:00:00Z` },
     ],
     pantryEvents: [
       { id: "demo-loss", home_id: HOME, pantry_id: "demo-milk", name: "Leite", kind: "lost", quantity: 1, value_cents: 599,

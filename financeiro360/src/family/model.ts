@@ -127,6 +127,65 @@ export interface Task {
   previous_id: string | null;
   created_by: string;
   created_at: string;
+  // Passos marcáveis (até 20). Ausente enquanto a atualização da agenda não estiver no banco.
+  steps?: TaskStep[];
+}
+export interface TaskStep {
+  text: string;
+  done: boolean;
+}
+// Agenda: data e hora locais da casa (sem fuso). Hora vazia = dia todo.
+export type EventVisibility = "private" | "busy" | "home";
+export type EventRepeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
+export interface CalendarEvent {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  title: string;
+  notes: string;
+  day: string;
+  start_time: string | null;
+  end_time: string | null;
+  place: string;
+  visibility: EventVisibility;
+  people: string[];
+  repeat: EventRepeat;
+  repeat_until: string | null;
+  remind_minutes: number | null;
+  created_at: string;
+}
+// Compromisso de outra pessoa marcado como "ocupado": só horário e dono, nunca o título.
+export interface BusySlot {
+  id: string;
+  owner_id: string;
+  day: string;
+  start_time: string | null;
+  end_time: string | null;
+  repeat: EventRepeat;
+  repeat_until: string | null;
+}
+// Caixa de entrada: anotação rápida, privada, para organizar depois.
+export interface InboxItem {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  text: string;
+  created_at: string;
+  done_at: string | null;
+}
+// Lista de desejos com espera antes de comprar.
+export interface Wish {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  name: string;
+  price_cents: number;
+  link: string;
+  wait_until: string;
+  decision: "bought" | "gave_up" | null;
+  decided_at: string | null;
+  shared: boolean;
+  created_at: string;
 }
 export interface Shopping {
   id: string;
@@ -195,6 +254,10 @@ export interface Data {
   tasks: Task[];
   pantryEvents: PantryEvent[];
   catalog: CatalogEntry[];
+  events: CalendarEvent[];
+  busy: BusySlot[];
+  inbox: InboxItem[];
+  wishes: Wish[];
 }
 export const today = () => {
   const d = new Date();

@@ -11,10 +11,12 @@ export interface Preferences {
   hide_values: boolean;
   dashboard_order: DashboardWidget[];
   quick_actions: QuickAction[];
+  // Início enxuto: só "Agora", o dia e a anotação rápida.
+  focus_mode: boolean;
 }
 export function defaultPreferences(): Preferences {
   return { theme: 'system', palette: 'forest', text_size: 'standard', comfortable: true,
-    simple_mode: true, hide_values: false, dashboard_order: [...dashboardWidgets], quick_actions: ['expense', 'shopping'] };
+    simple_mode: true, hide_values: false, dashboard_order: [...dashboardWidgets], quick_actions: ['expense', 'shopping'], focus_mode: false };
 }
 export function normalizePreferences(input: Partial<Preferences>): Preferences {
   const defaults = defaultPreferences();
@@ -31,5 +33,6 @@ export function normalizePreferences(input: Partial<Preferences>): Preferences {
     hide_values: typeof input.hide_values === 'boolean' ? input.hide_values : defaults.hide_values,
     dashboard_order: list(input.dashboard_order, dashboardWidgets, defaults.dashboard_order),
     quick_actions: list(input.quick_actions, quickActions, defaults.quick_actions),
+    focus_mode: typeof input.focus_mode === 'boolean' ? input.focus_mode : defaults.focus_mode,
   };
 }

@@ -8,6 +8,11 @@ import {
   type PantryEvent,
   type CatalogEntry,
   type Task,
+  type TaskStep,
+  type CalendarEvent,
+  type BusySlot,
+  type InboxItem,
+  type Wish,
   forecast,
   validateEntry,
 } from "./model.ts";
@@ -18,6 +23,18 @@ import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
 const table = (collection: keyof Data) =>
   collection === "pantryEvents" ? "fin_pantry_events" : "fin_" + collection;
+// Agenda, anotações e desejos guardados só neste aparelho enquanto a atualização do banco não existir.
+// A chave inclui a pessoa: quem entrar depois no mesmo aparelho não vê o que é de outra conta.
+const localAgendaKey = (home: string, user: string) => `financeiro360:agenda:${home}:${user}`;
+interface LocalAgenda {
+  events: CalendarEvent[];
+  inbox: InboxItem[];
+  wishes: Wish[];
+  steps: Record<string, TaskStep[]>;
+  focus_mode?: boolean;
+}
+export type OwnCollection = "events" | "inbox" | "wishes";
+const missingTable = (e: { code?: string } | null | undefined) => e?.code === "PGRST205" || e?.code === "42P01" || e?.code === "PGRST202" || e?.code === "42883";
 export class FamilyAPI {
   client: ReturnType<typeof createSupabaseClient> | null = null;
   demo = false;
@@ -33,6 +50,9 @@ export class FamilyAPI {
   // Falso enquanto a tabela do catálogo não existir no banco: itens e encartes criados
   // ficam guardados só neste aparelho (localStorage) até a atualização ser aplicada.
   catalogReady = true;
+  // Falso enquanto a atualização da agenda e do foco não estiver no banco: compromissos, anotações,
+  // desejos, passos das tarefas e o modo foco ficam só neste aparelho.
+  agendaReady = true;
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL,
       key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -96,8 +116,16 @@ export class FamilyAPI {
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
       if (!admin) d.audit = [];
+      // Mesmas regras do banco: pessoal só para o dono, nem o administrador vê.
+      d.busy = d.events
+        .filter((e) => e.visibility === "busy" && e.owner_id !== this.userId)
+        .map(({ id, owner_id, day, start_time, end_time, repeat, repeat_until }) => ({ id, owner_id, day, start_time, end_time, repeat, repeat_until }));
+      d.events = d.events.filter((e) => e.owner_id === this.userId || e.visibility === "home");
+      d.inbox = d.inbox.filter((n) => n.owner_id === this.userId);
+      d.wishes = d.wishes.filter((w) => w.owner_id === this.userId || w.shared);
       this.householdReady = true;
       this.catalogReady = true;
+      this.agendaReady = true;
       this.data = d;
       this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
       this.preferencesRevision = 0;
@@ -160,6 +188,7 @@ export class FamilyAPI {
       throw Error("Não foi possível carregar todos os dados. Tente atualizar.");
     const household = await this.loadHousehold(hid);
     const catalog = await this.loadCatalog(hid);
+    const agenda = await this.loadAgenda(hid, household.tasks);
     const preference = await this.client.from("fin_preferences")
       .select("*")
       .eq("user_id", this.userId)
@@ -167,6 +196,7 @@ export class FamilyAPI {
     if (preference.error)
       throw Error("Não foi possível carregar sua aparência pessoal. Tente atualizar.");
     this.preferences = normalizePreferences(preference.data || {});
+    if (!this.agendaReady) this.preferences.focus_mode = this.readLocalAgenda(hid).focus_mode === true;
     this.preferencesRevision = preference.data?.revision || 0;
     this.data = {
       home: results[0].data![0],
@@ -181,10 +211,122 @@ export class FamilyAPI {
       documents: results[9].data!,
       audit: results[10].data!,
       recurring: results[11].data!,
-      tasks: household.tasks,
+      tasks: agenda.tasks,
       pantryEvents: household.events,
       catalog,
+      events: agenda.events,
+      busy: agenda.busy,
+      inbox: agenda.inbox,
+      wishes: agenda.wishes,
     } as Data;
+  }
+  private readLocalAgenda(hid: string): LocalAgenda {
+    const empty: LocalAgenda = { events: [], inbox: [], wishes: [], steps: {} };
+    try {
+      const value = JSON.parse(localStorage.getItem(localAgendaKey(hid, this.userId)) || "null");
+      return value && typeof value === "object" ? { ...empty, ...value } : empty;
+    } catch {
+      return empty;
+    }
+  }
+  private writeLocalAgenda(hid: string, next: LocalAgenda) {
+    try {
+      localStorage.setItem(localAgendaKey(hid, this.userId), JSON.stringify(next));
+    } catch {
+      throw Error("Não foi possível guardar neste aparelho. Libere espaço no navegador e tente de novo.");
+    }
+  }
+  private async loadAgenda(hid: string, tasks: Task[]) {
+    const [events, inbox, wishes, busy] = await Promise.all([
+      this.client!.from("fin_events").select("*").eq("home_id", hid).order("day").limit(2000),
+      this.client!.from("fin_inbox").select("*").eq("home_id", hid).order("created_at").limit(500),
+      this.client!.from("fin_wishes").select("*").eq("home_id", hid).order("created_at").limit(500),
+      this.client!.rpc("fin_busy_slots", { h: hid }),
+    ]);
+    if ([events, inbox, wishes, busy].some((r) => missingTable(r.error))) {
+      this.agendaReady = false;
+      const local = this.readLocalAgenda(hid);
+      return {
+        events: local.events, inbox: local.inbox, wishes: local.wishes, busy: [] as BusySlot[],
+        tasks: tasks.map((t) => (local.steps[t.id] ? { ...t, steps: local.steps[t.id] } : t)),
+      };
+    }
+    if (events.error || inbox.error || wishes.error || busy.error)
+      throw Error("Não foi possível carregar a agenda. Tente atualizar.");
+    this.agendaReady = true;
+    return {
+      events: events.data as CalendarEvent[], inbox: inbox.data as InboxItem[], wishes: wishes.data as Wish[],
+      busy: busy.data as BusySlot[], tasks,
+    };
+  }
+  // Compromissos, anotações e desejos: sempre da própria pessoa.
+  async saveOwn(collection: OwnCollection, record: Record<string, unknown>) {
+    const hid = this.data!.home.id;
+    const list = this.data![collection] as unknown as Record<string, unknown>[];
+    const previous = record.id ? list.find((x) => x.id === record.id) : null;
+    if (record.id && (!previous || previous.owner_id !== this.userId)) throw Error("Só quem criou pode alterar.");
+    const payload = { ...(previous || { home_id: hid, owner_id: this.userId, created_at: new Date().toISOString() }), ...record };
+    if (this.demo) {
+      const store = this.demoStore![collection] as unknown as Record<string, unknown>[];
+      const index = store.findIndex((x) => x.id === record.id);
+      if (index >= 0) store[index] = payload;
+      else store.push({ id: crypto.randomUUID(), ...payload });
+      await this.load();
+      return;
+    }
+    if (!this.agendaReady) {
+      const local = this.readLocalAgenda(hid);
+      const rows = local[collection] as unknown as Record<string, unknown>[];
+      const index = rows.findIndex((x) => x.id === record.id);
+      if (index >= 0) rows[index] = payload;
+      else rows.push({ id: "local-" + crypto.randomUUID(), ...payload });
+      this.writeLocalAgenda(hid, local);
+      await this.load();
+      return;
+    }
+    const { error } = record.id
+      ? await this.client!.from(table(collection)).update(record).eq("id", record.id).eq("home_id", hid)
+      : await this.client!.from(table(collection)).insert(payload);
+    if (error) throw Error(error.code === "42501" ? "Você não tem permissão para esta alteração." : "Não foi possível salvar. Confira os campos e tente de novo.");
+    await this.load();
+  }
+  async removeOwn(collection: OwnCollection, id: string) {
+    const hid = this.data!.home.id;
+    if (this.demo) {
+      const store = this.demoStore![collection] as unknown as { id: string }[];
+      const index = store.findIndex((x) => x.id === id);
+      if (index >= 0) store.splice(index, 1);
+    } else if (!this.agendaReady) {
+      const local = this.readLocalAgenda(hid);
+      local[collection] = (local[collection] as { id: string }[]).filter((x) => x.id !== id) as never;
+      this.writeLocalAgenda(hid, local);
+    } else {
+      const { error } = await this.client!.from(table(collection)).delete().eq("id", id).eq("home_id", hid);
+      if (error) throw Error("Não foi possível excluir.");
+    }
+    await this.load();
+  }
+  // Passos de uma tarefa (marcar, desmarcar, editar). Sem a atualização do banco, ficam neste aparelho.
+  async saveSteps(taskId: string, steps: TaskStep[]) {
+    if (this.demo || this.agendaReady) return this.save("tasks", { id: taskId, steps });
+    const hid = this.data!.home.id;
+    const local = this.readLocalAgenda(hid);
+    local.steps[taskId] = steps;
+    this.writeLocalAgenda(hid, local);
+    await this.load();
+  }
+  // Várias contas de uma vez (carnê): ou entram todas, ou nenhuma.
+  async addEntries(rows: Partial<Entry>[]) {
+    if (!rows.length || rows.length > 48) throw Error("Informe de 1 a 48 parcelas.");
+    const payload = rows.map((row) => validateEntry({ home_id: this.data!.home.id, owner_id: this.userId, shared: false, ...row } as Entry));
+    if (this.demo) {
+      this.demoStore!.entries.push(...payload.map((p) => ({ ...p, id: crypto.randomUUID() })));
+      await this.load();
+      return;
+    }
+    const r = await this.client!.from("fin_entries").insert(payload);
+    if (r.error) throw Error(r.error.code === "42501" ? "Você não tem permissão para lançar." : "Parcelas não salvas. Nenhuma conta foi criada.");
+    await this.load();
   }
   private readLocalCatalog(hid: string): CatalogEntry[] {
     try {
@@ -327,15 +469,21 @@ export class FamilyAPI {
       return;
     }
     if (!this.client || !this.userId) throw Error("Entre na sua conta para salvar a aparência.");
+    const { focus_mode, ...shared } = settings;
+    const columns = this.agendaReady ? settings : shared;
+    if (!this.agendaReady && this.data) {
+      const local = this.readLocalAgenda(this.data.home.id);
+      this.writeLocalAgenda(this.data.home.id, { ...local, focus_mode });
+    }
     const result = this.preferencesRevision
       ? await this.client.from("fin_preferences")
-          .update(settings)
+          .update(columns)
           .eq("user_id", this.userId)
           .eq("revision", this.preferencesRevision)
           .select("revision")
           .maybeSingle()
       : await this.client.from("fin_preferences")
-          .insert({ user_id: this.userId, ...settings })
+          .insert({ user_id: this.userId, ...columns })
           .select("revision")
           .single();
     if (result.error || !result.data)
@@ -348,6 +496,18 @@ export class FamilyAPI {
   async save(collection: keyof Data, record: Record<string, unknown>) {
     if ((collection === "tasks" || collection === "pantryEvents") && !this.householdReady)
       throw Error("A rotina da casa ainda não foi ativada no banco. Peça ao administrador para aplicar a atualização.");
+    // Sem a atualização da agenda, a coluna de passos não existe: os passos ficam neste aparelho.
+    let presetId = "";
+    if (collection === "tasks" && !this.agendaReady && !this.demo && "steps" in record) {
+      const { steps, ...rest } = record;
+      record = rest;
+      presetId = record.id ? "" : crypto.randomUUID();
+      if (Array.isArray(steps)) {
+        const local = this.readLocalAgenda(this.data!.home.id);
+        local.steps[String(record.id || presetId)] = steps as TaskStep[];
+        this.writeLocalAgenda(this.data!.home.id, local);
+      }
+    }
     if (collection === "pantry" && !this.householdReady) {
       const { location: _location, ...rest } = record;
       record = rest;
@@ -363,7 +523,7 @@ export class FamilyAPI {
           (x) => x.id === record.id,
         )
       : null;
-    const payload = { ...(previous || base), ...record };
+    const payload = { ...(previous || base), ...(presetId ? { id: presetId } : {}), ...record };
     if (collection === "entries") validateEntry(payload as unknown as Entry);
     if (this.demo) {
       const list = this.demoStore![collection] as unknown as Record<
@@ -518,8 +678,11 @@ export class FamilyAPI {
     total: number,
     date: string,
     account: string | null,
+    card: { id: string; parts: number } | null = null,
   ) {
     const list = this.data!.shopping;
+    if (card && !this.demo && !this.agendaReady)
+      throw Error("Fechar a compra no cartão precisa da atualização do banco. Por enquanto, escolha Pix/débito/dinheiro ou lance a compra em Dinheiro.");
     for (const line of lines) {
       const s = list.find((x) => x.id === line.id);
       if (!s || s.bought) throw Error("A lista mudou. Atualize antes de concluir.");
@@ -528,7 +691,7 @@ export class FamilyAPI {
       if (s.quantity !== line.quantity || s.estimate_cents !== line.unit_cents)
         await this.patch("shopping", s.id, { quantity: line.quantity, estimate_cents: line.unit_cents });
     }
-    await this.purchase(lines.map((l) => l.id), total, date, account, false);
+    await this.purchase(lines.map((l) => l.id), total, date, account, false, card);
     // A compra já foi concluída: lembrar o preço é um complemento e não pode parecer falha da compra.
     for (const line of lines) {
       const pantryId = list.find((x) => x.id === line.id)?.pantry_id;
@@ -599,6 +762,7 @@ export class FamilyAPI {
     date: string,
     account: string | null,
     reload = true,
+    card: { id: string; parts: number } | null = null,
   ) {
     if (this.demo) {
       const list = this.demoStore!.shopping.filter(
@@ -613,12 +777,12 @@ export class FamilyAPI {
         category: "Mercado",
         area: "household",
         status: "paid",
-        payment: "cash",
-        account_id: account,
-        card_id: null,
+        payment: card ? "card" : "cash",
+        account_id: card ? null : account,
+        card_id: card?.id || null,
         target_account_id: null,
         debt_id: null,
-        installments: 1,
+        installments: card?.parts || 1,
         due_date: null,
         invoice_month: null,
         source_ref: null,
@@ -635,12 +799,20 @@ export class FamilyAPI {
       if (reload) await this.load();
       return;
     }
-    const { error } = await this.client!.rpc("fin_complete_purchase", {
-      shopping_ids: ids,
-      total_cents: total,
-      purchase_date: date,
-      account,
-    });
+    const { error } = card
+      ? await this.client!.rpc("fin_complete_purchase_card", {
+          shopping_ids: ids,
+          total_cents: total,
+          purchase_date: date,
+          card: card.id,
+          parts: card.parts,
+        })
+      : await this.client!.rpc("fin_complete_purchase", {
+          shopping_ids: ids,
+          total_cents: total,
+          purchase_date: date,
+          account,
+        });
     if (error)
       throw Error(
         "Compra não concluída. Confira as permissões e atualize a lista.",
