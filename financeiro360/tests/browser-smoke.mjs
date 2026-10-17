@@ -186,7 +186,7 @@ try {
   await page.locator('#purchase-form [name="total"]').fill("6,00");
   assert.match(await page.locator("#cart-diff").innerText(), /difere da soma/);
   await page.getByRole("button", { name: "Concluir compra dos itens marcados" }).click();
-  await page.getByText("Alteração salva.").waitFor();
+  await page.getByText("Compra concluída.", { exact: true }).waitFor();
   assert.equal(await page.locator(".market-item").count(), 1);
   assert.equal(await page.locator(".market-item", { hasText: "Leite" }).count(), 1);
   // Despensa: quantidade reposta, último preço lembrado, uso e perda registrados.

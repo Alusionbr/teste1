@@ -24,6 +24,7 @@ import {
   type Task,
 } from "./model.ts";
 import {
+  addDays,
   attention,
   dailyUseFromDuration,
   dueLabel,
@@ -64,6 +65,16 @@ import {
   type CatalogCategory,
   type FlyerRow,
 } from "./catalog.ts";
+import { brl, button, centsText, emptyState, esc, field, formActions, icon, input, moneyInput, opt, segmented } from "./ui.ts";
+import type { ViewCtx } from "./views/context.ts";
+import { carneForm, committedPanel, futureView, plansView, simulateForm, simulationResult } from "./views/money-future.ts";
+import { agendaView, eventForm, type AgendaState } from "./views/agenda.ts";
+import { focusCard, focusPage, noteForm, triageContent, wishForm, wishesSection, type TimerState } from "./views/focus.ts";
+import { cardLimitUse, carneSchedule, CARNE_PREFIX } from "./plans.ts";
+import { frequentEntries, parseQuick } from "./quick.ts";
+import { agendaItems, dueReminders, occurrences, toIcs, weekday, type AgendaFilter } from "./agenda.ts";
+import { doneToday, focusQueue, parseSteps, timerLeft, timerText } from "./focus.ts";
+import type { CalendarEvent } from "./model.ts";
 import { OffError, fetchProduct, offCredit, searchProducts, type OffProduct } from "./off.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
 import {
@@ -110,43 +121,47 @@ let page = "overview",
   flyerRows: FlyerRow[] = [],
   flyerSkipped = 0,
   offerMode = false,
-  submitNotice = "Alteração salva.";
+  submitNotice = "Alteração salva.",
+  cardsTab = "invoices",
+  agenda: AgendaState = { tab: "day", date: today(), filter: "all" },
+  // Rascunho vindo do lançamento rápido, de "Repetir" ou de uma anotação: abre o formulário já preenchido.
+  entryDraft: Partial<Entry> | null = null,
+  draftHint = "",
+  // Anotação sendo organizada: sai da caixa de entrada quando o destino for salvo.
+  triageNoteId = "",
+  eventPreset: Partial<CalendarEvent> = {},
+  wishDraftName = "",
+  taskTitlePreset = "",
+  simulateHtml = "",
+  reminders: { key: string; text: string }[] = [];
+// Preferências deste aparelho (adiar no foco, avisos já vistos, temporizador). Sem armazenamento, segue sem elas.
+const stored = <T,>(area: "local" | "session", key: string, fallback: T): T => {
+  try {
+    const raw = (area === "local" ? localStorage : sessionStorage).getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const store = (area: "local" | "session", key: string, value: unknown) => {
+  try {
+    if (value === null) (area === "local" ? localStorage : sessionStorage).removeItem(key);
+    else (area === "local" ? localStorage : sessionStorage).setItem(key, JSON.stringify(value));
+  } catch {
+    /* conveniência do aparelho: sem espaço, segue sem guardar */
+  }
+};
+const SNOOZE_KEY = "financeiro360:foco-adiado";
+const SKIP_KEY = "financeiro360:foco-pulado";
+const SEEN_KEY = "financeiro360:avisos-vistos";
+const TIMER_KEY = "financeiro360:temporizador";
+let timer: TimerState | null = stored("session", TIMER_KEY, null);
 // Carrinho do modo mercado: sobrevive a re-renderizações, atualização automática e falhas de envio.
 const cart = new Map<string, { checked: boolean; qty: string; price: string }>();
-const cartMeta = { total: "", date: "", account: "" };
-const esc = (v: unknown) =>
-  String(v ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ]!,
-  );
-const brl = (cents: number) => `<span class="private-amount">${formatBrl(cents)}</span>`;
-const icon = (name: string) => {
-  const paths: Record<string, string> = {
-    overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
-    entries: "M7 3h10l3 3v15H4V3z M8 10h8 M8 14h8 M8 18h5",
-    cards: "M3 5h18v14H3z M3 9h18 M7 15h4",
-    accounts: "M3 9l9-6 9 6 M4 21h16 M6 10v8 M12 10v8 M18 10v8",
-    pantry: "M4 4h16v16H4z M4 12h16 M12 4v16",
-    shopping: "M3 3h2l3 13h11l2-9H7 M9 21h1 M18 21h1",
-    goals: "M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 12l9-9 M17 3h4v4",
-    documents: "M7 3h9l4 4v14H4V3z M9 12l3-3 3 3 M12 9v9",
-    family:
-      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-4",
-    settings:
-      "M12 8a4 4 0 1 0 0 8 M12 3v2 M12 19v2 M3 12h2 M19 12h2 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2",
-    plus: "M12 5v14 M5 12h14",
-    arrow: "M5 12h14 M13 6l6 6-6 6",
-    logout: "M9 3H3v18h6 M10 12h11 M16 7l5 5-5 5",
-    check: "M4 12l5 5L20 6",
-    debt: "M5 3h14v18l-3-2-4 2-4-2-3 2z M8 8h8 M8 12h6",
-  };
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ? `<path d="${paths[name]}"/>` : '<circle cx="12" cy="12" r="9"/>'}</svg>`;
-};
+const cartMeta = { total: "", date: "", account: "", pay: "cash", card: "", parts: "1" };
 const nav = [
   ["overview", "Início"],
+  ["agenda", "Agenda"],
   ["entries", "Dinheiro"],
   ["shopping", "Compras"],
   ["pantry", "Casa"],
@@ -157,8 +172,9 @@ const nav = [
   ["goals", "Metas"],
   ["documents", "Comprovantes"],
   ["family", "Família e acesso"],
+  ["focus", "Agora (foco)"],
 ];
-const primaryNav = new Set(["overview", "entries", "shopping", "pantry", "settings"]);
+const primaryNav = new Set(["overview", "agenda", "entries", "shopping", "pantry"]);
 const navButton = ([id, label]: string[]) => `<button type="button" class="nav-item ${page === id ? "active" : ""}" data-action="nav" data-page="${id}">${icon(id)}<span>${label}</span>${id === "shopping" && api.data!.shopping.some((s) => !s.bought) ? "<i></i>" : ""}</button>`;
 function sidebarNav() {
   const primary = nav.filter(([id]) => primaryNav.has(id)).map(navButton).join("");
@@ -170,10 +186,6 @@ const names = (id: string) =>
   api.data?.members.find((m) => m.user_id === id)?.display_name || "Membro";
 const admin = () => api.me?.role === "admin";
 const own = (r: { owner_id: string }) => admin() || r.owner_id === api.userId;
-const button = (action: string, label: string, kind = "primary", extra = "") =>
-  `<button class="${kind}" type="button" data-action="${action}" ${extra}>${label}</button>`;
-const opt = (value: unknown, label: unknown, current?: unknown) =>
-  `<option value="${esc(value)}" ${value === current ? "selected" : ""}>${esc(label)}</option>`;
 const accountOptions = (current?: string | null) =>
   opt("", "Sem conta vinculada", current) +
   api
@@ -186,16 +198,17 @@ const cardOptions = (current?: string | null) =>
     .data!.cards.filter(own)
     .map((c) => opt(c.id, c.name, current))
     .join("");
-const field = (_name: string, label: string, input: string, wide = false) =>
-  `<label class="${wide ? "wide" : ""}"><span>${label}</span>${input}</label>`;
-const input = (name: string, type = "text", value: unknown = "", extra = "") =>
-  `<input name="${name}" type="${type}" value="${esc(value)}" ${extra}>`;
-const moneyInput = (name: string, value: unknown = "") =>
-  input(name, "text", value, 'inputmode="decimal" placeholder="0,00"');
-const empty = (text: string, action?: string) =>
-  `<div class="empty"><span class="empty-icon">${icon(page)}</span><h3>${text}</h3><p>Um passo de cada vez. Comece com o que você já sabe.</p>${action ? button(action, "Adicionar agora") : ""}</div>`;
-const formEnd = (label = "Salvar") =>
-  `<div class="form-actions wide"><button class="secondary" type="button" data-action="close">Cancelar</button><button class="primary" type="submit" ${busy ? "disabled" : ""}>${busy ? "Salvando…" : label}</button></div>`;
+const empty = (text: string, action?: string) => emptyState(page, text, action);
+const formEnd = (label = "Salvar") => formActions(label, busy);
+const ctx = (): ViewCtx => ({ api, month, today: today(), busy, names, own, empty });
+// Itens escondidos da tela "Agora": adiados (até amanhã) e pulados (até fechar o app).
+function focusHidden() {
+  const snoozed = stored<Record<string, string>>("local", SNOOZE_KEY, {});
+  const skipped = stored<string[]>("session", SKIP_KEY, []);
+  return new Set([...Object.entries(snoozed).filter(([, until]) => until > today()).map(([key]) => key), ...skipped]);
+}
+const remindersOn = () => "Notification" in window && Notification.permission === "granted";
+const queue = () => focusQueue(api.data!, api.userId, new Date(), today(), focusHidden());
 const share = (collection: string, r: { id: string; shared: boolean }) =>
   admin()
     ? button(
@@ -220,7 +233,25 @@ function quickPanel() {
   const visible = api.preferences.quick_actions.filter((id) => allowed[id]);
   return visible.length ? `<nav class="quick-panel" aria-label="Seus atalhos">${visible.map((id) => button(id === "expense" ? "add-entry" : "nav", actionNames[id], "secondary", id === "expense" ? "" : `data-page="${id === "cards" ? "cards" : id === "shopping" ? "shopping" : "pantry"}"`)).join("")}</nav>` : "";
 }
+// Lançar em uma linha: o texto vira um rascunho que a pessoa confere no formulário antes de salvar.
+function quickEntry() {
+  if (!api.allowed("entries")) return "";
+  const frequent = frequentEntries(api.data!.entries.filter(own), today());
+  return `<form id="quick-form" class="panel quick-entry" autocomplete="off"><label for="quick-text" class="eyebrow">LANÇAR RÁPIDO</label><div class="quick-row"><input id="quick-text" name="text" type="text" maxlength="200" enterkeyhint="go" placeholder="Ex.: mercado 52,30 nubank 3x" aria-describedby="quick-help"><button class="primary" type="submit">Conferir</button></div>${
+    frequent.length ? `<div class="chips" aria-label="Repetir um gasto frequente">${frequent.map((e) => `<button type="button" class="chip" data-action="repeat-entry" data-id="${e.id}">↻ ${esc(e.description)}</button>`).join("")}</div>` : ""
+  }<p class="fine" id="quick-help">Escreva o valor, e se quiser o cartão, as parcelas (3x), “ontem” ou “vence dia 10”. Você confere antes de salvar.</p></form>`;
+}
+// Modo foco: o Início mostra só o próximo passo, o dia de hoje e o lançamento rápido.
+function focusSummary() {
+  const items = agendaItems(api.data!, today(), today(), api.userId, "mine", today());
+  return `${focusCard(queue(), ctx(), doneToday(api.data!, api.userId, today()), false)}${quickEntry()}<section class="panel"><div class="panel-title"><div><span class="eyebrow">HOJE</span><h3>Seu dia</h3></div>${button("nav", "Abrir agenda", "text-button", 'data-page="agenda"')}</div>${
+    items.length
+      ? `<div class="records">${items.map((i) => `<article class="record"><span class="agenda-time">${esc(i.time || "Dia todo")}</span><div class="record-info"><strong>${esc(i.title)}</strong>${i.detail ? `<small>${esc(i.detail)}</small>` : ""}</div>${i.cents !== null ? `<strong class="record-value">${brl(i.cents)}</strong>` : ""}</article>`).join("")}</div>`
+      : '<p class="fine">Nada marcado para você hoje.</p>'
+  }</section><p class="fine">Modo foco ligado. Para ver o painel completo, desligue em Perfil → Aparência.</p>`;
+}
 function summary() {
+  if (api.preferences.focus_mode) return focusSummary();
   const d = api.data!,
     m = metrics(d, month);
   const percent = d.home.budget_cents
@@ -238,7 +269,7 @@ function summary() {
   const trend = previous
     ? Math.round(((m.spend - previous) / previous) * 100)
     : null;
-  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div><details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
+  return `<section class="hero"><div><span class="eyebrow">CADA ESCOLHA CONTA</span><h2>Sua casa em equilíbrio.</h2><p>${admin() ? "Todos os gastos da família, com a privacidade sob seu controle." : "Seus gastos e os registros compartilhados com você."}</p>${button("add-entry", icon("plus") + " Lançar um gasto", "light")}</div><div class="hero-visual"><div class="orbit o1"></div><div class="orbit o2"></div><div class="hero-ring"><span>Orçamento do lar</span><strong>${d.home.budget_cents ? Math.max(0, 100 - percent) + "%" : "—"}</strong><small>${d.home.budget_cents ? "disponível sobre os gastos visíveis" : "defina seu planejamento"}</small></div></div></section>${quickPanel()}${focusCard(queue(), ctx(), doneToday(d, api.userId, today()), false)}${quickEntry()}<div class="kpi-grid"><article class="kpi"><div><span>Gastos lançados no mês</span>${icon("entries")}</div><strong>${brl(m.spend)}</strong><small>${trend === null ? "Sem base no mês anterior" : `${Math.abs(trend)}% ${trend > 0 ? "acima" : "abaixo"} do mês anterior`}</small></article><article class="kpi"><div><span>Receitas do mês</span>${icon("accounts")}</div><strong>${brl(m.income)}</strong><small>Valores registrados por data</small></article><article class="kpi"><div><span>Faturas em aberto</span>${icon("cards")}</div><strong>${brl(cards)}</strong><small>Parcelas menos pagamentos informados</small></article><article class="kpi"><div><span>Orçamento do lar</span>${icon("goals")}</div><strong>${d.home.budget_cents ? brl(Math.max(0, d.home.budget_cents - m.home)) : "Não definido"}</strong><small>${d.home.budget_cents ? `${percent}% utilizado · apenas gastos do lar` : "Planeje um limite mensal"}</small></article></div>${committedPanel(ctx())}<details class="panel numbers-explained"><summary>Entenda os valores deste mês</summary><div class="number-explanations"><div><span>Gastos lançados</span><strong>${brl(picture.purchased)}</strong><p>Valor integral pela data da compra ou do lançamento.</p></div><div><span>A pagar</span><strong>${brl(picture.due)}</strong><p>${brl(picture.cashDue)} em contas pendentes e ${brl(picture.cardDue)} em faturas previstas pelo vencimento.</p></div><div><span>Saiu das contas</span><strong>${brl(picture.cashOut)}</strong><p>Despesas pagas, faturas e dívidas informadas como pagas. Transferências entre suas contas ficam fora deste número.</p></div></div><p class="fine">Estes três números mostram etapas diferentes do mesmo dinheiro e não devem ser somados.</p></details><div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">PARA ONDE VAI O DINHEIRO</span><h3>Gastos por categoria</h3></div><span class="badge">${month.split("-").reverse().join("/")}</span></div>${
     m.categories.length
       ? `<div class="category-chart">${m.categories
           .slice(0, 6)
@@ -259,7 +290,7 @@ function summary() {
 }
 function entryList(rows: Entry[]) {
   return rows.length
-    ? `<div class="records">${rows.map((e) => `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${own(e) && api.allowed("entries") ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && own(e) && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && own(e) && api.allowed("entries") ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${own(e) && api.allowed("entries") ? deleteButton("entries", e.id) : ""}</div></article>`).join("")}</div>`
+    ? `<div class="records">${rows.map((e) => `<article class="record"><span class="record-icon ${e.kind === "income" ? "income" : ""}">${icon(e.payment === "card" ? "cards" : "entries")}</span><div class="record-info"><strong>${esc(e.description)}</strong><small>${e.date.split("-").reverse().join("/")} · ${esc(e.category)} · ${esc(names(e.owner_id))} · ${{ household: "Lar", personal: "Pessoal", business: "Empresa" }[e.area]}</small></div><div class="record-value"><strong class="${e.kind === "income" ? "positive" : ""}">${e.kind === "income" ? "+" : ""}${brl(e.amount_cents)}</strong><small>${e.status === "pending_review" ? "Em revisão" : e.status === "pending" ? "A pagar" : e.payment === "card" ? "Compra no cartão" : "Confirmado"}${e.installments > 1 ? ` · ${e.installments}x` : ""}</small></div><div class="record-actions">${share("entries", e)}${own(e) && api.allowed("entries") && (e.kind === "expense" || e.kind === "income") && !e.source_ref?.startsWith(CARNE_PREFIX) ? button("repeat-entry", "Repetir", "text-button", `data-id="${e.id}" aria-label="Lançar de novo: ${esc(e.description)}"`) : ""}${own(e) && api.allowed("entries") ? button("edit-entry", "Editar", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending" && own(e) && api.allowed("payments") ? button("paid", "Informar pagamento", "text-button", `data-id="${e.id}"`) : ""}${e.status === "pending_review" && own(e) && api.allowed("entries") ? button("confirm-entry", "Confirmar", "text-button", `data-id="${e.id}"`) : ""}${own(e) && api.allowed("entries") ? deleteButton("entries", e.id) : ""}</div></article>`).join("")}</div>`
     : empty("Nenhum lançamento por aqui", "add-entry");
 }
 function entries() {
@@ -277,7 +308,10 @@ function entries() {
 }
 function cards() {
   const d = api.data!;
-  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Parcelas previstas e pagamentos informados em um só lugar.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section><div class="card-grid">${
+  const intro = `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Parcelas previstas, o que ainda falta pagar e o que já está comprometido nos próximos meses.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section>${segmented("cards-tab", cardsTab, [["invoices", "Faturas"], ["plans", "Parcelamentos"], ["future", "Próximos meses"]], "Seções de cartões")}`;
+  if (cardsTab === "plans") return intro + plansView(ctx());
+  if (cardsTab === "future") return intro + futureView(ctx());
+  return `${intro}<div class="card-grid">${
     d.cards
       .map((c, i) => {
         const f = invoice(d, c, month),
@@ -297,7 +331,10 @@ function cards() {
           .reverse()
           .join(
             "/",
-        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p><p class="fine">Competência ${month.split("-").reverse().join("/")} · ciclo definido pelo fechamento dia ${c.closing_day} · vencimento acima. ${own(c) ? "Compras feitas após o fechamento entram na competência seguinte." : "Os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} parcela(s) nesta fatura</summary>${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>Total da compra: ${brl(line.entry.amount_cents)}</small></p>`).join("") : '<p class="fine">Nenhuma parcela prevista para esta competência.</p>'}</details></section>`;
+        )} · limite ${c.limit_cents === null ? "não informado" : brl(c.limit_cents)}</p>${(() => {
+          const use = cardLimitUse(d, c, month);
+          return use.available === null ? "" : `<p class="fine limit-line">Limite estimado livre: <strong>${brl(use.available)}</strong> · ${brl(use.used)} em parcelas e compras ainda não pagas</p>`;
+        })()}<p class="fine">Competência ${month.split("-").reverse().join("/")} · ciclo definido pelo fechamento dia ${c.closing_day} · vencimento acima. ${own(c) ? "Compras feitas após o fechamento entram na competência seguinte." : "Os valores mostram somente compras visíveis."}</p><div class="button-row">${share("cards", c)}${own(c) && api.allowed("payments") ? button("card-payment", "Registrar pagamento", "secondary", `data-id="${c.id}"`) : ""}${own(c) && api.allowed("cards") ? deleteButton("cards", c.id) : ""}</div><details><summary>${lines.length} parcela(s) nesta fatura</summary>${lines.length ? lines.map((line) => `<p class="detail-line">${esc(line.entry.description)} <strong>Parcela ${line.number}/${line.total} · ${brl(line.amount_cents)}</strong><small>Total da compra: ${brl(line.entry.amount_cents)}</small></p>`).join("") : '<p class="fine">Nenhuma parcela prevista para esta competência.</p>'}</details></section>`;
       })
       .join("") || empty("Cadastre seu primeiro cartão", "add-card")
   }</div>`;
@@ -327,7 +364,6 @@ function accounts() {
       .join("") || empty("Nenhuma dívida cadastrada", "add-debt")
   }<p class="fine">Juros e taxas devem ser registrados como despesa. Pagamentos de principal não são contados novamente nos gastos.</p></section>`;
 }
-const centsText = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 const statusBadge: Record<string, string> = { out: "danger-badge", expired: "danger-badge", soon: "warning-badge", low: "warning-badge", ok: "" };
 function pantryCard(p: Pantry) {
   const d = api.data!,
@@ -371,7 +407,7 @@ function taskCard(t: Task) {
   const removable = admin() || t.created_by === api.userId;
   if (t.done_at)
     return `<article class="record task done"><span class="record-icon" aria-hidden="true">${kind.emoji}</span><div class="record-info"><strong>${esc(t.title)}</strong><small>Feita por ${esc(names(t.done_by!))} em ${new Date(t.done_at).toLocaleDateString("pt-BR")}</small></div><div class="record-actions">${t.repeat === "none" ? button("task-reopen", "Desfazer", "text-button", `data-id="${t.id}"`) : ""}</div></article>`;
-  return `<article class="record task ${overdue ? "overdue" : ""}"><span class="record-icon" aria-hidden="true">${kind.emoji}</span><div class="record-info"><strong>${esc(t.title)}</strong><small>${esc(dueLabel(t))} · ${t.assignee_id ? esc(names(t.assignee_id)) : "Qualquer pessoa"}${t.repeat !== "none" ? ` · ${repeatLabels[t.repeat]}` : ""}</small>${t.notes ? `<small>${esc(t.notes)}</small>` : ""}</div><div class="record-actions">${button("task-done", icon("check") + " Feito", "secondary", `data-id="${t.id}" aria-label="Marcar ${esc(t.title)} como feita"`)}${button("edit-task", "Editar", "text-button", `data-id="${t.id}"`)}${removable ? deleteButton("tasks", t.id) : ""}</div></article>`;
+  return `<article class="record task ${overdue ? "overdue" : ""}"><span class="record-icon" aria-hidden="true">${kind.emoji}</span><div class="record-info"><strong>${esc(t.title)}</strong><small>${esc(dueLabel(t))} · ${t.assignee_id ? esc(names(t.assignee_id)) : "Qualquer pessoa"}${t.repeat !== "none" ? ` · ${repeatLabels[t.repeat]}` : ""}</small>${t.notes ? `<small>${esc(t.notes)}</small>` : ""}${t.steps?.length ? `<ul class="steps">${t.steps.map((st, i) => `<li><label><input type="checkbox" data-action="step-toggle" data-id="${t.id}" data-step="${i}" ${st.done ? "checked" : ""}> <span>${esc(st.text)}</span></label></li>`).join("")}</ul>` : ""}</div><div class="record-actions">${button("task-done", icon("check") + " Feito", "secondary", `data-id="${t.id}" aria-label="Marcar ${esc(t.title)} como feita"`)}${button("timer-start", icon("timer") + " 15 min", "text-button", `data-id="900" data-label="${esc(t.title)}" aria-label="Começar 15 minutos em ${esc(t.title)}"`)}${button("edit-task", "Editar", "text-button", `data-id="${t.id}"`)}${removable ? deleteButton("tasks", t.id) : ""}</div></article>`;
 }
 function tasksView(tabs: string) {
   const intro = `<section class="page-intro"><div><h2>A casa em dia, sem cobrança.</h2><p>Cada tarefa com responsável, prazo e repetição. Quem conclui fica registrado.</p></div>${api.householdReady ? button("add-task", icon("plus") + " Nova tarefa") : ""}</section>${tabs}`;
@@ -573,9 +609,9 @@ function shoppingList(tabs: string) {
     .join("");
   return `<section class="page-intro"><div><h2>Compras com propósito.</h2><p>Monte a lista em casa e marque no mercado só o que entrou no carrinho.</p></div><div class="button-row">${api.allowed("shopping") ? `<label class="inline-select"><span>Sugerir para</span><select name="suggest_days">${[7, 14, 30].map((n) => opt(String(n), `${n} dias`, String(suggestDays))).join("")}</select></label>${button("generate-list", "✦ Sugerir lista")}${button("add-shopping", "Adicionar item", "secondary")}` : ""}${items.length ? button("share-list", "Enviar lista", "secondary") : ""}</div></section>${tabs}<div class="shopping-layout"><section class="panel"><div class="panel-title"><h3>Modo mercado</h3><span class="badge">${items.length} item(s)</span></div>${
     items.length
-      ? `<form id="purchase-form"><p class="fine">Marque o que já está no carrinho. Ajuste quantidade e preço se mudaram. O que não for marcado continua na lista.</p>${list}<div class="cart-summary"><span>No carrinho: <strong id="cart-count">0</strong> item(s)</span><span>Soma dos itens: <strong id="cart-sum">${formatBrl(0)}</strong></span></div><div class="form-grid section-gap">${field("total", "Total pago no caixa (R$)", moneyInput("total", cartMeta.total))}${field("date", "Data da compra", input("date", "date", cartMeta.date || today(), "required"))}${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions(cartMeta.account)}</select>`, true)}</div><p class="fine" id="cart-diff" aria-live="polite"></p>${canBuy ? `<button class="primary full section-gap" type="submit">Concluir compra dos itens marcados</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>`
+      ? `<form id="purchase-form"><p class="fine">Marque o que já está no carrinho. Ajuste quantidade e preço se mudaram. O que não for marcado continua na lista.</p>${list}<div class="cart-summary"><span>No carrinho: <strong id="cart-count">0</strong> item(s)</span><span>Soma dos itens: <strong id="cart-sum">${formatBrl(0)}</strong></span></div><div class="form-grid section-gap">${field("total", "Total pago no caixa (R$)", moneyInput("total", cartMeta.total))}${field("date", "Data da compra", input("date", "date", cartMeta.date || today(), "required"))}${field("pay", "Como pagou?", `<select name="pay">${opt("cash", "Pix, débito ou dinheiro", cartMeta.pay) + opt("card", "Cartão de crédito", cartMeta.pay)}</select>`)}<div class="conditional-field" data-pay="cash">${field("account_id", "Conta utilizada", `<select name="account_id">${accountOptions(cartMeta.account)}</select>`)}</div><div class="conditional-field" data-pay="card">${field("card_id", "Cartão", `<select name="card_id">${cardOptions(cartMeta.card)}</select>`)}</div><div class="conditional-field" data-pay="card">${field("parts", "Parcelas", input("parts", "number", cartMeta.parts, 'min="1" max="48" inputmode="numeric"'))}</div></div><p class="fine" id="cart-diff" aria-live="polite"></p>${canBuy ? `<button class="primary full section-gap" type="submit">Concluir compra dos itens marcados</button>` : '<p class="fine">Concluir compra exige permissões de compras, despensa e lançamentos.</p>'}</form>`
       : empty("Sua próxima lista começa aqui", "add-shopping")
-  }</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da lista inteira</h3><strong class="large-number">${brl(estimate)}</strong><p>Ao concluir, o total pago vira uma única despesa do lar, os produtos marcados entram na despensa e o preço pago fica guardado para a próxima estimativa.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para ${suggestDays} dias de consumo ou o mínimo definido, e explica o motivo de cada item.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Compra no cartão: registre como gasto em Dinheiro e use “Conferir” na despensa.</p></aside></div>`;
+  }</section><aside class="panel shopping-aside"><span class="eyebrow">PLANEJE ANTES DE SAIR</span><h3>Estimativa da lista inteira</h3><strong class="large-number">${brl(estimate)}</strong><p>Ao concluir, o total pago vira uma única despesa do lar, os produtos marcados entram na despensa e o preço pago fica guardado para a próxima estimativa.</p><div class="insight"><span>✦</span><p>A sugestão completa o estoque para ${suggestDays} dias de consumo ou o mínimo definido, e explica o motivo de cada item.</p></div><p class="fine">Histórico: ${d.shopping.filter((s) => s.bought).length} item(s) comprado(s). Pagou no cartão? Escolha “Cartão de crédito” e as parcelas: a compra entra nas faturas certas.</p></aside></div>`;
 }
 function syncCart() {
   const form = root.querySelector<HTMLFormElement>("#purchase-form");
@@ -607,6 +643,13 @@ function syncCart() {
   total.dataset.auto = auto;
   cartMeta.date = val(form, "date");
   cartMeta.account = val(form, "account_id");
+  cartMeta.pay = val(form, "pay") || "cash";
+  cartMeta.card = val(form, "card_id");
+  cartMeta.parts = val(form, "parts") || "1";
+  form.querySelectorAll<HTMLElement>("[data-pay]").forEach((el) => {
+    el.hidden = el.dataset.pay !== cartMeta.pay;
+    el.querySelectorAll<HTMLSelectElement | HTMLInputElement>("select, input").forEach((c) => (c.disabled = el.hidden));
+  });
   const paid = parseMoney(total.value);
   const diff = root.querySelector<HTMLElement>("#cart-diff")!;
   diff.textContent = paid !== null && sum && paid !== sum
@@ -617,7 +660,7 @@ function planning() {
   return `<section class="page-intro"><div><h2>Um mês com menos surpresas.</h2><p>Despesas fixas previstas e limite mensal do lar.</p></div><div class="button-row">${api.allowed("entries") ? button("add-recurring", "Cadastrar despesa fixa") + button("plan-month", "Gerar contas do mês", "secondary") : ""}</div></section><section class="panel"><h3>Contas que se repetem</h3>${api.data!.recurring.map((r) => `<article class="record"><span class="record-icon">${icon("entries")}</span><div class="record-info"><strong>${esc(r.name)}</strong><small>Dia ${r.day} · desde ${r.start_month} · ${esc(names(r.owner_id))}</small></div><strong>${brl(r.amount_cents)}</strong><div class="record-actions">${share("recurring", r)}${own(r) && api.allowed("entries") ? deleteButton("recurring", r.id) : ""}</div></article>`).join("") || empty("Cadastre aluguel, internet e outras contas", "add-recurring")}<p class="fine">Gerar contas cria compromissos a pagar uma única vez por mês. A geração nunca informa um pagamento automaticamente. Contas já geradas permanecem no histórico.</p></section>`;
 }
 function goals() {
-  return `<section class="page-intro"><div><h2>Planos que ganham forma.</h2><p>Acompanhe sua reserva e os objetivos da família.</p></div>${api.allowed("entries") ? button("add-goal", "Nova meta") : ""}</section><div class="card-grid">${api.data!.goals.map((g) => `<section class="panel"><span class="record-icon">${icon("goals")}</span><h3>${esc(g.name)}</h3><strong class="large-number">${brl(g.saved_cents)}</strong><p>de ${brl(g.target_cents)}${g.due_date ? " · até " + g.due_date : ""}</p><div class="bar"><b style="width:${Math.min(100, (g.saved_cents / g.target_cents) * 100)}%"></b></div><p class="fine">${Math.round((g.saved_cents / g.target_cents) * 100)}% da meta · progresso informado manualmente</p><div class="button-row">${share("goals", g)}${own(g) && api.allowed("entries") ? button("edit-goal", "Atualizar progresso", "secondary", `data-id="${g.id}"`) + deleteButton("goals", g.id) : ""}</div></section>`).join("") || empty("Dê um nome ao seu próximo objetivo", "add-goal")}</div>`;
+  return `<section class="page-intro"><div><h2>Planos que ganham forma.</h2><p>Acompanhe sua reserva e os objetivos da família.</p></div>${api.allowed("entries") ? button("add-goal", "Nova meta") : ""}</section><div class="card-grid">${api.data!.goals.map((g) => `<section class="panel"><span class="record-icon">${icon("goals")}</span><h3>${esc(g.name)}</h3><strong class="large-number">${brl(g.saved_cents)}</strong><p>de ${brl(g.target_cents)}${g.due_date ? " · até " + g.due_date : ""}</p><div class="bar"><b style="width:${Math.min(100, (g.saved_cents / g.target_cents) * 100)}%"></b></div><p class="fine">${Math.round((g.saved_cents / g.target_cents) * 100)}% da meta · progresso informado manualmente</p><div class="button-row">${share("goals", g)}${own(g) && api.allowed("entries") ? button("edit-goal", "Atualizar progresso", "secondary", `data-id="${g.id}"`) + deleteButton("goals", g.id) : ""}</div></section>`).join("") || empty("Dê um nome ao seu próximo objetivo", "add-goal")}</div>${wishesSection(ctx())}`;
 }
 function documents() {
   const d = api.data!;
@@ -663,7 +706,7 @@ const widgetNames: Record<DashboardWidget, string> = { categories: "Gastos por c
 const actionNames: Record<QuickAction, string> = { expense: "Registrar gasto", cards: "Ver cartões", shopping: "Lista de compras", pantry: "Despensa" };
 function appearanceSettings() {
   const pref = api.preferences;
-  return `<section class="panel appearance-settings"><h3>Aparência e atalhos</h3><p>Estas escolhas pertencem somente à sua conta.</p><form id="preferences-form" class="form-grid">${field("theme", "Tema", `<select name="theme">${opt("system", "Acompanhar aparelho", pref.theme) + opt("light", "Claro", pref.theme) + opt("dark", "Escuro", pref.theme)}</select>`)}${field("palette", "Cor", `<select name="palette">${opt("forest", "Verde", pref.palette) + opt("ocean", "Azul", pref.palette) + opt("plum", "Ameixa", pref.palette)}</select>`)}${field("text_size", "Tamanho do texto", `<select name="text_size">${opt("standard", "Padrão", pref.text_size) + opt("large", "Maior", pref.text_size)}</select>`)}<div class="preference-checks wide"><label><input type="checkbox" name="comfortable" ${pref.comfortable ? "checked" : ""}> Mais espaço entre elementos</label><label><input type="checkbox" name="simple_mode" ${pref.simple_mode ? "checked" : ""}> Modo simples</label><label><input type="checkbox" name="hide_values" ${pref.hide_values ? "checked" : ""}> Ocultar valores na tela</label></div><fieldset class="wide preference-list"><legend>Blocos do painel</legend><p>Marque o que deseja ver. Use as setas para mudar a ordem.</p>${pref.dashboard_order.concat(dashboardWidgets.filter((item) => !pref.dashboard_order.includes(item))).map((id) => `<div class="preference-row"><label><input type="checkbox" name="widget" value="${id}" ${pref.dashboard_order.includes(id) ? "checked" : ""}> ${widgetNames[id]}</label><span>${button("widget-up", "↑", "secondary", `data-id="${id}" aria-label="Subir ${widgetNames[id]}"`)}${button("widget-down", "↓", "secondary", `data-id="${id}" aria-label="Descer ${widgetNames[id]}"`)}</span></div>`).join("")}</fieldset><fieldset class="wide preference-list"><legend>Atalhos do início</legend>${quickActions.map((id) => `<label><input type="checkbox" name="quick_action" value="${id}" ${pref.quick_actions.includes(id) ? "checked" : ""}> ${actionNames[id]}</label>`).join("")}</fieldset><div class="button-row wide"><button type="submit" class="primary">Salvar aparência</button>${button("reset-preferences", "Restaurar padrão", "secondary")}</div></form></section>`;
+  return `<section class="panel appearance-settings"><h3>Aparência e atalhos</h3><p>Estas escolhas pertencem somente à sua conta.</p><form id="preferences-form" class="form-grid">${field("theme", "Tema", `<select name="theme">${opt("system", "Acompanhar aparelho", pref.theme) + opt("light", "Claro", pref.theme) + opt("dark", "Escuro", pref.theme)}</select>`)}${field("palette", "Cor", `<select name="palette">${opt("forest", "Verde", pref.palette) + opt("ocean", "Azul", pref.palette) + opt("plum", "Ameixa", pref.palette)}</select>`)}${field("text_size", "Tamanho do texto", `<select name="text_size">${opt("standard", "Padrão", pref.text_size) + opt("large", "Maior", pref.text_size)}</select>`)}<div class="preference-checks wide"><label><input type="checkbox" name="comfortable" ${pref.comfortable ? "checked" : ""}> Mais espaço entre elementos</label><label><input type="checkbox" name="simple_mode" ${pref.simple_mode ? "checked" : ""}> Modo simples</label><label><input type="checkbox" name="hide_values" ${pref.hide_values ? "checked" : ""}> Ocultar valores na tela</label><label><input type="checkbox" name="focus_mode" ${pref.focus_mode ? "checked" : ""}> Modo foco: Início só com o próximo passo e o dia de hoje</label></div><fieldset class="wide preference-list"><legend>Blocos do painel</legend><p>Marque o que deseja ver. Use as setas para mudar a ordem.</p>${pref.dashboard_order.concat(dashboardWidgets.filter((item) => !pref.dashboard_order.includes(item))).map((id) => `<div class="preference-row"><label><input type="checkbox" name="widget" value="${id}" ${pref.dashboard_order.includes(id) ? "checked" : ""}> ${widgetNames[id]}</label><span>${button("widget-up", "↑", "secondary", `data-id="${id}" aria-label="Subir ${widgetNames[id]}"`)}${button("widget-down", "↓", "secondary", `data-id="${id}" aria-label="Descer ${widgetNames[id]}"`)}</span></div>`).join("")}</fieldset><fieldset class="wide preference-list"><legend>Atalhos do início</legend>${quickActions.map((id) => `<label><input type="checkbox" name="quick_action" value="${id}" ${pref.quick_actions.includes(id) ? "checked" : ""}> ${actionNames[id]}</label>`).join("")}</fieldset><div class="button-row wide"><button type="submit" class="primary">Salvar aparência</button>${button("reset-preferences", "Restaurar padrão", "secondary")}</div></form></section>`;
 }
 function settings() {
   return `<section class="page-intro"><div><h2>Do seu jeito.</h2><p>Segurança, planejamento e dados bem cuidados.</p></div></section>${appearanceSettings()}<div class="card-grid">${admin() ? `<section class="panel"><h3>Planejamento da casa</h3><form id="budget-form" class="form-grid">${field("name", "Nome da casa", input("name", "text", api.data!.home.name, 'maxlength="80" required'), true)}${field("budget", "Orçamento mensal do lar (R$)", moneyInput("budget", (api.data!.home.budget_cents / 100).toFixed(2).replace(".", ",")), true)}<button type="submit" class="primary wide">Salvar planejamento</button></form></section>` : ""}<section class="panel"><h3>Trocar minha senha</h3>${api.me.password_change_required ? '<p class="notice">Sua conta usa uma senha inicial. Defina sua senha pessoal aqui.</p>' : ""}<form id="password-form" class="form-grid">${field("current", "Senha atual", input("current", "password", "", 'autocomplete="current-password" required'), true)}${field("password", "Nova senha", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}${field("confirm", "Repita a nova senha", input("confirm", "password", "", 'autocomplete="new-password" minlength="8" required'), true)}<button type="submit" class="primary wide">Atualizar senha</button></form></section><section class="panel"><h3>Seus dados</h3><p>O backup inclui apenas os registros que sua conta pode acessar. O arquivo contém informações financeiras.</p>${button("export", "Exportar backup JSON", "secondary full")}${admin() ? button("import", "Importar relatório ou backup", "secondary full section-gap") : ""}<p class="fine">A importação mostra uma prévia e adiciona registros em revisão. Nenhum histórico é substituído automaticamente.</p></section><section class="panel"><h3>Como os números funcionam</h3><p>Gastos entram pelo valor total na data da compra. Parcelas aparecem nas faturas seguintes. Pagamentos de faturas, transferências e principal de dívidas não criam nova despesa.</p><p>Saldo inicial desconhecido permanece desconhecido. Registros em revisão ficam fora dos cálculos.</p></section></div>`;
@@ -737,7 +780,7 @@ function taskForm(t?: Task) {
   const people = opt("", "Qualquer pessoa", t?.assignee_id || "") +
     api.data!.members.filter((m) => m.active || m.user_id === t?.assignee_id).map((m) => opt(m.user_id, m.display_name, t?.assignee_id || "")).join("");
   const templates = t ? "" : `<div class="wide template-row"><span class="fine">Modelos (só preenchem o formulário):</span><div class="chips">${taskTemplates.map((x, i) => `<button type="button" class="chip" data-action="task-template" data-id="${i}">${taskKinds[x.kind].emoji} ${esc(x.title)}</button>`).join("")}</div></div>`;
-  return `<form id="task-form" class="form-grid">${input("id", "hidden", t?.id || "")}${templates}${field("title", "O que precisa ser feito", input("title", "text", t?.title || "", 'maxlength="120" required placeholder="Ex.: limpar o banheiro"'), true)}${field("assignee_id", "Quem faz", `<select name="assignee_id">${people}</select>`)}${field("due_date", "Quando", input("due_date", "date", t ? t.due_date || "" : today()))}${field("repeat", "Repetir", `<select name="repeat">${Object.entries(repeatLabels).map(([v, l]) => opt(v, l, t?.repeat || "none")).join("")}</select>`)}${field("kind", "Tipo", `<select name="kind">${Object.entries(taskKinds).map(([v, k]) => opt(v, `${k.emoji} ${k.label}`, t?.kind || "cleaning")).join("")}</select>`)}${field("notes", "Detalhes (opcional)", `<textarea name="notes" maxlength="500" rows="2">${esc(t?.notes || "")}</textarea>`, true)}<p class="fine wide">A rotina é compartilhada com todos da casa. Tarefas repetidas ganham a próxima data quando forem marcadas como feitas.</p>${formEnd(t ? "Salvar tarefa" : "Criar tarefa")}</form>`;
+  return `<form id="task-form" class="form-grid">${input("id", "hidden", t?.id || "")}${templates}${field("title", "O que precisa ser feito", input("title", "text", t?.title || taskTitlePreset, 'maxlength="120" required placeholder="Ex.: limpar o banheiro"'), true)}${field("assignee_id", "Quem faz", `<select name="assignee_id">${people}</select>`)}${field("due_date", "Quando", input("due_date", "date", t ? t.due_date || "" : today()))}${field("repeat", "Repetir", `<select name="repeat">${Object.entries(repeatLabels).map(([v, l]) => opt(v, l, t?.repeat || "none")).join("")}</select>`)}${field("kind", "Tipo", `<select name="kind">${Object.entries(taskKinds).map(([v, k]) => opt(v, `${k.emoji} ${k.label}`, t?.kind || "cleaning")).join("")}</select>`)}${field("notes", "Detalhes (opcional)", `<textarea name="notes" maxlength="500" rows="2">${esc(t?.notes || "")}</textarea>`, true)}${field("steps", "Passos (opcional, um por linha)", `<textarea name="steps" rows="3" placeholder="Ex.: separar a roupa&#10;ligar a máquina&#10;estender">${esc((t?.steps || []).map((x) => x.text).join("\n"))}</textarea>`, true)}<p class="fine wide">Tarefa grande assusta: quebre em passos pequenos e marque um de cada vez. A rotina é compartilhada com todos da casa. Tarefas repetidas ganham a próxima data quando forem marcadas como feitas.</p>${formEnd(t ? "Salvar tarefa" : "Criar tarefa")}</form>`;
 }
 function modalContent() {
   const d = api.data!;
@@ -746,6 +789,20 @@ function modalContent() {
   switch (modal) {
     case "entry":
       return entryForm(editId ? d.entries.find((e) => e.id === editId) : {});
+    case "entry-draft":
+      return `${draftHint ? `<p class="notice draft-hint" role="status">${esc(draftHint)}</p>` : ""}${entryForm(entryDraft || {})}`;
+    case "carne":
+      return carneForm(ctx());
+    case "simulate":
+      return d.cards.filter(own).length ? simulateForm(ctx(), d.cards.filter(own), simulateHtml) : '<p class="fine">Cadastre um cartão para simular uma compra parcelada.</p>';
+    case "event":
+      return eventForm(ctx(), d.events.find((e) => e.id === editId), eventPreset);
+    case "note":
+      return noteForm(ctx());
+    case "triage":
+      return triageContent(d.inbox.find((n) => n.id === editId), ctx());
+    case "wish":
+      return wishForm(ctx(), wishDraftName);
     case "card-payment":
       return entryForm({
         kind: "card_payment",
@@ -839,7 +896,14 @@ function render() {
     return;
   }
   const titles: Record<string, string> = {
-    entry: "Novo lançamento",
+    entry: editId ? "Editar lançamento" : "Novo lançamento",
+    "entry-draft": "Conferir antes de salvar",
+    carne: "Carnê ou boleto parcelado",
+    simulate: "Cabe no mês?",
+    event: editId ? "Editar compromisso" : "Novo compromisso",
+    note: "Anotar rápido",
+    triage: "Organizar anotação",
+    wish: "Quero comprar…",
     "card-payment": "Pagamento de fatura",
     "debt-payment": "Pagamento de principal",
     card: "Novo cartão",
@@ -863,6 +927,8 @@ function render() {
   };
   const views: Record<string, () => string> = {
     overview: summary,
+    agenda: () => agendaView(ctx(), agenda, remindersOn()),
+    focus: () => focusPage(queue(), ctx(), doneToday(api.data!, api.userId, today()), timer),
     entries,
     cards,
     accounts,
@@ -874,9 +940,9 @@ function render() {
     family,
     settings,
   };
-  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}<main class="content">${views[page]()}</main><nav class="mobile-nav">${nav
+  root.innerHTML = `<div class="app-shell"><aside class="sidebar"><a class="brand" data-action="nav" data-page="overview"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><span class="nav-label">NOSSA CASA</span><nav>${sidebarNav()}</nav><div class="sidebar-footer"><div class="avatar small">${esc(api.me.display_name.slice(0, 1))}</div><div><strong>${esc(api.me.display_name)}</strong><small>${admin() ? "Administrador" : "Membro da família"}</small></div><button type="button" data-action="logout" aria-label="Sair da conta">${icon("logout")}</button></div></aside><div class="main-shell"><header class="topbar"><div><span class="eyebrow">${esc(api.data.home.name.toLocaleUpperCase())}</span><h1>${esc(nav.find((x) => x[0] === page)?.[1])}</h1></div><div class="topbar-actions"><select class="mobile-more" name="navigate" aria-label="Abrir uma seção">${nav.map(([id, label]) => opt(id, label, page)).join("")}</select><label class="month-picker"><span>Mês</span><input type="month" name="month" value="${month}" aria-label="Mês de referência"></label>${button("toggle-values", pref.hide_values ? "Mostrar valores" : "Ocultar valores", "secondary desktop")}${button("reload", icon("check") + " Atualizar", "secondary desktop")}${api.allowed("entries") ? button("add-entry", icon("plus") + " Lançar", "primary") : ""}</div></header>${api.demo ? `<div class="demo-banner"><strong>Demonstração · dados fictícios e temporários</strong>${button("switch-demo", admin() ? "Ver como esposa" : "Ver como administrador", "text-button")}${button("logout", "Sair da demonstração", "text-button")}</div>` : ""}${notice ? `<div class="notice" role="status">${esc(notice)}</div>` : ""}${api.me.password_change_required ? `<div class="password-banner">Defina sua senha pessoal em Configurações. ${button("nav", "Trocar senha", "text-button", 'data-page="settings"')}</div>` : ""}${reminders.length ? `<div class="reminder-banner" role="alert">${reminders.map((r) => `<p>⏰ ${esc(r.text)} ${button("reminder-ok", "Ok", "text-button", `data-id="${esc(r.key)}"`)}</p>`).join("")}</div>` : ""}${timer && page !== "focus" ? `<div class="timer-chip" role="timer">${icon("timer")}<span>${esc(timer.label)}</span><strong id="timer-chip-left">${timerText(timerLeft(timer.endsAt, Date.now()))}</strong>${button("timer-stop", "Parar", "text-button")}</div>` : ""}<main class="content">${views[page]()}</main><button type="button" class="fab" data-action="add-note" aria-label="Anotar rápido (atalho: tecla A)">${icon("note")}<span>Anotar</span></button><nav class="mobile-nav">${nav
     .filter(([id]) =>
-      ["overview", "entries", "pantry", "shopping", "settings"].includes(id),
+      primaryNav.has(id),
     )
     .map(
       ([id, label]) =>
@@ -903,9 +969,10 @@ function render() {
     dialog.removeAttribute("open");
     dialog.showModal();
     dialog
-      .querySelector<HTMLInputElement>('input:not([type="hidden"])')
+      .querySelector<HTMLInputElement>('input:not([type="hidden"]), textarea')
       ?.focus();
-      syncEntryForm();
+    syncEntryForm();
+    syncModalForms();
   }
 }
 async function run(work: () => Promise<unknown>, message: string | (() => string) = "") {
@@ -955,7 +1022,112 @@ function show(type: string, id = "") {
   notice = "";
   modal = type;
   editId = id;
+  // Abrir outro formulário fora do "Organizar" desfaz o vínculo com a anotação.
+  triageNoteId = "";
   render();
+}
+// Abre o formulário de lançamento preenchido a partir de um texto livre (lançamento rápido ou anotação).
+function openDraft(text: string) {
+  const d = api.data!;
+  const draft = parseQuick(text, { cards: d.cards.filter(own), accounts: d.accounts.filter(own), entries: d.entries.filter(own), today: today() });
+  entryDraft = {
+    description: draft.description,
+    amount_cents: draft.amount_cents || undefined,
+    date: draft.date,
+    kind: draft.kind === "income" ? "income" : "expense",
+    status: draft.kind === "payable" ? "pending" : "paid",
+    payment: draft.payment,
+    card_id: draft.card_id,
+    account_id: draft.account_id,
+    installments: draft.installments,
+    category: draft.category,
+    due_date: draft.due_date,
+  };
+  const labels = { amount: "o valor", description: "a descrição", card: "qual cartão", category: "a categoria" };
+  draftHint = draft.uncertain.length
+    ? `Confira ${draft.uncertain.map((u) => labels[u]).join(", ")}: não deu para entender pelo texto.`
+    : "Preenchido pelo que você escreveu. Confira e salve.";
+  notice = "";
+  editId = "";
+  modal = "entry-draft";
+  render();
+}
+async function finishTriage() {
+  if (!triageNoteId) return;
+  const id = triageNoteId;
+  triageNoteId = "";
+  await api.saveOwn("inbox", { id, done_at: new Date().toISOString() }).catch(() => undefined);
+}
+function download(content: string, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+// Bipe curto sem arquivo de áudio. O som precisa ser liberado por um toque (regra dos navegadores).
+let audio: AudioContext | null = null;
+function unlockAudio() {
+  try {
+    audio = audio || new AudioContext();
+    void audio.resume();
+  } catch {
+    audio = null;
+  }
+}
+function alarm() {
+  navigator.vibrate?.([250, 120, 250]);
+  if (!audio) return;
+  for (const at of [0, 0.35, 0.7]) {
+    const tone = audio.createOscillator();
+    const gain = audio.createGain();
+    tone.frequency.value = 880;
+    gain.gain.setValueAtTime(0.2, audio.currentTime + at);
+    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + at + 0.3);
+    tone.connect(gain).connect(audio.destination);
+    tone.start(audio.currentTime + at);
+    tone.stop(audio.currentTime + at + 0.3);
+  }
+}
+function notifyDevice(title: string, body: string, tag: string) {
+  if (!remindersOn()) return;
+  const fallback = () => {
+    try {
+      new Notification(title, { body, tag });
+    } catch {
+      /* alguns celulares só aceitam aviso pelo service worker */
+    }
+  };
+  if (navigator.serviceWorker) void navigator.serviceWorker.getRegistration().then((reg) => (reg ? reg.showNotification(title, { body, tag }) : fallback())).catch(fallback);
+  else fallback();
+}
+// Avisos dos compromissos com o app aberto (a cada 30 s). Com o app fechado não há aviso.
+function checkReminders() {
+  if (!api.data) return;
+  const mine = api.data.events.filter((e) => e.owner_id === api.userId || e.people.includes(api.userId));
+  const seen = new Set(stored<string[]>("local", SEEN_KEY, []));
+  const fresh = dueReminders(mine, new Date(), seen).filter((r) => !reminders.some((x) => x.key === r.key));
+  if (!fresh.length) return;
+  for (const r of fresh) {
+    const when = r.minutes <= 0 ? "começa agora" : r.minutes >= 1440 ? "é amanhã" : r.minutes >= 60 ? `começa em ${Math.round(r.minutes / 60)} h` : `começa em ${r.minutes} min`;
+    reminders.push({ key: r.key, text: `${r.event.title} ${when}` });
+    notifyDevice(r.event.title, `${r.event.title} ${when}`, r.key);
+  }
+  if (!modal && !root.querySelector("input:focus, textarea:focus, select:focus")) render();
+}
+// Atalhos do ícone do app (Android) e links: ?acao=lancar | anotar | lista | agenda.
+function launchAction() {
+  const params = new URLSearchParams(location.search);
+  const action = params.get("acao");
+  if (!action || !api.data) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+  if (action === "lancar" && api.allowed("entries")) show("entry");
+  else if (action === "anotar") show("note");
+  else if (action === "lista" || action === "agenda") {
+    page = action === "lista" ? "shopping" : "agenda";
+    render();
+  }
 }
 root.addEventListener("click", (event) => {
   const b = (event.target as Element).closest<HTMLElement>("[data-action]");
@@ -965,6 +1137,7 @@ root.addEventListener("click", (event) => {
   if (a === "nav") {
     page = b.dataset.page!;
     if (b.dataset.house) houseTab = b.dataset.house;
+    if (b.dataset.cards) cardsTab = b.dataset.cards;
     notice = "";
     modal = "";
     render();
@@ -973,9 +1146,198 @@ root.addEventListener("click", (event) => {
   }
   if (a === "close") {
     modal = "";
+    triageNoteId = "";
     render();
     return;
   }
+  if (a === "cards-tab") {
+    cardsTab = id;
+    render();
+    return;
+  }
+  if (a === "agenda-tab" || a === "agenda-filter") {
+    if (a === "agenda-tab") agenda.tab = id as AgendaState["tab"];
+    else agenda.filter = id as AgendaFilter;
+    render();
+    return;
+  }
+  if (a === "agenda-move") {
+    const dir = Number(id);
+    agenda.date = agenda.tab === "day" ? addDays(agenda.date, dir) : agenda.tab === "week" ? addDays(agenda.date, 7 * dir) : `${addMonths(agenda.date.slice(0, 7), dir)}-01`;
+    render();
+    return;
+  }
+  if (a === "agenda-today" || a === "agenda-open-day") {
+    agenda = { ...agenda, date: a === "agenda-today" ? today() : id, tab: a === "agenda-today" ? agenda.tab : "day" };
+    render();
+    if (a === "agenda-open-day") window.scrollTo(0, 0);
+    return;
+  }
+  if (a === "add-event" || a === "edit-event") {
+    eventPreset = a === "add-event" ? { day: agenda.date >= today() ? agenda.date : today() } : {};
+    show("event", a === "edit-event" ? id : "");
+    return;
+  }
+  if (a === "delete-event") {
+    if (!confirm("Excluir este compromisso? Se ele se repete, todas as datas saem da agenda.")) return;
+    void run(async () => {
+      await api.removeOwn("events", id);
+      modal = "";
+    }, "Compromisso excluído.");
+    return;
+  }
+  if (a === "event-ics" || a === "week-ics") {
+    const d = api.data!;
+    const start = addDays(agenda.date, -weekday(agenda.date));
+    const list = a === "event-ics"
+      ? d.events.filter((e) => e.id === id)
+      : d.events.filter((e) => occurrences(e, start, addDays(start, 6)).length > 0 && (e.owner_id === api.userId || e.people.includes(api.userId) || e.visibility === "home"));
+    if (!list.length) {
+      notice = "Nenhum compromisso nesta semana para levar ao calendário.";
+      render();
+      return;
+    }
+    download(toIcs(list), a === "event-ics" ? "compromisso.ics" : `agenda-semana-${start}.ics`, "text/calendar;charset=utf-8");
+    notice = "Arquivo baixado. Abra-o no celular para adicionar ao seu calendário.";
+    render();
+    return;
+  }
+  if (a === "enable-reminders") {
+    void Notification.requestPermission().then((result) => {
+      notice = result === "granted" ? "Avisos ligados neste aparelho enquanto o app estiver aberto." : "O navegador não permitiu avisos. Você pode liberar nas configurações do site.";
+      render();
+    });
+    return;
+  }
+  if (a === "reminder-ok") {
+    store("local", SEEN_KEY, [...stored<string[]>("local", SEEN_KEY, []), id].slice(-200));
+    reminders = reminders.filter((r) => r.key !== id);
+    render();
+    return;
+  }
+  if (a === "add-note") {
+    show("note");
+    return;
+  }
+  if (a === "note-done") {
+    void run(async () => {
+      await api.saveOwn("inbox", { id, done_at: new Date().toISOString() });
+      modal = "";
+    }, "Pronto. Saiu da caixa de entrada.");
+    return;
+  }
+  if (a === "note-delete") {
+    if (!confirm("Apagar esta anotação?")) return;
+    void run(() => api.removeOwn("inbox", id), "Anotação apagada.");
+    return;
+  }
+  if (a === "triage") {
+    show("triage", id);
+    return;
+  }
+  if (a.startsWith("triage-")) {
+    const n = api.data!.inbox.find((x) => x.id === id);
+    if (!n) return;
+    if (a === "triage-entry") openDraft(n.text);
+    else if (a === "triage-event") {
+      eventPreset = { title: n.text.slice(0, 120), day: today() };
+      show("event");
+    } else if (a === "triage-task") {
+      taskTitlePreset = n.text.slice(0, 120);
+      show("task");
+    } else if (a === "triage-wish") {
+      wishDraftName = n.text.slice(0, 120);
+      show("wish");
+    } else if (a === "triage-shopping") {
+      void run(async () => {
+        await api.addToShopping({ name: n.text.slice(0, 151), unit: "unidade", quantity: 1, estimate_cents: 0 });
+        await api.saveOwn("inbox", { id: n.id, done_at: new Date().toISOString() });
+        modal = "";
+      }, "Foi para a lista de compras.");
+      return;
+    }
+    triageNoteId = id;
+    return;
+  }
+  if (a === "add-wish") {
+    wishDraftName = "";
+    show("wish");
+    return;
+  }
+  if (a === "wish-bought" || a === "wish-gave-up") {
+    void run(
+      () => api.saveOwn("wishes", { id, decision: a === "wish-bought" ? "bought" : "gave_up", decided_at: new Date().toISOString() }),
+      a === "wish-bought" ? "Decisão registrada. Você esperou e decidiu com calma." : "Desistência registrada. Esse dinheiro ficou com você.",
+    );
+    return;
+  }
+  if (a === "wish-wait") {
+    void run(() => api.saveOwn("wishes", { id, wait_until: addDays(today(), 7) }), "Mais 7 dias de espera.");
+    return;
+  }
+  if (a === "wish-delete") {
+    if (!confirm("Apagar este desejo?")) return;
+    void run(() => api.removeOwn("wishes", id), "Desejo apagado.");
+    return;
+  }
+  if (a === "focus-skip") {
+    store("session", SKIP_KEY, [...stored<string[]>("session", SKIP_KEY, []), id]);
+    render();
+    return;
+  }
+  if (a === "focus-snooze") {
+    const kept = Object.fromEntries(Object.entries(stored<Record<string, string>>("local", SNOOZE_KEY, {})).filter(([, until]) => until > today()));
+    store("local", SNOOZE_KEY, { ...kept, [id]: addDays(today(), 1) });
+    notice = "Fica para amanhã.";
+    render();
+    return;
+  }
+  if (a === "timer-start") {
+    const seconds = Math.min(3600, Math.max(60, Number(id) || 900));
+    timer = { endsAt: Date.now() + seconds * 1000, total: seconds, label: b.dataset.label || "Foco" };
+    store("session", TIMER_KEY, timer);
+    unlockAudio();
+    notice = `Temporizador de ${seconds / 60} min ligado. Só isso até ele acabar.`;
+    render();
+    return;
+  }
+  if (a === "timer-stop") {
+    timer = null;
+    store("session", TIMER_KEY, null);
+    render();
+    return;
+  }
+  if (a === "step-toggle") {
+    const t = api.data!.tasks.find((x) => x.id === id);
+    if (!t?.steps) return;
+    const steps = t.steps.map((st, i) => (i === Number(b.dataset.step) ? { ...st, done: (b as HTMLInputElement).checked } : st));
+    void run(() => api.saveSteps(id, steps), steps.every((st) => st.done) ? "Todos os passos feitos! Agora é só marcar a tarefa como feita." : "");
+    return;
+  }
+  if (a === "repeat-entry") {
+    const e = api.data!.entries.find((x) => x.id === id);
+    if (!e) return;
+    entryDraft = {
+      description: e.description, amount_cents: e.amount_cents, kind: e.kind, category: e.category, area: e.area,
+      payment: e.payment, card_id: e.card_id, account_id: e.account_id, installments: e.installments, status: "paid", date: today(),
+    };
+    draftHint = "Mesmo lançamento, com a data de hoje. Ajuste o valor se mudou.";
+    notice = "";
+    editId = "";
+    modal = "entry-draft";
+    render();
+    return;
+  }
+  if (a === "simulate") {
+    simulateHtml = "";
+    show("simulate");
+    return;
+  }
+  if (a === "add-carne") {
+    show("carne");
+    return;
+  }
+  if (a === "add-task") taskTitlePreset = "";
   if (a === "demo") {
     void run(() => api.startDemo());
     return;
@@ -1154,6 +1516,7 @@ root.addEventListener("click", (event) => {
     (form.elements.namedItem("title") as HTMLInputElement).value = template.title;
     (form.elements.namedItem("kind") as HTMLSelectElement).value = template.kind;
     (form.elements.namedItem("repeat") as HTMLSelectElement).value = template.repeat;
+    (form.elements.namedItem("steps") as HTMLTextAreaElement).value = (template.steps || []).join("\n");
     (form.elements.namedItem("title") as HTMLInputElement).focus();
     return;
   }
@@ -1330,6 +1693,7 @@ root.addEventListener("toggle", (event) => {
 root.addEventListener("change", (event) => {
   if ((event.target as HTMLInputElement).closest("#entry-form"))
     syncEntryForm();
+  if ((event.target as HTMLInputElement).closest("#carne-form, #event-form")) syncModalForms();
   if ((event.target as HTMLInputElement).closest("#purchase-form")) {
     syncCart();
     return;
@@ -1365,6 +1729,7 @@ root.addEventListener("change", (event) => {
 });
 root.addEventListener("input", (event) => {
   const el = event.target as HTMLInputElement;
+  if (el.closest("#carne-form")) syncModalForms();
   if (
     el.closest("#entry-form") &&
     ["amount", "installments", "date"].includes(el.name)
@@ -1396,11 +1761,33 @@ function readPreferenceForm(form: HTMLFormElement) {
     comfortable: data.has("comfortable"),
     simple_mode: data.has("simple_mode"),
     hide_values: data.has("hide_values"),
+    focus_mode: data.has("focus_mode"),
     dashboard_order: Array.from(form.querySelectorAll<HTMLInputElement>('[name="widget"]'))
       .filter((item) => item.checked)
       .map((item) => item.value as DashboardWidget),
     quick_actions: data.getAll("quick_action").map((item) => String(item) as QuickAction),
   };
+}
+// Prévia do carnê e campo "quem vai" do compromisso, atualizados enquanto a pessoa preenche.
+function syncModalForms() {
+  const carne = root.querySelector<HTMLFormElement>("#carne-form");
+  if (carne) {
+    const out = root.querySelector<HTMLElement>("#carne-preview")!;
+    const amount = parseMoney(val(carne, "amount"));
+    const count = Number(val(carne, "count"));
+    const first = val(carne, "first_due");
+    if (!amount || !Number.isInteger(count) || count < 2 || count > 48 || !validIsoDate(first)) out.textContent = "Informe valor, parcelas (2 a 48) e o primeiro vencimento para ver a previsão.";
+    else {
+      const total = val(carne, "basis") === "each" ? amount * count : amount;
+      const rows = carneSchedule({ description: val(carne, "description") || "Parcela", total, count, firstDue: first });
+      out.innerHTML = `Total ${brl(total)} em ${count}x de ${brl(rows[0].amount_cents)}${rows[0].amount_cents !== rows[count - 1].amount_cents ? ` (centavos ajustados nas primeiras)` : ""}. Última parcela em ${formatDate(rows[count - 1].due_date)}.`;
+    }
+  }
+  const event = root.querySelector<HTMLFormElement>("#event-form");
+  if (event) {
+    const people = event.querySelector<HTMLElement>("[data-people]")!;
+    people.hidden = val(event, "visibility") !== "home";
+  }
 }
 function syncEntryForm() {
   const form = root.querySelector<HTMLFormElement>("#entry-form");
@@ -1508,10 +1895,21 @@ root.addEventListener("submit", (event) => {
     void runPicker();
     return;
   }
+  if (f.getAttribute("id") === "quick-form") {
+    const text = val(f, "text");
+    if (text) openDraft(text);
+    return;
+  }
+  if (f.getAttribute("id") === "simulate-form") {
+    simulateHtml = simulationResult(ctx(), { amount: val(f, "amount"), count: val(f, "count"), card_id: val(f, "card_id"), date: val(f, "date") });
+    root.querySelector<HTMLElement>("#simulate-result")!.innerHTML = simulateHtml;
+    return;
+  }
   void run(async () => {
     const id = val(f, "id");
     if (f.getAttribute("id") === "login-form") {
       await api.login(val(f, "email"), val(f, "password"));
+      setTimeout(launchAction, 0);
       return;
     }
     if (f.getAttribute("id") === "preferences-form") {
@@ -1606,6 +2004,69 @@ root.addEventListener("submit", (event) => {
       modal = "";
       return;
     }
+    if (f.getAttribute("id") === "carne-form") {
+      const amount = cash(f, "amount");
+      const count = Number(val(f, "count"));
+      const firstDue = val(f, "first_due");
+      if (!Number.isInteger(count) || count < 2 || count > 48) throw Error("Use de 2 a 48 parcelas.");
+      if (!validIsoDate(firstDue)) throw Error("Informe o vencimento da primeira parcela.");
+      const total = val(f, "basis") === "each" ? amount * count : amount;
+      if (!Number.isSafeInteger(total)) throw Error("O valor total ultrapassa o limite permitido.");
+      const ref = CARNE_PREFIX + crypto.randomUUID();
+      // A data de cada parcela é o próprio vencimento: assim cada mês conta só a parcela dele.
+      await api.addEntries(carneSchedule({ description: val(f, "description"), total, count, firstDue }).map((row) => ({
+        ...row, date: row.due_date, kind: "expense", category: val(f, "category"), area: val(f, "area") as Entry["area"], status: "pending",
+        payment: "cash", card_id: null, account_id: null, target_account_id: null, debt_id: null, installments: 1, invoice_month: null, source_ref: ref,
+      })));
+      submitNotice = `${count} parcelas criadas como contas a pagar. A primeira vence em ${formatDate(firstDue)}.`;
+      cardsTab = "plans";
+      modal = "";
+      return;
+    }
+    if (f.getAttribute("id") === "event-form") {
+      const title = val(f, "title");
+      const day = val(f, "day");
+      const start = val(f, "start_time") || null;
+      const end = val(f, "end_time") || null;
+      const repeat = val(f, "repeat");
+      const until = val(f, "repeat_until") || null;
+      if (!title || !validIsoDate(day)) throw Error("Diga o que é e escolha o dia.");
+      if (end && !start) throw Error("Informe também o horário de início.");
+      if (start && end && end <= start) throw Error("O fim precisa ser depois do início.");
+      if (until && (repeat === "none" || until < day)) throw Error("“Repetir até” precisa de uma repetição e de uma data igual ou depois do dia.");
+      const visibility = val(f, "visibility");
+      await api.saveOwn("events", {
+        ...(id ? { id } : {}),
+        title, day, start_time: start, end_time: end, place: val(f, "place"), visibility,
+        people: visibility === "home" ? new FormData(f).getAll("people").map(String) : [],
+        repeat, repeat_until: until, remind_minutes: val(f, "remind") === "" ? null : Number(val(f, "remind")),
+        notes: val(f, "notes").slice(0, 500),
+      });
+      await finishTriage();
+      agenda.date = day;
+      submitNotice = id ? "Compromisso salvo." : visibility === "home" ? "Compromisso criado para a casa." : "Compromisso criado. Só você vê.";
+      modal = "";
+      return;
+    }
+    if (f.getAttribute("id") === "note-form") {
+      await api.saveOwn("inbox", { text: val(f, "text").slice(0, 280), done_at: null });
+      submitNotice = "Anotado. Organize depois, com calma.";
+      modal = "";
+      return;
+    }
+    if (f.getAttribute("id") === "wish-form") {
+      const link = val(f, "link");
+      if (link && !/^https?:\/\//.test(link)) throw Error("O link precisa começar com http:// ou https://.");
+      const days = Number(val(f, "wait")) || 2;
+      await api.saveOwn("wishes", {
+        name: val(f, "name").slice(0, 120), price_cents: val(f, "price") ? cash(f, "price", true) : 0, link,
+        wait_until: addDays(today(), days), decision: null, decided_at: null, shared: new FormData(f).has("shared"),
+      });
+      await finishTriage();
+      submitNotice = `Desejo guardado. Em ${days} dia(s) o app pergunta se você ainda quer.`;
+      modal = "";
+      return;
+    }
     if (f.getAttribute("id") === "purchase-form") {
       const ids = new FormData(f).getAll("items").map(String);
       if (!ids.length) throw Error("Marque os produtos que estão no carrinho.");
@@ -1617,9 +2078,15 @@ root.addEventListener("submit", (event) => {
           throw Error(`Confira quantidade e preço de ${item?.name || "um item"}.`);
         return { id, quantity, unit_cents: price };
       });
-      await api.purchaseItems(lines, cash(f, "total"), val(f, "date"), val(f, "account_id") || null);
+      const byCard = val(f, "pay") === "card";
+      const parts = Number(val(f, "parts") || "1");
+      if (byCard && (!val(f, "card_id") || !Number.isInteger(parts) || parts < 1 || parts > 48))
+        throw Error("Escolha o cartão e o número de parcelas (1 a 48).");
+      await api.purchaseItems(lines, cash(f, "total"), val(f, "date"), byCard ? null : val(f, "account_id") || null,
+        byCard ? { id: val(f, "card_id"), parts } : null);
       cart.clear();
-      Object.assign(cartMeta, { total: "", date: "", account: "" });
+      Object.assign(cartMeta, { total: "", date: "", account: "", pay: "cash", card: "", parts: "1" });
+      submitNotice = byCard ? `Compra concluída no cartão${parts > 1 ? ` em ${parts}x` : ""}. Veja em Cartões → Parcelamentos.` : "Compra concluída.";
       return;
     }
     if (f.getAttribute("id") === "move-form") {
@@ -1791,6 +2258,7 @@ root.addEventListener("submit", (event) => {
         source_ref: val(f, "source_ref") || null,
       });
       month = val(f, "date").slice(0, 7);
+      await finishTriage();
     } else if (f.getAttribute("id") === "recurring-form")
       await api.save("recurring", {
         name: val(f, "name"),
@@ -1860,7 +2328,9 @@ root.addEventListener("submit", (event) => {
         due_date: val(f, "due_date") || null,
         repeat: val(f, "repeat"),
         notes: val(f, "notes"),
+        steps: parseSteps(String(new FormData(f).get("steps") || ""), id ? api.data!.tasks.find((t) => t.id === id)?.steps : []),
       });
+      await finishTriage();
     }
     else if (f.getAttribute("id") === "shopping-form")
       await api.save("shopping", {
@@ -1885,6 +2355,43 @@ root.addEventListener("submit", (event) => {
 render();
 void run(async () => {
   await api.restore();
+}).then(() => {
+  launchAction();
+  checkReminders();
+});
+setInterval(checkReminders, 30000);
+// Temporizador: atualiza só o número e o anel a cada segundo, sem redesenhar a tela.
+setInterval(() => {
+  if (!timer) return;
+  const left = timerLeft(timer.endsAt, Date.now());
+  root.querySelectorAll("#timer-left, #timer-chip-left").forEach((el) => (el.textContent = timerText(left)));
+  const ring = root.querySelector<SVGCircleElement>(".timer-ring .left");
+  if (ring) ring.setAttribute("stroke-dashoffset", String(Number(ring.dataset.circ) * (1 - left / timer.total)));
+  if (left > 0) return;
+  const label = timer.label;
+  timer = null;
+  store("session", TIMER_KEY, null);
+  alarm();
+  notifyDevice("Tempo!", `“${label}” terminou.`, "timer");
+  notice = `Tempo! “${label}” terminou. Faça uma pausa curta antes do próximo passo.`;
+  if (!modal) render();
+}, 1000);
+document.addEventListener("keydown", (event) => {
+  if (!api.data || modal || busy || event.ctrlKey || event.metaKey || event.altKey) return;
+  if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
+  if (event.key === "n" && api.allowed("entries")) {
+    event.preventDefault();
+    show("entry");
+  } else if (event.key === "a") {
+    event.preventDefault();
+    show("note");
+  } else if (event.key === "/") {
+    const target = root.querySelector<HTMLInputElement>("#quick-text, [name=search], [name=pantry_search], [name=catalog_search]");
+    if (target) {
+      event.preventDefault();
+      target.focus();
+    }
+  }
 });
 
 if ("serviceWorker" in navigator && import.meta.env.PROD)

@@ -105,3 +105,63 @@ Regras do serviço (documentação oficial): 10 buscas por minuto e 15 consultas
 2. Enviar itens guardados só no aparelho para a casa; ligar catálogo e despensa; histórico de preço por mercado; leitura de foto de encarte.
 3. Cobertura de higiene e limpeza no Brasil é pequena: quando não achar, o app oferece criar o item.
 4. Ao crescer o uso, considerar um projeto próprio no Supabase e baixar o arquivo de exportação do Open Food Facts em vez de consultar a API.
+
+## Parcelamentos, agenda da família, foco (TDAH), agilidade e mercado no cartão — análise de 17/10/2026
+
+Pedido: análise completa do app com melhorias em gestão financeira, agenda pessoal e compartilhada com a família, ferramentas para TDAH, compras de mercado, parcelamentos e agilidade. Decisões do proprietário: compromisso pessoal é visto **só pela própria pessoa** (nem o administrador); a agenda vai para o calendário do celular por **arquivo .ics** (sem servidor novo); as quatro frentes entram no mesmo lote.
+
+### Diagnóstico que motivou as mudanças
+
+| Área | Achado |
+| --- | --- |
+| Parcelas | Não havia visão de parcelamentos ativos, do que já está comprometido nos próximos meses nem de limite usado. Carnê e boleto parcelado fora do cartão não tinham cronograma. |
+| Parcelas | A fatura é recalculada pelo fechamento **atual** do cartão (S04 pendente): mudar o fechamento desloca o histórico. |
+| Mercado | `fin_complete_purchase` só registrava pagamento à vista. |
+| Agilidade | Todo lançamento exigia o formulário completo; sem "repetir", favoritos, texto rápido ou atalhos. |
+| Agenda | `fin_tasks` só tem data, sem hora, e é sempre da casa inteira. Contas, faturas e tarefas não apareciam juntas por dia. |
+| TDAH | O Início mostra muitos blocos ao mesmo tempo; sem captura rápida, passos, temporizador ou lembrete. |
+| Código | `financialOverview` (`model.ts`) usa a regex `/investimento\|renan/i`, com um nome pessoal num repositório público. **Não alterado**: muda totais; confirmar com o proprietário. |
+
+### O que foi feito
+
+Regras puras, com testes:
+- `src/family/plans.ts`: parcelamentos ativos (cartão e carnê), compromissos dos próximos 12 meses (cartões + contas a pagar + despesas fixas ainda não geradas, sem contar duas vezes), "alívio chegando" (parcelas que terminam), limite estimado do cartão, simulador "Cabe no mês?" contra a média das receitas registradas e cronograma de carnê (dia limitado ao fim do mês, centavos exatos).
+- `src/family/quick.ts`: lançamento em uma linha ("mercado 52,30 nubank 3x", "uber 18 ontem", "luz 120 vence 10", "recebi salário 3.500,00"). Vira **rascunho** no formulário normal; o que ficou ambíguo (cartão, valor, categoria) é avisado. Categoria pelo histórico da pessoa, depois por palavra-chave. Gastos frequentes viram atalhos "↻".
+- `src/family/agenda.ts`: repetição (dia 31 vira o último dia dos meses curtos; 29/02 vira 28/02), visão do dia/semana/mês juntando compromissos, "ocupado" de outras pessoas, tarefas, contas a pagar e faturas; atrasados aparecem só em "hoje"; avisos com o app aberto; exportação `.ics` (RFC 5545: escape, quebra de linha em 75 bytes, `RRULE` equivalente à regra do app, alarme).
+- `src/family/focus.ts`: fila "Agora" (conta vencida → compromisso nas próximas 2 h → minha tarefa → anotação sem destino → desejo cuja espera acabou), contador de feitas hoje (sem sequência que pune), desejos com espera, temporizador e passos.
+
+Telas (`src/family/views/*.ts`, componentes em `src/family/ui.ts`):
+- Navegação: **Início · Agenda · Dinheiro · Compras · Casa**; Perfil foi para "Mais seções"/menu. Nova seção "Agora (foco)".
+- Início: cartão "Agora" com uma ação, "Lançar rápido", "Já comprometido" (3 meses). **Modo foco** (Perfil → Aparência) deixa só Agora, o dia de hoje e o lançamento rápido.
+- Cartões: abas Faturas (com limite estimado livre) | Parcelamentos (simulador, novo carnê, "Paguei a parcela") | Próximos meses (barras por mês com a renda média).
+- Agenda: Dia/Semana/Mês, filtro Tudo/Só meus/Da casa, "Quem pode ver: Só eu / Ocupado / Toda a casa", participantes só em compromisso da casa, aviso, repetição, "Pôr no calendário" e "Baixar a semana (.ics)".
+- Botão flutuante **Anotar** em todas as telas (tecla `a`); "Organizar" transforma a anotação em gasto, compromisso, tarefa, item da lista ou desejo, e ela só sai da caixa de entrada quando o destino é salvo.
+- Tarefas com **passos** marcáveis (modelos "Rotina da manhã" e "Rotina da noite") e botão "15 min"; temporizador visual com anel, vibração e bipe, visível em qualquer tela.
+- Metas → "Desejos em espera" (2 dias, 1 semana, 1 mês) e "Você deixou de gastar R$ X".
+- Modo mercado: "Como pagou? Pix/débito/dinheiro | Cartão de crédito" com parcelas.
+- Teclado no computador: `n` lança, `a` anota, `/` vai para a busca. Atalhos no ícone do app (Android): `?acao=lancar|anotar|lista|agenda`.
+
+Banco: migração aditiva **`20261017120000_agenda_foco.sql` (não aplicada)**:
+- `fin_events` (leitura: dono, ou todos quando `visibility='home'`; administrador não tem exceção; sem trigger de auditoria para não revelar compromissos pessoais), `fin_busy_slots(h)` (só dono e horário dos "ocupado"), `fin_inbox` (só o dono), `fin_wishes` (dono, ou casa quando compartilhado), `fin_tasks.steps` (validado, zerado ao repetir em `fin_complete_task`), `fin_preferences.focus_mode`, `fin_complete_purchase_card` (mesmas garantias da compra à vista; cartão conferido pela trigger de lançamentos).
+- Sem a migração aplicada, compromissos, anotações, desejos, passos e modo foco ficam **só no aparelho** (`localStorage`, chave por casa **e** pessoa); a tela avisa. Compra no cartão pelo modo mercado pede a migração.
+
+### Verificação
+
+- `npm test`: 81 testes (novos: `plans`, `quick`, `agenda` — também com `TZ=UTC` —, `focus`).
+- `npm run test:db`: 5 testes; `tests/agenda-db.test.mjs` cobre privacidade da agenda (administrador não lê compromisso pessoal; "ocupado" sem título; outra casa não vê nada), caixa de entrada, desejos, passos, modo foco e compra no cartão (parcelas, estoque, cartão de outra pessoa recusado, toque repetido não compra duas vezes, permissão).
+- `npm run typecheck`, `npm run build`.
+- `npm run test:browser` (com `npx vite` ativo): o teste antigo e o novo `tests/browser-casa-foco.mjs` (demonstração: Agora, lançamento rápido, parcelamentos, carnê, simulador, agenda com privacidade entre administrador e membro e conteúdo do `.ics` baixado, anotar/organizar, temporizador, desejos, passos, mercado no cartão em 2x, tecla `a`, modo foco e celular de 360 px sem rolagem lateral).
+
+### Pendências e próximos lotes
+
+1. Aplicar `20261005180000`, `20261005190000` e `20261017120000` em produção, nessa ordem, **só com autorização do proprietário**.
+2. S04: congelar o cronograma das compras no cartão (hoje segue o fechamento atual).
+3. Finanças: orçamento por categoria, receitas recorrentes, provisão de despesas anuais (IPVA, IPTU, material escolar), divisão de despesas entre membros, metas com aportes ligados a lançamentos.
+4. Avisos com o app fechado (push) exigem servidor e chaves: hoje só avisa com o app aberto.
+5. Link de assinatura de calendário (atualiza sozinho) exigiria função nova no servidor e link secreto por pessoa.
+6. Enviar para o banco o que ficou guardado só no aparelho depois que a migração for aplicada.
+7. Revisar a regex com nome pessoal em `financialOverview`.
+
+### Como continuar em outra sessão ou ferramenta
+
+Leia este arquivo e, conforme o assunto, `src/family/plans.ts`, `quick.ts`, `agenda.ts` ou `focus.ts` (regras) e `src/family/views/` (telas). Regra nova vai no módulo puro com teste; tela nova vai em `views/` recebendo `ViewCtx`; ação de botão e envio de formulário ficam em `app.ts` (`data-action` e `id` do formulário). Dado pessoal novo no banco: tabela `fin_*` com política só do dono e sem auditoria que revele conteúdo, mais teste em `tests/`. Rode `npm test`, `npm run test:db`, `npm run typecheck`, `npm run build` e `npm run test:browser` antes de publicar.

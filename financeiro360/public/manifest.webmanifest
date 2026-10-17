@@ -15,5 +15,27 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Lançar gasto",
+      "short_name": "Lançar",
+      "url": "./?acao=lancar"
+    },
+    {
+      "name": "Anotar rápido",
+      "short_name": "Anotar",
+      "url": "./?acao=anotar"
+    },
+    {
+      "name": "Lista de compras",
+      "short_name": "Lista",
+      "url": "./?acao=lista"
+    },
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "./?acao=agenda"
+    }
   ]
 }
