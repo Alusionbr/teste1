@@ -33,7 +33,7 @@ try {
 
   await page.goto(process.env.FIN_TEST_URL || "http://localhost:5173");
   await page.getByRole("button", { name: "Explorar demonstração" }).click();
-  await page.getByRole("heading", { name: "Sua casa em equilíbrio." }).waitFor();
+  await page.getByRole("heading", { name: "Seu mês, sem complicação." }).waitFor();
 
   // Agora: uma coisa por vez, começando pela conta vencida; "Pular" passa para a próxima.
   const focus = page.locator(".focus-card");

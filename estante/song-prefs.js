@@ -28,7 +28,7 @@ function rememberSongPref(field,value){
   if(!state.current)return;
   state.current[field]=value;
   persistCurrent([field]);
-  if(state.tab==="setlist")renderList();
+  if(["setlist","rehearsal","library"].includes(state.tab))renderList();
 }
 // Uma música do repertório guarda os próprios ajustes; uma música só aberta
 // (resultado de busca, letra colada) não tem onde guardar.
@@ -67,5 +67,5 @@ function saveSongNotes(texto){
   state.current.notes=texto;
   renderSongNotes(state.current);
   persistCurrent(["notes"]);
-  if(state.tab==="setlist")renderList();
+  if(["setlist","rehearsal","library"].includes(state.tab))renderList();
 }

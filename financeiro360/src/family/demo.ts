@@ -55,6 +55,7 @@ export function demoData(): Data {
         balance_date: `${m}-01`,
       },
     ],
+    account_balance_checks: [],
     cards: [
       {
         ...base,
@@ -74,6 +75,9 @@ export function demoData(): Data {
         due_day: 22,
       },
     ],
+    invoice_alignments: [],
+    invoice_alignment_exceptions: [],
+    category_presets: [],
     entries: [
       {
         ...base,
@@ -307,5 +311,6 @@ export function demoData(): Data {
       { id: "demo-loss", home_id: HOME, pantry_id: "demo-milk", name: "Leite", kind: "lost", quantity: 1, value_cents: 599,
         actor_id: MEMBER, created_at: new Date().toISOString() },
     ],
+    reminders: [],
   };
 }

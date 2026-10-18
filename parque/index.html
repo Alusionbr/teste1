@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Mapa interativo do Beto Carrero World com GPS em tempo real, rotas a pé, fila ao vivo, roteiro e grupo sincronizado.">
+  <title>Mapa do Parque</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css?v=1.3.0">
+</head>
+<body>
+  <svg id="map" aria-label="Mapa do parque"></svg>
+
+  <!-- Barra de busca e atalhos de categoria -->
+  <header class="top">
+    <div class="search">
+      <button class="icon-btn" id="btnMenu" aria-label="Abrir painel">☰</button>
+      <input id="searchInput" type="search" placeholder="Buscar brinquedo, banheiro, comida…" autocomplete="off" enterkeyhint="search">
+      <button class="icon-btn" id="btnGroup" aria-label="Grupo">👥<span id="groupCount" class="dot-count" hidden></span></button>
+    </div>
+    <div id="searchResults" class="search-results" hidden></div>
+    <div class="chips" id="quickChips"></div>
+    <div class="status-row">
+      <span id="gpsPill" class="pill">📡 GPS desligado</span>
+      <span id="groupPill" class="pill" hidden></span>
+      <span id="showPill" class="pill pill-show" hidden></span>
+      <span id="lunchPill" class="pill pill-lunch" hidden></span>
+    </div>
+  </header>
+
+  <!-- Faixa de navegação (aparece quando há rota) -->
+  <section id="navBanner" class="nav-banner" hidden>
+    <div class="nav-arrow" id="navArrow">➤</div>
+    <div class="nav-text">
+      <strong id="navTitle"></strong>
+      <span id="navSub"></span>
+      <span id="navTurn"></span>
+    </div>
+    <button class="icon-btn" id="navStop" aria-label="Encerrar rota">✕</button>
+  </section>
+
+  <!-- Botões flutuantes -->
+  <div class="fabs">
+    <button class="fab fab-add" id="btnAdd" aria-label="Marcar bebedouro, lixeira, banheiro…">＋</button>
+    <button class="fab" id="btnCompass" aria-label="Orientação do mapa"><span id="compassNeedle">▲</span><small>N</small></button>
+    <button class="fab" id="btnZoomIn" aria-label="Aproximar">＋</button>
+    <button class="fab" id="btnZoomOut" aria-label="Afastar">－</button>
+    <button class="fab fab-main" id="btnLocate" aria-label="Minha posição">◎</button>
+  </div>
+
+  <!-- Perto de você -->
+  <div id="nearStrip" class="near-strip" hidden></div>
+
+  <!-- Detalhe de um lugar / menu de toque longo -->
+  <section id="sheet" class="sheet" hidden>
+    <div class="grip"></div>
+    <div id="sheetBody"></div>
+  </section>
+
+  <!-- Painel com abas -->
+  <section id="panel" class="panel" hidden>
+    <header class="panel-head">
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="lugares" class="active">Lugares</button>
+        <button role="tab" data-tab="dia">Dia</button>
+        <button role="tab" data-tab="shows">Shows</button>
+        <button role="tab" data-tab="roteiro">Roteiro</button>
+        <button role="tab" data-tab="grupo">Grupo</button>
+        <button role="tab" data-tab="ajustes">Ajustes</button>
+      </nav>
+      <button class="icon-btn" id="panelClose" aria-label="Fechar">✕</button>
+    </header>
+    <div class="panel-body" id="panelBody"></div>
+  </section>
+
+  <!-- Boas-vindas na primeira vez -->
+  <section id="welcome" class="welcome" hidden>
+    <div class="welcome-card">
+      <div class="welcome-icon">🎢</div>
+      <h1>Mapa do Parque</h1>
+      <p>Beto Carrero World com GPS em tempo real, rota a pé até cada atração, marcação de fila, roteiro do dia e grupo sincronizado.</p>
+      <ul>
+        <li>📡 Sua posição aparece como o ponto azul.</li>
+        <li>🧭 A bússola mostra para onde você está virado.</li>
+        <li>👆 Segure o dedo no mapa para marcar o carro, um ponto de encontro ou corrigir sua posição.</li>
+      </ul>
+      <button class="btn btn-primary" id="welcomeGo">Ligar GPS e bússola</button>
+      <button class="btn btn-ghost" id="welcomeSkip">Só ver o mapa</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+
+  <script src="park-data.js?v=1.3.0"></script>
+  <script src="geo.js?v=1.3.0"></script>
+  <script src="store.js?v=1.3.0"></script>
+  <script src="route.js?v=1.3.0"></script>
+  <script src="map.js?v=1.3.0"></script>
+  <script src="gps.js?v=1.3.0"></script>
+  <script src="group.js?v=1.3.0"></script>
+  <script src="filas.js?v=1.3.0"></script>
+  <script src="oficial.js?v=1.3.0"></script>
+  <script src="lugares.js?v=1.3.0"></script>
+  <script src="show.js?v=1.3.0"></script>
+  <script src="dia.js?v=1.3.0"></script>
+  <script src="trilhas.js?v=1.3.0"></script>
+  <script src="ui.js?v=1.3.0"></script>
+</body>
+</html>

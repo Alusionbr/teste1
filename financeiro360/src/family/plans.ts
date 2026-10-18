@@ -1,7 +1,7 @@
 // Parcelamentos e compromissos futuros: o que já está comprometido nos próximos meses.
 // Funções puras, sem tela nem banco. Dinheiro sempre em centavos inteiros.
 import { addMonths, installmentAmount, invoiceMonth, recurrenceDate } from "../logic.ts";
-import { invoiceInstallments, type Card, type Data, type Entry } from "./model.ts";
+import { invoice, invoiceInstallments, type Card, type Data, type Entry } from "./model.ts";
 
 export const monthLabel = (month: string) => {
   const [y, m] = month.split("-");
@@ -38,7 +38,8 @@ export function activeInstallments(data: Data, month: string): ActivePlan[] {
     if (e.kind !== "expense" || e.payment !== "card" || e.installments < 2 || e.status === "pending_review") continue;
     const card = data.cards.find((c) => c.id === e.card_id);
     if (!card) continue;
-    const first = invoiceMonth(e.date, card.closing_day);
+    // A primeira fatura fica registrada na compra (congelada): mudar o fechamento do cartão não a desloca.
+    const first = e.first_invoice_month || invoiceMonth(e.date, card.closing_day);
     const months = Array.from({ length: e.installments }, (_, i) => addMonths(first, i));
     const remaining = months.map((m, i) => ({ m, i })).filter(({ m }) => m >= month);
     if (!remaining.length) continue;
@@ -94,7 +95,7 @@ function generatedFor(e: Entry, recurringId: string, month: string) {
 
 export interface MonthCommitment {
   month: string;
-  // Parcelas e compras no cartão da fatura deste mês (competência pelo fechamento).
+  // O que falta pagar das faturas deste mês (competência).
   card: number;
   // Contas a pagar já registradas que vencem no mês (inclui carnês e contas geradas).
   bills: number;
@@ -105,10 +106,8 @@ export interface MonthCommitment {
 export function commitments(data: Data, from: string, months = 12): MonthCommitment[] {
   return Array.from({ length: months }, (_, i) => {
     const month = addMonths(from, i);
-    const card = data.cards.reduce(
-      (s, c) => s + invoiceInstallments(data.entries, c, month).reduce((t, line) => t + line.amount_cents, 0),
-      0,
-    );
+    // Pela regra da própria fatura: respeita faturas alinhadas ao valor real do banco e desconta o que já foi pago.
+    const card = data.cards.reduce((s, c) => s + invoice(data, c, month).remaining, 0);
     const bills = data.entries
       .filter((e) => e.kind === "expense" && e.payment === "cash" && e.status === "pending" && dueMonth(e) === month)
       .reduce((s, e) => s + e.amount_cents, 0);

@@ -56,7 +56,7 @@ export function occurrences(e: Pick<CalendarEvent, "day" | "repeat" | "repeat_un
 }
 const monthsBetween = (a: string, b: string) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
 
-export type AgendaKind = "event" | "busy" | "task" | "bill" | "invoice";
+export type AgendaKind = "event" | "busy" | "task" | "bill" | "invoice" | "reminder";
 export interface AgendaItem {
   key: string;
   kind: AgendaKind;
@@ -90,6 +90,14 @@ export function agendaItems(data: Data, from: string, to: string, userId: string
       for (const date of occurrences(b, from, to))
         items.push({ key: `busy:${b.id}:${date}`, kind: "busy", id: b.id, date, time: cleanTime(b.start_time), end: cleanTime(b.end_time),
           title: `${name(b.owner_id)} ocupado(a)`, detail: "Compromisso pessoal", cents: null, mine: false, shared: true, private: false });
+  // Lembretes e vencimentos da casa (tela "Avisos e lembretes"): são de todos os membros e não têm hora.
+  for (const r of data.reminders || []) {
+    if (r.completed || r.kind === "post_it" || !r.due_on) continue;
+    const repeat = r.recurrence === "once" ? "none" : r.recurrence;
+    for (const date of occurrences({ day: r.due_on, repeat, repeat_until: null }, from, to))
+      items.push({ key: `reminder:${r.id}:${date}`, kind: "reminder", id: r.id, date, time: null, end: null, title: r.title,
+        detail: r.kind === "due_date" ? "Vencimento" : "Lembrete", cents: null, mine: r.owner_id === userId, shared: true, private: false });
+  }
   for (const t of data.tasks)
     if (!t.done_at && t.due_date && t.due_date <= to && (t.due_date >= from || (from === today && t.due_date < today)))
       items.push({ key: `task:${t.id}`, kind: "task", id: t.id, date: t.due_date < from ? from : t.due_date, time: null, end: null,
@@ -114,7 +122,7 @@ export function agendaItems(data: Data, from: string, to: string, userId: string
     }
   const kept = items.filter((i) => filter === "all" || (filter === "mine" ? i.mine : i.shared));
   // No mesmo dia: primeiro o que vale o dia todo (contas, faturas, tarefas), depois por horário.
-  const order: AgendaKind[] = ["bill", "invoice", "task", "event", "busy"];
+  const order: AgendaKind[] = ["bill", "invoice", "reminder", "task", "event", "busy"];
   return kept.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || (a.time || "").localeCompare(b.time || "") ||
     order.indexOf(a.kind) - order.indexOf(b.kind) || a.title.localeCompare(b.title));
 }

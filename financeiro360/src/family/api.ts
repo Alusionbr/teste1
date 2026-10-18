@@ -14,13 +14,16 @@ import {
   type InboxItem,
   type Wish,
   forecast,
+  balance,
   validateEntry,
+  entryVisibleTo,
 } from "./model.ts";
 import { nextDue } from "./home.ts";
 import { fold, validateCatalogDraft, type CatalogDraft } from "./catalog.ts";
 const localCatalogKey = (home: string) => `financeiro360:catalog:${home}`;
 import { demoData, ADMIN, MEMBER } from "./demo.ts";
 import { defaultPreferences, normalizePreferences, type Preferences } from "./preferences.ts";
+import { invoiceMonth } from "../logic.ts";
 const table = (collection: keyof Data) =>
   collection === "pantryEvents" ? "fin_pantry_events" : "fin_" + collection;
 // Agenda, anotações e desejos guardados só neste aparelho enquanto a atualização do banco não existir.
@@ -115,7 +118,24 @@ export class FamilyAPI {
         d[key] = d[key].filter(
           (x) => admin || x.owner_id === this.userId || x.shared,
         ) as never;
+      d.category_presets = d.category_presets.filter((item) => item.owner_id === this.userId || item.shared);
+      d.entries = d.entries.filter((entry) => entryVisibleTo(
+        entry,
+        this.userId,
+        admin ? "admin" : "member",
+        d.members,
+      ));
+      d.invoice_alignments = d.invoice_alignments.filter((item) => admin || item.owner_id === this.userId);
+      d.invoice_alignment_exceptions = d.invoice_alignment_exceptions.filter((item) => admin || item.owner_id === this.userId);
+      d.account_balance_checks = d.account_balance_checks.filter((item) => admin || item.owner_id === this.userId);
       if (!admin) d.audit = [];
+      if (!admin) d.accounts = d.accounts.map((account) => ({
+        ...account,
+        current_balance_cents: account.owner_id === this.userId || account.share_balance
+          ? balance(this.demoStore!, account) : null,
+        opening_cents: account.owner_id === this.userId ? account.opening_cents : null,
+        balance_date: account.owner_id === this.userId ? account.balance_date : null,
+      }));
       // Mesmas regras do banco: pessoal só para o dono, nem o administrador vê.
       d.busy = d.events
         .filter((e) => e.visibility === "busy" && e.owner_id !== this.userId)
@@ -159,11 +179,20 @@ export class FamilyAPI {
       "fin_documents",
       "fin_audit",
       "fin_recurring",
+      "fin_reminders",
+      "fin_invoice_alignments",
+      "fin_invoice_alignment_exceptions",
+      "fin_account_balance_checks",
+      "fin_category_presets",
     ];
     const results = await Promise.all(
       tables.map(async (t) => {
         if (t === "fin_homes")
           return this.client!.from(t).select("*").eq("id", hid);
+        if (t === "fin_accounts") {
+          const accounts = await this.client!.rpc("fin_account_overview", { p_home: hid });
+          return accounts;
+        }
         if (t === "fin_audit")
           return this.client!.from(t)
             .select("*")
@@ -218,6 +247,11 @@ export class FamilyAPI {
       busy: agenda.busy,
       inbox: agenda.inbox,
       wishes: agenda.wishes,
+      reminders: results[12].data!,
+      invoice_alignments: results[13].data!,
+      invoice_alignment_exceptions: results[14].data!,
+      account_balance_checks: results[15].data!,
+      category_presets: results[16].data!,
     } as Data;
   }
   private readLocalAgenda(hid: string): LocalAgenda {
@@ -493,6 +527,64 @@ export class FamilyAPI {
     this.preferences = settings;
     this.preferencesRevision = result.data.revision;
   }
+  async alignInvoice(cardId: string, invoiceMonth: string, cutoffOn: string, totalCents: number, note: string) {
+    const card = this.data!.cards.find((item) => item.id === cardId);
+    if (!card || card.archived_at || !/^\d{4}-(0[1-9]|1[0-2])$/.test(invoiceMonth) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(cutoffOn) || !Number.isSafeInteger(totalCents) || totalCents < 0)
+      throw Error("Confira o cartão, a fatura, a data e o total.");
+    if (this.demo) {
+      this.demoStore!.invoice_alignments.forEach((item) => {
+        if (item.card_id === cardId && item.invoice_month === invoiceMonth) item.active = false;
+      });
+      this.demoStore!.invoice_alignments.push({ id: crypto.randomUUID(), home_id: card.home_id,
+        owner_id: card.owner_id, card_id: cardId, invoice_month: invoiceMonth, cutoff_on: cutoffOn,
+        total_cents: totalCents, note, active: true, created_at: new Date().toISOString() });
+    } else {
+      const { error } = await this.client!.rpc("fin_align_invoice", { p_card: cardId, p_month: invoiceMonth,
+        p_cutoff: cutoffOn, p_total: totalCents, p_note: note });
+      if (error) throw Error(error.message);
+    }
+    await this.load();
+  }
+  async setAlignmentException(alignmentId: string, entryId: string, countAfter: boolean) {
+    const alignment = this.data!.invoice_alignments.find((item) => item.id === alignmentId && item.active);
+    const entry = this.data!.entries.find((item) => item.id === entryId);
+    if (!alignment || !entry || entry.card_id !== alignment.card_id) throw Error("Compra ou alinhamento indisponível.");
+    const existing = this.data!.invoice_alignment_exceptions.find((item) => item.alignment_id === alignmentId && item.entry_id === entryId);
+    if (this.demo) {
+      const list = this.demoStore!.invoice_alignment_exceptions;
+      const row = list.find((item) => item.id === existing?.id);
+      if (row) row.count_after = countAfter;
+      else list.push({ id: crypto.randomUUID(), home_id: alignment.home_id, owner_id: alignment.owner_id,
+        alignment_id: alignmentId, entry_id: entryId, count_after: countAfter });
+    } else {
+      const result = existing
+        ? await this.client!.from("fin_invoice_alignment_exceptions").update({ count_after: countAfter }).eq("id", existing.id)
+        : await this.client!.from("fin_invoice_alignment_exceptions").insert({ home_id: alignment.home_id,
+          owner_id: alignment.owner_id, alignment_id: alignmentId, entry_id: entryId, count_after: countAfter });
+      if (result.error) throw Error(result.error.message);
+    }
+    await this.load();
+  }
+  async mergeCards(sourceId: string, targetId: string) {
+    const source = this.data!.cards.find((item) => item.id === sourceId);
+    const target = this.data!.cards.find((item) => item.id === targetId);
+    if (!source || !target || source.id === target.id || source.owner_id !== target.owner_id ||
+      source.home_id !== target.home_id || source.closing_day !== target.closing_day || source.due_day !== target.due_day ||
+      source.archived_at || target.archived_at || this.data!.invoice_alignments.some((item) => item.card_id === sourceId))
+      throw Error("Escolha dois cartões ativos do mesmo titular, com o mesmo fechamento e vencimento. Revise alinhamentos do duplicado antes de unir.");
+    if (this.demo) {
+      this.demoStore!.entries.forEach((item) => { if (item.card_id === sourceId) item.card_id = targetId; });
+      this.demoStore!.documents.forEach((item) => { if (item.card_id === sourceId) item.card_id = targetId; });
+      const card = this.demoStore!.cards.find((item) => item.id === sourceId)!;
+      card.archived_at = new Date().toISOString();
+      card.merged_into_id = targetId;
+    } else {
+      const { error } = await this.client!.rpc("fin_merge_cards", { p_source: sourceId, p_target: targetId });
+      if (error) throw Error(error.message);
+    }
+    await this.load();
+  }
   async save(collection: keyof Data, record: Record<string, unknown>) {
     if ((collection === "tasks" || collection === "pantryEvents") && !this.householdReady)
       throw Error("A rotina da casa ainda não foi ativada no banco. Peça ao administrador para aplicar a atualização.");
@@ -512,25 +604,60 @@ export class FamilyAPI {
       const { location: _location, ...rest } = record;
       record = rest;
     }
-    const base =
-      collection === "pantry" || collection === "shopping"
-        ? { home_id: this.data!.home.id }
-        : collection === "tasks"
-          ? { home_id: this.data!.home.id, created_by: this.userId }
+    const base = collection === "pantry" || collection === "shopping"
+      ? { home_id: this.data!.home.id }
+      : collection === "tasks"
+        ? { home_id: this.data!.home.id, created_by: this.userId }
+        : collection === "reminders"
+          ? { home_id: this.data!.home.id, owner_id: this.userId }
           : { home_id: this.data!.home.id, owner_id: this.userId, shared: false };
     const previous = record.id
       ? (this.data![collection] as unknown as Record<string, unknown>[]).find(
           (x) => x.id === record.id,
         )
       : null;
-    const payload = { ...(previous || base), ...(presetId ? { id: presetId } : {}), ...record };
-    if (collection === "entries") validateEntry(payload as unknown as Entry);
+    const payload: Record<string, unknown> = { ...(previous || base), ...(presetId ? { id: presetId } : {}), ...record };
+    if (collection === "entries" && this.me?.role === "member" && payload.area !== "personal")
+      payload.shared = true;
+    if (collection === "entries") {
+      const entry = validateEntry(payload as unknown as Entry);
+      if (entry.debt_installment_number != null) {
+        const debt = this.data!.debts.find((item) => item.id === entry.debt_id);
+        if (!debt?.installment_count || entry.debt_installment_number > debt.installment_count)
+          throw Error("Esta parcela não pertence ao plano do empréstimo.");
+      }
+    }
     if (this.demo) {
       const list = this.demoStore![collection] as unknown as Record<
         string,
         unknown
       >[];
       const index = list.findIndex((x) => x.id === record.id);
+      if (collection === "accounts" && index >= 0) {
+        const before = list[index] as unknown as Data["accounts"][number];
+        const after = payload as unknown as Data["accounts"][number];
+        if (before.opening_cents !== after.opening_cents || before.balance_date !== after.balance_date)
+          this.demoStore!.account_balance_checks.push({ id: crypto.randomUUID(), home_id: before.home_id,
+            owner_id: before.owner_id, account_id: before.id, previous_cents: before.opening_cents,
+            previous_date: before.balance_date, balance_cents: after.opening_cents,
+            balance_date: after.balance_date, created_at: new Date().toISOString() });
+      }
+      if (collection === "cards" && index >= 0) {
+        const previousCard = list[index] as unknown as Data["cards"][number];
+        const nextCard = payload as unknown as Data["cards"][number];
+        if (previousCard.closing_day !== nextCard.closing_day)
+          this.demoStore!.entries.forEach((entry) => {
+            if (entry.card_id === previousCard.id && entry.kind === "expense" && entry.payment === "card" && !entry.first_invoice_month)
+              entry.first_invoice_month = invoiceMonth(entry.date, previousCard.closing_day);
+          });
+      }
+      if (collection === "entries") {
+        const entry = payload as unknown as Entry;
+        if (entry.kind === "expense" && entry.payment === "card" && !entry.first_invoice_month) {
+          const card = this.demoStore!.cards.find((item) => item.id === entry.card_id);
+          if (card) entry.first_invoice_month = invoiceMonth(entry.date, card.closing_day);
+        }
+      }
       if (index >= 0) list[index] = { ...list[index], ...payload };
       else list.push({ id: crypto.randomUUID(), ...payload });
       await this.load();
@@ -553,9 +680,14 @@ export class FamilyAPI {
     await this.load();
   }
   async share(collection: keyof Data, id: string, shared: boolean) {
-    if (this.me.role !== "admin")
-      throw Error("Somente o administrador pode compartilhar.");
-    await this.save(collection, { id, shared });
+    if (this.me.role !== "admin") {
+      const entry = collection === "entries"
+        ? this.data!.entries.find((item) => item.id === id)
+        : undefined;
+      if (collection !== "entries" || !entry || entry.owner_id !== this.userId || entry.area !== "personal")
+        throw Error("Essa opção só está disponível para seus gastos pessoais.");
+    }
+    await this.save(collection, { id, shared, ...(collection === "accounts" && !shared ? { share_balance: false } : {}) });
   }
   async remove(collection: keyof Data, id: string) {
     if (this.demo) {
@@ -775,6 +907,7 @@ export class FamilyAPI {
         date,
         kind: "expense",
         category: "Mercado",
+        subcategory: null,
         area: "household",
         status: "paid",
         payment: card ? "card" : "cash",

@@ -1,0 +1,1 @@
+For Estante diagnosis, fixes, tests, and publication, read the project skill at `../.agents/skills/estante-maintenance/SKILL.md`. Keep this file short; the skill holds the source map and verification commands.

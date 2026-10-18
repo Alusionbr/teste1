@@ -6,7 +6,19 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 - [ ] A página abre sem erro no console.
 - [ ] A etiqueta de rede mostra "online".
-- [ ] Sem repertório salvo, a aba Repertório mostra o texto de lista vazia.
+- [ ] O cabeçalho mostra **Salvo** depois da migração/carregamento.
+- [ ] A navegação tem Início, Biblioteca, Repertórios e Ensaio.
+- [ ] Sem repertório salvo, a aba Repertórios mostra o texto de lista vazia.
+
+## 1b. Migração, salvamento e recuperação
+
+- [ ] Abrir com dados v3 mantém repertórios, letras, tom, capo, notas, vídeo e ordem.
+- [ ] Alterar algo mostra **Salvando…** e depois **Salvo**.
+- [ ] Recarregar preserva tudo pelo IndexedDB.
+- [ ] Abrir duas abas, alterar na segunda e voltar à primeira mostra o aviso de revisão mais nova com **Recarregar**.
+- [ ] Remover uma música mostra **Desfazer**; desfazer restaura na posição anterior.
+- [ ] Fechar o aviso sem desfazer e abrir **Lixeira** permite restaurar depois.
+- [ ] Arquivar um repertório o identifica no seletor e permite desarquivar.
 
 ## 2. Busca
 
@@ -62,6 +74,20 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Colar um `.lrc` pela edição reativa o botão **Sincro**.
 - [ ] Escrever `[Refrão]` e `[Solo]` faz aparecer a tira de atalhos; tocar num deles rola até a seção.
 - [ ] A tira some quando a música tem menos de duas seções.
+- [ ] Dar nome ao arranjo e escolher **todos os repertórios** atualiza cada ocorrência vinculada, mantendo a posição de cada uma.
+- [ ] Escolher **somente este repertório** cria outro arranjo e não altera as demais listas.
+- [ ] Cada salvamento aumenta a revisão e o conteúdo anterior permanece no histórico.
+- [ ] O lápis ao lado de uma seção salva uma anotação própria e o ponto aparece no atalho.
+
+## 4c.1 Biblioteca e ensaio
+
+- [ ] A Biblioteca mostra uma entrada por arranjo, permite selecionar várias e adicionar em lote.
+- [ ] A mesma música pode ter dois arranjos diferentes sem que letras/durações sejam misturadas.
+- [ ] A ordem aceita arrastar e continua oferecendo ↑/↓ para teclado e toque.
+- [ ] **+ Pausa/nota** entra na ordem com título, duração e detalhes; anterior/próxima pula esse item.
+- [ ] Em Ensaio, mudar entre A aprender/Em ensaio/Pronta atualiza o resumo.
+- [ ] Iniciar e encerrar um ensaio salva data, estados e resumo; recarregar mantém o histórico.
+- [ ] O resumo do repertório mostra prontidão offline, duração e quantidade pronta.
 
 ## 4d. Gravação sem travar
 
@@ -86,7 +112,7 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 
 - [ ] Criar um segundo repertório: o novo abre vazio e o anterior continua intacto.
 - [ ] Renomear e duplicar funcionam; a duplicata vem com as mesmas músicas.
-- [ ] Apagar pede confirmação; ao apagar o último, ele é esvaziado em vez de sumir.
+- [ ] Mover para a lixeira pede confirmação; ao remover o último repertório, fica uma lista vazia e a original pode ser restaurada.
 - [ ] ↑ ↓ mudam a ordem e × remove; a música em execução continua marcada corretamente.
 - [ ] O rodapé mostra o número de músicas e a duração estimada.
 

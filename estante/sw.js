@@ -3,7 +3,7 @@
  *
  * Objetivo: o app abrir e funcionar sem internet no palco. Só o "casco" do
  * aplicativo é guardado em cache (HTML, CSS, scripts e ícones). As letras
- * salvas continuam no localStorage, que já funciona offline.
+ * salvas continuam no IndexedDB, com uma cópia de recuperação local.
  *
  * Consultas às fontes de letra (LRCLIB, Vagalume, Apple) nunca passam pelo
  * cache: são outro domínio e precisam de resposta fresca.
@@ -12,12 +12,14 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "3.12.0";
+const VERSION = "4.1.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./domain.js",
+  "./storage.js",
   "./core.js",
   "./search-engine.js",
   "./library.js",
@@ -33,6 +35,7 @@ const SHELL = [
   "./ui.js",
   "./search-ui.js",
   "./offline.js",
+  "./bug-report.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",
@@ -41,11 +44,10 @@ const SHELL = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE)
-      // addAll falha inteiro se um arquivo faltar; guardamos um a um para que
-      // uma ausência isolada não impeça o app de ficar offline.
-      .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => null))))
-      .then(() => self.skipWaiting())
+    // A instalação é transacional: uma versão só fica pronta quando todo o
+    // casco essencial está no cache. Se um arquivo faltar, a versão anterior
+    // segue ativa e o usuário não fica com um app parcialmente offline.
+    caches.open(CACHE).then(cache => cache.addAll(SHELL.map(asset => /\.(?:js|css|json)$/.test(asset) ? `${asset}?v=${VERSION}` : asset)))
   );
 });
 
@@ -67,23 +69,38 @@ self.addEventListener("fetch", event => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // fontes de letra vão direto à rede
 
-  event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then(hit => {
-      // Cache primeiro (abre rápido e funciona offline), atualizando por trás
-      // para a próxima abertura já pegar a versão nova.
-      const network = fetch(req).then(resp => {
-        if (resp && resp.ok && resp.type === "basic") {
-          const copy = resp.clone();
-          caches.open(CACHE).then(cache => cache.put(req, copy));
+  // Página sempre tenta a rede primeiro para receber a versão atual. Quando
+  // offline, cai para o shell salvo. Scripts e imagens continuam cache-first.
+  if (req.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        const resp = await fetch(req);
+        if (resp && resp.ok) {
+          await (await caches.open(CACHE)).put("./index.html", resp.clone());
+          return resp;
         }
-        return resp;
-      }).catch(() => null);
-
-      if (hit) {
-        event.waitUntil(network);
-        return hit;
+        return await (await caches.open(CACHE)).match("./index.html") || resp;
+      } catch {
+        return (await caches.open(CACHE)).match("./index.html");
       }
-      return network.then(resp => resp || caches.match("./index.html", { ignoreSearch: true }));
-    })
-  );
+    })());
+    return;
+  }
+
+  event.respondWith((async () => {
+    // Cada worker lê apenas o seu cache e a versão exata pedida pelo HTML.
+    // Ignorar ?v= misturava scripts antigos e novos após uma publicação.
+    const cache = await caches.open(CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    try {
+      const resp = await fetch(req);
+      if (resp.ok && resp.type === "basic" && (!url.searchParams.has("v") || url.searchParams.get("v") === VERSION)) {
+        await cache.put(req, resp.clone());
+      }
+      return resp;
+    } catch {
+      return Response.error();
+    }
+  })());
 });

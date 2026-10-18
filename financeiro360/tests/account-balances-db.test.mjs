@@ -1,0 +1,54 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+const A='00000000-0000-4000-8000-000000000001';
+const B='00000000-0000-4000-8000-000000000002';
+const H='00000000-0000-4000-8000-000000000003';
+const C='00000000-0000-4000-8000-000000000004';
+const D='00000000-0000-4000-8000-000000000005';
+const N='00000000-0000-4000-8000-000000000006';
+
+test('private account balance includes payments and only explicit sharing reveals the total',async t=>{
+ const db=new PGlite();t.after(()=>db.close());
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,delete on storage.objects to authenticated;`);
+ for(const file of ['20261004024051_family_app.sql','20261005143000_family_private_account_balances.sql','20261005210932_family_account_balance_read_guard.sql'])
+  await db.exec(readFileSync(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+ await db.exec(`insert into auth.users values('${A}'),('${B}');insert into fin_homes(id,name,owner_id) values('${H}','Synthetic','${A}');insert into fin_members(home_id,user_id,display_name,role) values('${H}','${A}','Admin','admin'),('${H}','${B}','Member','member');`);
+ const asUser=async id=>db.exec(`reset role;set request.jwt.claim.sub='${id}';set role authenticated;`);
+ await asUser(A);
+ await db.exec(`insert into fin_accounts(id,home_id,owner_id,shared,name,area,opening_cents,balance_date) values('${C}','${H}','${A}',true,'Private balance','personal',100000,'2026-10-01'),('${D}','${H}','${A}',false,'Destination','personal',0,'2026-10-01'),('${N}','${H}','${B}',false,'Member private','personal',20000,'2026-10-01')`);
+ const entry=async(kind,amount,account=C,target=null,status='paid',payment='cash')=>db.exec(`insert into fin_entries(home_id,owner_id,description,amount_cents,date,kind,category,area,status,payment,account_id,target_account_id,shared) values('${H}','${A}','Synthetic',${amount},'2026-10-02','${kind}','Test','personal','${status}','${payment}','${account}',${target?`'${target}'`:'null'},false)`);
+ await entry('income',30000);
+ await entry('expense',10000);
+ await entry('expense',5000,C,null,'pending');
+ await entry('transfer',7000,C,D);
+ await db.exec(`insert into fin_cards(home_id,owner_id,name,closing_day,due_day) values('${H}','${A}','Card',10,20)`);
+ const card=(await db.query('select id from fin_cards')).rows[0].id;
+ await db.exec(`insert into fin_entries(home_id,owner_id,description,amount_cents,date,kind,category,area,status,payment,card_id,account_id,invoice_month) values('${H}','${A}','Card purchase',9000,'2026-10-02','expense','Test','personal','paid','card','${card}','${C}',null),('${H}','${A}','Card settlement',9000,'2026-10-03','card_payment','Test','personal','paid','cash','${card}','${C}','2026-10')`);
+ const overview=async()=> (await db.query(`select * from fin_account_overview('${H}')`)).rows;
+ assert.equal((await overview()).find(a=>a.id===C).current_balance_cents,104000);
+ assert.equal((await overview()).find(a=>a.id===D).current_balance_cents,7000);
+ await asUser(B);
+ const member=(await overview()).find(a=>a.id===C);
+ assert.equal(member.opening_cents,null);
+ assert.equal(member.balance_date,null);
+ assert.equal(member.current_balance_cents,null);
+ assert.equal((await overview()).some(a=>a.id===D),false);
+ assert.equal((await overview()).find(a=>a.id===N).current_balance_cents,20000);
+ await assert.rejects(db.query(`select opening_cents from fin_accounts where id='${C}'`));
+ assert.equal((await db.query(`update fin_accounts set share_balance=true where id='${C}' returning id`)).rows.length,0);
+ await asUser(A);
+ await db.exec(`update fin_accounts set share_balance=true where id='${C}'`);
+ await asUser(B);
+ assert.equal((await overview()).find(a=>a.id===C).current_balance_cents,104000);
+ assert.equal((await overview()).find(a=>a.id===C).opening_cents,null);
+ await asUser(A);
+ await assert.rejects(db.exec(`update fin_accounts set shared=false where id='${C}'`));
+ await db.exec(`update fin_accounts set shared=false,share_balance=false where id='${C}'`);
+ await asUser(B);
+ assert.equal((await overview()).some(a=>a.id===C),false);
+ await db.exec('reset role;set role anon');
+ await assert.rejects(db.query(`select * from fin_account_overview('${H}')`));
+});

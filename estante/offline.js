@@ -8,7 +8,7 @@
 
   window.addEventListener("load", async () => {
     try {
-      const reg = await navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`, { scope: "./" });
+      const reg = await navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`, { scope: "./", updateViaCache: "none" });
 
       // Já existe uma versão nova esperando de uma visita anterior.
       if (reg.waiting) announceUpdate(reg.waiting);
@@ -21,6 +21,9 @@
           if (fresh.state === "installed" && navigator.serviceWorker.controller) announceUpdate(fresh);
         });
       });
+      // O navegador pode adiar sozinho a verificação do script por até um dia.
+      // A página acabou de abrir online, então pede a versão atual agora.
+      if (navigator.onLine) reg.update().catch(() => {});
     } catch (e) {
       // Sem service worker o app continua funcionando; só perde o offline.
     }
@@ -39,8 +42,6 @@
   });
 
   function announceUpdate(worker) {
-    notify('Nova versão do Estante disponível. <button type="button" id="reloadApp">Atualizar</button>', true);
-    const btn = document.getElementById("reloadApp");
-    if (btn) btn.onclick = () => worker.postMessage("skipWaiting");
+    notify("Nova versão do Estante disponível.", true, {label:"Atualizar",run:()=>worker.postMessage("skipWaiting")});
   }
 })();

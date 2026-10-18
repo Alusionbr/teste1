@@ -57,6 +57,20 @@ test("the day view joins events, tasks, bills and invoices, with overdue items o
   assert.equal(agendaItems(d, "2026-10-18", "2026-10-20", "me", "all", "2026-10-17").length, 0);
 });
 
+test("the agenda also lists the family reminders and due dates, repeated as set", () => {
+  const d = data();
+  d.reminders = [
+    { id: "r1", home_id: "h", owner_id: "bia", title: "Pagar IPTU", due_on: "2026-10-17", recurrence: "yearly", kind: "due_date", note: "", color: "yellow", completed: false },
+    { id: "r2", home_id: "h", owner_id: "me", title: "Trocar filtro", due_on: "2026-10-10", recurrence: "weekly", kind: "reminder", note: "", color: "yellow", completed: false },
+    { id: "r3", home_id: "h", owner_id: "me", title: "Feito", due_on: "2026-10-17", recurrence: "once", kind: "reminder", note: "", color: "yellow", completed: true },
+    { id: "r4", home_id: "h", owner_id: "me", title: "Recado", due_on: null, recurrence: "once", kind: "post_it", note: "x", color: "pink", completed: false },
+  ];
+  const items = agendaItems(d, "2026-10-17", "2026-10-24", "me");
+  assert.deepEqual(items.map((i) => `${i.date} ${i.title}`), ["2026-10-17 Pagar IPTU", "2026-10-17 Trocar filtro", "2026-10-24 Trocar filtro"]);
+  assert.equal(items[0].detail, "Vencimento");
+  assert.deepEqual(agendaItems(d, "2026-10-17", "2026-10-17", "me", "mine").map((i) => i.title), ["Trocar filtro"]);
+});
+
 test("month grid starts on Sunday and covers the whole month", () => {
   const weeks = monthGrid("2026-10");
   assert.equal(weeks[0][0].date, "2026-09-27");

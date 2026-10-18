@@ -1,0 +1,1211 @@
+/*
+ * ui.js — telas, botões e o fio que liga GPS, mapa, rota e grupo.
+ *
+ * Regra de ouro: cálculo de rota fica em route.js, desenho em map.js,
+ * dados salvos em store.js e servidor em group.js. Aqui só eventos e HTML.
+ */
+"use strict";
+
+const UI = (() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const state = {
+    follow: false,          // câmera acompanha o GPS
+    rotateMode: "norte",    // "norte" | "direcao" (mapa gira com a bússola)
+    selected: null,         // id do lugar aberto no detalhe
+    route: null,            // {targetId, target:{x,y,name}, plan}
+    tab: "lugares",
+    listCat: "",
+    plano: null,            // ids das atrações do plano "Hora do Show", em ordem
+    avisoShow: "",
+    avisoAlmoco: "",
+    arrivedAt: 0
+  };
+  let wakeLock = null;
+
+  // ---- avisos -------------------------------------------------------------
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
+  }
+
+  function gpsStatus(msg, level) {
+    const p = $("gpsPill");
+    p.textContent = msg;
+    p.className = "pill " + (level ? "pill-" + level : "");
+  }
+
+  // ---- utilidades ----------------------------------------------------------
+
+  function myPos() {
+    return GPS.current();
+  }
+
+  function distTo(place) {
+    const me = myPos();
+    return me && place.x != null ? GEO.dist(me, place) : null;
+  }
+
+  function distLabel(place) {
+    const d = distTo(place);
+    if (d == null) return "";
+    return `${GEO.fmtDist(d)} · ${GEO.walkMinutes(d)} min`;
+  }
+
+  function sortedPlaces(filterFn) {
+    const me = myPos();
+    const list = STORE.places().filter(filterFn || (() => true));
+    // Sem posição vai para o fim; o resto pela distância (ou pelo nome sem GPS).
+    const key = p => p.x == null ? Infinity : me ? GEO.dist(me, p) : 0;
+    list.sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name, "pt-BR"));
+    return list;
+  }
+
+  function norm(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function matches(place, q) {
+    const cat = CATEGORIES[place.cat];
+    return norm(place.name + " " + (cat ? cat.label : "")).includes(norm(q));
+  }
+
+  function ago(ts) {
+    const min = Math.round((Date.now() - ts) / 60000);
+    if (min < 1) return "agora";
+    if (min < 60) return `há ${min} min`;
+    return `há ${Math.floor(min / 60)} h ${min % 60} min`;
+  }
+
+  function clock(ts) {
+    return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---- busca e atalhos ----------------------------------------------------
+
+  const QUICK = ["montanha", "atracao", "aquatico", "infantil", "show", "comida", "banheiro", "bebedouro", "foto"];
+
+  function renderChips() {
+    $("quickChips").innerHTML =
+      `<button class="chip chip-hot" data-tabgo="shows" style="--c:#ff9f1c">⏰ Hora do Show</button>` +
+      `<button class="chip chip-hot" data-tabgo="dia" style="--c:#f59e0b">🍽 Almoço e dia</button>` +
+      `<button class="chip chip-hot" data-cat="disputado" style="--c:#ff4d6d">🔥 Disputados</button>` +
+      QUICK.map(c => {
+        const cat = CATEGORIES[c];
+        return `<button class="chip" data-cat="${c}" style="--c:${cat.color}">${cat.icon} ${esc(cat.label)}</button>`;
+      }).join("");
+  }
+
+  // Filtro da lista: categoria comum ou o filtro especial "disputado".
+  function filtroLista(cat) {
+    if (!cat) return () => true;
+    if (cat === "disputado") return p => p.oficial && p.oficial.disputado;
+    return p => p.cat === cat;
+  }
+
+  function alturaBloqueia(p) {
+    return p.oficial && !SHOW.cabe(p.oficial);
+  }
+
+  function renderSearch() {
+    const q = $("searchInput").value.trim();
+    const box = $("searchResults");
+    if (!q) { box.hidden = true; return; }
+    const list = sortedPlaces(p => matches(p, q)).slice(0, 8);
+    box.hidden = false;
+    box.innerHTML = list.length
+      ? list.map(placeRow).join("")
+      : `<p class="empty">Nada com “${esc(q)}”. Segure o dedo no mapa para marcar um lugar novo.</p>`;
+  }
+
+  function placeRow(p) {
+    const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
+    const d = STORE.data;
+    const wait = FILAS.info(p.id);
+    const o = p.oficial;
+    const flags = (d.done[p.id] ? '<span class="flag ok">✓ fui</span>' : "") +
+      (d.favorites[p.id] ? '<span class="flag fav">★</span>' : "") +
+      (o && o.disputado ? '<span class="flag hot">🔥</span>' : "") +
+      (alturaBloqueia(p) ? '<span class="flag bad">⛔ altura</span>' : "") +
+      (wait ? `<span class="flag wait">⏱ ${wait.min} min</span>` : "");
+    const extra = p.x == null ? " · 📍 sem posição ainda"
+      : (p.fonte === "aprox" ? " · ≈ aproximada" : "") + (distTo(p) != null ? " · " + distLabel(p) : "");
+    const TIPOS = { refeicao: "Refeição", lanche: "Lanche", doce: "Doce", bebida: "Bebida" };
+    const rotulo = o && o.comida ? TIPOS[o.tipo] + (o.area ? " · " + o.area : "") : (o && o.area ? o.area : cat.label);
+    const sub = rotulo + (o && o.altura ? ` · ≥${o.altura.toFixed(2).replace(".", ",")} m` : "") + extra;
+    return `<button class="row${p.fechado ? " is-closed" : ""}" data-open="${esc(p.id)}">
+      <span class="row-icon" style="background:${cat.color}">${STORE.iconOf(p)}</span>
+      <span class="row-main"><strong>${esc(p.name)}</strong><small>${esc(sub)}</small></span>
+      <span class="row-flags">${flags}</span>
+    </button>`;
+  }
+
+  // ---- perto de você -------------------------------------------------------
+
+  function renderNear() {
+    const strip = $("nearStrip");
+    const me = myPos();
+    if (!me || !$("sheet").hidden || !$("panel").hidden || state.route || !GEO.insidePark(me)) {
+      strip.hidden = true;
+      return;
+    }
+    const list = sortedPlaces(p => p.x != null && !p.fechado && !["estacionamento", "servico", "lixeira"].includes(p.cat)).slice(0, 8);
+    strip.hidden = false;
+    strip.innerHTML = list.map(p => {
+      const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
+      return `<button class="near-card" data-open="${esc(p.id)}" style="--c:${cat.color}">
+        <span>${STORE.iconOf(p)}</span><strong>${esc(p.name)}</strong><small>${GEO.fmtDist(GEO.dist(me, p))}</small>
+      </button>`;
+    }).join("");
+  }
+
+  // ---- detalhe do lugar ----------------------------------------------------
+
+  function openPlace(id, fly) {
+    const p = STORE.placeById(id);
+    if (!p) return;
+    state.selected = id;
+    MAP.select(id);
+    closePanel();
+    $("searchResults").hidden = true;
+    if (fly && p.x != null) {
+      state.follow = false;
+      MAP.flyTo(p, Math.max(MAP.view.s, 2.2));
+    }
+    renderPlaceSheet();
+  }
+
+  function renderPlaceSheet() {
+    const p = STORE.placeById(state.selected);
+    if (!p) return closeSheet();
+    const d = STORE.data;
+    const cat = CATEGORIES[p.cat] || CATEGORIES.meu;
+    const me = myPos();
+    const wait = FILAS.info(p.id);
+    const mine = d.waits[p.id];
+    const temPos = p.x != null;
+    const dist = me && temPos ? GEO.dist(me, p) : null;
+    const dir = dist != null ? GEO.compassName(GEO.bearing(me, p)) : "";
+    const o = p.oficial;
+    const info = (p.info || []).map(i => `<li>${esc(i)}</li>`).join("");
+    const note = d.notes[p.id];
+    const isRouting = state.route && state.route.targetId === p.id;
+    $("sheetBody").innerHTML = `
+      <div class="place-head">
+        <span class="place-icon" style="background:${cat.color}">${STORE.iconOf(p)}</span>
+        <div>
+          <h2>${esc(p.name)}</h2>
+          <p class="muted">${esc(cat.label)}${dist != null ? ` · <b>${GEO.fmtDist(dist)}</b> ao ${dir} · ~${GEO.walkMinutes(dist)} min a pé` : ""}</p>
+        </div>
+      </div>
+      ${alturaBloqueia(p) ? `<p class="warn-line">⛔ Altura mínima ${o.altura.toFixed(2).replace(".", ",")} m: acima da altura cadastrada (${STORE.data.alturaCm} cm).</p>` : ""}
+      ${info ? `<ul class="info">${info}</ul>` : ""}
+      ${showLine(o)}
+      ${!temPos ? `<p class="warn-line">📍 O mapa ainda não sabe onde fica. Quando estiver na frente, toque em <b>Estou aqui agora</b>: a posição vai para todo mundo que usa o app.</p>` : ""}
+      ${p.fonte === "aprox" ? `<p class="warn-line">≈ Posição aproximada: ${esc(p.aproxTexto)}. Na frente dela, toque em <b>Estou aqui agora</b> para marcar o ponto exato para todo mundo.</p>` : ""}
+      ${p.fonte === "comunidade" ? `<p class="muted small">📍 Posição marcada por ${p.marcas === 1 ? "1 visitante" : p.marcas + " visitantes"}.</p>` : ""}
+      ${waitLine(wait, mine)}
+      ${d.done[p.id] ? `<p class="done-line">✓ Você foi às ${clock(d.done[p.id])}</p>` : ""}
+      ${note ? `<p class="note-line">📝 ${esc(note)}</p>` : ""}
+      <div class="actions">
+        ${temPos ? `<button class="btn btn-primary" data-act="${isRouting ? "stop" : "go"}">${isRouting ? "✕ Parar rota" : "🧭 Ir até lá"}</button>` : ""}
+        ${o && p.fonte !== "mapa" ? `<button class="btn ${temPos ? "" : "btn-primary"}" data-act="aqui">🙋 Estou aqui agora</button>` : ""}
+        ${o && o.comida ? `<button class="btn" data-act="comendo">🍽 Estou comendo aqui</button>` : ""}
+        ${o && o.comida && GROUP.active && p.x != null ? `<button class="btn" data-act="chamar">👥 Chamar grupo p/ almoçar</button>` : ""}
+        ${state.plano && state.plano.length ? `<button class="btn" data-act="proximo">⏭ Próximo do plano</button>` : ""}
+        <button class="btn ${d.favorites[p.id] ? "on" : ""}" data-act="fav">${d.favorites[p.id] ? "★ Favorito" : "☆ Favoritar"}</button>
+        <button class="btn ${d.done[p.id] ? "on" : ""}" data-act="done">${d.done[p.id] ? "✓ Já fui" : "○ Já fui?"}</button>
+        <button class="btn" data-act="wait">⏱ ${FILAS.shareable(p.id) ? "Informar fila" : "Fila"}</button>
+        <button class="btn" data-act="note">📝 Nota</button>
+        ${GROUP.active && p.cat !== "grupo" ? `<button class="btn" data-act="share">👥 Mandar pro grupo</button>` : ""}
+        ${p.pin ? `<button class="btn btn-danger" data-act="remove">🗑 Remover</button>` : ""}
+        ${p.groupPin ? `<button class="btn btn-danger" data-act="gremove">🗑 Tirar do grupo</button>` : ""}
+        ${LUGARES.souAutor(p) ? `<button class="btn btn-danger" data-act="cremove">🗑 Apagar minha marcação</button>` : ""}
+      </div>`;
+    openSheet();
+  }
+
+  async function placeAction(act) {
+    const p = STORE.placeById(state.selected);
+    if (!p) return;
+    if (act === "go") return startRoute(p);
+    if (act === "proximo") return seguirPlano();
+    if (act === "comendo") {
+      if (p.oficial && p.oficial.refeicao) DIA.marcarAlmoco(true);
+      GROUP.setStatus(("Comendo: " + p.name).slice(0, 40));
+      toast("Boa refeição! O grupo vê onde você está comendo.");
+      return renderPlaceSheet();
+    }
+    if (act === "chamar") {
+      try {
+        await GROUP.sharePin("encontro", ("Almoço: " + p.name).slice(0, 40), p.x, p.y, null);
+        toast("Chamado enviado: o grupo recebe aviso e o ponto no mapa");
+      } catch (e) { toast("Não foi: " + e.message); }
+      return;
+    }
+    if (act === "aqui") return marcarAtracaoAqui(p);
+    if (act === "cremove") {
+      if (!confirm("Apagar a sua marcação deste lugar?")) return;
+      try { await LUGARES.desmarcar(p.comunidade.ids); toast("Marcação apagada"); } catch (e) { toast("Não foi: " + e.message); }
+      MAP.buildMarkers();
+      return closeSheet();
+    }
+    if (act === "stop") { stopRoute(); return renderPlaceSheet(); }
+    if (act === "fav") STORE.toggle("favorites", p.id);
+    if (act === "done") {
+      const on = STORE.toggle("done", p.id);
+      if (on) toast(`Boa! ${countDone()} lugares no dia.`);
+      if (on && state.plano && state.plano[0] === p.id) state.plano.shift();
+    }
+    if (act === "wait") {
+      const prev = STORE.data.waits[p.id];
+      const ask = FILAS.shareable(p.id)
+        ? `Quantos minutos de fila você está vendo em ${p.name}?\n(Vai para a fila ao vivo de todo mundo que usa o app.)`
+        : `Quantos minutos de fila em ${p.name}? (vazio apaga)`;
+      const v = prompt(ask, prev ? prev.min : "");
+      if (v === null) return;
+      const min = v.trim() === "" ? null : parseInt(v, 10);
+      if (min != null && (isNaN(min) || min < 0 || min > 300)) { toast("Digite um número de 0 a 300"); return; }
+      const sent = await FILAS.report(p.id, min);
+      if (sent) toast("Obrigado! Fila compartilhada com o parque");
+      else if (min != null && FILAS.shareable(p.id)) toast("Anotado no aparelho (sem internet para compartilhar)");
+    }
+    if (act === "note") {
+      const v = prompt(`Anotação para ${p.name}:`, STORE.data.notes[p.id] || "");
+      if (v === null) return;
+      STORE.setNote(p.id, v.trim());
+    }
+    if (act === "share") {
+      try {
+        await GROUP.sharePin(p.pin ? p.pin.kind : "lugar", p.name, p.x, p.y, p.pin ? p.pin.id : null);
+        toast("Mandado para o grupo");
+      } catch (e) { toast("Não foi: " + e.message); }
+    }
+    if (act === "remove") {
+      if (!confirm(`Remover “${p.name}”?`)) return;
+      if (state.route && state.route.targetId === p.id) stopRoute();
+      STORE.removePin(p.id);
+      MAP.buildMarkers();
+      return closeSheet();
+    }
+    if (act === "gremove") {
+      try { await GROUP.removePin(p.groupPin.pin_id); } catch (e) { toast("Não foi: " + e.message); }
+      MAP.buildMarkers();
+      return closeSheet();
+    }
+    MAP.buildMarkers();
+    renderPlaceSheet();
+  }
+
+  function waitLine(wait, mine) {
+    if (!wait) return "";
+    const fresh = Date.now() - wait.at < 20 * 60000 ? "" : " ⚠️";
+    if (wait.shared) {
+      const who = wait.reports === 1 ? "1 relato" : `${wait.reports} relatos`;
+      const me = mine && Date.now() - mine.at < 3 * 3600e3 ? ` · você disse ${mine.min} min` : "";
+      return `<p class="wait-line">⏱ Fila agora: <b>~${wait.min} min</b> <span class="muted">(${who}, último ${ago(wait.at)}${me})${fresh}</span></p>`;
+    }
+    return `<p class="wait-line">⏱ Fila anotada: <b>${wait.min} min</b> <span class="muted">(${ago(wait.at)})</span>${fresh}</p>`;
+  }
+
+  function showLine(o) {
+    if (!o || !o.horarios) return "";
+    const prox = SHOW.sessoes().filter(s => s.show.id === o.id && s.fim > new Date())[0];
+    if (!prox) return `<p class="muted small">🎭 Sessões de hoje já passaram (${o.horarios.join(", ")}).</p>`;
+    const min = SHOW.minutosAte(prox.inicio);
+    const quando = min > 0 ? `começa em <b>${min} min</b> (${prox.hm})` : `<b>acontecendo agora</b> (começou ${prox.hm})`;
+    return `<p class="wait-line">🎭 Próxima sessão: ${quando}</p>`;
+  }
+
+  // Marca a posição de uma atração oficial com o GPS atual.
+  async function marcarAtracaoAqui(p) {
+    const me = myPos();
+    if (!me) { toast("Ligue o GPS primeiro (◎)"); return; }
+    if (!me.manual && me.acc > 35) { toast(`GPS impreciso agora (±${Math.round(me.acc)} m). Espere um pouco em lugar aberto.`); return; }
+    if (!confirm(`Você está na frente de “${p.name}” agora?\nA posição vai para o mapa de todo mundo.`)) return;
+    try {
+      await LUGARES.marcar("atracao", me, p.id, p.name);
+      toast("Valeu! Posição salva para todo mundo");
+      MAP.buildMarkers();
+      renderPlaceSheet();
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
+  function countDone() {
+    return Object.keys(STORE.data.done).length;
+  }
+
+  // ---- toque longo: marcar lugares ----------------------------------------
+
+  let pressPoint = null;
+  function openLongPress(xy) {
+    pressPoint = xy;
+    state.selected = null;
+    MAP.select(null);
+    const me = myPos();
+    const d = me ? GEO.fmtDist(GEO.dist(me, xy)) : "";
+    $("sheetBody").innerHTML = `
+      <h2>Este ponto do mapa</h2>
+      <p class="muted">${d ? "A " + d + " de você" : "Segure em qualquer lugar do mapa para abrir este menu."}</p>
+      <div class="actions">
+        <button class="btn btn-primary" data-lp="route">🧭 Rota até aqui</button>
+        <button class="btn" data-lp="carro">🚗 Meu carro está aqui</button>
+        <button class="btn" data-lp="encontro">🚩 Ponto de encontro aqui</button>
+        <button class="btn" data-lp="publico">➕ Bebedouro, lixeira, banheiro…</button>
+        <button class="btn" data-lp="lugar">📍 Lugar só meu</button>
+        <button class="btn" data-lp="here">🙋 Estou aqui (corrigir GPS)</button>
+      </div>`;
+    openSheet();
+  }
+
+  async function longPressAction(act) {
+    const xy = pressPoint;
+    if (!xy) return;
+    if (act === "route") return startRoute({ id: null, name: "Ponto marcado", x: xy.x, y: xy.y });
+    if (act === "publico") return openMarcar(xy);
+    if (act === "here") {
+      GPS.setManual(xy);
+      toast("Posição fixada aqui até o GPS mandar uma leitura melhor");
+      return closeSheet();
+    }
+    let name = PIN_KINDS[act].label;
+    if (act === "lugar") {
+      const v = prompt("Nome do lugar:", "");
+      if (v === null) return;
+      name = v.trim() || "Lugar marcado";
+    }
+    const pin = STORE.setPin(act, name, xy.x, xy.y);
+    MAP.buildMarkers();
+    if (act === "encontro" && GROUP.active) {
+      try {
+        await GROUP.sharePin("encontro", name, xy.x, xy.y, pin.id);
+        toast("Ponto de encontro enviado ao grupo");
+      } catch (e) { toast("Marcado no seu mapa (grupo sem conexão)"); }
+    } else {
+      toast(`${PIN_KINDS[act].icon} ${name} marcado`);
+    }
+    openPlace(pin.id);
+  }
+
+  // ---- folha de baixo e painel --------------------------------------------
+
+  function openSheet() {
+    $("sheet").hidden = false;
+    renderNear();
+  }
+
+  function closeSheet() {
+    $("sheet").hidden = true;
+    state.selected = null;
+    pressPoint = null;
+    MAP.select(null);
+    renderNear();
+  }
+
+  function openPanel(tab) {
+    if (tab) state.tab = tab;
+    $("panel").hidden = false;
+    $("sheet").hidden = true;
+    $("searchResults").hidden = true;
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === state.tab));
+    renderPanel();
+    renderNear();
+  }
+
+  function closePanel() {
+    $("panel").hidden = true;
+    renderNear();
+  }
+
+  function renderPanel() {
+    if ($("panel").hidden) return;
+    const body = $("panelBody");
+    if (state.tab === "lugares") body.innerHTML = tabPlaces();
+    if (state.tab === "roteiro") body.innerHTML = tabPlan();
+    if (state.tab === "dia") body.innerHTML = tabDia();
+    if (state.tab === "shows") body.innerHTML = tabShows();
+    if (state.tab === "grupo") body.innerHTML = tabGroup();
+    if (state.tab === "ajustes") body.innerHTML = tabSettings();
+  }
+
+  function tabPlaces() {
+    const cats = Object.keys(CATEGORIES).filter(c => STORE.places().some(p => p.cat === c));
+    const chips = [`<button class="chip ${state.listCat ? "" : "active"}" data-listcat="">Todos</button>`]
+      .concat(cats.map(c => `<button class="chip ${state.listCat === c ? "active" : ""}" data-listcat="${c}" style="--c:${CATEGORIES[c].color}">${CATEGORIES[c].icon} ${esc(CATEGORIES[c].label)}</button>`))
+      .join("");
+    const list = sortedPlaces(filtroLista(state.listCat));
+    const hotChip = `<button class="chip ${state.listCat === "disputado" ? "active" : ""}" data-listcat="disputado" style="--c:#ff4d6d">🔥 Disputados</button>`;
+    return `<div class="chips wrap">${hotChip}${chips}</div>
+      <button class="btn wide" data-marcar="1">➕ Marcar bebedouro, lixeira, banheiro… onde estou</button>
+      <p class="muted small">${myPos() ? "Ordenado pela distância de você." : "Ligue o GPS para ordenar pela distância."}</p>
+      <div class="list">${list.map(placeRow).join("") || '<p class="empty">Nada nesta categoria.</p>'}</div>`;
+  }
+
+  function tabPlan() {
+    const d = STORE.data;
+    const attractions = STORE.places().filter(p => p.oficial && !p.oficial.ver && !p.oficial.comida && ["montanha", "atracao", "aquatico", "infantil", "show"].includes(p.cat));
+    const doneCount = attractions.filter(p => d.done[p.id]).length;
+    const pct = attractions.length ? Math.round(doneCount / attractions.length * 100) : 0;
+    const favs = sortedPlaces(p => d.favorites[p.id] && !d.done[p.id]);
+    const done = STORE.places().filter(p => d.done[p.id]).sort((a, b) => d.done[a.id] - d.done[b.id]);
+    const next = favs[0];
+    return `
+      <div class="progress-card">
+        <div class="progress-num">${doneCount}<small>/${attractions.length}</small></div>
+        <div class="progress-txt"><strong>atrações no dia</strong><div class="bar"><span style="width:${pct}%"></span></div></div>
+      </div>
+      ${next ? `<button class="btn btn-primary wide" data-open="${esc(next.id)}" data-go="1">🧭 Próximo favorito mais perto: ${esc(next.name)}${distTo(next) != null ? " · " + GEO.fmtDist(distTo(next)) : ""}</button>` : ""}
+      <h3>★ Quero ir (${favs.length})</h3>
+      <div class="list">${favs.map(placeRow).join("") || '<p class="empty">Toque num lugar e em ☆ Favoritar para montar seu roteiro.</p>'}</div>
+      <h3>✓ Já fui (${done.length})</h3>
+      <div class="timeline">${done.map(p => `<button class="tl-item" data-open="${esc(p.id)}"><span class="tl-time">${clock(d.done[p.id])}</span><span>${STORE.iconOf(p)} ${esc(p.name)}</span></button>`).join("") || '<p class="empty">Marque “Já fui” em cada atração para ver sua linha do tempo.</p>'}</div>`;
+  }
+
+  function tabShows() {
+    const now = new Date();
+    const janela = SHOW.janelaAgora(now);
+    const prox = SHOW.proximoGrande(now);
+    const me = myPos();
+    const plano = SHOW.plano(me, 8);
+    const sess = SHOW.sessoes();
+    let topo;
+    if (janela) {
+      const min = SHOW.minutosAte(janela.inicio);
+      topo = `<div class="show-now"><strong>⏰ ${esc(janela.show.name)} ${min > 0 ? `começa em ${min} min` : "está rolando agora"}</strong>
+        <p>Hora boa para os brinquedos disputados: muita gente está indo para o show (estimativa até ~${janela.fim.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}).</p></div>`;
+    } else if (prox) {
+      const min = SHOW.minutosAte(prox.inicio);
+      topo = `<div class="show-now" style="background:linear-gradient(135deg,#1e3a8a,#7c3aed)"><strong>Próximo show grande: ${esc(prox.show.name)} às ${prox.hm}</strong>
+        <p>${min > 60 ? `Daqui a ${Math.floor(min / 60)} h ${min % 60} min.` : `Daqui a ${min} min.`} Nessa hora, siga o plano abaixo para pegar fila menor.</p></div>`;
+    } else {
+      topo = `<div class="show-now" style="background:var(--glass-2)"><strong>Shows grandes de hoje já passaram</strong><p>O plano abaixo continua valendo pela distância.</p></div>`;
+    }
+    const linhas = sess.map(s => {
+      const passou = s.fim < now;
+      const min = SHOW.minutosAte(s.inicio);
+      const when = passou ? "terminou" : min > 0 ? (min > 60 ? `em ${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}` : `em ${min} min`) : "agora";
+      return `<button class="show-row${passou ? " is-past" : ""}" data-open="${esc(s.show.id)}">
+        <span class="hm">${s.hm}</span><span>${s.show.grande ? "⭐ " : ""}${esc(s.show.name)}</span><span class="when">${when}</span></button>`;
+    }).join("");
+    const altura = STORE.data.alturaCm;
+    const passos = plano.map((st, i) => {
+      const w = FILAS.info(st.place.id);
+      return `<button class="row" data-open="${esc(st.place.id)}">
+        <span class="plan-step"><span class="n">${i + 1}</span></span>
+        <span class="row-main"><strong>${esc(st.place.name)}</strong><small>${st.andar ? `${st.andar} min a pé` : "comece por aqui"}${st.place.fonte === "aprox" ? " · ≈ posição aproximada" : ""}${w ? ` · fila ~${w.min} min` : ""}${st.place.oficial.altura ? ` · ≥${st.place.oficial.altura.toFixed(2).replace(".", ",")} m` : ""}</small></span>
+      </button>`;
+    }).join("");
+    const semPos = LUGARES.oficiais().filter(p => p.oficial.disputado && p.x == null && !STORE.data.done[p.id]);
+    return `${topo}
+      <h3>🔥 Plano: disputados em ordem de caminhada</h3>
+      ${plano.length ? `<button class="btn btn-primary wide" data-plan="start">▶ Seguir o plano (${plano.length} paradas)</button>` : ""}
+      <div class="list">${passos || '<p class="empty">Nenhum disputado com posição conhecida e ainda não visitado.</p>'}</div>
+      ${semPos.length ? `<p class="muted small">Ainda sem posição no mapa: ${semPos.map(p => esc(p.name)).join(", ")}. Ao passar por eles, toque no nome → “Estou aqui agora”.</p>` : ""}
+      <p class="muted small">${altura ? `Filtrando pela altura de ${altura} cm.` : "Dica: cadastre a altura da pessoa mais baixa em Ajustes para tirar do plano o que ela não pode ir."} Pagos à parte ficam fora do plano.</p>
+      <h3>🎭 Shows de hoje (horário oficial)</h3>
+      <div class="list">${linhas}</div>
+      <p class="muted small">⭐ = show grande (puxa muito público). Duração estimada em ${DURACAO_SHOW_MIN} min. ${esc(OFICIAL_FONTE)}.</p>`;
+  }
+
+  function tabDia() {
+    const agora = new Date();
+    const me = myPos();
+    const f = DIA.fase(agora);
+    const hm = DIA.almocoHm();
+    const tempo = m => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min` : `${m} min`);
+    let cartao;
+    if (f.tipo === "feito") {
+      cartao = `<div class="day-card done"><strong>✓ Almoço feito hoje</strong><p>Bom proveito do resto do dia! <button class="btn" data-dia="desfazer" style="margin-left:6px;padding:4px 10px">desfazer</button></p></div>`;
+    } else if (f.tipo === "antes") {
+      cartao = `<div class="day-card"><strong>🍽 Almoço às ${hm} (em ${tempo(f.min)})</strong><p>Até lá, vale pegar os brinquedos disputados antes da hora de maior movimento.</p></div>`;
+    } else if (f.tipo === "hora") {
+      cartao = `<div class="day-card lunch"><strong>🍽 ${f.min > 0 ? `Almoço em ${f.min} min` : "Hora do almoço"}</strong><p>Escolha um restaurante abaixo (os mais perto vêm primeiro). Antes do pico das 12:00 costuma ser mais tranquilo.</p></div>`;
+    } else if (f.tipo === "pico") {
+      cartao = `<div class="day-card peak"><strong>🍽 Pico do almoço agora (${DIA.PICO[0]}–${DIA.PICO[1]})</strong><p>É o horário em que os restaurantes costumam estar mais cheios. Se der, espere até depois das 14:00 ou use os lanches rápidos.</p></div>`;
+    } else {
+      cartao = `<div class="day-card"><strong>🍽 Almoço ainda não marcado</strong><p>Escolha um restaurante abaixo. Depois das 14:00 as filas costumam aliviar.</p></div>`;
+    }
+    const refeicoes = DIA.restaurantes(me, ["refeicao"]);
+    const outros = DIA.restaurantes(me, ["lanche", "doce", "bebida"]);
+    const plano = DIA.montar(me, agora);
+    const tipoIcone = { brinquedo: "🎢", almoco: "🍽", show: "🎭" };
+    const passos = plano.passos.map(s => {
+      const p = s.place;
+      const aprox = p && p.fonte === "aprox" ? " · ≈ posição aproximada" : "";
+      let titulo, sub;
+      if (s.tipo === "almoco") {
+        titulo = p ? `Almoço: ${p.name}` : "Almoço (escolha um restaurante)";
+        sub = `${s.andar ? s.andar + " min a pé · " : ""}${s.dur} min${aprox}`;
+      } else if (s.tipo === "show") {
+        titulo = p.name;
+        sub = `${s.andar ? s.andar + " min a pé · " : ""}sessão ${s.sessao.hm}`;
+      } else {
+        titulo = p.name;
+        sub = `${s.andar ? s.andar + " min a pé · " : ""}fila ~${s.fila.min} min (${s.fila.tipo})${aprox}`;
+      }
+      const classe = s.tipo === "almoco" ? " is-lunch" : s.tipo === "show" ? " is-show" : s.janela ? " is-janela" : "";
+      const abre = p && p.id ? ` data-open="${esc(p.id)}"` : "";
+      return `<button class="step${classe}"${abre}><span class="hm">${DIA.hm(s.quando)}</span><span class="what"><strong>${tipoIcone[s.tipo]} ${esc(titulo)}${s.janela ? " 🔥" : ""}</strong><small>${esc(sub)}</small></span></button>`;
+    }).join("");
+    const ids = plano.passos.filter(s => s.place && s.place.id && s.place.x != null).map(s => s.place.id);
+    const semPos = plano.semPosicao.filter(p => p.oficial.disputado);
+    return `${cartao}
+      <h3>Onde almoçar</h3>
+      ${f.tipo !== "feito" ? `<button class="btn wide" data-dia="almocei">✓ Já almocei</button>` : ""}
+      <div class="list">${refeicoes.map(placeRow).join("")}</div>
+      <h3>Lanches, doces e bebidas</h3>
+      <div class="list">${outros.map(placeRow).join("")}</div>
+      <p class="muted small">Lista oficial do parque (16/10/2026). Os sem posição aparecem quando alguém marca "Estou aqui agora" na frente deles. O pico das 12:00–13:30 é uma dica comum de visitantes, não um dado do parque: confie mais na fila ao vivo (⏱ Informar fila).</p>
+      <h3>Meu dia (simulação a partir de agora)</h3>
+      ${ids.length ? `<button class="btn btn-primary wide" data-dia="seguir">▶ Seguir o plano do dia</button>` : ""}
+      <div class="list">${passos || '<p class="empty">Nada a planejar: tudo marcado como já fui, ou sem posição conhecida.</p>'}</div>
+      ${plano.passos.length ? `<p class="muted small">Termina por volta de ${DIA.hm(plano.termina)}. Tempos de fila são estimativas (25 min nos disputados, 10 min nos demais) e viram a fila ao vivo quando alguém informa. Disputados vêm antes do almoço e durante o Hot Wheels Epic Show; shows de fim de tarde fecham o dia.</p>` : ""}
+      ${semPos.length ? `<p class="muted small">Fora do plano por falta de posição: ${semPos.map(p => esc(p.name)).join(", ")}.</p>` : ""}`;
+  }
+
+  // Aviso de almoço (uma vez por dia) e atalho no topo.
+  function checarAlmoco() {
+    const pill = $("lunchPill");
+    const f = DIA.fase();
+    if (f.tipo !== "hora" && !(f.tipo === "antes" && f.min <= 15)) { pill.hidden = true; return; }
+    const r = DIA.maisPerto(myPos(), ["refeicao"]);
+    const onde = r && myPos() ? ` · mais perto: ${r.name} (${GEO.fmtDist(GEO.dist(myPos(), r))})` : "";
+    pill.hidden = false;
+    pill.textContent = f.min > 0 ? `🍽 Almoço em ${f.min} min${onde}` : `🍽 Hora do almoço${onde}`;
+    const chave = new Date().toLocaleDateString("sv-SE");
+    if (state.avisoAlmoco !== chave) {
+      state.avisoAlmoco = chave;
+      toast(f.min > 0 ? `🍽 Almoço em ${f.min} min` : "🍽 Hora do almoço!");
+      if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
+    }
+  }
+
+  function seguirPlano() {
+    if (!state.plano || !state.plano.length) {
+      state.plano = SHOW.plano(myPos(), 8).map(s => s.place.id);
+    }
+    // Pula o que já foi marcado.
+    state.plano = state.plano.filter(id => !STORE.data.done[id]);
+    const id = state.plano[0];
+    if (!id) { toast("Plano concluído! 🎉"); state.plano = null; return; }
+    const p = STORE.placeById(id);
+    if (p) { openPlace(id, false); startRoute(p); toast(`Parada ${1}: ${p.name}`); }
+  }
+
+  // Marcação pública rápida (bebedouro, lixeira…): no GPS ou no ponto tocado.
+  let marcarPonto = null;
+  function openMarcar(xy) {
+    marcarPonto = xy || null;
+    state.selected = null;
+    MAP.select(null);
+    closePanel();
+    const me = myPos();
+    const onde = xy ? "no ponto que você segurou no mapa" : me ? `onde você está (GPS ±${Math.round(me.acc)} m)` : "— ligue o GPS primeiro";
+    $("sheetBody").innerHTML = `
+      <h2>➕ Marcar para todo mundo</h2>
+      <p class="muted">Vai aparecer no mapa de todos que usam o app, ${esc(onde)}.</p>
+      <div class="tipo-grid">${Object.entries(LUGARES.TIPOS).map(([k, t]) => `<button class="btn" data-tipo="${k}"><span>${t.icon}</span>${esc(t.label)}</button>`).join("")}
+        <button class="btn" data-tipo="atracao"><span>🎢</span>Brinquedo / show da lista</button>
+      </div>`;
+    openSheet();
+  }
+
+  async function marcarTipo(kind) {
+    const xy = marcarPonto || myPos();
+    if (!xy) { toast("Ligue o GPS (◎) ou segure o dedo no mapa no lugar certo"); return; }
+    if (!marcarPonto && !xy.manual && xy.acc > 35) { toast(`GPS impreciso agora (±${Math.round(xy.acc)} m). Segure o dedo no mapa no lugar exato.`); return; }
+    if (kind === "atracao") {
+      const lista = LUGARES.oficiais().slice().sort((a, b) => (a.x == null ? 0 : 1) - (b.x == null ? 0 : 1) || a.name.localeCompare(b.name, "pt-BR"));
+      $("sheetBody").innerHTML = `<h2>Qual atração está aqui?</h2>
+        <p class="muted small">As sem posição no mapa vêm primeiro.</p>
+        <div class="list">${lista.map(p => `<button class="row" data-refpick="${esc(p.id)}"><span class="row-icon" style="background:${(CATEGORIES[p.cat] || CATEGORIES.meu).color}">${STORE.iconOf(p)}</span><span class="row-main"><strong>${esc(p.name)}</strong><small>${p.x == null ? "📍 sem posição ainda" : "já no mapa"}${p.oficial.area ? " · " + esc(p.oficial.area) : ""}</small></span></button>`).join("")}</div>`;
+      return;
+    }
+    let name = "";
+    if (kind === "comida" || kind === "loja") {
+      const v = prompt(`Nome (opcional):`, "");
+      if (v === null) return;
+      name = v.trim();
+    }
+    try {
+      await LUGARES.marcar(kind, xy, null, name);
+      toast(`${LUGARES.TIPOS[kind].icon} Marcado para todo mundo. Valeu!`);
+      MAP.buildMarkers();
+      closeSheet();
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
+  async function marcarRef(refId) {
+    const xy = marcarPonto || myPos();
+    const o = LUGARES.oficialDe(refId);
+    if (!xy || !o) return;
+    try {
+      await LUGARES.marcar("atracao", xy, refId, o.name);
+      toast(`Posição de ${o.name} salva para todo mundo`);
+      MAP.buildMarkers();
+      openPlace(refId, false);
+    } catch (e) { toast("Não foi: " + e.message); }
+  }
+
+  // Aviso de show grande chegando (uma vez por sessão de show).
+  function checarShow() {
+    const j = SHOW.janelaAgora();
+    const pill = $("showPill");
+    if (!j) { pill.hidden = true; return; }
+    const min = SHOW.minutosAte(j.inicio);
+    pill.hidden = false;
+    pill.textContent = min > 0 ? `⏰ ${j.show.name} em ${min} min · hora dos disputados` : `⏰ ${j.show.name} agora · filas menores`;
+    const chave = j.show.id + j.hm;
+    if (state.avisoShow !== chave) {
+      state.avisoShow = chave;
+      toast(`⏰ ${j.show.name} ${min > 0 ? "em " + min + " min" : "começou"}: hora dos brinquedos disputados!`);
+      if (navigator.vibrate) navigator.vibrate([100, 60, 100, 60, 100]);
+    }
+  }
+
+  function tabGroup() {
+    const d = STORE.data;
+    if (!GROUP.active) {
+      const pending = (location.hash.match(/grupo=([A-Za-z0-9]+)/) || [])[1] || "";
+      return `
+        <p>Veja no mapa onde cada pessoa do grupo está, em tempo real, e divida pontos de encontro.</p>
+        <label class="field">Seu nome<input id="gName" maxlength="24" value="${esc(d.profile.name)}" placeholder="Ex.: Ana"></label>
+        <button class="btn btn-primary wide" data-group="create">✨ Criar grupo novo</button>
+        <div class="or">ou entre num grupo</div>
+        <label class="field">Código do grupo<input id="gCode" maxlength="16" value="${esc(pending)}" placeholder="ABC123" autocapitalize="characters"></label>
+        <button class="btn wide" data-group="join">Entrar</button>
+        <p class="muted small">Sua posição só é enviada enquanto o app está aberto e só quem tem o código vê. Ninguém fica no grupo depois de 3 h sem abrir o app.</p>`;
+    }
+    const me = myPos();
+    const rows = GROUP.members.map(m => {
+      const xy = GEO.toXY(m.lat, m.lon);
+      const dist = me ? GEO.fmtDist(GEO.dist(me, xy)) + " · " + GEO.compassName(GEO.bearing(me, xy)) : "";
+      const stale = m.ageSec > 60 ? ` · visto ${ago(Date.now() - m.ageSec * 1000)}` : "";
+      return `<button class="row" data-member="${esc(m.member_id)}">
+        <span class="row-icon" style="background:${esc(m.color)}">${esc((m.name || "?").slice(0, 2).toUpperCase())}</span>
+        <span class="row-main"><strong>${esc(m.name)}</strong><small>${esc(m.status || "")}${m.status ? " · " : ""}${dist}${stale}</small></span>
+        <span class="row-flags">🧭</span>
+      </button>`;
+    }).join("");
+    const statuses = ["", "Na fila", "Comendo", "No banheiro", "Me espera", "Indo pro encontro", "Saindo do parque"];
+    return `
+      <div class="group-code">
+        <div><small class="muted">Código do grupo</small><strong>${esc(GROUP.code)}</strong></div>
+        <button class="btn" data-group="share">📤 Convidar</button>
+      </div>
+      <p class="muted small">${GROUP.online ? "🟢 Sincronizando a cada 4 s" : "🟠 Sem conexão — tentando de novo"}${GROUP.lastOkAt ? " · última " + ago(GROUP.lastOkAt) : ""}</p>
+      <h3>Meu status</h3>
+      <div class="chips wrap">${statuses.map(s => `<button class="chip ${GROUP.status === s ? "active" : ""}" data-status="${esc(s)}">${s || "Nenhum"}</button>`).join("")}</div>
+      <h3>Pessoas (${GROUP.members.length})</h3>
+      <div class="list">${rows || '<p class="empty">Ninguém mais por aqui ainda. Mande o convite!</p>'}</div>
+      <h3>Pontos do grupo</h3>
+      <div class="list">${GROUP.placeList().map(placeRow).join("") || '<p class="empty">Segure o dedo no mapa → “Ponto de encontro aqui” para avisar todo mundo.</p>'}</div>
+      <label class="field">Meu nome<input id="gName" maxlength="24" value="${esc(d.profile.name)}"></label>
+      <div class="color-row">${GROUP.COLORS.map(c => `<button class="color ${d.profile.color === c ? "active" : ""}" data-color="${c}" style="background:${c}" aria-label="Cor"></button>`).join("")}</div>
+      <button class="btn btn-danger wide" data-group="leave">Sair do grupo</button>`;
+  }
+
+  function tabSettings() {
+    const d = STORE.data;
+    const cats = Object.keys(CATEGORIES).map(c => `<label class="toggle"><input type="checkbox" data-hide="${c}" ${d.hidden[c] ? "" : "checked"}> ${CATEGORIES[c].icon} ${esc(CATEGORIES[c].label)}</label>`).join("");
+    return `
+      <h3>Mapa</h3>
+      <label class="toggle"><input type="checkbox" id="optLabels" ${d.showLabels ? "checked" : ""}> Mostrar nomes no mapa</label>
+      <h3>Almoço</h3>
+      <label class="field-inline">Horário do almoço: <input id="optAlmoco" type="time" value="${esc(d.almocoHm || "11:30")}"></label>
+      <p class="muted small">O app avisa 15 min antes e indica o restaurante com refeição mais perto de você.</p>
+      <h3>Altura</h3>
+      <label class="field-inline">Pessoa mais baixa do grupo: <input id="optAltura" type="number" inputmode="numeric" min="0" max="250" value="${d.alturaCm || ""}" placeholder="cm"> cm</label>
+      <p class="muted small">Marca com ⛔ e tira do plano o que ela não pode ir (altura mínima oficial). Vazio = não filtrar.</p>
+      <h3>Caminhos</h3>
+      <label class="toggle"><input type="checkbox" id="optMapear" ${d.mapearCaminhos !== false ? "checked" : ""}> Ajudar a mapear caminhos</label>
+      <p class="muted small">Grava seu trajeto a pé dentro do parque, sem nome, só com GPS bom, para as rotas seguirem os caminhos reais em vez de linha reta. Trechos aprendidos: ${TRILHAS.trechos}${TRILHAS.pendentes ? ` · ${TRILHAS.pendentes} esperando internet` : ""}.</p>
+      <h3>Ruas e caminhos no mapa</h3>
+      <div class="toggles">${[["caminhos", "Caminhos de pedestre"], ["aprendidos", "Caminhos aprendidos"], ["servicos", "Vias de serviço"], ["ruas", "Ruas e estacionamentos"]].map(([k, n]) => `<label class="toggle"><input type="checkbox" data-cam="${k}" ${(d.camadas || {})[k] === false ? "" : "checked"}> ${n}</label>`).join("")}</div>
+      <div class="legend">
+        <span><i style="border-color:#e7d8b1"></i>caminho de pedestre (OpenStreetMap)</span>
+        <span><i style="border-color:#7ae582"></i>caminho aprendido (visitantes andaram ali)</span>
+        <span><i style="border-color:#8d99ae"></i>via de serviço</span>
+        <span><i style="border-color:#22d3ee"></i>rota pelo caminho · <i style="border-color:#a78bfa"></i>rota estimada · <i style="border-color:#fbbf24"></i>linha reta</span>
+      </div>
+      <p class="muted small">O mapa público tem poucos caminhos dentro do parque. Para completar, o app aprende com quem anda (${Math.round(ROUTE.aprendidoM)} m de caminho novo até agora) e, onde não há caminho, estima a rota desviando de prédios e lagos.</p>
+      <h3>Mostrar no mapa</h3>
+      <div class="toggles">${cats}</div>
+      <h3>Dados</h3>
+      <div class="actions">
+        <button class="btn" data-set="export">💾 Exportar backup</button>
+        <button class="btn" data-set="import">📂 Importar backup</button>
+        <button class="btn btn-danger" data-set="reset">🔄 Começar dia novo</button>
+      </div>
+      <p class="muted small">“Começar dia novo” limpa as atrações visitadas e as filas anotadas. Favoritos, notas e lugares marcados continuam.</p>
+      <h3>Sobre</h3>
+      <p class="muted small">Mapa do Parque v${APP_VERSION}. Desenho e posições vêm do OpenStreetMap (© colaboradores do OpenStreetMap, licença ODbL), dados de ${esc(PARK_DATA.generated)}. Atrações, alturas e horários: ${esc(OFICIAL_FONTE)}. Bebedouros, lixeiras e o que faltar no mapa são marcados pelos visitantes (botão ＋).</p>
+      <p class="muted small">Funciona sem internet depois de aberto uma vez. Só o grupo precisa de conexão.</p>`;
+  }
+
+  async function groupAction(act) {
+    const nameEl = $("gName");
+    const name = nameEl ? nameEl.value.trim() : "";
+    try {
+      if (act === "create" || act === "join") {
+        if (!name) { toast("Digite seu nome primeiro"); return nameEl && nameEl.focus(); }
+        const code = act === "create" ? GROUP.create(name) : GROUP.join($("gCode").value, name);
+        if (location.hash.includes("grupo=")) history.replaceState(null, "", location.pathname + location.search);
+        toast(`No grupo ${code}`);
+        if (act === "create") shareInvite();
+      }
+      if (act === "share") shareInvite();
+      if (act === "leave") {
+        if (!confirm("Sair do grupo? Os outros param de ver você.")) return;
+        await GROUP.leave();
+      }
+    } catch (e) {
+      toast(e.message);
+    }
+    renderPanel();
+    updateGroupPill();
+  }
+
+  async function shareInvite() {
+    const link = GROUP.shareLink();
+    const text = `Entra no meu grupo do Mapa do Parque: código ${GROUP.code}`;
+    try {
+      if (navigator.share) return await navigator.share({ title: "Mapa do Parque", text, url: link });
+    } catch (e) { return; }
+    try {
+      await navigator.clipboard.writeText(text + "\n" + link);
+      toast("Convite copiado. Cole no WhatsApp.");
+    } catch (e) {
+      prompt("Copie o convite:", link);
+    }
+  }
+
+  function settingsAction(act) {
+    if (act === "export") {
+      const blob = new Blob([STORE.exportJson()], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `mapa-parque-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+    if (act === "import") $("importFile").click();
+    if (act === "reset") {
+      if (!confirm("Limpar atrações visitadas e filas anotadas?")) return;
+      STORE.resetDay();
+      MAP.buildMarkers();
+      renderPanel();
+      toast("Dia novo começando!");
+    }
+  }
+
+  // ---- rota e navegação ---------------------------------------------------
+
+  function startRoute(target) {
+    const me = myPos();
+    if (!me) {
+      toast("Ligue o GPS (◎) ou segure o dedo no mapa → “Estou aqui”.");
+      GPS.start();
+      return;
+    }
+    state.route = { targetId: target.id, target: { x: target.x, y: target.y, name: target.name }, plan: null, lastPlanAt: 0, from: null };
+    state.arrivedAt = 0;
+    replan(true);
+    updateNav();
+    state.follow = true;
+    MAP.flyTo(me, Math.max(MAP.view.s, 2.5));
+    requestWake();
+    $("sheet").hidden = true;
+    renderNear();
+  }
+
+  function stopRoute() {
+    state.route = null;
+    MAP.setRoute(null);
+    $("navBanner").hidden = true;
+    releaseWake();
+    renderNear();
+  }
+
+  // Recalcula a rota quando a pessoa se afasta dela ou a cada 15 s.
+  function replan(force) {
+    const r = state.route;
+    const me = myPos();
+    if (!r || !me) return;
+    const moved = r.from ? GEO.dist(r.from, me) : Infinity;
+    if (!force && moved < 10 && Date.now() - r.lastPlanAt < 15000) return;
+    r.plan = ROUTE.plan(me, r.target);
+    r.from = { x: me.x, y: me.y };
+    r.lastPlanAt = Date.now();
+    MAP.setRoute(r.plan);
+  }
+
+  function updateNav() {
+    const r = state.route;
+    const me = myPos();
+    if (!r || !me) { $("navBanner").hidden = true; return; }
+    // Saiu da rota (mais de 30 m): recalcula na hora.
+    const prog = r.plan.straight ? null : ROUTE.progresso(r.plan, me);
+    replan(!!(prog && prog.foraDaRota > 30));
+    const remaining = r.plan.straight ? GEO.dist(me, r.target) : ROUTE.progresso(r.plan, me).resta;
+    const next = ROUTE.nextTarget(r.plan, me);
+    const bearing = GEO.bearing(me, next);
+    // Seta relativa: com bússola, "para frente" é para onde o celular aponta.
+    const ref = me.heading != null ? me.heading : MAP.view.rot;
+    $("navArrow").style.transform = `rotate(${bearing - ref - 90}deg)`;
+    $("navTitle").textContent = r.target.name;
+    $("navSub").textContent = remaining < 20
+      ? "Você chegou! 🎉"
+      : `${GEO.fmtDist(remaining)} · ${GEO.walkMinutes(remaining)} min${{ caminho: " · pelo caminho", estimada: " · rota estimada (desvia de prédios e lagos)", reta: " · siga a seta" }[r.plan.kind || "reta"]}`;
+    const curva = remaining < 20 ? null : ROUTE.nextTurn(r.plan, me);
+    $("navTurn").textContent = remaining < 20 ? "" : curva
+      ? (curva.dist < 15 ? `↱ Agora vire à ${curva.dir}` : `Em ${GEO.fmtDist(curva.dist)} vire à ${curva.dir}`)
+      : (r.plan.straight ? "" : "Siga em frente");
+    $("navBanner").hidden = false;
+    if (remaining < 20 && !state.arrivedAt) {
+      state.arrivedAt = Date.now();
+      if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
+      toast(`Chegou em ${r.target.name}!`);
+      setTimeout(() => {
+        if (state.route && state.arrivedAt) {
+          const id = state.route.targetId;
+          stopRoute();
+          if (id) openPlace(id);
+          if (state.plano && state.plano[0] === id) { state.plano.shift(); toast("No plano: marque “Já fui” e toque em ⏭ Próximo"); }
+        }
+      }, 4000);
+    }
+  }
+
+
+  async function requestWake() {
+    try {
+      if ("wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+    } catch (e) { wakeLock = null; }
+  }
+
+  function releaseWake() {
+    if (wakeLock) wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+
+  // ---- GPS e bússola ------------------------------------------------------
+
+  let firstFix = true;
+  function onGps(me) {
+    MAP.setMe(me);
+    const inside = GEO.insidePark(me);
+    if (me.manual) gpsStatus("🙋 Posição fixada à mão", "aviso");
+    else if (!inside) {
+      const d = GEO.dist(me, { x: 0, y: 0 });
+      gpsStatus(`📡 Fora do parque · ${GEO.fmtDist(d)} do centro`, "aviso");
+    } else gpsStatus(`📡 GPS ±${Math.round(me.acc)} m`, me.acc <= 15 ? "ok" : me.acc <= 40 ? "aviso" : "erro");
+
+    if (firstFix && !me.manual) {
+      firstFix = false;
+      if (inside) {
+        state.follow = true;
+        MAP.flyTo(me, Math.max(MAP.view.s, 2.2));
+      } else toast("Você ainda não está no parque. O mapa segue no parque; o ponto azul aparece quando chegar perto.");
+    }
+    if (state.follow) MAP.jumpTo(me, state.rotateMode === "direcao" && me.heading != null ? me.heading : null);
+    else if (state.rotateMode === "direcao" && me.heading != null) MAP.setRotation(me.heading);
+    $("btnLocate").classList.toggle("active", state.follow);
+    updateNav();
+    GROUP.onMove(me);
+    TRILHAS.onGps(me);
+    throttledUiRefresh();
+  }
+
+  // Distâncias nas listas mudam a cada passo; redesenhar a cada leitura cansa.
+  let refreshAt = 0;
+  function throttledUiRefresh() {
+    if (Date.now() - refreshAt < 2500) return;
+    refreshAt = Date.now();
+    renderNear();
+    if (!$("sheet").hidden && state.selected) renderPlaceSheet();
+    if (!$("panel").hidden && document.activeElement?.tagName !== "INPUT") renderPanel();
+  }
+
+  async function enableSensors() {
+    GPS.start();
+    const ok = await GPS.enableCompass();
+    if (!ok) toast("Bússola não liberada. A direção aparece enquanto você anda.");
+    try { localStorage.setItem("parque:sensores", "1"); } catch (e) { /* sem armazenamento */ }
+  }
+
+  function updateCompassButton(view) {
+    $("compassNeedle").style.transform = `rotate(${-view.rot}deg)`;
+    $("btnCompass").classList.toggle("active", state.rotateMode === "direcao");
+  }
+
+  // ---- grupo no mapa ------------------------------------------------------
+
+  function updateGroupPill() {
+    const pill = $("groupPill");
+    const count = $("groupCount");
+    if (!GROUP.active) { pill.hidden = true; count.hidden = true; return; }
+    pill.hidden = false;
+    pill.className = "pill " + (GROUP.online ? "pill-ok" : "pill-aviso");
+    pill.textContent = `👥 ${GROUP.code} · ${GROUP.members.length + 1} no mapa`;
+    count.hidden = false;
+    count.textContent = GROUP.members.length + 1;
+  }
+
+  function onGroupChange() {
+    MAP.setMembers(GROUP.members);
+    MAP.buildMarkers();
+    updateGroupPill();
+    if (state.route && state.route.memberId) {
+      const m = GROUP.members.find(x => x.member_id === state.route.memberId);
+      if (m) state.route.target = Object.assign(GEO.toXY(m.lat, m.lon), { name: m.name });
+    }
+    if (!$("panel").hidden && state.tab === "grupo" && document.activeElement?.tagName !== "INPUT") renderPanel();
+  }
+
+  function openMember(memberId) {
+    const m = GROUP.members.find(x => x.member_id === memberId);
+    if (!m) return;
+    const xy = GEO.toXY(m.lat, m.lon);
+    const me = myPos();
+    closePanel();
+    MAP.flyTo(xy, Math.max(MAP.view.s, 2.2));
+    state.follow = false;
+    $("sheetBody").innerHTML = `
+      <div class="place-head">
+        <span class="place-icon" style="background:${esc(m.color)}">${esc((m.name || "?").slice(0, 2).toUpperCase())}</span>
+        <div><h2>${esc(m.name)}</h2>
+        <p class="muted">${esc(m.status || "Sem status")}${me ? ` · <b>${GEO.fmtDist(GEO.dist(me, xy))}</b> ao ${GEO.compassName(GEO.bearing(me, xy))}` : ""} · ±${Math.round(m.acc || 0)} m · ${m.ageSec < 15 ? "ao vivo" : "visto " + ago(Date.now() - m.ageSec * 1000)}</p></div>
+      </div>
+      <div class="actions"><button class="btn btn-primary" data-member-go="${esc(m.member_id)}">🧭 Ir até ${esc(m.name)}</button></div>`;
+    openSheet();
+  }
+
+  // ---- eventos ------------------------------------------------------------
+
+  function bind() {
+    $("searchInput").addEventListener("input", renderSearch);
+    $("searchInput").addEventListener("focus", () => { closeSheet(); renderSearch(); });
+    $("btnMenu").addEventListener("click", () => openPanel());
+    $("btnGroup").addEventListener("click", () => openPanel("grupo"));
+    $("groupPill").addEventListener("click", () => openPanel("grupo"));
+    $("gpsPill").addEventListener("click", () => enableSensors());
+    $("panelClose").addEventListener("click", closePanel);
+    $("navStop").addEventListener("click", stopRoute);
+    $("btnAdd").addEventListener("click", () => openMarcar(null));
+    $("showPill").addEventListener("click", () => openPanel("shows"));
+    $("btnZoomIn").addEventListener("click", () => MAP.zoomBy(1.6));
+    $("btnZoomOut").addEventListener("click", () => MAP.zoomBy(1 / 1.6));
+
+    $("btnLocate").addEventListener("click", () => {
+      const me = myPos();
+      if (!me) { enableSensors(); toast("Procurando sua posição…"); return; }
+      if (state.follow && GEO.insidePark(me)) {
+        // Segundo toque: alterna o mapa girar junto com você.
+        toggleRotateMode();
+        return;
+      }
+      state.follow = true;
+      $("btnLocate").classList.add("active");
+      MAP.flyTo(me, Math.max(MAP.view.s, 2.5));
+    });
+
+    $("btnCompass").addEventListener("click", () => {
+      if (state.rotateMode === "direcao" || MAP.view.rot !== 0) {
+        state.rotateMode = "norte";
+        MAP.flyTo({ x: MAP.view.cx, y: MAP.view.cy }, null, 0);
+      } else toggleRotateMode();
+      updateCompassButton(MAP.view);
+    });
+
+    document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => openPanel(b.dataset.tab)));
+
+    // Cliques delegados: listas, folha e painel usam data-atributos.
+    document.addEventListener("click", e => {
+      const t = e.target.closest("[data-open],[data-act],[data-lp],[data-cat],[data-listcat],[data-group],[data-status],[data-color],[data-set],[data-member],[data-member-go],[data-tabgo],[data-marcar],[data-tipo],[data-refpick],[data-plan],[data-dia]");
+      if (!t) return;
+      const ds = t.dataset;
+      if (ds.open) {
+        $("searchInput").value = "";
+        $("searchInput").blur();
+        openPlace(ds.open, true);
+        if (ds.go) { const p = STORE.placeById(ds.open); if (p) startRoute(p); }
+      } else if (ds.tabgo) openPanel(ds.tabgo);
+      else if (ds.marcar) openMarcar(null);
+      else if (ds.tipo) marcarTipo(ds.tipo);
+      else if (ds.refpick) marcarRef(ds.refpick);
+      else if (ds.plan) { state.plano = null; closePanel(); seguirPlano(); }
+      else if (ds.dia) {
+        if (ds.dia === "almocei") { DIA.marcarAlmoco(true); checarAlmoco(); renderPanel(); }
+        else if (ds.dia === "desfazer") { DIA.marcarAlmoco(false); checarAlmoco(); renderPanel(); }
+        else if (ds.dia === "seguir") {
+          const plano = DIA.montar(myPos(), new Date());
+          state.plano = plano.passos.filter(s => s.place && s.place.id && s.place.x != null).map(s => s.place.id);
+          closePanel();
+          seguirPlano();
+        }
+      }
+      else if (ds.act) placeAction(ds.act);
+      else if (ds.lp) longPressAction(ds.lp);
+      else if (ds.cat) { state.listCat = ds.cat; openPanel("lugares"); }
+      else if (ds.listcat !== undefined) { state.listCat = ds.listcat; renderPanel(); }
+      else if (ds.group) groupAction(ds.group);
+      else if (ds.status !== undefined) { GROUP.setStatus(ds.status); renderPanel(); }
+      else if (ds.color) { STORE.data.profile.color = ds.color; STORE.save(); GROUP.sync(); renderPanel(); }
+      else if (ds.set) settingsAction(ds.set);
+      else if (ds.memberGo) {
+        const m = GROUP.members.find(x => x.member_id === ds.memberGo);
+        if (m) { startRoute(Object.assign(GEO.toXY(m.lat, m.lon), { id: null, name: m.name })); state.route.memberId = m.member_id; }
+      } else if (ds.member) openMember(ds.member);
+    });
+
+    document.addEventListener("change", e => {
+      const t = e.target;
+      if (t.dataset.hide) {
+        if (t.checked) delete STORE.data.hidden[t.dataset.hide];
+        else STORE.data.hidden[t.dataset.hide] = true;
+        STORE.save();
+        MAP.buildMarkers();
+      }
+      if (t.dataset.cam) {
+        STORE.data.camadas = Object.assign({ caminhos: true, aprendidos: true, servicos: true, ruas: true }, STORE.data.camadas, { [t.dataset.cam]: t.checked });
+        STORE.save();
+        MAP.setCamadas(STORE.data.camadas);
+      }
+      if (t.id === "optAlmoco") {
+        if (/^\d{2}:\d{2}$/.test(t.value)) { STORE.data.almocoHm = t.value; STORE.save(); checarAlmoco(); }
+      }
+      if (t.id === "optAltura") {
+        const v = parseInt(t.value, 10);
+        STORE.data.alturaCm = v > 0 && v < 250 ? v : 0;
+        STORE.save();
+        MAP.buildMarkers();
+      }
+      if (t.id === "optMapear") {
+        STORE.data.mapearCaminhos = t.checked;
+        STORE.save();
+      }
+      if (t.id === "optLabels") {
+        STORE.data.showLabels = t.checked;
+        STORE.save();
+        MAP.render();
+      }
+      if (t.id === "gName" && GROUP.active) {
+        STORE.data.profile.name = t.value.trim().slice(0, 24);
+        STORE.save();
+        GROUP.sync();
+      }
+    });
+
+    $("importFile").addEventListener("change", async e => {
+      const f = e.target.files[0];
+      e.target.value = "";
+      if (!f) return;
+      try {
+        const text = await f.text();
+        if (!confirm("Substituir favoritos, visitas, notas e lugares deste aparelho pelo backup?")) return;
+        STORE.importJson(text);
+        MAP.buildMarkers();
+        renderPanel();
+        toast("Backup importado");
+      } catch (err) { toast("Não consegui ler: " + err.message); }
+    });
+
+    MAP.on("tap", id => {
+      if (id) openPlace(id, false);
+      else { closeSheet(); $("searchResults").hidden = true; $("searchInput").blur(); }
+    });
+    MAP.on("tapMember", openMember);
+    MAP.on("longPress", openLongPress);
+    MAP.on("userMove", () => {
+      if (state.follow) { state.follow = false; $("btnLocate").classList.remove("active"); }
+      if (state.rotateMode === "direcao") { state.rotateMode = "norte"; }
+    });
+    MAP.on("render", updateCompassButton);
+
+    GPS.onChange(onGps);
+    GROUP.onChange(onGroupChange);
+    LUGARES.onChange(() => {
+      MAP.buildMarkers();
+      if (!$("sheet").hidden && state.selected) renderPlaceSheet();
+      if (!$("panel").hidden && document.activeElement?.tagName !== "INPUT") renderPanel();
+    });
+    TRILHAS.onChange(list => MAP.setTrilhas(list));
+    FILAS.onChange(() => {
+      MAP.buildMarkers();
+      if (!$("sheet").hidden && state.selected) renderPlaceSheet();
+      if (!$("panel").hidden && document.activeElement?.tagName !== "INPUT") renderPanel();
+    });
+
+    $("welcomeGo").addEventListener("click", () => { $("welcome").hidden = true; enableSensors(); });
+    $("welcomeSkip").addEventListener("click", () => {
+      $("welcome").hidden = true;
+      try { localStorage.setItem("parque:boasvindas", "1"); } catch (e) { /* ok */ }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && state.route) requestWake();
+    });
+  }
+
+  function toggleRotateMode() {
+    if (state.rotateMode === "direcao") {
+      state.rotateMode = "norte";
+      MAP.flyTo({ x: MAP.view.cx, y: MAP.view.cy }, null, 0);
+      toast("Mapa com o norte para cima");
+    } else {
+      GPS.enableCompass();
+      state.rotateMode = "direcao";
+      state.follow = true;
+      toast("Mapa gira com você");
+    }
+    updateCompassButton(MAP.view);
+  }
+
+  // ---- início -------------------------------------------------------------
+
+  function init() {
+    renderChips();
+    MAP.init($("map"));
+    bind();
+    let sensors = false, seen = false;
+    try {
+      sensors = localStorage.getItem("parque:sensores") === "1";
+      seen = localStorage.getItem("parque:boasvindas") === "1";
+    } catch (e) { /* sem armazenamento */ }
+    if (sensors) {
+      GPS.start();
+      GPS.enableCompass(); // no Android liga direto; no iPhone pede no próximo toque
+    } else if (!seen) $("welcome").hidden = false;
+
+    if (GROUP.active) GROUP.start();
+    FILAS.start();
+    STORE.migrarIdsOficiais();
+    LUGARES.start();
+    TRILHAS.start();
+    MAP.setCamadas(STORE.data.camadas);
+    checarShow();
+    checarAlmoco();
+    setInterval(() => { checarShow(); checarAlmoco(); }, 30000);
+    updateGroupPill();
+    if (/grupo=/.test(location.hash) && !GROUP.active) openPanel("grupo");
+    // Convite aberto com o app já na tela: o navegador só troca o #, não recarrega.
+    window.addEventListener("hashchange", () => {
+      if (/grupo=/.test(location.hash) && !GROUP.active) openPanel("grupo");
+    });
+
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  }
+
+  return { init, toast, gpsStatus };
+})();
+
+UI.init();

@@ -10,7 +10,7 @@ export interface AgendaState {
   date: string;
   filter: AgendaFilter;
 }
-const kindIcon: Record<AgendaItem["kind"], string> = { event: "📅", busy: "⏳", task: "🧹", bill: "💸", invoice: "💳" };
+const kindIcon: Record<AgendaItem["kind"], string> = { event: "📅", busy: "⏳", task: "🧹", bill: "💸", invoice: "💳", reminder: "🔔" };
 const dayTitle = (date: string, today: string) =>
   date === today ? "Hoje" : date === addDays(today, 1) ? "Amanhã" : date === addDays(today, -1) ? "Ontem" : `${weekdayNames[weekday(date)]} · ${formatDate(date)}`;
 
@@ -26,6 +26,7 @@ function itemRow(i: AgendaItem, ctx: ViewCtx, compact = false) {
     const e = d.entries.find((x) => x.id === i.id);
     if (e && ctx.own(e) && ctx.api.allowed("payments")) actions = button("paid", "Já paguei", "secondary", `data-id="${i.id}"`);
   } else if (i.kind === "invoice") actions = button("nav", "Ver fatura", "text-button", 'data-page="cards"');
+  else if (i.kind === "reminder") actions = button("nav", "Abrir avisos", "text-button", 'data-page="reminders"');
   const time = i.time ? `${i.time}${i.end ? `–${i.end}` : ""}` : "Dia todo";
   const lock = i.kind === "event" && i.private ? ' <span class="badge private" title="Só você vê">só você</span>' : "";
   return `<article class="record agenda-item kind-${i.kind}"><span class="agenda-time">${esc(time)}</span><div class="record-info"><strong>${kindIcon[i.kind]} ${esc(i.title)}${lock}</strong>${i.detail && !compact ? `<small>${esc(i.detail)}</small>` : ""}</div>${i.cents !== null ? `<strong class="record-value">${brl(i.cents)}</strong>` : ""}${actions && !compact ? `<div class="record-actions">${actions}</div>` : ""}</article>`;
@@ -76,7 +77,7 @@ export function agendaView(ctx: ViewCtx, s: AgendaState, remindersOn: boolean) {
             })
             .join("")}</div>`,
       )
-      .join("")}</div><div class="legend"><span><b class="dot kind-event"></b>Compromisso</span><span><b class="dot kind-task"></b>Tarefa</span><span><b class="dot kind-bill"></b>Conta</span><span><b class="dot kind-invoice"></b>Fatura</span><span><b class="dot kind-busy"></b>Ocupado</span></div></section>`;
+      .join("")}</div><div class="legend"><span><b class="dot kind-event"></b>Compromisso</span><span><b class="dot kind-task"></b>Tarefa</span><span><b class="dot kind-bill"></b>Conta</span><span><b class="dot kind-invoice"></b>Fatura</span><span><b class="dot kind-reminder"></b>Aviso</span><span><b class="dot kind-busy"></b>Ocupado</span></div></section>`;
   }
   const local = !ctx.api.agendaReady && !ctx.api.demo
     ? `<div class="hint-banner">${icon("settings")}<div><strong>Agenda guardada só neste aparelho</strong><p>Até a atualização do banco ser aplicada, seus compromissos não aparecem nos outros celulares da casa.</p></div></div>`

@@ -4,6 +4,8 @@ Data: 05/10/2026. Estado: execução por etapas autorizada; primeiro lote S01–
 Base conferida: `main`, commit `4e8800d5a81e3cd3b55dc75b96b5af7bc8d888c7`.
 Produto: https://alusionbr.github.io/teste1/financeiro360/
 
+Próximo ciclo proposto em 08/10/2026: [faturas, saldos, despensa e calendário](PLANO-FATURAS-SALDOS-DESPENSA-CALENDARIO.md).
+
 ## 1. Resultado que queremos
 
 Uma pessoa sem experiência com aplicativos financeiros consegue registrar um gasto, entender suas parcelas, organizar as compras e saber o que precisa fazer em casa. O celular é o dispositivo principal; o desktop facilita planejamento, revisão e administração.

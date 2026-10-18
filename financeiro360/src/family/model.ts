@@ -48,20 +48,37 @@ export interface Account extends RecordBase {
   area: string;
   opening_cents: number | null;
   balance_date: string | null;
+  share_balance?: boolean;
+  current_balance_cents?: number | null;
+}
+export interface AccountBalanceCheck {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  account_id: string;
+  previous_cents: number | null;
+  previous_date: string | null;
+  balance_cents: number | null;
+  balance_date: string | null;
+  created_at: string;
 }
 export interface Card extends RecordBase {
   name: string;
   limit_cents: number | null;
   closing_day: number;
   due_day: number;
+  archived_at?: string | null;
+  merged_into_id?: string | null;
 }
 export interface Entry extends RecordBase {
   description: string;
+  payee?: string | null;
   amount_cents: number;
   date: string;
   due_date: string | null;
   kind: "expense" | "income" | "card_payment" | "transfer" | "debt_payment";
   category: string;
+  subcategory?: string | null;
   area: string;
   status: "paid" | "pending" | "pending_review";
   payment: "cash" | "card";
@@ -69,8 +86,10 @@ export interface Entry extends RecordBase {
   account_id: string | null;
   target_account_id: string | null;
   debt_id: string | null;
+  debt_installment_number?: number | null;
   installments: number;
   invoice_month: string | null;
+  first_invoice_month?: string | null;
   source_ref: string | null;
 }
 export interface Debt extends RecordBase {
@@ -79,6 +98,33 @@ export interface Debt extends RecordBase {
   balance_cents: number | null;
   due_date: string | null;
   area: string;
+  installment_count?: number | null;
+  installment_cents?: number | null;
+  first_due_date?: string | null;
+}
+export interface InvoiceAlignment {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  card_id: string;
+  invoice_month: string;
+  cutoff_on: string;
+  total_cents: number;
+  note: string;
+  active: boolean;
+  created_at: string;
+}
+export interface InvoiceAlignmentException {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  alignment_id: string;
+  entry_id: string;
+  count_after: boolean;
+}
+export interface CategoryPreset extends RecordBase {
+  category: string;
+  subcategory: string | null;
 }
 export interface Goal extends RecordBase {
   name: string;
@@ -238,11 +284,28 @@ export interface Recurring extends RecordBase {
   day: number;
   start_month: string;
 }
+export interface Reminder {
+  id: string;
+  home_id: string;
+  owner_id: string;
+  title: string;
+  due_on: string | null;
+  recurrence: "once" | "weekly" | "monthly" | "yearly";
+  kind: "reminder" | "due_date" | "post_it";
+  note: string;
+  color: "yellow" | "blue" | "pink" | "green";
+  completed: boolean;
+  created_at?: string;
+}
 export interface Data {
   home: Home;
   members: Member[];
   accounts: Account[];
+  account_balance_checks: AccountBalanceCheck[];
   cards: Card[];
+  invoice_alignments: InvoiceAlignment[];
+  invoice_alignment_exceptions: InvoiceAlignmentException[];
+  category_presets: CategoryPreset[];
   entries: Entry[];
   debts: Debt[];
   goals: Goal[];
@@ -258,6 +321,16 @@ export interface Data {
   busy: BusySlot[];
   inbox: InboxItem[];
   wishes: Wish[];
+  reminders: Reminder[];
+}
+export function entryVisibleTo(
+  entry: Entry,
+  viewerId: string,
+  viewerRole: Member["role"],
+  members: Member[],
+) {
+  return entry.owner_id === viewerId || entry.shared ||
+    (viewerRole === "admin" && members.some((member) => member.user_id === entry.owner_id && member.role === "admin"));
 }
 export const today = () => {
   const d = new Date();
@@ -323,7 +396,7 @@ export function invoiceInstallments(entries: Entry[], c: Card, month: string) {
       e.installments < 1
     )
       continue;
-    const first = invoiceMonth(e.date, c.closing_day);
+    const first = e.first_invoice_month || invoiceMonth(e.date, c.closing_day);
     for (let i = 0; i < e.installments; i++)
       if (addMonths(first, i) === month)
         lines.push({
@@ -336,10 +409,18 @@ export function invoiceInstallments(entries: Entry[], c: Card, month: string) {
   return lines;
 }
 export function invoice(data: Data, c: Card, month: string) {
-  const total = invoiceInstallments(data.entries, c, month).reduce(
+  const lines = invoiceInstallments(data.entries, c, month);
+  const listed = lines.reduce(
     (sum, line) => sum + line.amount_cents,
     0,
   );
+  const alignment = data.invoice_alignments?.find((item) => item.card_id === c.id && item.invoice_month === month && item.active);
+  const exceptions = new Map(data.invoice_alignment_exceptions?.filter((item) => item.alignment_id === alignment?.id).map((item) => [item.entry_id, item.count_after]) || []);
+  const added = alignment ? lines.filter((line) => exceptions.get(line.entry.id) ?? line.entry.date > alignment.cutoff_on)
+    .reduce((sum, line) => sum + line.amount_cents, 0) : 0;
+  const included = alignment ? lines.filter((line) => !(exceptions.get(line.entry.id) ?? line.entry.date > alignment.cutoff_on))
+    .reduce((sum, line) => sum + line.amount_cents, 0) : 0;
+  const total = alignment ? alignment.total_cents + added : listed;
   const paid = data.entries
     .filter(
       (e) =>
@@ -349,9 +430,12 @@ export function invoice(data: Data, c: Card, month: string) {
         e.status === "paid",
     )
     .reduce((s, e) => s + e.amount_cents, 0);
-  return { total, paid, remaining: Math.max(0, total - paid) };
+  return { total, paid, remaining: Math.max(0, total - paid), listed, added, included,
+    untracked: alignment ? alignment.total_cents - included : 0, alignment,
+    overpaid: Math.max(0, paid - total) };
 }
 export function balance(data: Data, a: Account) {
+  if ("current_balance_cents" in a) return a.current_balance_cents ?? null;
   if (a.opening_cents === null || !a.balance_date) return null;
   return data.entries
     .filter((e) => e.status === "paid" && e.date > a.balance_date!)
@@ -482,6 +566,10 @@ export function validateEntry(e: Entry) {
   if (
     !e.description.trim() ||
     e.description.length > 160 ||
+    !e.category.trim() ||
+    e.category.length > 80 ||
+    (e.subcategory != null && e.subcategory.length > 80) ||
+    (e.payee != null && e.payee.length > 160) ||
     !Number.isSafeInteger(e.amount_cents) ||
     e.amount_cents <= 0 ||
     !validIsoDate(e.date) ||
@@ -493,6 +581,10 @@ export function validateEntry(e: Entry) {
     throw Error("Confira descrição, valor, data e parcelas.");
   if (e.payment === "card" && (e.kind !== "expense" || !e.card_id))
     throw Error("Compra no cartão exige um cartão cadastrado.");
+  if (e.first_invoice_month &&
+      (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.first_invoice_month) ||
+        e.first_invoice_month < e.date.slice(0, 7)))
+    throw Error("A primeira fatura deve ser no mês da compra ou depois.");
   if (
     e.kind === "card_payment" &&
     (!e.card_id ||
@@ -509,5 +601,8 @@ export function validateEntry(e: Entry) {
     throw Error("Transferência exige duas contas diferentes.");
   if (e.kind === "debt_payment" && !e.debt_id)
     throw Error("Selecione a dívida.");
+  if (e.debt_installment_number != null &&
+    (e.kind !== "debt_payment" || !Number.isInteger(e.debt_installment_number) || e.debt_installment_number < 1 || e.debt_installment_number > 360))
+    throw Error("Selecione uma parcela válida deste empréstimo.");
   return e;
 }

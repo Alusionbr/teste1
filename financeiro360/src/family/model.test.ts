@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { demoData } from "./demo.ts";
 import { addMonths, invoiceMonth } from "../logic.ts";
+import { financialSeries, financialTotals, spendingGroups } from "./insights.ts";
 import {
   forecast,
   recommendations,
@@ -68,6 +69,25 @@ test("card payment updates invoice and account without double counting expenses"
   assert.equal(invoice(d, c, m).remaining, Math.max(0, f.total - 10000));
   assert.equal(balance(d, d.accounts[0]), opening);
 });
+test("invoice alignment adds later purchases, excludes prior ones, and subtracts payments", () => {
+  const d = demoData();
+  const card = d.cards[0];
+  const month = "2026-11";
+  const purchase = d.entries.find((entry) => entry.payment === "card")!;
+  const before = { ...purchase, id: "before-cut", card_id: card.id, date: "2026-10-05", first_invoice_month: month, amount_cents: 30000, installments: 1 };
+  const after = { ...before, id: "after-cut", date: "2026-10-12", amount_cents: 10000 };
+  const payment = { ...before, id: "payment-after-cut", kind: "card_payment" as const,
+    payment: "cash" as const, invoice_month: month, amount_cents: 25000 };
+  d.entries = [before, after, payment];
+  d.invoice_alignments = [{ id: "alignment", home_id: d.home.id, owner_id: card.owner_id,
+    card_id: card.id, invoice_month: month, cutoff_on: "2026-10-10", total_cents: 70000,
+    active: true, note: "", created_at: "2026-10-10T12:00:00Z" }];
+  assert.deepEqual([invoice(d, card, month).total, invoice(d, card, month).remaining,
+    invoice(d, card, month).untracked], [80000, 55000, 40000]);
+  d.invoice_alignment_exceptions.push({ id: "exception", home_id: d.home.id,
+    owner_id: card.owner_id, alignment_id: "alignment", entry_id: before.id, count_after: true });
+  assert.equal(invoice(d, card, month).total, 110000);
+});
 test("invoice detail includes only the exact installment for the selected month", () => {
   const d = demoData();
   const card = d.cards[0];
@@ -125,6 +145,27 @@ test("transfer and card payment require valid targets", () => {
     validateEntry({ ...e, kind: "card_payment", card_id: null }),
   );
   assert.throws(() => validateEntry({ ...e, installments: 49 }));
+});
+
+test("analysis separates purchases, actual cash and transfers across periods", () => {
+  const d = demoData();
+  const sample = d.entries[0];
+  d.entries = [
+    { ...sample, id: "income", kind: "income", payment: "cash", status: "paid", amount_cents: 100000, date: "2026-09-02" },
+    { ...sample, id: "card", kind: "expense", payment: "card", status: "paid", amount_cents: 40000, category: "Saúde", subcategory: "Vacinas", date: "2026-09-03" },
+    { ...sample, id: "cash", kind: "expense", payment: "cash", status: "pending", amount_cents: 15000, category: "Saúde", subcategory: "Consulta", date: "2026-09-04" },
+    { ...sample, id: "bill", kind: "card_payment", payment: "cash", status: "paid", amount_cents: 20000, date: "2026-10-02" },
+    { ...sample, id: "transfer", kind: "transfer", payment: "cash", status: "paid", amount_cents: 30000, date: "2026-10-03" },
+    { ...sample, id: "review", kind: "expense", payment: "cash", status: "pending_review", amount_cents: 50000, date: "2026-10-03" },
+  ];
+  assert.deepEqual(financialTotals(d.entries, "2026-09"), { received: 100000, paid: 0, spending: 55000 });
+  assert.deepEqual(financialTotals(d.entries, "2026-10"), { received: 0, paid: 20000, spending: 0 });
+  assert.deepEqual(financialTotals(d.entries, "2026"), { received: 100000, paid: 20000, spending: 55000 });
+  assert.deepEqual(spendingGroups(d, "2026-09"), [{ name: "Saúde", total: 55000,
+    subcategories: [["Vacinas", 40000], ["Consulta", 15000]] }]);
+  assert.equal(financialSeries(d, "2026-10", "monthly").length, 12);
+  assert.deepEqual(financialSeries(d, "2026-10", "yearly").at(-1),
+    { key: "2026", label: "2026", received: 100000, paid: 20000, spending: 55000 });
 });
 
 test("financial overview separates consumption from financial movements", () => {
@@ -206,4 +247,19 @@ test("invoice closing boundary preserves current competence over year change", (
   assert.deepEqual(invoiceInstallments([atClosing], card, "2026-13"), []);
   const reviewed = { ...atClosing, status: "pending_review" as const };
   assert.deepEqual(invoiceInstallments([reviewed], card, "2026-12"), []);
+});
+
+test("saved first invoice stays fixed when the card closing day changes", () => {
+  const d = demoData();
+  const card = { ...d.cards[0], closing_day: 20 };
+  const purchase = {
+    ...d.entries[0], id: "frozen", kind: "expense" as const,
+    payment: "card" as const, card_id: card.id, date: "2026-12-11",
+    amount_cents: 10001, installments: 3, status: "paid" as const,
+    first_invoice_month: "2027-01",
+  };
+  assert.equal(invoiceInstallments([purchase], card, "2027-01")[0].amount_cents, 3334);
+  assert.equal(invoiceInstallments([purchase], card, "2027-03")[0].amount_cents, 3333);
+  assert.deepEqual(invoiceInstallments([purchase], card, "2026-12"), []);
+  assert.throws(() => validateEntry({ ...purchase, first_invoice_month: "2026-11" }));
 });

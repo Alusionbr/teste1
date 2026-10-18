@@ -17,6 +17,13 @@ const HUB_TOOLS = [
     status: "ativo"
   },
   {
+    name: "Mapa do Parque",
+    tagline: "Beto Carrero World com GPS em tempo real, rota a pé, filas, roteiro do dia e grupo sincronizado para não se perder.",
+    href: "./parque/",
+    tags: ["mapa", "GPS", "grupo", "offline", "instalável"],
+    status: "ativo"
+  },
+  {
     name: "Controle360 Multi",
     tagline: "Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios.",
     href: "./controle360/",

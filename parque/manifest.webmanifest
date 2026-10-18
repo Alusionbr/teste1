@@ -1,0 +1,15 @@
+{
+  "name": "Mapa do Parque",
+  "short_name": "Mapa Parque",
+  "description": "Mapa do Beto Carrero World com GPS em tempo real, rotas, filas e grupo.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

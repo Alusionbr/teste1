@@ -46,6 +46,28 @@ test("active card installments show remaining value with exact cents", () => {
   assert.equal(sofa.remainingCents, 12000);
 });
 
+test("a purchase keeps its frozen first invoice even if the card closing day changes", () => {
+  const d = base();
+  // Fechamento mudou de 10 para 25: a compra de 20/10 hoje cairia em out, mas foi congelada em nov.
+  d.cards[0].closing_day = 25;
+  d.entries.push(entry({ description: "Notebook", amount_cents: 9000, payment: "card", card_id: "c1", installments: 3, date: "2026-10-20", first_invoice_month: "2026-11" }));
+  const [plan] = activeInstallments(d, "2026-10");
+  assert.equal(plan.firstMonth, "2026-11");
+  assert.equal(plan.lastMonth, "2027-01");
+  assert.equal(commitments(d, "2026-10", 1)[0].card, 0);
+  assert.equal(commitments(d, "2026-11", 1)[0].card, 3000);
+});
+
+test("commitments follow the aligned invoice total and discount what was already paid", () => {
+  const d = base();
+  d.entries.push(entry({ amount_cents: 10000, payment: "card", card_id: "c1", installments: 2 }));
+  d.invoice_alignments = [{ id: "a1", home_id: "h", owner_id: "a", card_id: "c1", invoice_month: "2026-10", cutoff_on: "2026-10-05",
+    total_cents: 80000, note: "", active: true, created_at: "" }];
+  assert.equal(commitments(d, "2026-10", 1)[0].card, 80000, "uses the real invoice total informed by the bank");
+  d.entries.push(entry({ kind: "card_payment", amount_cents: 30000, card_id: "c1", invoice_month: "2026-10" }));
+  assert.equal(commitments(d, "2026-10", 1)[0].card, 50000);
+});
+
 test("entries under review and single purchases are not installment plans", () => {
   const d = base();
   d.entries.push(entry({ payment: "card", card_id: "c1", installments: 1 }));

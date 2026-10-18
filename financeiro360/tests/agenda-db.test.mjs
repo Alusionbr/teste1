@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { chain, migration } from './chain.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 const A='00000000-0000-4000-8000-000000000001', B='00000000-0000-4000-8000-000000000002', C='00000000-0000-4000-8000-000000000003',
@@ -9,8 +9,7 @@ const A='00000000-0000-4000-8000-000000000001', B='00000000-0000-4000-8000-00000
 test('agenda, focus tools and card purchase keep personal data private and purchases atomic', async t => {
   const db=new PGlite(); t.after(()=>db.close());
   await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert,delete on storage.objects to authenticated;`);
-  for (const file of ['20261004024051_family_app.sql','20261005055306_family_preferences.sql','20261005180000_household_routine.sql','20261017120000_agenda_foco.sql'])
-    await db.exec(readFileSync(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+  for (const file of chain()) await db.exec(migration(file));
   await db.exec(`insert into auth.users values('${A}'),('${B}'),('${C}');insert into fin_homes(id,name,owner_id) values('${H}','Synthetic home','${A}'),('${H2}','Other home','${C}');insert into fin_members(home_id,user_id,display_name,role) values('${H}','${A}','Admin','admin'),('${H}','${B}','Member','member'),('${H2}','${C}','Other','admin');`);
   const asUser=async id=>db.exec(`reset role;set request.jwt.claim.sub='${id}';set role authenticated;`);
   const one=async sql=>(await db.query(sql)).rows[0];
@@ -89,6 +88,8 @@ test('agenda, focus tools and card purchase keep personal data private and purch
   const entry=(await one(`select fin_complete_purchase_card(array['${S1}','${S2}']::uuid[],3900,'2026-10-17','${CB}',3) id`)).id;
   const saved=await one(`select payment,card_id,installments,amount_cents,owner_id,status from fin_entries where id='${entry}'`);
   assert.deepEqual({...saved,amount_cents:Number(saved.amount_cents)},{payment:'card',card_id:CB,installments:3,amount_cents:3900,owner_id:B,status:'paid'});
+  // O gatilho da fatura congelada (migração anterior) também vale para a compra do mercado: 17/10 passa do fechamento (dia 10).
+  assert.equal((await one(`select first_invoice_month from fin_entries where id='${entry}'`)).first_invoice_month,'2026-11');
   assert.equal(Number((await one(`select quantity from fin_pantry where id='${P}'`)).quantity),6);
   await assert.rejects(db.exec(`select fin_complete_purchase_card(array['${S1}']::uuid[],3000,'2026-10-17','${CB}',1)`),'repeating the tap does not buy twice');
   assert.equal((await rows(`select * from fin_entries where card_id='${CB}'`)).length,1);
