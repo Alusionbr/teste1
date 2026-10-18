@@ -44,7 +44,7 @@ Revisão voltada ao uso doméstico. Problemas encontrados e tratados:
 - A despensa só tinha "Ajustar estoque". Agora há locais, atalhos de uso/perda/acabou/conferir, alerta de validade, duração em linguagem simples e total de desperdício.
 - Não existia rotina doméstica. Agora há tarefas compartilhadas com responsável, prazo e repetição.
 
-Arquivos: regras puras em `src/family/home.ts` (testes em `home.test.ts`); telas e eventos em `app.ts`; operações em `api.ts`; migração aditiva `supabase/migrations/20261005180000_household_routine.sql` (teste em `tests/household-db.test.mjs`).
+Arquivos: regras puras em `src/family/home.ts` (testes em `home.test.ts`); telas e eventos em `app.ts`; operações em `api.ts`; migração aditiva `supabase/migrations/20261018100000_household_routine.sql` (teste em `tests/household-db.test.mjs`).
 
 ### Banco
 
@@ -91,7 +91,7 @@ Regras do serviço (documentação oficial): 10 buscas por minuto e 15 consultas
 - `src/family/off.ts`: busca por texto e consulta por código, com limitador local (9 buscas e 14 consultas por minuto), cache de uma semana no aparelho, tempo limite de 12 s, uma nova tentativa em erro 5xx, mensagens amigáveis (limite, instabilidade, sem internet, resposta inesperada), normalização (marca em maiúsculas, "5kg" → "5 kg", código de barras válido) e ordenação (nomes que começam pelo que foi buscado vêm antes). A busca só parte de um toque; nunca autocompleta. Só o texto buscado sai do aparelho.
 - `src/family/catalog.ts`: os atalhos genéricos não têm mais marca, tamanho nem preço (antes havia listas escritas de memória, removidas a pedido). Item "embalado" abre a busca; hortifrúti e carnes a granel entram direto.
 - Categoria do produto: etiquetas do banco → categoria do catálogo, ignorando etiquetas genéricas. Um erro real foi achado na API ao vivo (`plant-based-foods-and-beverages` classificava biscoitos como bebidas) e ficou coberto por teste.
-- Banco: migração aditiva `20261005190000_market_catalog.sql` (`fin_catalog`, com `barcode` e `source`, e um mesmo código de barras só uma vez por casa). Sem ela aplicada o app funciona e guarda itens e ofertas só no aparelho.
+- Banco: migração aditiva `20261018100100_market_catalog.sql` (`fin_catalog`, com `barcode` e `source`, e um mesmo código de barras só uma vez por casa). Sem ela aplicada o app funciona e guarda itens e ofertas só no aparelho.
 - Atualização: "Atualizar dados dos produtos salvos" consulta até 20 produtos por vez (uma a cada 4,5 s) e corrige nome, marca e tamanho que mudaram. Não altera preços, quantidades nem listas.
 - Encartes: colar o texto, conferir a prévia, ofertas por mercado com validade (ver `catalog.ts`, `parseFlyerText`). O app não lê foto nem PDF.
 
@@ -141,7 +141,7 @@ Telas (`src/family/views/*.ts`, componentes em `src/family/ui.ts`):
 - Modo mercado: "Como pagou? Pix/débito/dinheiro | Cartão de crédito" com parcelas.
 - Teclado no computador: `n` lança, `a` anota, `/` vai para a busca. Atalhos no ícone do app (Android): `?acao=lancar|anotar|lista|agenda`.
 
-Banco: migração aditiva **`20261017120000_agenda_foco.sql` (não aplicada)**:
+Banco: migração aditiva **`20261018100200_agenda_foco.sql`** (aplicada em produção em 18/10/2026; ver "Estado do banco de produção"):
 - `fin_events` (leitura: dono, ou todos quando `visibility='home'`; administrador não tem exceção; sem trigger de auditoria para não revelar compromissos pessoais), `fin_busy_slots(h)` (só dono e horário dos "ocupado"), `fin_inbox` (só o dono), `fin_wishes` (dono, ou casa quando compartilhado), `fin_tasks.steps` (validado, zerado ao repetir em `fin_complete_task`), `fin_preferences.focus_mode`, `fin_complete_purchase_card` (mesmas garantias da compra à vista; cartão conferido pela trigger de lançamentos).
 - Sem a migração aplicada, compromissos, anotações, desejos, passos e modo foco ficam **só no aparelho** (`localStorage`, chave por casa **e** pessoa); a tela avisa. Compra no cartão pelo modo mercado pede a migração.
 
@@ -154,12 +154,12 @@ Banco: migração aditiva **`20261017120000_agenda_foco.sql` (não aplicada)**:
 
 ### Pendências e próximos lotes
 
-1. Aplicar `20261005180000`, `20261005190000` e `20261017120000` em produção, nessa ordem, **só com autorização do proprietário**.
-2. S04: congelar o cronograma das compras no cartão (hoje segue o fechamento atual).
+1. ~~Aplicar as migrações da casa em produção~~ — feito em 18/10/2026 (ver "Estado do banco de produção").
+2. ~~S04: congelar o cronograma das compras no cartão~~ — a `main` já fez (`first_invoice_month`); os parcelamentos desta entrega usam esse campo.
 3. Finanças: orçamento por categoria, receitas recorrentes, provisão de despesas anuais (IPVA, IPTU, material escolar), divisão de despesas entre membros, metas com aportes ligados a lançamentos.
 4. Avisos com o app fechado (push) exigem servidor e chaves: hoje só avisa com o app aberto.
 5. Link de assinatura de calendário (atualiza sozinho) exigiria função nova no servidor e link secreto por pessoa.
-6. Enviar para o banco o que ficou guardado só no aparelho depois que a migração for aplicada.
+6. Enviar para o banco o que ficou guardado só no aparelho antes de as migrações serem aplicadas (compromissos, anotações, desejos, passos, itens do catálogo). **Não é enviado sozinho.**
 7. Revisar a regex com nome pessoal em `financialOverview`.
 
 ### Como continuar em outra sessão ou ferramenta
@@ -179,3 +179,62 @@ O GitHub Pages deste repositório também faz uma implantação automática dos 
 ## Edição segura de cartão
 
 Os cartões podem ser editados depois do cadastro: nome, limite, dia de fechamento e vencimento. Ao mudar o fechamento, uma migração fixa o mês da primeira fatura das compras antigas que ainda não tinham cronograma salvo, preservando o ciclo que o painel mostrava antes. Cronogramas já escolhidos ou salvos não mudam. A tela também lembra que basta cadastrar o nome; número completo e código de segurança não são necessários para prever faturas.
+
+## Estado do banco de produção (18/10/2026)
+
+Projeto Supabase `iowuejrpzoibyidiuvpt` (compartilhado com o Quant e o Mapa do Parque; as tabelas da casa são só `fin_*`).
+
+### O que foi aplicado
+
+A produção já tinha as migrações da `main` (parcelas congeladas, saldos privados, lembretes, subcategorias, alinhamento de faturas, empréstimos, categorias salvas). Antes de aplicar, as 10 funções de que as novas dependem foram comparadas com as que o repositório produz (mesmo `md5`), e o branch foi unido à `main`. Aplicadas por `apply_migration`, uma por vez, com o conteúdo exato dos arquivos:
+
+| Ordem | Nome no Supabase | Arquivo | Cria |
+| --- | --- | --- | --- |
+| 1 | `family_household_routine` | `20261018100000_household_routine.sql` | `fin_pantry.location`, `fin_pantry_events`, `fin_tasks`, `fin_pantry_move`, `fin_complete_task` |
+| 2 | `family_market_catalog` | `20261018100100_market_catalog.sql` | `fin_catalog` |
+| 3 | `family_agenda_focus` | `20261018100200_agenda_foco.sql` | `fin_events`, `fin_inbox`, `fin_wishes`, `fin_busy_slots`, `fin_tasks.steps`, `fin_preferences.focus_mode`, `fin_complete_purchase_card`, novo `fin_complete_task` |
+
+Nenhuma linha foi inserida, alterada ou apagada: só estrutura nova e colunas com valor padrão.
+
+### Conferências feitas depois (só leitura)
+
+- Dados reais iguais ao de antes: `fin_entries` 472, `fin_cards` 8, `fin_debts` 6, `fin_accounts` 8, `fin_pantry` 0, `fin_shopping` 1, `fin_preferences` 1, `fin_reminders` 0.
+- As 6 tabelas novas têm RLS ligado e nenhum acesso para `anon`/`public`.
+- As funções novas só são executáveis por `authenticated`.
+- Privacidade da agenda: `fin_events` é lido só pelo dono ou quando `visibility='home'` (sem exceção para o administrador); `fin_inbox` só pelo dono; `fin_wishes` pelo dono ou quando compartilhado. `fin_events` não tem gatilho de auditoria e não há linha em `fin_audit` para `fin_events`, `fin_inbox` ou `fin_wishes`, para o histórico do administrador não revelar compromissos pessoais.
+- Alertas de segurança do Supabase: os mesmos de antes, todos de outros objetos (`parque_*`, `caixinha.config`, proteção de senhas vazadas desativada, `fin_account_overview`). **Único item novo:** `fin_busy_slots` aparece como "função `security definer` executável por usuário logado". É intencional: devolve só o dono e o horário dos compromissos marcados como "ocupado", e só para membros da casa.
+
+### Como desfazer (tudo é aditivo)
+
+Só se algo der errado, e depois de exportar o que a família criou:
+
+```sql
+-- 3 (agenda e foco)
+drop function if exists public.fin_complete_purchase_card(uuid[], bigint, date, uuid, int);
+drop function if exists public.fin_busy_slots(uuid);
+drop table if exists public.fin_wishes, public.fin_inbox, public.fin_events;
+alter table public.fin_preferences drop column if exists focus_mode;
+alter table public.fin_tasks drop column if exists steps;
+-- Se desfizer só a 3: recriar fin_complete_task como na migração 1 (sem o campo steps). Se desfizer tudo, o passo 1 abaixo já remove a função.
+drop function if exists fin_private.valid_steps(jsonb), fin_private.guard_event(), fin_private.guard_owner_identity();
+-- 2 (catálogo)
+drop table if exists public.fin_catalog; drop function if exists fin_private.guard_catalog();
+-- 1 (rotina e despensa)
+drop function if exists public.fin_complete_task(uuid, date), public.fin_pantry_move(uuid, text, numeric);
+drop table if exists public.fin_tasks, public.fin_pantry_events;
+drop function if exists fin_private.guard_task(), fin_private.next_due(text, date);
+alter table public.fin_pantry drop column if exists location;
+```
+
+Ordem importa (3, 2, 1). Este roteiro foi testado em PGlite sobre a cadeia completa: o banco volta ao mesmo número de tabelas, colunas e funções de antes das três migrações. Nenhum lançamento, fatura ou preferência anterior depende desses objetos.
+
+### O que muda para a família
+
+O app detecta as tabelas e passa a gravar no banco em vez do aparelho (`agendaReady`, `householdReady` e `catalogReady` ficam verdadeiros): agenda, anotações, desejos, rotina, despensa por local, catálogo e compra do mercado no cartão passam a valer em todos os celulares. O que foi criado só no aparelho antes disso **não é enviado sozinho** e continua só naquele navegador.
+
+### Pendências novas (vindas da união com a `main`)
+
+- Unificar a "Agenda" com o "Calendário familiar" da `main`: hoje convivem, e a Agenda mostra também os lembretes e vencimentos da casa.
+- `sortSubcategoriesByUse` (da `main`) põe subcategorias criadas pela família depois das sugestões prontas, e elas podem ficar fora dos 7 atalhos do gasto rápido.
+- `public.fin_account_overview` (da `main`) é `security definer` e executável por usuários logados: conferir se ela checa que a pessoa é membro da casa.
+- `tests/browser-smoke.mjs` (da `main`) estava desatualizado em relação ao gasto rápido; foi ajustado nesta união. O teste antigo da casa agora é `tests/browser-casa.mjs`.

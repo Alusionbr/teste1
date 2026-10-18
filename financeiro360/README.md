@@ -45,7 +45,7 @@ npm run typecheck
 npm run build -- --base /teste1/financeiro360/
 ```
 
-`test:db` executa as migrações em PostgreSQL WASM (PGlite), com papéis e schemas Auth/Storage de teste. Cobre acesso cruzado, anonimato, anexos, permissões, suspensão, compras atômicas, recorrência, movimentos da despensa, rotina doméstica, catálogo, agenda com compromisso pessoal invisível ao administrador, caixa de entrada, desejos e compra do mercado no cartão. Não substitui a verificação da configuração real de Auth, Data API, Storage e Edge Functions após ativação.
+`test:db` executa as migrações em PostgreSQL WASM (PGlite), com papéis e schemas Auth/Storage de teste. Cobre acesso cruzado, anonimato, anexos, permissões, suspensão, compras atômicas, recorrência, movimentos da despensa, rotina doméstica, catálogo, agenda com compromisso pessoal invisível ao administrador, caixa de entrada, desejos e compra do mercado no cartão. Os testes de banco aplicam a cadeia completa de migrações (`tests/chain.mjs`), a mesma que está na produção. Não substitui a verificação da configuração real de Auth, Data API, Storage e Edge Functions após ativação.
 
 Ver [operações e ativação](docs/FAMILY-OPERATIONS.md) para provisionar o banco, a conta inicial e o retorno. O fluxo anterior local permanece em `src/main.ts`, `logic.ts` e `storage.ts`; os dados do navegador anterior não são enviados automaticamente ao novo aplicativo.
 

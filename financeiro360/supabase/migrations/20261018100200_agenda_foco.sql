@@ -1,6 +1,6 @@
 -- Agenda da casa, ferramentas de foco e compra do mercado no cartão.
 -- Aditiva: não altera lançamentos, faturas nem objetos de outros aplicativos.
--- Depende de 20261005180000_household_routine.sql (fin_tasks e fin_complete_task).
+-- Depende de 20261018100000_household_routine.sql (fin_tasks e fin_complete_task).
 
 -- 1. Agenda. Compromisso pessoal ("private" ou "busy") só é lido pelo próprio dono:
 --    nem o administrador vê. "home" é visto por todos os membros ativos da casa.
