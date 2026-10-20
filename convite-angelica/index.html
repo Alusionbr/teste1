@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#6a281e">
+  <meta name="description" content="Você está convidado para o aniversário da Angélica! Dia 27/10, das 18h às 22h, no restaurante Dos Sertões. Confirme sua presença e encontre o caminho.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="A noite da Angélica • 27 de outubro">
+  <meta property="og:description" content="Você é nosso convidado especial! Comemoração no Dos Sertões, das 18h às 22h. Abra para confirmar sua presença.">
+  <meta property="og:image" content="https://gcdn.picsart.com/editing-temp/09ef39f1-fd53-419d-a6ee-bdb180c409ea.jpeg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Rye&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <title>A Noite da Angélica | Convite</title>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="light-string" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+    <div class="welcome-card">
+      <span class="star confetti-star" aria-hidden="true">✦</span>
+      <div class="welcome-emoji" aria-hidden="true">🌵 <span>🎉</span></div>
+      <p class="eyebrow">Você está convidado!</p>
+      <h2 id="welcome-title">A noite da<br><em>Angélica</em></h2>
+      <p>Um convite especial com música, boa comida e muita alegria.</p>
+      <button class="button primary button-large" id="enterWithMusic" type="button">♫ &nbsp;Abrir convite com música</button>
+      <button class="button subtle" id="enterWithoutMusic" type="button">Entrar sem música</button>
+      <small>O som começa após seu toque, por exigência dos navegadores.</small>
+    </div>
+  </div>
+
+  <header class="site-header" id="inicio">
+    <a href="#inicio" class="brand" aria-label="Voltar ao início"><span aria-hidden="true">✳</span> A NOITE DA ANGÉLICA</a>
+    <button class="music-control" id="musicControl" type="button" aria-pressed="false" aria-label="Ligar música"><span id="musicIcon">♫</span><span id="musicLabel">Tocar música</span></button>
+  </header>
+
+  <main>
+    <section class="hero section-container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow hero-kicker"><span class="kicker-icon" aria-hidden="true">✳</span> 27 OUT 2026 · TERÇA-FEIRA <span class="kicker-icon" aria-hidden="true">✳</span></p>
+        <div class="hero-title-wrap"><span class="sketch-star" aria-hidden="true">✺</span>
+          <h1 id="hero-title"><span class="title-small">O aniversário da</span><strong>ANGÉLICA</strong><span class="title-script">vai ser arretado!</span></h1>
+        </div>
+        <p class="hero-description">Vai ter comida boa, risadas e gente querida. E essa festa só fica completa <strong>com você lá!</strong></p>
+        <div class="date-banner">
+          <div><span>TERÇA-FEIRA</span><strong>27<sup>/10</sup></strong></div>
+          <span class="date-rule" aria-hidden="true"></span>
+          <div><span>HORÁRIO</span><strong>18h <b>às</b> 22h</strong></div>
+        </div>
+        <div class="hero-actions">
+          <button class="button primary" type="button" data-open-rsvp>✓ &nbsp;Confirmar presença <span aria-hidden="true">↗</span></button>
+          <a class="button secondary" href="#local">Como chegar <span aria-hidden="true">↘</span></a>
+        </div>
+        <div class="countdown-zone" aria-live="off">
+          <span class="countdown-heading">CONTAGEM REGRESSIVA</span>
+          <div class="countdown" id="countdown"><div><strong>--</strong><small>dias</small></div><div><strong>--</strong><small>horas</small></div><div><strong>--</strong><small>min</small></div><div><strong>--</strong><small>seg</small></div></div>
+          <p id="countdownNote" class="countdown-note">Contando os dias para esse encontro!</p>
+        </div>
+      </div>
+
+      <div class="hero-art">
+        <div class="sticker sticker-top" aria-hidden="true">BORA<br>COMEMORAR! <span>✷</span></div>
+        <div class="photo-shell">
+          <picture><source srcset="https://gcdn.picsart.com/editing-temp/09ef39f1-fd53-419d-a6ee-bdb180c409ea.jpeg" type="image/jpeg"><img class="original-invite" src="https://gcdn.picsart.com/editing-temp/09ef39f1-fd53-419d-a6ee-bdb180c409ea.jpeg" alt="Convite original do aniversário, com data 27 de outubro, das 18h às 22h, restaurante Dos Sertões na Estrada de Jacarepaguá, 7636, Freguesia. Valores do rodízio abaixo." width="1024" height="1536" fetchpriority="high"></picture>
+        </div>
+        <div class="sticker sticker-bottom" aria-hidden="true">Ô FESTA<br>BOA! ♡</div>
+      </div>
+    </section>
+
+    <section class="ribbon" aria-label="O que esperar"><div class="ribbon-track">✳ COMIDA NORDESTINA <span>✦</span> ALEGRIA SEM FIM <span>✳</span> BOA COMPANHIA <span>✦</span> COMIDA NORDESTINA <span>✳</span> ALEGRIA SEM FIM <span>✦</span> BOA COMPANHIA <span>✳</span></div></section>
+
+    <section class="details section-container" id="detalhes" aria-labelledby="details-title">
+      <div class="section-head"><p class="eyebrow">A PROGRAMAÇÃO</p><h2 id="details-title">Um encontro <em>especial</em></h2><p>Prepare o sorriso e o apetite. O resto é com a gente!</p></div>
+      <div class="cards">
+        <article class="info-card"><div class="card-icon" aria-hidden="true">📅</div><span>ANOTE NA AGENDA</span><h3>27 de outubro</h3><p>Terça-feira, a partir das 18h.</p><button class="text-link" type="button" id="calendarBtn">Adicionar à agenda <span aria-hidden="true">↗</span></button></article>
+        <article class="info-card"><div class="card-icon" aria-hidden="true">🍽️</div><span>COMIDA BOA</span><h3>Rodízio nordestino</h3><p>Um jantar especial no restaurante Dos Sertões, na Freguesia.</p><a class="text-link" href="#valores">Ver valores <span aria-hidden="true">↗</span></a></article>
+        <article class="info-card"><div class="card-icon" aria-hidden="true">💌</div><span>NÃO FIQUE DE FORA</span><h3>Sua presença importa</h3><p>Avise se você vai e quantas pessoas estarão com você.</p><button class="text-link" type="button" data-open-rsvp>Confirmar agora <span aria-hidden="true">↗</span></button></article>
+      </div>
+    </section>
+
+    <section class="location-section" id="local" aria-labelledby="location-title">
+      <div class="section-container location-layout">
+        <div class="location-copy"><p class="eyebrow">NOSSO PONTO DE ENCONTRO</p><h2 id="location-title">O caminho da <em>festa!</em></h2><p class="location-venue">DOS SERTÕES <small>RESTAURANTE NORDESTINO</small></p><address>Estrada de Jacarepaguá, 7636<br>Freguesia (Jacarepaguá)<br>Rio de Janeiro – RJ</address><p class="location-prompt">É só escolher seu aplicativo favorito que o trajeto abre no celular.</p><div class="location-actions"><a class="button maps" target="_blank" rel="noopener noreferrer" id="googleMaps" href="https://www.google.com/maps/dir/?api=1&amp;destination=Estrada%20de%20Jacarepagu%C3%A1%2C%207636%2C%20Freguesia%2C%20Rio%20de%20Janeiro%2C%20RJ&amp;travelmode=driving"><svg aria-hidden="true" viewBox="0 0 20 20"><path fill="currentColor" d="M10 1.8a7.08 7.08 0 0 0-7.1 7.1c0 5.1 7.1 10.1 7.1 10.1s7.1-5 7.1-10.1A7.08 7.08 0 0 0 10 1.8m0 9.9a2.8 2.8 0 1 1 0-5.6 2.8 2.8 0 0 1 0 5.6"/></svg> Google Maps ↗</a><a class="button waze" id="waze" target="_blank" rel="noopener noreferrer" href="https://waze.com/ul?q=Estrada%20de%20Jacarepagu%C3%A1%2C%207636%2C%20Freguesia%2C%20Rio%20de%20Janeiro%2C%20RJ&amp;navigate=yes"><span aria-hidden="true">🚙</span> Waze ↗</a></div><button class="copy-address" type="button" id="copyAddress">⧉ &nbsp;Copiar endereço</button></div>
+        <div class="location-illustration" aria-label="Ilustração decorativa com cacto e localização do restaurante"><div class="map-scene"><div class="map-sun"></div><span class="map-cloud one"></span><span class="map-cloud two"></span><div class="map-hill hill-far"></div><div class="map-hill hill-near"></div><div class="map-road"></div><div class="big-cactus"><i class="cactus-branch a"></i><i class="cactus-branch b"></i></div><div class="map-pin"><span>✦</span></div><div class="map-pill">📍 FREGUESIA, RJ</div></div></div>
+      </div>
+    </section>
+
+    <section class="prices section-container" id="valores" aria-labelledby="prices-title"><div class="section-head"><p class="eyebrow">PRA TODO MUNDO SE PROGRAMAR</p><h2 id="prices-title">Valores do <em>rodízio</em></h2><p>Informações da arte do convite. Valores podem mudar: confirme com o restaurante.</p></div><div class="price-grid"><article class="price-card"><span>ADULTOS</span><strong><small>R$</small> 69,90</strong><p>Valor por pessoa</p></article><article class="price-card highlighted"><span>CRIANÇAS · 5 A 9 ANOS</span><strong><small>R$</small> 34,90</strong><p>Meio rodízio</p></article><article class="price-card"><span>CRIANÇAS · 0 A 4 ANOS</span><strong class="free">GRÁTIS</strong><p>Avise no momento da reserva</p></article></div></section>
+
+    <section class="closing section-container" aria-labelledby="closing-title"><div class="closing-card"><span aria-hidden="true" class="closing-emoji">💛 🌵 💛</span><p class="eyebrow">VAI SER INESQUECÍVEL</p><h2 id="closing-title">Só falta <em>você!</em></h2><p>Confirme sua presença e venha dividir esse momento especial com a Angélica.</p><button class="button primary button-large" type="button" data-open-rsvp>Quero confirmar minha presença ↗</button><button class="button share-btn" type="button" id="shareBtn">↗ &nbsp;Compartilhar convite</button></div></section>
+  </main>
+
+  <footer class="footer"><span>Feito com carinho para a noite da Angélica ♡</span><a href="#inicio">Voltar ao topo ↑</a></footer>
+
+  <dialog id="rsvpDialog" class="rsvp-dialog" aria-labelledby="rsvpTitle"><div class="dialog-top"><div><p class="eyebrow">CONFIRMAÇÃO DE PRESENÇA</p><h2 id="rsvpTitle">Vai com a gente?</h2></div><button id="closeRsvp" class="close-dialog" type="button" aria-label="Fechar">×</button></div>
+    <form id="rsvpForm" novalidate><label class="field-label" for="guestName">Seu nome <span aria-hidden="true">*</span></label><input type="text" name="guestName" id="guestName" placeholder="Como podemos te chamar?" maxlength="70" required autocomplete="name">
+      <fieldset class="rsvp-status"><legend>Você vai participar?</legend><div class="status-options"><label><input type="radio" name="attendance" value="sim" checked><span>🎉 Vou sim!</span></label><label><input type="radio" name="attendance" value="talvez"><span>🤔 Talvez</span></label><label><input type="radio" name="attendance" value="nao"><span>😔 Não vou</span></label></div></fieldset>
+      <fieldset id="guestCounts" class="guests-fields"><legend>Quantas pessoas vão com você?</legend><div class="guest-count-grid"><label>Adultos<input name="adults" type="number" inputmode="numeric" min="0" max="30" value="1"></label><label>Crianças (5 a 9)<input name="children5" type="number" inputmode="numeric" min="0" max="30" value="0"></label><label>Crianças (0 a 4)<input name="children0" type="number" inputmode="numeric" min="0" max="30" value="0"></label></div></fieldset>
+      <p class="form-error" id="formError" role="alert" hidden></p><button class="button primary button-large send-rsvp" type="submit">Confirmar no WhatsApp ↗</button><p class="form-note" id="formNote">O WhatsApp abrirá com sua mensagem pronta. Selecione o contato da organização e toque em enviar.</p></form>
+  </dialog>
+
+  <audio id="partyAudio" src="https://gcdn.picsart.com/editing-temp/a562df10-f32a-40cf-8586-6017718b6847.mpeg" preload="none" loop playsinline></audio>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
