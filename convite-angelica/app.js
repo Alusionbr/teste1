@@ -140,6 +140,7 @@ $('#finishRsvp').addEventListener('click',close);
       current=i;
       // Apenas duas linhas ocupam o painel: a atual nunca sai do centro.
       currentLine.textContent=lines[i]?.texto||'♫ A música vai começar!';
+      currentLine.classList.toggle('is-long',(lines[i]?.texto.length||0)>95);
       const next=lines[i+1]?.texto||'';
       nextLine.textContent=next?'A seguir: '+next:'';
       nextLine.hidden=!next;
