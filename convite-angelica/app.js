@@ -13,7 +13,6 @@ const play=()=>audio.play().then(musicUpdate).catch(()=>toast('Toque em Tocar m�
 const enter=()=>{welcome.hidden=true;document.body.style.overflow='';$('#hero-title').setAttribute('tabindex','-1');$('#hero-title').focus({preventScroll:true})};
 document.body.style.overflow='hidden';
 $('#enterWithMusic').addEventListener('click',()=>{play();enter()});
-$('#enterWithoutMusic').addEventListener('click',enter);
 btn.addEventListener('click',()=>audio.paused?play():audio.pause());
 audio.addEventListener('play',musicUpdate);audio.addEventListener('pause',musicUpdate);
 function countdown(){
@@ -80,6 +79,39 @@ form.addEventListener('submit',async (event)=>{
 });
 $('#editRsvp').addEventListener('click',()=>{success.hidden=true;form.hidden=false;$('#guestName').focus()});
 $('#finishRsvp').addEventListener('click',close);
+
+// ---- Karaokê: acompanha a música que está tocando (letra vem de letra.js) ----
+(function karaoke(){
+  const data=window.CONVITE_LETRA||{};
+  const raw=Array.isArray(data.linhas)?data.linhas:[];
+  const lines=raw.map(l=>typeof l==='string'?{texto:l}:{texto:String(l.texto||''),t:Number(l.t)}).filter(l=>l.texto.trim()!=='');
+  const section=$('#karaoke');
+  if(!section||!lines.length)return;
+  const box=$('#karaokeLines');
+  const nodes=lines.map(l=>{const p=document.createElement('p');p.className='karaoke-line';p.textContent=l.texto;box.append(p);return p});
+  $('#karaokeSong').textContent=[data.titulo,data.artista].filter(Boolean).join(' · ');
+  section.hidden=false;
+  const timed=lines.every(l=>Number.isFinite(l.t));
+  const inicio=Number(data.inicioSegundos)||0;
+  let current=-1;
+  function indexAt(time){
+    if(timed){let i=-1;for(let k=0;k<lines.length;k++){if(time>=lines[k].t)i=k;else break}return i}
+    const dur=audio.duration;
+    if(!Number.isFinite(dur)||dur<=inicio)return -1;
+    const frac=Math.max(0,(time-inicio)/(dur-inicio));
+    return Math.min(lines.length-1,Math.floor(frac*lines.length));
+  }
+  function update(){
+    const i=indexAt(audio.currentTime);
+    if(i===current)return;
+    current=i;
+    nodes.forEach((n,k)=>{n.classList.toggle('active',k===i);n.classList.toggle('past',k<i)});
+    if(i>=0){const n=nodes[i];box.scrollTo({top:n.offsetTop-box.clientHeight/2+n.clientHeight/2,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+  }
+  audio.addEventListener('timeupdate',update);
+  audio.addEventListener('seeked',update);
+  audio.addEventListener('loadedmetadata',update);
+})();
 const addr=config.endereco||'Restaurante Dos Sertões, Estrada de Jacarepaguá, 7636, Freguesia, Rio de Janeiro, RJ';
 $('#googleMaps').href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addr)+'&travelmode=driving';
 $('#waze').href='https://www.waze.com/ul?q='+encodeURIComponent(addr)+'&navigate=yes';

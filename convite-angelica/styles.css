@@ -11,3 +11,5 @@
 .rsvp-success p{color:#73574a;line-height:1.55}
 .rsvp-success button{margin:9px 4px;max-width:100%}
 .send-rsvp:disabled{opacity:.6;cursor:progress}
+/* Karaokê da festa */
+.karaoke{padding-top:20px}.karaoke-box{max-width:640px;margin:0 auto;background:#fffcf0;border:2px solid #ebd7b9;border-radius:22px;padding:18px;box-shadow:7px 7px 0 #eed9b7}.karaoke-lines{height:min(52vh,340px);overflow-y:auto;scroll-behavior:auto;padding:calc(min(52vh,340px)/2 - 24px) 8px;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}.karaoke-line{margin:0 0 14px;font-size:19px;line-height:1.35;font-weight:700;color:#a08577;transition:color .25s,transform .25s}.karaoke-line.past{color:#c4ae9e}.karaoke-line.active{color:var(--rust);font-size:23px;transform:scale(1.03)}.karaoke-hint{text-align:center;font-size:12px;color:#766154;margin:10px 0 0}.karaoke .section-head{margin-bottom:24px}

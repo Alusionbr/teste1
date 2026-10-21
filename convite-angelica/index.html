@@ -31,8 +31,7 @@
       <h2 id="welcome-title">A noite da<br><em>Angélica</em></h2>
       <p>Um convite especial com música, boa comida e muita alegria.</p>
       <button class="button primary button-large" id="enterWithMusic" type="button">♫ &nbsp;Abrir convite com música</button>
-      <button class="button subtle" id="enterWithoutMusic" type="button">Entrar sem música</button>
-      <small>O som começa após seu toque, por exigência dos navegadores.</small>
+          <small>A música toca assim que você abrir o convite.</small>
     </div>
   </div>
 
@@ -94,6 +93,14 @@
 
     <section class="prices section-container" id="valores" aria-labelledby="prices-title"><div class="section-head"><p class="eyebrow">PRA TODO MUNDO SE PROGRAMAR</p><h2 id="prices-title">Valores do <em>rodízio</em></h2><p>Informações da arte do convite. Valores podem mudar: confirme com o restaurante.</p></div><div class="price-grid"><article class="price-card"><span>ADULTOS</span><strong><small>R$</small> 69,90</strong><p>Valor por pessoa</p></article><article class="price-card highlighted"><span>CRIANÇAS · 5 A 9 ANOS</span><strong><small>R$</small> 34,90</strong><p>Meio rodízio</p></article><article class="price-card"><span>CRIANÇAS · 0 A 4 ANOS</span><strong class="free">GRÁTIS</strong><p>Avise no momento da reserva</p></article></div></section>
 
+    <section class="karaoke section-container" id="karaoke" aria-labelledby="karaoke-title" hidden>
+      <div class="section-head"><p class="eyebrow">CANTE JUNTO</p><h2 id="karaoke-title">Karaokê da <em>festa</em></h2><p id="karaokeSong"></p></div>
+      <div class="karaoke-box">
+        <div class="karaoke-lines" id="karaokeLines" role="region" aria-label="Letra da música" tabindex="0"></div>
+        <p class="karaoke-hint" id="karaokeHint">A letra acompanha a música que está tocando.</p>
+      </div>
+    </section>
+
     <section class="closing section-container" aria-labelledby="closing-title"><div class="closing-card"><span aria-hidden="true" class="closing-emoji">💛 🌵 💛</span><p class="eyebrow">VAI SER INESQUECÍVEL</p><h2 id="closing-title">Só falta <em>você!</em></h2><p>Confirme sua presença e venha dividir esse momento especial com a Angélica.</p><button class="button primary button-large" type="button" data-open-rsvp>Quero confirmar minha presença ↗</button><button class="button share-btn" type="button" id="shareBtn">↗ &nbsp;Compartilhar convite</button></div></section>
   </main>
 
@@ -116,6 +123,7 @@
   <audio id="partyAudio" src="https://gcdn.picsart.com/editing-temp/a562df10-f32a-40cf-8586-6017718b6847.mpeg" preload="none" loop playsinline></audio>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="config.js" defer></script>
+  <script src="letra.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="app.js" defer></script>
 </body>
