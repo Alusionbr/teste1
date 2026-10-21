@@ -80,37 +80,88 @@ form.addEventListener('submit',async (event)=>{
 $('#editRsvp').addEventListener('click',()=>{success.hidden=true;form.hidden=false;$('#guestName').focus()});
 $('#finishRsvp').addEventListener('click',close);
 
-// ---- Karaokê: acompanha a música que está tocando (letra vem de letra.js) ----
+// Karaokê compacto: letra ativa sempre centralizada, sem exigir rolagem.
 (function karaoke(){
   const data=window.CONVITE_LETRA||{};
   const raw=Array.isArray(data.linhas)?data.linhas:[];
-  const lines=raw.map(l=>typeof l==='string'?{texto:l}:{texto:String(l.texto||''),t:Number(l.t)}).filter(l=>l.texto.trim()!=='');
-  const section=$('#karaoke');
-  if(!section||!lines.length)return;
-  const box=$('#karaokeLines');
-  const nodes=lines.map(l=>{const p=document.createElement('p');p.className='karaoke-line';p.textContent=l.texto;box.append(p);return p});
-  $('#karaokeSong').textContent=[data.titulo,data.artista].filter(Boolean).join(' · ');
-  section.hidden=false;
+  const lines=raw.map(l=>typeof l==='string'?{texto:l,t:NaN}:{texto:String(l.texto||''),t:Number(l.t)})
+    .filter(l=>l.texto.trim()!=='');
+  const dock=$('#karaoke');
+  if(!dock || !lines.length)return;
+
+  const currentLine=$('#karaokeCurrent');
+  const nextLine=$('#karaokeNext');
+  const progress=$('#karaokeProgress');
+  const panel=$('#karaokePanel');
+  const hideButton=$('#karaokeHide');
+  const showButton=$('#karaokeShow');
+  const musicButton=$('#karaokeAudio');
+  const status=$('#karaokeHint');
   const timed=lines.every(l=>Number.isFinite(l.t));
-  const inicio=Number(data.inicioSegundos)||0;
+  const startTime=Number(data.inicioSegundos)||0;
+  const storageKey='convite_angelica_karaoke_recolhido_v2';
   let current=-1;
-  function indexAt(time){
-    if(timed){let i=-1;for(let k=0;k<lines.length;k++){if(time>=lines[k].t)i=k;else break}return i}
-    const dur=audio.duration;
-    if(!Number.isFinite(dur)||dur<=inicio)return -1;
-    const frac=Math.max(0,(time-inicio)/(dur-inicio));
-    return Math.min(lines.length-1,Math.floor(frac*lines.length));
+  let collapsed=false;
+  try{collapsed=sessionStorage.getItem(storageKey)==='1'}catch(e){}
+
+  $('#karaokeSong').textContent=[data.titulo,data.artista].filter(Boolean).join(' · ')||'A noite da Angélica';
+  dock.hidden=false;
+
+  function setCollapsed(value){
+    collapsed=Boolean(value);
+    panel.hidden=collapsed;
+    showButton.hidden=!collapsed;
+    document.body.classList.toggle('karaoke-expanded',!collapsed);
+    hideButton.setAttribute('aria-expanded',String(!collapsed));
+    showButton.setAttribute('aria-expanded',String(!collapsed));
+    try{sessionStorage.setItem(storageKey,collapsed?'1':'0')}catch(e){}
   }
+
+  hideButton.addEventListener('click',()=>setCollapsed(true));
+  showButton.addEventListener('click',()=>setCollapsed(false));
+  musicButton.addEventListener('click',()=>audio.paused?play():audio.pause());
+
+  function indexAt(time){
+    if(timed){
+      let lo=0,hi=lines.length-1,found=-1;
+      while(lo<=hi){const mid=Math.floor((lo+hi)/2);if(lines[mid].t<=time){found=mid;lo=mid+1}else{hi=mid-1}}
+      return Math.max(0,found);
+    }
+    const duration=audio.duration;
+    if(!Number.isFinite(duration)||duration<=startTime)return 0;
+    const fraction=Math.min(1,Math.max(0,(time-startTime)/(duration-startTime)));
+    return Math.min(lines.length-1,Math.floor(fraction*lines.length));
+  }
+
   function update(){
-    const i=indexAt(audio.currentTime);
-    if(i===current)return;
-    current=i;
-    nodes.forEach((n,k)=>{n.classList.toggle('active',k===i);n.classList.toggle('past',k<i)});
-    if(i>=0){const n=nodes[i];box.scrollTo({top:n.offsetTop-box.clientHeight/2+n.clientHeight/2,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+    const time=Number.isFinite(audio.currentTime)?audio.currentTime:0;
+    const i=indexAt(time);
+    if(i!==current){
+      current=i;
+      // Apenas duas linhas ocupam o painel: a atual nunca sai do centro.
+      currentLine.textContent=lines[i]?.texto||'♫ A música vai começar!';
+      const next=lines[i+1]?.texto||'';
+      nextLine.textContent=next?'A seguir: '+next:'';
+      nextLine.hidden=!next;
+    }
+    const start=timed?(lines[i]?.t||0):startTime+(audio.duration||0)*(i/lines.length);
+    const finish=timed?(lines[i+1]?.t??(Number.isFinite(audio.duration)?audio.duration:start+4)):
+      startTime+(audio.duration||0)*((i+1)/lines.length);
+    const fraction=finish>start?Math.max(0,Math.min(1,(time-start)/(finish-start))):0;
+    progress.style.width=(fraction*100).toFixed(1)+'%';
+    const playing=!audio.paused;
+    musicButton.textContent=playing?'❚❚ Pausar':'▶ Tocar';
+    musicButton.setAttribute('aria-label',playing?'Pausar música':'Tocar música');
+    status.textContent=playing?'♫ Cantando agora':'♫ Música pausada';
   }
   audio.addEventListener('timeupdate',update);
   audio.addEventListener('seeked',update);
   audio.addEventListener('loadedmetadata',update);
+  audio.addEventListener('play',update);
+  audio.addEventListener('pause',update);
+  audio.addEventListener('ended',update);
+  setCollapsed(collapsed);
+  update();
 })();
 const addr=config.endereco||'Restaurante Dos Sertões, Estrada de Jacarepaguá, 7636, Freguesia, Rio de Janeiro, RJ';
 $('#googleMaps').href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addr)+'&travelmode=driving';
