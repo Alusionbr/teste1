@@ -31,18 +31,55 @@ $$('[data-open-rsvp]').forEach(e=>e.addEventListener('click',open));
 $('#closeRsvp').addEventListener('click',close);
 dialog.addEventListener('click',e=>{if(e.target===dialog)close()});
 $$('input[name="attendance"]').forEach(e=>e.addEventListener('change',()=>{counts.hidden=$('input[name="attendance"]:checked').value==='nao'}));
-function getMessage(){
-const name=$('#guestName').value.trim().replace(/\s+/g,' ');
-if(name.length<2)throw Error('Informe seu nome para confirmar.');
-const status=$('input[name="attendance"]:checked').value;
-const intro=`Olá! Sou ${name}. Estou respondendo ao convite do aniversário da ${config.nomeAniversariante||'Angélica'} no Dos Sertões, dia 27/10/2026, das 18h às 22h.`;
-if(status==='nao')return `${intro}\n\n😔 Infelizmente não poderei comparecer. Obrigado pelo convite!`;
-const nums=['adults','children5','children0'].map(n=>{const v=Number(form.elements[n].value);if(!Number.isInteger(v)||v<0||v>30)throw Error('Informe quantidades de 0 a 30.');return v});
-if(nums.reduce((a,b)=>a+b,0)===0)throw Error('Indique ao menos uma pessoa.');
-return `${intro}\n\n${status==='sim'?'🎉 CONFIRMO MINHA PRESENÇA!':'🤔 TALVEZ EU VÁ.'}\n👤 Adultos: ${nums[0]}\n🧒 Crianças de 5 a 9 anos: ${nums[1]}\n👶 Crianças de 0 a 4 anos: ${nums[2]}\n📍 Estrada de Jacarepaguá, 7636, Freguesia, RJ.\n\nAté lá!`;
+
+const submitButton = form.querySelector('[type="submit"]');
+const success = $('#rsvpSuccess');
+const storageName='convite_angelica_resposta_chave_v1';
+function getGuestKey(){
+  try {const saved=localStorage.getItem(storageName);if(saved && /^[a-f0-9-]{36}$/i.test(saved))return saved;} catch(e){}
+  const key=crypto.randomUUID();
+  try {localStorage.setItem(storageName,key);} catch(e){}
+  return key;
 }
-form.addEventListener('submit',e=>{e.preventDefault();try{const msg=getMessage();error.hidden=true;const phone=String(config.whatsappOrganizador||'').replace(/\D/g,'');window.location.href=`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`}catch(err){error.textContent=err.message||'Verifique os dados.';error.hidden=false}});
-if(/^\d{10,15}$/.test(String(config.whatsappOrganizador||'').replace(/\D/g,'')))$('#formNote').textContent='Seu WhatsApp abrirá com a mensagem pronta para o organizador. Toque em Enviar para confirmar.';
+const client = window.supabase?.createClient?.(config.supabaseUrl,config.supabasePublishableKey,{
+  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+});
+form.addEventListener('submit',async (event)=>{
+  event.preventDefault();
+  if(submitButton.disabled)return;
+  try{
+    error.hidden=true;
+    if(!client)throw Error('Não foi possível conectar ao serviço de confirmação. Atualize a página e tente novamente.');
+    const nome=$('#guestName').value.trim().replace(/\\s+/g,' ');
+    const resposta=$('input[name="attendance"]:checked')?.value;
+    if(nome.length<2 || nome.length>70)throw Error('Digite um nome entre 2 e 70 caracteres.');
+    if(!['sim','talvez','nao'].includes(resposta))throw Error('Escolha sua resposta.');
+    let amounts=['adults','children5','children0'].map(n=>Number(form.elements[n].value));
+    if(resposta==='nao')amounts=[0,0,0];
+    if(amounts.some(n=>!Number.isInteger(n)||n<0||n>30))throw Error('As quantidades devem estar entre 0 e 30.');
+    if(resposta!=='nao' && (amounts.reduce((a,b)=>a+b,0)<1 || amounts.reduce((a,b)=>a+b,0)>40))throw Error('Informe entre 1 e 40 pessoas no total.');
+    submitButton.disabled=true;
+    submitButton.textContent='Salvando sua resposta…';
+    const {data,rpcError,error:apiError}=await client.rpc('convite_angelica_registrar',{
+      p_chave:getGuestKey(),p_nome:nome,p_resposta:resposta,
+      p_adultos:amounts[0],p_criancas_5_9:amounts[1],p_criancas_0_4:amounts[2]
+    });
+    if(apiError || rpcError || !data?.ok)throw Error('Não foi possível salvar agora. Verifique sua conexão e tente novamente.');
+    form.hidden=true;
+    success.hidden=false;
+    $('#rsvpSuccessTitle').textContent=resposta==='sim'?'Presença confirmada!':resposta==='talvez'?'Talvez registrado!':'Resposta registrada!';
+    $('#rsvpSuccessMessage').textContent='Sua resposta ficou salva na lista privada da organização. Se precisar, você pode alterá-la neste aparelho.';
+    success.querySelector('button')?.focus();
+  }catch(e){
+    error.textContent=e.message||'Ocorreu um erro. Tente novamente.';
+    error.hidden=false;
+  }finally{
+    submitButton.disabled=false;
+    submitButton.textContent='Salvar minha confirmação ✓';
+  }
+});
+$('#editRsvp').addEventListener('click',()=>{success.hidden=true;form.hidden=false;$('#guestName').focus()});
+$('#finishRsvp').addEventListener('click',close);
 const addr=config.endereco||'Restaurante Dos Sertões, Estrada de Jacarepaguá, 7636, Freguesia, Rio de Janeiro, RJ';
 $('#googleMaps').href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addr)+'&travelmode=driving';
 $('#waze').href='https://www.waze.com/ul?q='+encodeURIComponent(addr)+'&navigate=yes';
