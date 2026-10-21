@@ -100,7 +100,7 @@ $('#finishRsvp').addEventListener('click',close);
   const timed=lines.every(l=>Number.isFinite(l.t));
   const startTime=Number(data.inicioSegundos)||0;
   const storageKey='convite_angelica_karaoke_recolhido_v2';
-  let current=-1;
+  let current=-2;
   let collapsed=false;
   try{collapsed=sessionStorage.getItem(storageKey)==='1'}catch(e){}
 
@@ -125,7 +125,7 @@ $('#finishRsvp').addEventListener('click',close);
     if(timed){
       let lo=0,hi=lines.length-1,found=-1;
       while(lo<=hi){const mid=Math.floor((lo+hi)/2);if(lines[mid].t<=time){found=mid;lo=mid+1}else{hi=mid-1}}
-      return Math.max(0,found);
+      return found;
     }
     const duration=audio.duration;
     if(!Number.isFinite(duration)||duration<=startTime)return 0;
