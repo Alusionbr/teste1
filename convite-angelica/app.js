@@ -50,7 +50,7 @@ form.addEventListener('submit',async (event)=>{
   try{
     error.hidden=true;
     if(!client)throw Error('Não foi possível conectar ao serviço de confirmação. Atualize a página e tente novamente.');
-    const nome=$('#guestName').value.trim().replace(/\\s+/g,' ');
+    const nome=$('#guestName').value.trim().replace(/\s+/g,' ');
     const resposta=$('input[name="attendance"]:checked')?.value;
     if(nome.length<2 || nome.length>70)throw Error('Digite um nome entre 2 e 70 caracteres.');
     if(!['sim','talvez','nao'].includes(resposta))throw Error('Escolha sua resposta.');
