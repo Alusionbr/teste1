@@ -103,12 +103,20 @@
     <form id="rsvpForm" novalidate><label class="field-label" for="guestName">Seu nome <span aria-hidden="true">*</span></label><input type="text" name="guestName" id="guestName" placeholder="Como podemos te chamar?" maxlength="70" required autocomplete="name">
       <fieldset class="rsvp-status"><legend>Você vai participar?</legend><div class="status-options"><label><input type="radio" name="attendance" value="sim" checked><span>🎉 Vou sim!</span></label><label><input type="radio" name="attendance" value="talvez"><span>🤔 Talvez</span></label><label><input type="radio" name="attendance" value="nao"><span>😔 Não vou</span></label></div></fieldset>
       <fieldset id="guestCounts" class="guests-fields"><legend>Quantas pessoas vão com você?</legend><div class="guest-count-grid"><label>Adultos<input name="adults" type="number" inputmode="numeric" min="0" max="30" value="1"></label><label>Crianças (5 a 9)<input name="children5" type="number" inputmode="numeric" min="0" max="30" value="0"></label><label>Crianças (0 a 4)<input name="children0" type="number" inputmode="numeric" min="0" max="30" value="0"></label></div></fieldset>
-      <p class="form-error" id="formError" role="alert" hidden></p><button class="button primary button-large send-rsvp" type="submit">Confirmar no WhatsApp ↗</button><p class="form-note" id="formNote">O WhatsApp abrirá com sua mensagem pronta. Selecione o contato da organização e toque em enviar.</p></form>
+      <p class="form-error" id="formError" role="alert" hidden></p><button class="button primary button-large send-rsvp" type="submit">Salvar minha confirmação ✓</button><p class="form-note" id="formNote">Sua resposta será salva com privacidade. Se mudar de ideia, reabra este convite no mesmo celular.</p></form>
+    <div class="rsvp-success" id="rsvpSuccess" role="status" hidden>
+      <div class="rsvp-success-icon" aria-hidden="true">✓</div>
+      <h3 id="rsvpSuccessTitle">Sua resposta foi registrada!</h3>
+      <p id="rsvpSuccessMessage">Obrigado por responder ao convite. A organização já poderá ver sua confirmação na lista.</p>
+      <button type="button" id="editRsvp" class="button secondary">Alterar minha resposta</button>
+      <button type="button" id="finishRsvp" class="button primary">Concluir</button>
+    </div>
   </dialog>
 
   <audio id="partyAudio" src="https://gcdn.picsart.com/editing-temp/a562df10-f32a-40cf-8586-6017718b6847.mpeg" preload="none" loop playsinline></audio>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="config.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
