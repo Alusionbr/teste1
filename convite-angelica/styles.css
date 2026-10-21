@@ -107,3 +107,19 @@
   .karaoke-expanded main{padding-bottom:215px}
 }
 @media(prefers-reduced-motion:reduce){.karaoke-progress span{transition:none}}
+
+/* Links para conhecer a unidade: cards leves, grandes para toque no celular. */
+.discover{padding-top:64px;padding-bottom:64px}
+.discover .section-head{margin-bottom:27px}
+.discover-links{max-width:920px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.discover-link{display:flex;align-items:center;min-width:0;gap:15px;background:#fffcf0;border:2px solid #e9d3b0;border-radius:18px;padding:18px 16px;text-decoration:none;color:#562a20;box-shadow:4px 5px 0 #eed7b5;transition:transform .15s ease,box-shadow .15s ease}
+.discover-link:hover{transform:translateY(-2px);box-shadow:5px 7px 0 #e9cca1}
+.discover-feature{background:#fff0c4;border-color:#dbb977}
+.discover-icon{flex:0 0 47px;width:47px;height:47px;display:grid;place-items:center;background:#f7e6c4;border-radius:13px;font-size:25px}
+.discover-feature .discover-icon{background:#f8d68b}
+.discover-copy{flex:1;min-width:0}
+.discover-copy strong{display:block;font-size:16px;font-weight:800;line-height:1.24}
+.discover-copy small{display:block;font-size:12px;line-height:1.5;color:#765c4c;margin-top:5px}
+.discover-arrow{font-size:23px;color:#b14e25;flex:none;font-weight:800}
+.discover-note{max-width:730px;margin:20px auto 0;text-align:center;color:#806454;font-size:12px;line-height:1.5}
+@media(max-width:720px){.discover{padding-top:48px;padding-bottom:48px}.discover-links{grid-template-columns:1fr;gap:12px}.discover-link{padding:15px 13px;min-height:83px}.discover-copy strong{font-size:15px}.discover-icon{width:43px;height:43px;flex-basis:43px;font-size:23px}}
