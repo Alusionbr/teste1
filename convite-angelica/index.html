@@ -93,13 +93,25 @@
 
     <section class="prices section-container" id="valores" aria-labelledby="prices-title"><div class="section-head"><p class="eyebrow">PRA TODO MUNDO SE PROGRAMAR</p><h2 id="prices-title">Valores do <em>rodízio</em></h2><p>Informações da arte do convite. Valores podem mudar: confirme com o restaurante.</p></div><div class="price-grid"><article class="price-card"><span>ADULTOS</span><strong><small>R$</small> 69,90</strong><p>Valor por pessoa</p></article><article class="price-card highlighted"><span>CRIANÇAS · 5 A 9 ANOS</span><strong><small>R$</small> 34,90</strong><p>Meio rodízio</p></article><article class="price-card"><span>CRIANÇAS · 0 A 4 ANOS</span><strong class="free">GRÁTIS</strong><p>Avise no momento da reserva</p></article></div></section>
 
-    <section class="karaoke section-container" id="karaoke" aria-labelledby="karaoke-title" hidden>
-      <div class="section-head"><p class="eyebrow">CANTE JUNTO</p><h2 id="karaoke-title">Karaokê da <em>festa</em></h2><p id="karaokeSong"></p></div>
-      <div class="karaoke-box">
-        <div class="karaoke-lines" id="karaokeLines" role="region" aria-label="Letra da música" tabindex="0"></div>
-        <p class="karaoke-hint" id="karaokeHint">A letra acompanha a música que está tocando.</p>
+    <!-- Mini karaokê: sempre legível na tela, sem rolagem da página -->
+    <aside class="karaoke-dock" id="karaoke" aria-label="Karaokê da festa" hidden>
+      <div class="karaoke-panel" id="karaokePanel">
+        <div class="karaoke-toolbar">
+          <div class="karaoke-heading"><span class="karaoke-mark" aria-hidden="true">♫</span><span><strong>CANTE JUNTO</strong><small id="karaokeSong">A noite da Angélica</small></span></div>
+          <button type="button" id="karaokeHide" class="karaoke-hide" aria-label="Esconder letra do karaokê">Ocultar <span aria-hidden="true">⌄</span></button>
+        </div>
+        <div class="karaoke-stage" id="karaokeLines" aria-label="Trecho atual da música">
+          <p class="karaoke-current" id="karaokeCurrent">Prepare-se para cantar!</p>
+          <p class="karaoke-next" id="karaokeNext" hidden></p>
+        </div>
+        <div class="karaoke-progress" aria-hidden="true"><span id="karaokeProgress"></span></div>
+        <div class="karaoke-bottom">
+          <span id="karaokeHint">A letra acompanha a música</span>
+          <button type="button" class="karaoke-audio" id="karaokeAudio" aria-label="Pausar música">❚❚ Pausar</button>
+        </div>
       </div>
-    </section>
+      <button class="karaoke-reopen" type="button" id="karaokeShow" aria-label="Mostrar letra do karaokê" hidden>♫ <span>Mostrar letra</span><span aria-hidden="true">⌃</span></button>
+    </aside>
 
     <section class="closing section-container" aria-labelledby="closing-title"><div class="closing-card"><span aria-hidden="true" class="closing-emoji">💛 🌵 💛</span><p class="eyebrow">VAI SER INESQUECÍVEL</p><h2 id="closing-title">Só falta <em>você!</em></h2><p>Confirme sua presença e venha dividir esse momento especial com a Angélica.</p><button class="button primary button-large" type="button" data-open-rsvp>Quero confirmar minha presença ↗</button><button class="button share-btn" type="button" id="shareBtn">↗ &nbsp;Compartilhar convite</button></div></section>
   </main>
