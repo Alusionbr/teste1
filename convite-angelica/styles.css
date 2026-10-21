@@ -4,3 +4,10 @@
 @media(max-width:840px){.hero{grid-template-columns:1fr;gap:45px;padding-top:46px}.hero-art{width:min(80%,365px)}.cards{grid-template-columns:1fr}.info-card{min-height:auto}.location-layout{grid-template-columns:1fr}.location-illustration{max-width:520px;width:100%;margin:auto}.section-container{padding:60px 22px}.prices .price-grid{grid-template-columns:1fr}.price-card{padding:22px}.price-card>strong{margin:10px 0 4px}.ribbon-track{font-size:13px}}
 @media(max-width:500px){.site-header{padding:31px 17px 0}.brand{font-size:10px}.music-control{font-size:12px;padding:10px 12px}.section-container{padding:49px 19px}.hero{padding-top:37px}.hero h1 strong{font-size:clamp(2.7rem,12vw,4rem)}.date-banner{gap:16px}.date-banner strong{font-size:24px}.hero-actions .button{width:100%}.hero-art{width:82%;margin-bottom:15px}.sticker-top{right:-31px}.sticker-bottom{left:-29px}.countdown{gap:7px}.countdown>div{min-width:0;flex:1;padding:10px 4px}.countdown strong{font-size:23px}.rsvp-dialog{width:96vw;padding:21px 17px}.guest-count-grid{gap:7px}.guest-count-grid label{font-size:11px}.closing-card{padding:43px 14px}.closing-card .button{display:flex;width:100%;margin:11px 0}.footer{font-size:12px;padding:27px 18px}.photo-shell{box-shadow:10px 12px 0 #e0ab55,16px 23px 25px #4b230f35}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+/* Confirmação gravada no Supabase */
+.rsvp-success{text-align:center;padding:18px 8px 8px}
+.rsvp-success-icon{display:grid;place-items:center;margin:0 auto 18px;background:#33744b;color:#fff;border-radius:50%;width:76px;height:76px;font-size:42px;font-weight:900}
+.rsvp-success h3{font-size:27px;color:var(--brown);margin-bottom:10px}
+.rsvp-success p{color:#73574a;line-height:1.55}
+.rsvp-success button{margin:9px 4px;max-width:100%}
+.send-rsvp:disabled{opacity:.6;cursor:progress}
