@@ -19,9 +19,12 @@ let browser;
   await context.addInitScript(()=>{
     localStorage.setItem("estante:v3:setlists",JSON.stringify({version:3,activeId:"legacy",setlists:[{id:"legacy",name:"Legado",songs:[{title:"Canção antiga",artist:"Banda",lyrics:"[Refrão]\nC G\nTexto",notes:"entrada suave"}]}]}));
   });
-  const page=await context.newPage(),errors=[],failedRequests=[];
+  const page=await context.newPage(),errors=[],failedRequests=[],externalStatuses=new Set();
   page.on("pageerror",error=>errors.push(error.message));
   page.on("requestfailed",request=>failedRequests.push(request.url()));
+  page.on("response",response=>{
+    if((response.url().includes("api.vagalume.com.br")||response.url().includes("lrclib.net"))&&!response.ok())externalStatuses.add(response.status());
+  });
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text())});
   let bugSubmission=null;
   await page.route("https://pxqhpntifbtjaoqtirao.supabase.co/functions/v1/estante-bug-report",async route=>{
@@ -39,7 +42,7 @@ let browser;
   await page.click("#bugReportSubmit");
   await page.waitForFunction(()=>document.querySelector("#bugReportStatus").dataset.state==="success");
   assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
-  assert.deepEqual(bugSubmission,{app_version:"4.1.0",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
+  assert.deepEqual(bugSubmission,{app_version:"4.1.1",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);
@@ -164,8 +167,7 @@ let browser;
     });
     state.source="smart";
   });
-  await page.locator("#searchInput").fill("Um Pedido Davi Sacer");
-  await page.locator("#searchForm button").click();
+  await page.evaluate(()=>{$("searchInput").value="Um Pedido Davi Sacer";$("searchForm").requestSubmit()});
   await page.waitForFunction(()=>typeof window.finishExactLyrics==="function");
   assert.deepEqual(await page.evaluate(()=>window.exactLyricQuery),{title:"Um Pedido",artist:"Davi Sacer"});
   assert.match(await page.locator("#list").textContent(),/buscar letra ao abrir/);
@@ -173,6 +175,21 @@ let browser;
   await page.waitForFunction(()=>state.results[0]?.artist==="Davi Sacer"&&state.results[0]?.source==="LiriQo"&&document.querySelector("#list")?.textContent.includes("com letra"));
   assert.equal(await page.evaluate(()=>!!state.results[0].lyrics),true);
   await page.evaluate(()=>{Object.assign(window,window.exactLyricOriginals);delete window.exactLyricOriginals;delete window.exactLyricQuery;delete window.finishExactLyrics});
+  const progressive=await page.evaluate(async()=>{
+    const originals={searchLrclib,searchVagalumeAdvanced,searchItunes,searchDeezer,searchMusicBrainz};
+    const updates=[];let finishSlow;
+    searchLrclib=async()=>[{title:"Primeira",artist:"Banda",source:"LRCLIB"}];
+    searchVagalumeAdvanced=(q,route)=>route?Promise.resolve([]):new Promise(resolve=>{finishSlow=resolve});
+    searchItunes=searchDeezer=searchMusicBrainz=async()=>[];
+    try{
+      const pending=smartSearchMusic("Primeira",rows=>updates.push(rows.map(x=>x.title)));
+      await new Promise(resolve=>setTimeout(resolve,50));
+      const early=updates.some(rows=>rows.includes("Primeira"));
+      finishSlow([]);await pending;
+      return{early,updates:updates.length};
+    }finally{Object.assign(window,originals)}
+  });
+  assert.equal(progressive.early,true);assert.ok(progressive.updates>=2);
   await page.evaluate(()=>liriqoCache.clear());
   if(process.env.ESTANTE_LIVE_LYRICS==="1"){
     await page.evaluate(async()=>openSong({title:"Um Pedido",artist:"Davi Sacer",source:"Apple",sources:["Apple"]}));
@@ -258,6 +275,13 @@ let browser;
   assert.equal(await page.evaluate(()=>state.sessions.length),1);
   const shared=await page.evaluate(async()=>{const url=await makeShareUrl(true),data=await unpackShare(new URL(url).hash);return{version:data.v,revision:data.songs.find(x=>x.kind==="song").revision,hasLyrics:!!data.songs.find(x=>x.kind==="song").lyrics}});
   assert.deepEqual(shared,{version:4,revision:4,hasLyrics:true});
+  const limits=await page.evaluate(async()=>{
+    let linkRejected=false;
+    try{await unpackShare(SHARE_PLAIN+"x".repeat(MAX_SHARE_BYTES*2+1))}catch(error){linkRejected=/grande demais/.test(error.message)}
+    importSetlist({size:MAX_BACKUP_BYTES+1});
+    return{linkRejected,fileWarning:$("notice").textContent};
+  });
+  assert.equal(limits.linkRejected,true);assert.match(limits.fileWarning,/20 MB/);
   const race=await page.evaluate(async()=>{
     const original=fetchLrclibSong;
     fetchLrclibSong=song=>new Promise(resolve=>setTimeout(()=>{song.lyrics=`Letra ${song.title}`;resolve(song)},song.title==="Lenta"?80:10));
@@ -273,6 +297,10 @@ let browser;
   await page.waitForFunction(()=>document.querySelector("#notice").textContent.includes("outra aba"));
   assert.equal(await page.evaluate(()=>saveSetlists()),false);
   assert.equal(await page.locator("#saveState").textContent(),"Recarregue para salvar");
+  await second.evaluate(()=>EstanteStorage.flush());
+  const backupRevision=await second.evaluate(()=>JSON.parse(localStorage.getItem(EstanteStorage.FALLBACK_KEY)).revision);
+  assert.equal(await page.evaluate(()=>EstanteStorage.flush()),false);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem(EstanteStorage.FALLBACK_KEY)).revision),backupRevision);
   await second.close();
   assert.equal(await page.locator("#menuBtn").evaluate(el=>getComputedStyle(el).display),"none");
   await page.setViewportSize({width:390,height:844});
@@ -288,8 +316,13 @@ let browser;
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&document.querySelector("#network").textContent==="offline");
   assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Criado em outra aba")),true);
   await context.setOffline(false);
-  assert.ok(failedRequests.every(url=>url.includes("api.vagalume.com.br")),failedRequests.join("\n"));
-  const unexpected=errors.filter(message=>!message.includes("api.vagalume.com.br")&&message!=="Failed to load resource: net::ERR_FAILED");
+  assert.ok(failedRequests.every(url=>url.includes("api.vagalume.com.br")||url.includes("lrclib.net")),failedRequests.join("\n"));
+  const unexpected=errors.filter(message=>{
+    if(message.includes("api.vagalume.com.br")||message.includes("lrclib.net"))return false;
+    if(/^Failed to load resource: net::ERR_(?:FAILED|NETWORK_ACCESS_DENIED)$/.test(message))return false;
+    const status=message.match(/^Failed to load resource: the server responded with a status of (\d+) \(\)$/);
+    return !status||!externalStatuses.has(Number(status[1]));
+  });
   assert.equal(unexpected.length,0,unexpected.join("\n"));
 
   const compact=await page.evaluate(()=>({version:state.workspace.version,setlists:state.setlists.length,library:state.library.length,sessions:state.sessions.length,trash:state.trash.length,save:document.querySelector("#saveState").textContent}));

@@ -2,5 +2,9 @@ file360/node_modules/
 file360/.next/
 file360/out/
 file360/tsconfig.tsbuildinfo
+estante/node_modules/
+estante/playwright_chromiumdev_profile-*/
+estante/test-results/
+estante/node-compile-cache/
 _site/
 

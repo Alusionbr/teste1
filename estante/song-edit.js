@@ -21,9 +21,11 @@ function openRevisionHistory(){
 }
 function restoreRevision(entry){
   if(!state.current||!entry?.snapshot)return;
-  const i=state.setlist.findIndex(x=>x.id===state.current.id||sameSong(x,state.current));if(i<0)return notify("Salve esta música no repertório antes de restaurar versões.");
-  const previous=storedSong(state.setlist[i]),snapshot=storedSong(entry.snapshot),draft={...snapshot,id:previous.id,songId:previous.songId,arrangementId:previous.arrangementId,history:previous.history};
-  state.current=updateArrangementEverywhere(draft,previous,`Revisão ${entry.revision} restaurada`);state.setlist[i]=storedSong(state.current);saveSetlists();
+  const i=state.setlist.findIndex(x=>x.id===state.current.id||sameSong(x,state.current));
+  const saved=i>=0||state.library.some(record=>(record.arrangements||[]).some(a=>a.id===state.current.arrangementId));
+  if(!saved)return notify("Salve esta música no repertório antes de restaurar versões.");
+  const previous=storedSong(i>=0?state.setlist[i]:state.current),snapshot=storedSong(entry.snapshot),draft={...snapshot,id:previous.id,songId:previous.songId,arrangementId:previous.arrangementId,history:previous.history};
+  state.current=updateArrangementEverywhere(draft,previous,`Revisão ${entry.revision} restaurada`);if(i>=0)state.setlist[i]=storedSong(state.current);saveSetlists();
   $("revisionDialog").close();$("editDialog").close();$("songTitle").textContent=state.current.title||"Sem título";$("songArtist").textContent=(state.current.artist||"SEM ARTISTA").toUpperCase();stopAll();renderCurrentLyrics();renderList();updateSaveButton();notify(`Revisão ${entry.revision} restaurada como nova revisão ${state.current.revision}.`,true);
 }
 $("revisionHistoryBtn").addEventListener("click",openRevisionHistory);$("revisionCloseBtn").onclick=()=>$("revisionDialog").close();
@@ -31,10 +33,11 @@ function saveSongEdit(){
   if(!state.current)return;
   const texto=$("editText").value;if(!texto.trim())return notify("A letra não pode ficar vazia.");
   const i=state.setlist.findIndex(x=>x.id===state.current.id||sameSong(x,state.current)),previous=storedSong(i>=0?state.setlist[i]:state.current),sync=hasLRC(texto);
+  const inLibrary=state.library.some(record=>(record.arrangements||[]).some(a=>a.id===previous.arrangementId));
   const draft=storedSong({...state.current,title:$("editTitle").value.trim()||state.current.title,artist:$("editArtist").value.trim(),arrangementName:$("editArrangement").value.trim()||"Principal",lyrics:sync?"":texto,synced:sync?texto:""});
-  if(i>=0){
+  if(i>=0||inLibrary){
     state.current=$("editScope").value==="setlist"?detachArrangement(draft,previous):updateArrangementEverywhere(draft,previous);
-    state.setlist[i]=storedSong(state.current);saveSetlists();
+    if(i>=0)state.setlist[i]=storedSong(state.current);saveSetlists();
   }else state.current=draft;
   $("songTitle").textContent=state.current.title||"Sem título";$("songArtist").textContent=(state.current.artist||"SEM ARTISTA").toUpperCase();stopAll();renderCurrentLyrics();renderList();updateSaveButton();$("editDialog").close();notify(`Arranjo salvo como revisão ${state.current.revision||1}.`,true);
 }

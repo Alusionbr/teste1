@@ -52,7 +52,7 @@
     const payload = {
       category: category.value,
       description: text,
-      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.1.0",
+      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.1.1",
       page_path: pagePath.startsWith("/") ? pagePath : "/",
       website: website.value.trim(),
     };

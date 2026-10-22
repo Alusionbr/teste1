@@ -26,7 +26,7 @@ async function openSong(song){
   // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
   // da caixa enquanto a tela já mostrava o título da próxima.
   karaokeOnSongChange();
-  if(!song.lyrics&&!song.synced){
+  if(!song.instrumental&&!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     const tryVagalume=song.vagId&&state.keyVag&&sourceStatus.vagalume?.ok!==false;
     try{if(tryVagalume)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
@@ -167,15 +167,25 @@ function exportSetlist(){
  * então o usuário escolhe adicionar ou substituir.
  */
 let incomingImport=null;
-function importSetlist(file){const r=new FileReader();r.onload=()=>{try{
+const MAX_BACKUP_BYTES=20*1024*1024;
+function importSetlist(file){
+  if(file.size>MAX_BACKUP_BYTES)return notify("Este arquivo é grande demais para importar. O limite é 20 MB.");
+  const r=new FileReader();r.onerror=()=>notify("Não consegui ler este arquivo de repertório.");r.onload=()=>{try{
   const d=JSON.parse(r.result);
-  if(d&&Array.isArray(d.setlists)&&d.setlists.length)askImportMode(d.setlists.map(normalizeSetlist),d.activeId,d);
-  else if(d&&d.kind==="estante-setlist"&&d.setlist&&Array.isArray(d.setlist.songs))askImportMode([normalizeSetlist(d.setlist)],d.setlist.id,d);
+  if(d&&Array.isArray(d.setlists)&&d.setlists.length){
+    if(d.setlists.length>200||d.setlists.some(s=>!Array.isArray(s?.songs))||d.setlists.reduce((count,s)=>count+s.songs.length,0)>3000)throw Error("O arquivo excede o limite de repertórios ou músicas.");
+    askImportMode(d.setlists.map(normalizeSetlist),d.activeId,d);
+  }
+  else if(d&&d.kind==="estante-setlist"&&d.setlist&&Array.isArray(d.setlist.songs)){
+    if(d.setlist.songs.length>3000)throw Error("O arquivo tem músicas demais.");
+    askImportMode([normalizeSetlist(d.setlist)],d.setlist.id,d);
+  }
   else{
     const raw=Array.isArray(d)?d:(d.setlist||d.repertorio);if(!Array.isArray(raw))throw 0;
+    if(raw.length>3000)throw Error("O arquivo tem músicas demais.");
     askImportMode([makeSetlist("Repertório importado",raw.map(normalizeSong))],"");
   }
-}catch{notify("Arquivo de repertório inválido.")}};r.readAsText(file)}
+}catch(error){notify(error?.message||"Arquivo de repertório inválido.")}};r.readAsText(file)}
 
 function askImportMode(setlists,activeId,workspace=null){
   incomingImport={setlists,activeId,workspace};
@@ -192,11 +202,20 @@ function finishImport(mode){
     const migrated=EstanteDomain.migrate(workspace||{setlists,activeId});
     state.setlists=migrated.setlists;state.library=migrated.library;state.trash=migrated.trash;state.sessions=migrated.sessions;
     state.activeSetlistId=state.setlists.some(s=>s.id===migrated.activeId)?migrated.activeId:state.setlists[0].id;
+    state.activeSession=state.setlists.some(s=>s.id===migrated.activeSession?.setlistId)?migrated.activeSession:null;
+    if(state.activeSession)state.activeSetlistId=state.activeSession.setlistId;
   }else{
     // Entram como repertórios novos, com id próprio para não colidir com os que
     // já estão no aparelho.
-    setlists.forEach(s=>{s.id=newSetlistId();s.songs.forEach(item=>item.id=EstanteDomain.uid("item"));state.setlists.push(s)});
-    state.activeSetlistId=setlists[0].id;
+    const songIds=new Map(),arrangementIds=new Map();
+    setlists.forEach(s=>{s.id=newSetlistId();s.songs.forEach(item=>{
+      item.id=EstanteDomain.uid("item");
+      if(item.kind==="note")return;
+      if(!songIds.has(item.songId))songIds.set(item.songId,EstanteDomain.uid("song"));
+      if(!arrangementIds.has(item.arrangementId))arrangementIds.set(item.arrangementId,EstanteDomain.uid("arr"));
+      item.songId=songIds.get(item.songId);item.arrangementId=arrangementIds.get(item.arrangementId);
+    });state.setlists.push(s)});
+    if(!state.activeSession)state.activeSetlistId=setlists[0].id;
     state.library=EstanteDomain.rebuildLibrary(state.setlists,state.library);
   }
   state.currentIndex=-1;bindActiveSetlist();saveSetlists();

@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/browser-smoke.js && node tests/cache-upgrade.js"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

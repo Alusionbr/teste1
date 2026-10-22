@@ -162,6 +162,19 @@ function sharedSongs(comLetras){
  * marcas de hash diferentes, e a leitura aceita as duas.
  */
 const SHARE_ZIP="#setlistz=",SHARE_PLAIN="#setlist=";
+const MAX_SHARE_BYTES=2*1024*1024;
+async function readShareBytes(stream){
+  const reader=stream.getReader(),chunks=[];let size=0;
+  try{
+    for(;;){const{value,done}=await reader.read();if(done)break;
+      size+=value.byteLength;if(size>MAX_SHARE_BYTES){await reader.cancel();throw Error("Este link de repertório é grande demais. Peça o arquivo de exportação.")}
+      chunks.push(value);
+    }
+  }finally{reader.releaseLock()}
+  const bytes=new Uint8Array(size);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}
+  return bytes;
+}
 async function packShare(payload){
   const bytes=new TextEncoder().encode(JSON.stringify(payload));
   if(typeof CompressionStream==="function"){
@@ -173,12 +186,15 @@ async function packShare(payload){
   return SHARE_PLAIN+b64urlFromBytes(bytes);
 }
 async function unpackShare(hash){
+  if(hash.length>MAX_SHARE_BYTES*2)throw Error("Este link de repertório é grande demais. Peça o arquivo de exportação.");
   if(hash.startsWith(SHARE_ZIP)){
     if(typeof DecompressionStream!=="function")throw Error("Este link foi compactado e o navegador não sabe abrir. Peça o arquivo de exportação.");
-    const buf=await new Response(new Blob([b64urlToBytes(hash.slice(SHARE_ZIP.length))]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
-    return JSON.parse(new TextDecoder().decode(new Uint8Array(buf)));
+    const bytes=await readShareBytes(new Blob([b64urlToBytes(hash.slice(SHARE_ZIP.length))]).stream().pipeThrough(new DecompressionStream("deflate-raw")));
+    return JSON.parse(new TextDecoder().decode(bytes));
   }
-  return JSON.parse(new TextDecoder().decode(b64urlToBytes(hash.slice(SHARE_PLAIN.length))));
+  const bytes=b64urlToBytes(hash.slice(SHARE_PLAIN.length));
+  if(bytes.byteLength>MAX_SHARE_BYTES)throw Error("Este link de repertório é grande demais. Peça o arquivo de exportação.");
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 async function makeShareUrl(comLetras){
   const set=activeSetlist();
@@ -220,8 +236,9 @@ async function readSharedLink(){
   try{
     const data=await unpackShare(hash);
     if(![1,2,4].includes(data?.v)||!Array.isArray(data.songs)||!data.songs.length)throw Error("Este link de repertório não está num formato que eu conheça.");
+    if(data.songs.length>150)throw Error("Este link tem músicas demais. Peça o arquivo de exportação.");
     incomingName=String(data.name||"").slice(0,60);
-    return data.songs.map(normalizeSong).slice(0,150);
+    return data.songs.map(normalizeSong);
   }catch(e){notify(e.message||"Não consegui ler este link de repertório.");return null}
 }
 let incomingSetlist=null,incomingName="";

@@ -1,7 +1,8 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),http=require("node:http");
 const os=require("node:os");
-const {chromium}=require(path.join(os.homedir(),".cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright"));
+const bundled=process.env.CODEX_NODE_MODULES||path.join(os.homedir(),".cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules");
+const {chromium}=fs.existsSync(path.join(bundled,"playwright"))?require(path.join(bundled,"playwright")):require("playwright");
 const root=path.resolve(__dirname,"..");
 const version=fs.readFileSync(path.join(root,"core.js"),"utf8").match(/APP_VERSION="([^"]+)"/)[1];
 const old=new Map();
