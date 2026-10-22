@@ -19,9 +19,12 @@ let browser;
   await context.addInitScript(()=>{
     localStorage.setItem("estante:v3:setlists",JSON.stringify({version:3,activeId:"legacy",setlists:[{id:"legacy",name:"Legado",songs:[{title:"Canção antiga",artist:"Banda",lyrics:"[Refrão]\nC G\nTexto",notes:"entrada suave"}]}]}));
   });
-  const page=await context.newPage(),errors=[],failedRequests=[];
+  const page=await context.newPage(),errors=[],failedRequests=[],externalStatuses=new Set();
   page.on("pageerror",error=>errors.push(error.message));
   page.on("requestfailed",request=>failedRequests.push(request.url()));
+  page.on("response",response=>{
+    if((response.url().includes("api.vagalume.com.br")||response.url().includes("lrclib.net"))&&!response.ok())externalStatuses.add(response.status());
+  });
   page.on("console",message=>{if(message.type()==="error")errors.push(message.text())});
   let bugSubmission=null;
   await page.route("https://pxqhpntifbtjaoqtirao.supabase.co/functions/v1/estante-bug-report",async route=>{
@@ -314,7 +317,12 @@ let browser;
   assert.equal(await page.evaluate(()=>state.setlists.some(x=>x.name==="Criado em outra aba")),true);
   await context.setOffline(false);
   assert.ok(failedRequests.every(url=>url.includes("api.vagalume.com.br")||url.includes("lrclib.net")),failedRequests.join("\n"));
-  const unexpected=errors.filter(message=>!message.includes("api.vagalume.com.br")&&!message.includes("lrclib.net")&&!/^Failed to load resource: net::ERR_(?:FAILED|NETWORK_ACCESS_DENIED)$/.test(message));
+  const unexpected=errors.filter(message=>{
+    if(message.includes("api.vagalume.com.br")||message.includes("lrclib.net"))return false;
+    if(/^Failed to load resource: net::ERR_(?:FAILED|NETWORK_ACCESS_DENIED)$/.test(message))return false;
+    const status=message.match(/^Failed to load resource: the server responded with a status of (\d+) \(\)$/);
+    return !status||!externalStatuses.has(Number(status[1]));
+  });
   assert.equal(unexpected.length,0,unexpected.join("\n"));
 
   const compact=await page.evaluate(()=>({version:state.workspace.version,setlists:state.setlists.length,library:state.library.length,sessions:state.sessions.length,trash:state.trash.length,save:document.querySelector("#saveState").textContent}));
