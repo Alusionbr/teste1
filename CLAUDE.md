@@ -531,10 +531,12 @@ Tom, capotraste, velocidade e anotações são por música. Preferências do apa
 
 O Vagalume fica fora do ar de vez em quando (erro 502/503/504 do próprio serviço, não do Estante). Por isso:
 
-- toda chamada ao Vagalume passa por `fetchRetrying()` (`core.js`), que repete uma vez em erro passageiro do servidor — nunca em 429, que significa "espere", não "tente de novo";
+- toda chamada ao Vagalume **e ao LRCLIB** (busca e abertura de letra) passa por `fetchRetrying()` (`core.js`), que repete uma vez em erro passageiro do servidor (502/503/504) — nunca em 429, que significa "espere", não "tente de novo". Só a sondagem automática de `search-ui.js` usa `fetchSafe()` de propósito: ela mede a saúde da fonte, não pode mascarar a falha;
 - `markSource()`/`sourceDown()` registram a saúde de cada fonte nesta sessão; os chips **Brasil** e **Trecho** (que dependem só do Vagalume) mostram um sinal quando ele caiu;
 - a busca **Inteligente** é a mais resistente: combina LRCLIB, Vagalume, Deezer, Apple e MusicBrainz, então uma fonte fora do ar não a derruba;
-- quando um modo específico falha por causa da fonte, a busca oferece um atalho de um toque para repetir na Inteligente (`search-ui.js`).
+- quando um modo específico falha por causa da fonte, a busca oferece um atalho de um toque para repetir na Inteligente (`search-ui.js`);
+- fonte que falhou é **poupada por 20 s** (`SOURCE_COOLDOWN_MS` e `sourceCoolingDown()`, em `core.js`) e depois volta a ser consultada. **Nunca pule uma fonte só porque `sourceStatus[nome].ok===false`, sem prazo**: era isso que deixava um único 503 passageiro (inclusive o da sondagem de `search-ui.js`, que roda ao abrir e a cada 5 min) desligar LRCLIB e Vagalume pela sessão inteira, sobrando só os catálogos (Apple, Deezer, MusicBrainz), que identificam a música mas não têm letra;
+- a tela "não achei a letra" (`renderMissingLyrics`, `player.js`) tem o botão **Tentar de novo**: chama `forgetSourceFailures()` (só envelhece a falha — `ok` continua falso até uma resposta real chegar, para os chips de modo não mudarem sem motivo) e reabre a mesma música. Quando alguma fonte está fora do ar, a tela avisa que pode ser instabilidade passageira.
 
 Fontes de catálogo sem CORS para o navegador (Apple, Deezer) usam JSONP (`jsonp()` em `search-engine.js`) em vez de `fetch()` — a mesma técnica para as duas, sem biblioteca externa. LRCLIB, lyrics.ovh e MusicBrainz devolvem `access-control-allow-origin: *` e são chamadas por `fetch()` direto.
 
@@ -546,7 +548,7 @@ Antes de adicionar uma API, confira com `curl -D-` se ela devolve cabeçalho COR
 
 `searchLocal()` (repertório salvo) e `searchAcervo()` (`acervo.js`) rodam em toda busca, antes de qualquer fonte externa. Os dois procuram **dentro do texto da letra**, não só em título e artista — é a única busca por trecho que não depende do Vagalume, e a única que funciona offline. `withLocalFirst()` põe esses resultados na frente e descarta o duplicado que vier da rede: a versão do aparelho tem a letra corrigida e o tom marcado pelo usuário.
 
-Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB → Vagalume (se houver chave) → acervo do site → `lyrics.ovh`. O acervo vem antes da rede por ser conteúdo próprio e não precisar de conexão.
+Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB → Vagalume (se houver chave) → acervo do site → LiriQo → `lyrics.ovh`. O acervo vem antes da rede por ser conteúdo próprio e não precisar de conexão.
 
 ### 10. O acervo do site é publicação, não cache
 
@@ -645,6 +647,17 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 - Não apagar repertório do usuário em migração ou importação sem confirmação.
 - Não transformar preferência do aparelho em ajuste por música (nem o contrário) — `audioDelay` é do aparelho, `videoOffset` é da música, e não é o mesmo engano ao contrário: um não deve nunca escrever no outro.
 - Não carregar `iframe_api` do YouTube nem qualquer script de terceiro na página — o karaokê fala o protocolo `postMessage` na mão (princípio 14). Um bug de sincronia não é motivo para adicionar o script.
+
+## Registro de correções
+
+### 4.1.1 — "Nenhuma letra abre" quando as fontes oscilam
+
+- **Sintoma:** a tela mostrava "Encontrei a música, mas não a letra" com LRCLIB (503), Vagalume e LiriQo como indisponíveis, e nenhuma música do catálogo abria.
+- **Causa no código:** `searchLrclib` e `searchVagalumeAdvanced` pulavam a fonte para sempre depois de uma única falha (`ok===false`, sem prazo), e as chamadas ao LRCLIB não repetiam em erro passageiro. A sondagem de `search-ui.js` (ao abrir e a cada 5 min) bastava para acionar isso: um 503 momentâneo deixava só os catálogos, que não têm letra.
+- **Correção:** prazo de 20 s para a fonte voltar a ser consultada (`sourceCoolingDown`), repetição do LRCLIB em erro passageiro (`fetchRetrying`) e botão **Tentar de novo** na tela sem letra (`forgetSourceFailures`). Detalhes no princípio 8.
+- **Limite conhecido:** se LRCLIB, Vagalume, LiriQo e lyrics.ovh estiverem de fato fora do ar ao mesmo tempo, nenhuma letra nova abre — só as já salvas no aparelho, as do acervo e a colagem manual. O código não cria letra que nenhuma fonte devolve. Nova fonte só entra depois de conferir CORS com `curl -D-` e de responder às perguntas do princípio 8.
+- **Como conferir as fontes:** `node estante/scripts/check-sources.mjs`, rodado de uma máquina com acesso livre à internet, mostra o estado de cada fonte e a versão publicada.
+- **Testes:** `node --test estante/tests/*.test.js` (inclui `sources.test.js`, que simula as fontes e não usa rede nem navegador) e `node estante/tests/browser-smoke.js` com um servidor local na porta 8765 servindo a pasta `estante/`. O teste de navegador agora espera o diálogo de relato de bug fechar antes de seguir (antes dependia de a máquina ser lenta). `estante/tests/cache-upgrade.js` procura o Playwright num caminho fixo da máquina do autor; em outra máquina, ajuste o `require` da linha 4.
 
 ## Ideias para evolução
 

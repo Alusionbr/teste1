@@ -9,7 +9,8 @@ Faz parte do [conjunto de ferramentas](../README.md) deste repositório.
 | Recurso | Como funciona |
 |---|---|
 | **Busca inteligente** | Consulta LRCLIB, Vagalume, Deezer, Apple e MusicBrainz em paralelo, junta versões repetidas e ordena por relevância. É o modo mais resistente: continua achando música mesmo com uma fonte fora do ar. Se o Vagalume falhar no modo Brasil, o app passa automaticamente para essa busca. Trecho continua dependendo do Vagalume ou das letras salvas. |
-| **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. |
+| **Fonte fora do ar** | Erro passageiro (502/503/504) do Vagalume ou do LRCLIB é repetido uma vez sozinho. Se continuar fora do ar, o chip **Brasil**/**Trecho** ganha um sinal vermelho e a busca oferece um atalho de um toque para tentar de novo na Inteligente. A fonte que falhou é poupada por 20 s e depois volta a ser consultada sozinha, sem recarregar a página. |
+| **Letra não abriu** | A tela "não achei a letra" tem **Tentar de novo** (repete a mesma música consultando todas as fontes), **Buscar outras versões** e **Colar minha letra**. Se alguma fonte estiver fora do ar, ela avisa que pode ser instabilidade passageira. |
 | **Busca no aparelho** | Toda busca mostra primeiro a biblioteca local e depois incorpora o acervo e as fontes online. Pedidos antigos são descartados quando uma busca mais nova começa. Também procura **dentro do texto da letra** e funciona offline. |
 | **Acervo do site** | `acervo.json` guarda letras no próprio repositório, para o que as fontes públicas não têm (autoral, regional, tradicional). Entra na busca e no cache offline. Vem vazio — ver [`acervo.md`](acervo.md). |
 | **Reserva de letra** | Faixa achada só no catálogo (Apple/Deezer) tenta o acervo, o LiriQo e a `lyrics.ovh`. O LiriQo exige correspondência de título e artista; para o medley “Ouve-se o Júbilo / Leão da Tribo de Judá”, há uma versão de ensaio identificada quando a gravação exata não tem transcrição. |
@@ -234,7 +235,7 @@ Todas gratuitas e sem cadastro, exceto onde indicado. Nenhuma biblioteca externa
 
 | Fonte | Traz | Chave | Como é chamada |
 |---|---|---|---|
-| **LRCLIB** | letra e **letra sincronizada** (`.lrc`) | não | `fetch` (CORS aberto) |
+| **LRCLIB** | letra e **letra sincronizada** (`.lrc`) | não | `fetch` (CORS aberto), com repetição em erro passageiro |
 | **Vagalume** | letra e busca **por trecho** | opcional, só para abrir a letra | `fetch`, com repetição em erro passageiro |
 | **Acervo do site** | letra própria, offline | não | arquivo local |
 | **LiriQo** | letra simples de outras fontes, com confirmação de título e artista | não | `fetch` (CORS aberto) |

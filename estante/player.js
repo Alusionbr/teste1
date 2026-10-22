@@ -3,19 +3,24 @@ function renderMissingLyrics(song,message){
   const catalogSources=(song.sources||[]).some(source=>["Apple","Deezer","MusicBrainz"].includes(source))||["Apple","Deezer","MusicBrainz"].includes(song.source);
   const title=catalogSources?"Encontrei a música, mas não a letra.":"Não consegui abrir esta letra.";
   const down=[sourceDown("lrclib")?` LRCLIB indisponível${sourceStatus.lrclib.detail?` (${sourceStatus.lrclib.detail})`:""}.`:"",sourceDown("vagalume")?" O Vagalume está indisponível no momento.":"",sourceDown("liriqo")?" LiriQo indisponível no momento.":""] .join("");
+  // Fonte fora do ar costuma ser passageira: avisa e oferece repetir sem o
+  // usuário ter de refazer a busca do zero.
+  const passageira=down?" Pode ser instabilidade passageira: toque em “Tentar de novo”.":"";
   const isJubilo=/jubil|tribo de juda/.test(fold(song.title));
   const isMedley=/[\/]|\b(?:medley|mashup|pot-pourri)\b/i.test(song.title||"");
   const hint=isJubilo?(isMedley?"Este resultado é o medley pedido, mas nenhuma fonte de texto retornou sua letra.":"Se você procura a combinação com “Ele é o Leão da Tribo de Judá”, escolha um resultado marcado como medley."):"Tente outra versão ou cole uma letra sua.";
   const detail=catalogSources
-    ?`O catálogo identifica a gravação, mas não fornece letra. As fontes de texto consultadas não encontraram esta versão.${down} ${hint}`
-    :`${message||"Nenhuma fonte devolveu texto para esta versão."}${down}`;
+    ?`O catálogo identifica a gravação, mas não fornece letra. As fontes de texto consultadas não encontraram esta versão.${down}${passageira} ${hint}`
+    :`${message||"Nenhuma fonte devolveu texto para esta versão."}${down}${passageira}`;
   const paper=$("paper");paper.innerHTML=`<div class="emptyPaper"><b>${esc(title)}</b><small>${esc(detail)}</small></div>`;
   const actions=document.createElement("div");actions.className="missingActions";
+  const again=document.createElement("button");again.type="button";again.textContent="Tentar de novo";
+  again.onclick=()=>{forgetSourceFailures();openSong(song)};
   const retry=document.createElement("button");retry.type="button";retry.textContent="Buscar outras versões";
   retry.onclick=()=>{$("searchInput").value=song.title||"";state.source="smart";$("searchForm").requestSubmit();if(matchMedia("(max-width:900px)").matches)toggleSidebar()};
   const paste=document.createElement("button");paste.type="button";paste.textContent="Colar minha letra";
   paste.onclick=()=>{$("pasteTitle").value=song.title||"";$("pasteArtist").value=song.artist||"";$("pasteText").value="";$("pasteDialog").showModal()};
-  actions.append(retry,paste);paper.querySelector(".emptyPaper").appendChild(actions);
+  actions.append(again,retry,paste);paper.querySelector(".emptyPaper").appendChild(actions);
   const links=[],vagUrl=safeUrl(song.vagUrl),catalogUrl=safeUrl(song.catalogUrl);if(vagUrl)links.push(`<a href="${esc(vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(catalogUrl)links.push(`<a href="${esc(catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
 }
 let openSongRequest=0;
@@ -28,7 +33,7 @@ async function openSong(song){
   karaokeOnSongChange();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
-    const tryVagalume=song.vagId&&state.keyVag&&sourceStatus.vagalume?.ok!==false;
+    const tryVagalume=song.vagId&&state.keyVag&&!sourceCoolingDown("vagalume");
     try{if(tryVagalume)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
       if(requestId!==openSongRequest)return;
       if(tryVagalume){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify(`O Vagalume não respondeu; carreguei uma versão de ${song.source||"outra fonte"}.`,true)}catch{if(requestId===openSongRequest)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}

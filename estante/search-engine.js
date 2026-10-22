@@ -43,9 +43,9 @@ function songKey(m){
 function mergeSongs(rows,q){const map=new Map();for(const raw of rows){if(!raw||!raw.title)continue;const k=songKey(raw);const old=map.get(k);if(!old){const x={...raw,sources:[...(raw.sources||[raw.source].filter(Boolean))]};map.set(k,x);continue}const src=new Set([...(old.sources||[]),...(raw.sources||[raw.source].filter(Boolean))]);old.sources=[...src];for(const f of ["lyrics","synced","vagId","vagUrl","catalogUrl","appleId","album","duration"]){if(!old[f]&&raw[f])old[f]=raw[f]}if((raw.synced||raw.lyrics)&&!(old.synced||old.lyrics)){old.lyrics=raw.lyrics||"";old.synced=raw.synced||""}}
   const all=[...map.values()];for(const m of all){m.source=m.sources.join(" + ");m._score=candidateScore(m,q)}return all.sort((a,b)=>b._score-a._score||String(a.title).localeCompare(String(b.title))).slice(0,35)}
 function queryVariants(q){const out=[q];const clean=cleanEdition(q);if(searchFold(clean)!==searchFold(q)&&clean.length>2)out.push(clean);const noFeat=clean.replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"").trim();if(noFeat.length>2&&!out.some(x=>searchFold(x)===searchFold(noFeat)))out.push(noFeat);const dash=q.split(/\s[-–—]\s/).map(x=>x.trim()).filter(x=>x.length>2);for(const x of dash)if(!out.some(v=>searchFold(v)===searchFold(x)))out.push(x);return out.slice(0,3)}
-async function searchLrclib(q){if(sourceStatus.lrclib?.ok===false)return[];let r;try{r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:SEARCH_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw e}if(r.status===429){markSource("lrclib",false,429);return[]}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
+async function searchLrclib(q){if(sourceCoolingDown("lrclib"))return[];let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:SEARCH_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw e}if(r.status===429){markSource("lrclib",false,429);return[]}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
 async function searchVagalumeAdvanced(q,route="search.artmus"){
-  if(sourceStatus.vagalume?.ok===false)return[];
+  if(sourceCoolingDown("vagalume"))return[];
   const key=state.keyVag?`&apikey=${encodeURIComponent(state.keyVag)}`:"";
   let r;try{r=await fetchRetrying(`https://api.vagalume.com.br/${route}?q=${encodeURIComponent(q)}&limit=10${key}`)}catch(e){markSource("vagalume",false,e.message);return[]}if(!r.ok){markSource("vagalume",false,r.status);return[]}markSource("vagalume",true);const d=await r.json();return((d.response&&d.response.docs)||[]).filter(x=>x.title).map(x=>({title:x.title,artist:x.band||"",album:"",duration:0,lyrics:"",synced:"",source:"Vagalume",sources:["Vagalume"],vagId:x.id||"",vagUrl:x.url?"https://www.vagalume.com.br"+x.url:""}))}
 // Fontes por JSONP: a Apple e a Deezer não devolvem cabeçalho de CORS para
@@ -141,7 +141,7 @@ searchMusic=async function(q){
   }
 };
 fetchLrclibSong=async function(song){
-  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchSafe(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();
+  if(song.title&&song.artist&&song.album&&song.duration){const qs=new URLSearchParams({track_name:song.title,artist_name:song.artist,album_name:song.album,duration:String(Math.round(song.duration))});try{const r=await fetchRetrying(`https://lrclib.net/api/get?${qs}`,{headers:SEARCH_HEADERS},15000);if(r.ok){const x=await r.json();
     // Só aceitar se veio texto de verdade. O LRCLIB responde 200 com
     // plainLyrics e syncedLyrics nulos em vários registros que não são
     // instrumentais; aceitar isso como sucesso abria a música EM BRANCO e
@@ -153,7 +153,7 @@ fetchLrclibSong=async function(song){
     }
   }}catch{}}
   try{return await legacyFetchLrclibSong(song)}catch(first){
-    if(state.keyVag&&sourceStatus.vagalume?.ok!==false){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
+    if(state.keyVag&&!sourceCoolingDown("vagalume")){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
     // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)
     // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
     // não havia mais nada a tentar.

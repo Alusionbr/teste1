@@ -38,8 +38,12 @@ let browser;
   await page.fill("#bugDescription","A busca não abriu a letra esperada.");
   await page.click("#bugReportSubmit");
   await page.waitForFunction(()=>document.querySelector("#bugReportStatus").dataset.state==="success");
+  // O diálogo modal só fecha 1,3 s depois do sucesso e, aberto, deixa o resto da
+  // página inerte: sem esperar, o preenchimento da busca (mais adiante) caía
+  // nessa janela e o texto não entrava. Em máquina lenta o teste passava por sorte.
+  await page.waitForFunction(()=>!document.querySelector("#bugReportDialog").open);
   assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
-  assert.deepEqual(bugSubmission,{app_version:"4.1.0",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
+  assert.deepEqual(bugSubmission,{app_version:"4.1.1",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);
@@ -85,7 +89,7 @@ let browser;
   ],"ouvisse o jubilo ele é o leão da tribo de Judá")[0].title);
   assert.match(combinedRank,/Ouve-se o Júbilo \/ Leão/);
   assert.match(searchRegression.explanation,/O Vagalume está indisponível/);
-  assert.deepEqual(searchRegression.actions,["Buscar outras versões","Colar minha letra"]);
+  assert.deepEqual(searchRegression.actions,["Tentar de novo","Buscar outras versões","Colar minha letra"]);
   const unavailableSources=await page.evaluate(()=>{
     markSource("lrclib",false,503);markSource("vagalume",false,503);
     renderMissingLyrics({title:"Leão da Tribo",artist:"Masterix",source:"Apple",sources:["Apple"]},"Sem letra");
@@ -93,7 +97,22 @@ let browser;
   });
   assert.match(unavailableSources.message,/LRCLIB indisponível \(503\)/);
   assert.match(unavailableSources.message,/Vagalume está indisponível/);
-  assert.deepEqual(unavailableSources.actions,["Buscar outras versões","Colar minha letra"]);
+  assert.deepEqual(unavailableSources.actions,["Tentar de novo","Buscar outras versões","Colar minha letra"]);
+  assert.match(unavailableSources.message,/instabilidade passageira/);
+  // "Tentar de novo" reabre a mesma música e esquece as falhas recentes, para a
+  // nova tentativa consultar as fontes de verdade em vez de pulá-las.
+  const retryButton=await page.evaluate(()=>{
+    const original=openSong;let reopened=null;
+    openSong=async song=>{reopened=song.title};
+    markSource("lrclib",false,503);
+    renderMissingLyrics({title:"Leão da Tribo",artist:"Masterix",source:"Apple",sources:["Apple"]},"Sem letra");
+    const duringCooldown=sourceCoolingDown("lrclib");
+    [...document.querySelectorAll(".missingActions button")].find(b=>b.textContent==="Tentar de novo").click();
+    const result={duringCooldown,reopened,coolingAfter:sourceCoolingDown("lrclib"),markedDown:sourceStatus.lrclib.ok===false};
+    openSong=original;markSource("lrclib",true);markSource("vagalume",true);
+    return result;
+  });
+  assert.deepEqual(retryButton,{duringCooldown:true,reopened:"Leão da Tribo",coolingAfter:false,markedDown:true});
   const brasilFallback=await page.evaluate(async()=>{
     const originals={fetchRetrying,searchLrclib,searchItunes,searchDeezer,searchMusicBrainz};
     state.source="vagalume";

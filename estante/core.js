@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.1.0";
+const APP_VERSION="4.1.1";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -43,6 +43,22 @@ async function fetchRetrying(url,options={},timeout=12000){
 const sourceStatus={};
 function markSource(name,ok,detail){sourceStatus[name]={ok,at:Date.now(),detail};window.dispatchEvent(new CustomEvent("estante:source-status",{detail:{name,ok}}))}
 function sourceDown(name,maxAgeMs=120000){const s=sourceStatus[name];return!!s&&!s.ok&&(Date.now()-s.at)<maxAgeMs}
+/*
+ * Fonte que acabou de falhar é poupada por pouco tempo e depois volta a ser
+ * consultada. Poupar dentro de uma mesma busca evita martelar um servidor que
+ * já respondeu erro; mas poupar PARA SEMPRE (como era antes: `ok===false`, sem
+ * prazo) deixava um único 503 passageiro — inclusive o da sondagem automática
+ * de search-ui.js — desligar LRCLIB e Vagalume pelo resto da sessão, mesmo
+ * depois de os dois já terem voltado. Resultado: só sobravam os catálogos
+ * (Apple, Deezer, MusicBrainz), que identificam a música mas não têm letra.
+ */
+const SOURCE_COOLDOWN_MS=20000;
+function sourceCoolingDown(name){return sourceDown(name,SOURCE_COOLDOWN_MS)}
+// Pedido explícito do usuário ("Tentar de novo"): a próxima tentativa tem de
+// consultar as fontes de verdade, não pular as que falharam há pouco. Só
+// envelhece a falha — `ok` continua falso até uma resposta real dizer o
+// contrário, para os chips de modo da busca não mudarem sem motivo.
+function forgetSourceFailures(){Object.values(sourceStatus).forEach(s=>{if(s&&s.ok===false)s.at=0})}
 
 function load(k,fallback){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fallback}catch{return fallback}}
 // Devolve true quando gravou. Quando o armazenamento do navegador enche, o
@@ -93,7 +109,7 @@ function updateControls(){document.documentElement.style.setProperty("--font",st
 function sourceError(name,msg){const e=Error(msg);e.source=name;return e}
 async function searchMusic(q){
   if(state.source==="lrclib"){
-    let r;try{r=await fetchSafe(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw sourceError("lrclib","LRCLIB não respondeu a tempo.")}
+    let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw sourceError("lrclib","LRCLIB não respondeu a tempo.")}
     if(r.status===429){markSource("lrclib",false,429);const wait=r.headers.get("Retry-After");throw sourceError("lrclib",`Muitas buscas seguidas no LRCLIB.${wait?` Tente novamente em ${wait}s.`:" Aguarde alguns segundos."}`)}
     if(!r.ok){markSource("lrclib",false,r.status);throw sourceError("lrclib",`LRCLIB respondeu ${r.status}`)}
     markSource("lrclib",true);
@@ -126,7 +142,7 @@ async function fetchVagalume(song){
 function matchesLyricSong(record,song){return fold(record.trackName)===fold(song.title)&&fold(record.artistName)===fold(song.artist)}
 async function fetchLrclibSong(song){
   const qs=new URLSearchParams({track_name:song.title||""});if(song.artist)qs.set("artist_name",song.artist);
-  let r;try{r=await fetchSafe(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS})}catch(error){markSource("lrclib",false,error.message);throw error}
+  let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?${qs}`,{headers:LRCLIB_HEADERS})}catch(error){markSource("lrclib",false,error.message);throw error}
   if(r.status===429){markSource("lrclib",false,429);throw Error("LRCLIB limitou temporariamente as buscas. Tente novamente em instantes.")}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}
   markSource("lrclib",true);
   // Pega a primeira linha COM texto. Cair no rows[0] quando nenhuma tem letra
