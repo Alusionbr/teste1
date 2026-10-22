@@ -36,8 +36,19 @@
     const db=await openDb();
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(STORE,"readwrite");
-      tx.objectStore(STORE).put(value,CURRENT);
-      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error("Gravação cancelada"));
+      const store=tx.objectStore(STORE);
+      const request=store.get(CURRENT);
+      let conflict=false;
+      request.onsuccess=()=>{
+        const current=request.result;
+        if(current&&Number(current.revision)>=Number(value.revision)){
+          conflict=true;tx.abort();return;
+        }
+        store.put(value,CURRENT);
+      };
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error);
+      tx.onabort=()=>reject(conflict?Error("Outra aba salvou uma revisão igual ou mais recente"):tx.error||Error("Gravação cancelada"));
     });
   }
   function fallbackRead(){try{return JSON.parse(localStorage.getItem(FALLBACK_KEY)||"null")}catch{return null}}
@@ -65,11 +76,13 @@
     const fallbackOk=hasIndexedDb?false:fallbackWrite(snapshot);
     writeQueue=writeQueue.catch(()=>{}).then(async()=>{
       try{
+        if(conflicted)return false;
         await put(snapshot);setState("saved");
         if(Date.now()-lastBackupAt>30000&&fallbackWrite(snapshot))lastBackupAt=Date.now();
         if(channel)channel.postMessage({type:"saved",revision:snapshot.revision,updatedAt:snapshot.updatedAt,writerId});
         return true;
       }catch(error){
+        if(/Outra aba salvou/.test(error.message)){conflicted=true;pendingBackup=null;setState("error","Recarregue para salvar");return false}
         if(fallbackOk||fallbackWrite(snapshot)){setState("saved","Salvo localmente");return true}
         setState("error");throw error;
       }
@@ -77,14 +90,18 @@
     return fallbackOk||hasIndexedDb;
   }
   async function flush(){
-    if(pendingBackup&&fallbackWrite(pendingBackup))lastBackupAt=Date.now();
-    try{await writeQueue;return true}catch{return false}
+    try{
+      const saved=await writeQueue;
+      if(conflicted)return false;
+      if(pendingBackup&&fallbackWrite(pendingBackup))lastBackupAt=Date.now();
+      return saved!==false;
+    }catch{return false}
   }
   async function requestPersistence(){try{return !!(navigator.storage&&navigator.storage.persist&&await navigator.storage.persist())}catch{return false}}
   function listen(handler){
     if(!("BroadcastChannel" in root))return;
     channel=new BroadcastChannel("estante-workspace");
-    channel.onmessage=event=>{const msg=event.data||{};if(msg.type==="saved"&&msg.writerId!==writerId&&msg.revision>=lastRevision){lastRevision=Math.max(lastRevision,msg.revision);conflicted=true;setState("error","Recarregue para salvar");handler(msg)}};
+    channel.onmessage=event=>{const msg=event.data||{};if(msg.type==="saved"&&msg.writerId!==writerId&&msg.revision>=lastRevision){lastRevision=Math.max(lastRevision,msg.revision);conflicted=true;pendingBackup=null;setState("error","Recarregue para salvar");handler(msg)}};
   }
   function close(){if(channel)channel.close();channel=null}
   root.EstanteStorage={load,save,flush,requestPersistence,listen,close,setState,FALLBACK_KEY};

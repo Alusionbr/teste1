@@ -37,6 +37,20 @@ jobs:
           cache: pnpm
           cache-dependency-path: file360/pnpm-lock.yaml
 
+      - name: Install Estante test dependencies
+        working-directory: estante
+        run: npm ci
+
+      - name: Validate Estante
+        working-directory: estante
+        run: |
+          npm test
+          npx playwright install chromium --with-deps
+          python3 -m http.server 8765 >/tmp/estante-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          npm run test:browser
+
       - name: Install File360
         working-directory: file360
         run: pnpm install --frozen-lockfile

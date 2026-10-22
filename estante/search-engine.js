@@ -114,7 +114,15 @@ function withLocalFirst(locais,remotos){
   const vistos=new Set(locais.map(songIdentity));
   return[...locais,...(remotos||[]).filter(m=>!vistos.has(songIdentity(m)))];
 }
-async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const first=await Promise.allSettled([searchLrclib(q),searchVagalumeAdvanced(q),searchItunes(q),searchDeezer(q),searchMusicBrainz(q)]);first.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});let merged=mergeSongs(rows,q);
+async function smartSearchMusic(q,onProgress){
+  const variants=queryVariants(q),rows=[];
+  const update=()=>{const merged=mergeSongs(rows,q);if(onProgress)onProgress(merged);return merged};
+  const providers=[searchLrclib,searchVagalumeAdvanced,searchItunes,searchDeezer,searchMusicBrainz];
+  await Promise.allSettled(providers.map(async provider=>{
+    const found=await provider(q);
+    rows.push(...found);update();
+  }));
+  let merged=update();
   // Uma busca pode juntar dois títulos de um medley. Catálogos frequentemente
   // ignoram a consulta completa e devolvem só o segundo título; nesse caso
   // procurar também o início resgata a gravação combinada. Só fazemos isso
@@ -124,17 +132,17 @@ async function smartSearchMusic(q){const variants=queryVariants(q),rows=[];const
     const prefix=words.slice(0,3).join(" ");
     const more=await Promise.allSettled([searchDeezer(prefix),searchItunes(prefix)]);
     more.forEach(x=>{if(x.status==="fulfilled")rows.push(...x.value)});
-    merged=mergeSongs(rows,q);
+    merged=update();
   }
-  if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v))}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v))}catch{}}merged=mergeSongs(rows,q);if(merged.length>=12)break}}
-  if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=mergeSongs(rows,q)}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
-searchMusic=async function(q){
+  if(merged.length<8&&variants.length>1){for(const v of variants.slice(1)){await new Promise(r=>setTimeout(r,300));try{rows.push(...await searchLrclib(v));merged=update()}catch{}if(rows.length<60){try{rows.push(...await searchVagalumeAdvanced(v));merged=update()}catch{}}if(merged.length>=12)break}}
+  if(merged.length<5){try{rows.push(...await searchVagalumeAdvanced(q,"search.excerpt"))}catch{}merged=update()}state.searchMeta={engine:"smart",count:merged.length,sources:[...new Set(merged.flatMap(x=>x.sources||[]))]};return merged}
+searchMusic=async function(q,onProgress){
   const requestedSource=state.source;
-  if(requestedSource==="smart")return smartSearchMusic(q);
+  if(requestedSource==="smart")return smartSearchMusic(q,onProgress);
   try{return await legacySearchMusic(q)}catch(error){
     // Um modo com fonte exclusiva caiu: procure pelo que continua disponível.
     if(!["vagalume","lrclib"].includes(requestedSource)||error.source!==requestedSource)throw error;
-    const alternatives=await smartSearchMusic(q);
+    const alternatives=await smartSearchMusic(q,onProgress);
     state.source="smart";state.searchMeta.fallbackFrom=requestedSource;updatePrefs();
     if(!alternatives.length)throw error;
     return alternatives;

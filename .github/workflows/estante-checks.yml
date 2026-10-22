@@ -1,0 +1,36 @@
+name: Validate Estante
+
+on:
+  push:
+    paths:
+      - 'estante/**'
+      - '.github/workflows/estante-checks.yml'
+  pull_request:
+    paths:
+      - 'estante/**'
+      - '.github/workflows/estante-checks.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: estante/package-lock.json
+      - name: Install dependencies
+        working-directory: estante
+        run: npm ci
+      - name: Unit and contract tests
+        working-directory: estante
+        run: npm test
+      - name: Browser and offline tests
+        working-directory: estante
+        run: |
+          npx playwright install chromium --with-deps
+          python3 -m http.server 8765 >/tmp/estante-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          npm run test:browser

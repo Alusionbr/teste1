@@ -1,7 +1,7 @@
 "use strict";
 
 function libraryItems(){
-  return state.library.flatMap(record=>(record.arrangements||[]).map(arrangement=>({...storedSong(arrangement.current),songId:record.id,arrangementId:arrangement.id,arrangementName:arrangement.name,_library:true})));
+  return state.library.flatMap(record=>(record.arrangements||[]).map(arrangement=>({...storedSong(arrangement.current),songId:record.id,arrangementId:arrangement.id,arrangementName:arrangement.name,history:EstanteDomain.clone(arrangement.history||[]),_library:true})));
 }
 function visibleItems(){
   if(state.tab==="results")return state.results;

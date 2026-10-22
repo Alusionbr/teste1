@@ -102,7 +102,10 @@
     }
     const button=$("searchForm").querySelector("button");button.disabled=true;button.textContent="Buscando…";notify(state.source==="smart"?"Busca inteligente: consultando várias fontes e variações…":"Procurando…",true);
     try{
-      const remotos=await searchMusic(q);if(requestId!==searchRequest)return;
+      const remotos=await searchMusic(q,partial=>{
+        if(requestId!==searchRequest)return;
+        state.results=withLocalFirst(locais,partial);state.tab="results";renderList();
+      });if(requestId!==searchRequest)return;
       state.results=withLocalFirst(locais,remotos);state.tab="results";renderList();
       void enrichExactLyric(q,remotos,requestId);
       if(!state.results.length){notify("Não encontrei essa música. Tente também um trecho da letra, a busca Inteligente ou confira a grafia do artista.");return}

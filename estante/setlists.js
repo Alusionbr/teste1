@@ -98,7 +98,10 @@ function deleteSetlist(id){
   const i=state.setlists.findIndex(s=>s.id===id);if(i<0)return;
   if(state.activeSession&&state.activeSession.setlistId===id){notify("Encerre o ensaio antes de mover este repertório para a lixeira.");return false}
   const removed=EstanteDomain.clone(state.setlists[i]);
-  if(state.setlists.length===1)state.setlists[0].songs=[];
+  if(state.setlists.length===1){
+    const empty=makeSetlist("Repertório");
+    state.setlists[0]=empty;state.activeSetlistId=empty.id;
+  }
   else{state.setlists.splice(i,1);if(state.activeSetlistId===id)state.activeSetlistId=state.setlists[Math.max(0,i-1)].id}
   state.trash.push({id:EstanteDomain.uid("trash"),removedAt:new Date().toISOString(),setlistId:id,index:i,item:{kind:"setlist",...removed}});
   state.trash=state.trash.slice(-100);state.currentIndex=-1;bindActiveSetlist();saveSetlists();return true;
