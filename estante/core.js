@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.1.1";
+const APP_VERSION="4.1.2";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -107,9 +107,24 @@ function updateControls(){document.documentElement.style.setProperty("--font",st
 // Erro com um rótulo de fonte anexado, para a interface poder oferecer "tentar
 // na Inteligente" só quando faz sentido (fonte fora do ar), não em qualquer erro.
 function sourceError(name,msg){const e=Error(msg);e.source=name;return e}
+/*
+ * Busca livre no LRCLIB (`?q=`) com reserva.
+ *
+ * Medido em 22/10/2026: a busca livre responde 503 em ~1 de cada 4 consultas
+ * que ainda não estão no cache deles (demora ~1,4 s e devolve erro); repetir
+ * quase sempre resolve. A busca por título (`?track_name=`) é outro caminho no
+ * servidor e respondeu 200 em todas as medições. Por isso: repete uma vez e,
+ * se ainda vier erro passageiro, pergunta pelo título antes de desistir.
+ */
+async function lrclibFreeSearch(q){
+  const r=await fetchRetrying(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS});
+  if(![502,503,504].includes(r.status))return r;
+  try{const alt=await fetchSafe(`https://lrclib.net/api/search?track_name=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS});if(alt.ok)return alt}catch{}
+  return r;
+}
 async function searchMusic(q){
   if(state.source==="lrclib"){
-    let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:LRCLIB_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw sourceError("lrclib","LRCLIB não respondeu a tempo.")}
+    let r;try{r=await lrclibFreeSearch(q)}catch(e){markSource("lrclib",false,e.message);throw sourceError("lrclib","LRCLIB não respondeu a tempo.")}
     if(r.status===429){markSource("lrclib",false,429);const wait=r.headers.get("Retry-After");throw sourceError("lrclib",`Muitas buscas seguidas no LRCLIB.${wait?` Tente novamente em ${wait}s.`:" Aguarde alguns segundos."}`)}
     if(!r.ok){markSource("lrclib",false,r.status);throw sourceError("lrclib",`LRCLIB respondeu ${r.status}`)}
     markSource("lrclib",true);
@@ -149,7 +164,10 @@ async function fetchLrclibSong(song){
   // devolvia a música em branco como se fosse sucesso, e as fontes de reserva
   // nunca chegavam a ser tentadas.
   const rows=await r.json(),x=rows.find(v=>matchesLyricSong(v,song)&&(v.syncedLyrics||v.plainLyrics||v.instrumental));
-  if(!x)throw Error("Não encontrei uma letra alternativa para esta música.");
+  // Sem gravação idêntica, devolve as linhas junto com o erro: search-engine.js
+  // procura nelas a mesma música em outra versão ("Ao Vivo", "feat.") sem
+  // gastar outra consulta.
+  if(!x){const e=Error("Não encontrei uma letra alternativa para esta música.");e.rows=rows;throw e}
   Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song;
 }
 // Grava no repertório a versão aberta agora (letra carregada, tom, capo,

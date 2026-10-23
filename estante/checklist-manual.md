@@ -30,6 +30,9 @@ Rode antes de publicar qualquer alteração. Sirva o repositório por HTTP (`pyt
 - [ ] Ainda com o Vagalume fora do ar, o modo **Inteligente** continua trazendo resultados (via LRCLIB/Deezer/Apple/MusicBrainz).
 - [ ] Com LRCLIB e Vagalume fora do ar (bloqueie `lrclib.net` e `api.vagalume.com.br` nas ferramentas de rede), abrir uma música que só veio do catálogo (Apple/Deezer) mostra "Encontrei a música, mas não a letra", o aviso de instabilidade passageira e o botão **Tentar de novo**. Desbloqueie os dois domínios, toque em **Tentar de novo** e a letra abre sem refazer a busca.
 - [ ] Depois de uma falha passageira, a busca volta a consultar LRCLIB e Vagalume em até ~20 s, sem recarregar a página.
+- [ ] Buscar **estamos de pé**: o primeiro resultado tem letra ("Estamos de Pé - Ao Vivo", Marcus Salles) e abre com **Sincro** disponível.
+- [ ] Na mesma busca, abrir "Estamos de Pé — Marcus Salles" de catálogo (sem letra própria): a letra abre, o rodapé diz que veio da gravação ao vivo e a sincronia fica desligada (duração diferente).
+- [ ] Abrir "Estamos de Pé" de outro artista (AtituD, Felipe Casttro): a tela sem letra mostra **Letra de Marcus Salles** / **Letra de PIBB Music**; tocar aplica a letra, sem sincronia, e o rodapé avisa que foi escolhida por você. Nada é aplicado sem o toque.
 - [ ] No modo **Trecho** com o Vagalume fora, a mensagem explica que procurar por pedaço da letra depende só dele e **não** oferece o atalho para a Inteligente (que também não faz busca por texto).
 - [ ] Buscar por um artista brasileiro pouco conhecido traz resultado do **MusicBrainz** com duração preenchida.
 

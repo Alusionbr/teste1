@@ -548,7 +548,20 @@ Antes de adicionar uma API, confira com `curl -D-` se ela devolve cabeçalho COR
 
 `searchLocal()` (repertório salvo) e `searchAcervo()` (`acervo.js`) rodam em toda busca, antes de qualquer fonte externa. Os dois procuram **dentro do texto da letra**, não só em título e artista — é a única busca por trecho que não depende do Vagalume, e a única que funciona offline. `withLocalFirst()` põe esses resultados na frente e descarta o duplicado que vier da rede: a versão do aparelho tem a letra corrigida e o tom marcado pelo usuário.
 
-Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB → Vagalume (se houver chave) → acervo do site → LiriQo → `lyrics.ovh`. O acervo vem antes da rede por ser conteúdo próprio e não precisar de conexão.
+Ao abrir uma música sem letra, a ordem de reserva é: LRCLIB (gravação idêntica) → Vagalume (se houver chave) → acervo do site → **LRCLIB, mesma música em outra versão** → LiriQo → `lyrics.ovh`. O acervo vem antes da rede por ser conteúdo próprio e não precisar de conexão.
+
+**Mesma música, outra versão** (`search-engine.js`: `coreTitle`, `sameArtist`, `sameSongOtherVersion`, `pickOtherVersion`, `applyOtherVersion`). O LRCLIB costuma ter só a gravação ao vivo ("Estamos de Pé - Ao Vivo"), e o catálogo mostra o título puro ("Estamos de Pé"). A conferência exata (`matchesLyricSong`) continua sendo a primeira; quando falha, compara o **núcleo** do título (sem "Ao Vivo", sem participação, sem o nome do artista repetido no fim) e o artista sem título honorífico ("Pr Marcus Salles" = "Marcus Salles"). Regras que não podem afrouxar:
+
+- título **e** artista precisam bater — mesmo título de outro cantor nunca é aplicado sozinho;
+- a sincronia só é aproveitada se a duração bate (±3 s): sincronia de outra gravação sairia fora do tempo;
+- a duração da gravação escolhida continua valendo para a rolagem;
+- `lyricNote`/`lyricSources` dizem de qual gravação a letra veio, e aparecem no rodapé.
+
+Vem antes do LiriQo porque já está baixada (as linhas voltam no erro de `fetchLrclibSong`, em `e.rows`) e o LiriQo é lento e instável (17 s e várias falhas nas medições de 22/10/2026).
+
+**Mesmo título, outro artista** (`findSameTitleOtherArtists`, `offerSameTitle` em `player.js`): regravação costuma ter a mesma letra, mas só o usuário sabe se é a mesma composição. A tela "não achei a letra" lista até 3 versões de outros artistas com o mesmo título; um toque aplica (sem sincronia) e grava no repertório. Nunca aplicar isso automaticamente.
+
+A ordenação (`candidateScore`) também usa o núcleo do título: sem isso, a versão com letra ("… - Ao Vivo") ficava atrás de uma dúzia de gravações de catálogo sem letra.
 
 ### 10. O acervo do site é publicação, não cache
 
@@ -658,6 +671,19 @@ Wake lock precisa de `releaseAwake()`: pedir sem liberar deixa a tela acesa até
 - **Limite conhecido:** se LRCLIB, Vagalume, LiriQo e lyrics.ovh estiverem de fato fora do ar ao mesmo tempo, nenhuma letra nova abre — só as já salvas no aparelho, as do acervo e a colagem manual. O código não cria letra que nenhuma fonte devolve. Nova fonte só entra depois de conferir CORS com `curl -D-` e de responder às perguntas do princípio 8.
 - **Como conferir as fontes:** `node estante/scripts/check-sources.mjs`, rodado de uma máquina com acesso livre à internet, mostra o estado de cada fonte e a versão publicada.
 - **Testes:** `node --test estante/tests/*.test.js` (inclui `sources.test.js`, que simula as fontes e não usa rede nem navegador) e `node estante/tests/browser-smoke.js` com um servidor local na porta 8765 servindo a pasta `estante/`. O teste de navegador agora espera o diálogo de relato de bug fechar antes de seguir (antes dependia de a máquina ser lenta). `estante/tests/cache-upgrade.js` procura o Playwright num caminho fixo da máquina do autor; em outra máquina, ajuste o `require` da linha 4.
+
+### 4.1.2 — "Estamos de Pé" achava a música mas não abria a letra
+
+Diagnóstico feito no navegador, na versão publicada, com a internet real (22/10/2026):
+
+- **Sintoma:** buscar "estamos de pé" trazia 35 resultados; os primeiros (Apple/Deezer) abriam "Encontrei a música, mas não a letra". Às vezes abria, às vezes não.
+- **Causa 1 — título exato:** o LRCLIB tem a letra, com sincronia, como "Estamos de Pé - Ao Vivo" (Marcus Salles) e "Estamos de Pé (Ao Vivo)" (PIBB Music). A conferência exata recusava por causa do "Ao Vivo", e a letra só abria quando o LiriQo respondia — daí o "funciona, depois para".
+- **Causa 2 — ordenação:** o primeiro resultado com letra era o 14º da lista.
+- **Causa 3 — LRCLIB oscila:** a busca livre (`?q=`) devolveu 503 em ~1 de cada 4 consultas novas; repetir resolve. A busca por título (`?track_name=`) respondeu 200 em 12 de 12.
+- **Fora do nosso alcance:** o Vagalume respondia, mas recusava chamadas do navegador ("Failed to fetch" com CORS; `no-cors` chegava). textyl e lyrist estavam fora do ar; popcat devolveu erro. Nenhuma fonte nova aberta e sem chave valeu a pena entrar.
+- **Correção:** mesma música em outra versão (princípio 9), ordenação pelo núcleo do título, `lrclibFreeSearch()` (`core.js`: repete e cai para `?track_name=`) e a oferta de letra de outro artista na tela sem letra.
+- **Conferido ao vivo, antes de publicar:** primeiro resultado passou a ser "Estamos de Pé - Ao Vivo" com letra e sincronia (54 linhas); o resultado de catálogo "Estamos de Pé — Marcus Salles (Acoustic Session)" abriu a letra do LRCLIB **com o LiriQo desligado de propósito**, sem sincronia por ter outra duração.
+- **Testes:** `sources.test.js` ganhou os registros reais do LRCLIB para essa música como caso fixo (mesma versão, outro artista, outra duração, ordenação, 503 na busca livre).
 
 ## Ideias para evolução
 

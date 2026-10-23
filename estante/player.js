@@ -21,7 +21,31 @@ function renderMissingLyrics(song,message){
   const paste=document.createElement("button");paste.type="button";paste.textContent="Colar minha letra";
   paste.onclick=()=>{$("pasteTitle").value=song.title||"";$("pasteArtist").value=song.artist||"";$("pasteText").value="";$("pasteDialog").showModal()};
   actions.append(again,retry,paste);paper.querySelector(".emptyPaper").appendChild(actions);
+  offerSameTitle(song,paper.querySelector(".emptyPaper"));
   const links=[],vagUrl=safeUrl(song.vagUrl),catalogUrl=safeUrl(song.catalogUrl);if(vagUrl)links.push(`<a href="${esc(vagUrl)}" target="_blank" rel="noopener">Ver no Vagalume</a>`);if(catalogUrl)links.push(`<a href="${esc(catalogUrl)}" target="_blank" rel="noopener">Ver referência da faixa</a>`);$("credits").innerHTML=links.join(" · ")
+}
+/*
+ * Regravação de outro artista: oferece, sem aplicar sozinho, a letra das
+ * versões com o mesmo título que o LRCLIB conhece. Um toque usa a letra, grava
+ * no repertório e mostra no rodapé de quem ela veio.
+ */
+async function offerSameTitle(song,box){
+  const pedido=openSongRequest;
+  let opcoes=[];try{opcoes=await findSameTitleOtherArtists(song)}catch{}
+  if(!opcoes.length||pedido!==openSongRequest||state.current!==song||!box.isConnected)return;
+  const area=document.createElement("div");area.className="missingActions sameTitle";
+  const dica=document.createElement("small");dica.textContent="Se for regravação da mesma música, use a letra de outra versão:";
+  area.appendChild(dica);
+  opcoes.forEach(x=>{
+    const b=document.createElement("button");b.type="button";b.textContent=`Letra de ${x.artistName}`;b.title=`${x.trackName} — ${x.artistName}`;
+    b.onclick=()=>{if(state.current!==song)return;applyOtherVersion(song,x,true);persistCurrent();renderCurrentLyrics();updateSaveButton();renderCredits(song);notify(`Letra de ${x.artistName} aplicada. Confira se é a mesma composição.`,true)};
+    area.appendChild(b);
+  });
+  box.appendChild(area);
+}
+function renderCredits(song){
+  const vagUrl=safeUrl(song.vagUrl);
+  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.lyricNote)$("credits").textContent=`${song.lyricNote} Fontes: ${(song.lyricSources||[]).join("; ")} via ${song.source}. Direitos reservados aos autores e editoras.`;else if(vagUrl&&song.source==="Vagalume")$("credits").innerHTML=`Letra publicada por <a href="${esc(vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
 }
 let openSongRequest=0;
 async function openSong(song){
@@ -42,9 +66,7 @@ async function openSong(song){
     persistCurrent();
   }
   if(requestId!==openSongRequest)return;
-  renderCurrentLyrics();updateSaveButton();
-  const vagUrl=safeUrl(song.vagUrl);
-  if(song.instrumental)$("credits").textContent="Faixa instrumental.";else if(song.lyricNote)$("credits").textContent=`${song.lyricNote} Fontes: ${(song.lyricSources||[]).join("; ")} via ${song.source}. Direitos reservados aos autores e editoras.`;else if(vagUrl&&song.source==="Vagalume")$("credits").innerHTML=`Letra publicada por <a href="${esc(vagUrl)}" target="_blank" rel="noopener">Vagalume</a>. Direitos reservados aos autores e editoras.`;else $("credits").textContent=`Letra obtida em ${song.source||"conteúdo colado"}. Direitos reservados aos autores e editoras.`;
+  renderCurrentLyrics();updateSaveButton();renderCredits(song);
 }
 // Redesenha a letra da música aberta a partir do que está em state.current.
 // Serve para abrir a música e também depois de editar a letra, sem consultar a

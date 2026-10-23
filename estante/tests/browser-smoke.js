@@ -43,7 +43,7 @@ let browser;
   // nessa janela e o texto não entrava. Em máquina lenta o teste passava por sorte.
   await page.waitForFunction(()=>!document.querySelector("#bugReportDialog").open);
   assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
-  assert.deepEqual(bugSubmission,{app_version:"4.1.1",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
+  assert.deepEqual(bugSubmission,{app_version:"4.1.2",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);

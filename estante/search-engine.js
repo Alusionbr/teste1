@@ -6,6 +6,88 @@ const EDITION_WORDS=/\b(ao vivo|live|remaster(?:ed)?|remix|acoustic|acustic[oa]|
 const searchFold=fold; // mesma normaliza\u00e7\u00e3o usada para identificar m\u00fasicas (core.js)
 function cleanEdition(s){return String(s||"").replace(/[\[(][^\])]*(?:ao vivo|live|remaster|remix|acoustic|acústic|official|video|audio|version|versão)[^\])]*[\])]/gi," ").replace(EDITION_WORDS," ").replace(/\s+/g," ").trim()}
 function searchTokens(s){return new Set(searchFold(s).split(" ").filter(x=>x.length>1))}
+/*
+ * Mesma música, outra gravação.
+ *
+ * O LRCLIB guarda "Estamos de Pé - Ao Vivo", "Estamos de Pé (Ao Vivo) - Marcus
+ * Salles" e "Estamos de Pé (Ao Vivo) (feat. Lucas Magno)"; o catálogo (Apple,
+ * Deezer) mostra só "Estamos de Pé". A conferência exata recusava todas essas e
+ * a letra, que estava lá, nunca abria. Aqui comparamos o NÚCLEO do título (sem
+ * marca de edição, sem participação e sem o nome do artista repetido no fim) e
+ * o artista sem título honorífico ("Pr Marcus Salles" = "Marcus Salles").
+ *
+ * Continua exigindo título E artista: "Estamos de Pé" de outro cantor é outra
+ * música e nunca empresta a letra.
+ */
+const ARTIST_HONORIFICS=new Set(["pr","pra","pastor","pastora","ap","apostolo","apostola","bispo","bispa","missionario","missionaria","cantor","cantora","dj","mc"]);
+function artistTokens(s){return new Set(searchFold(String(s||"").replace(/\s*[\(\[]?\b(?:feat\.?|ft\.?|part\.?|participação|participacao)\s.*$/i,"")).split(" ").filter(x=>x.length>1&&!ARTIST_HONORIFICS.has(x)))}
+function sameArtist(a,b){
+  const A=artistTokens(a),B=artistTokens(b);if(!A.size||!B.size)return false;
+  const[menor,maior]=A.size<=B.size?[A,B]:[B,A];
+  if(![...menor].every(x=>maior.has(x)))return false;
+  // Um nome só ("Hungria") vale se for longo; senão "Davi" casaria com qualquer Davi.
+  return menor.size>=2||[...menor][0].length>=5;
+}
+function coreTitle(title,artist){
+  let t=cleanEdition(String(title||"").replace(/[\(\[]\s*(?:feat\.?|ft\.?|part\.?|participação|participacao|com)\s[^\)\]]*[\)\]]/gi," ").replace(/\s(?:feat\.?|ft\.?)\s.*$/i," "));
+  // "Música - Artista": corta o fim só quando ele é o próprio artista (ou ficou
+  // vazio depois de tirar "Ao Vivo"). "Medley - Parte 2" continua inteiro.
+  const m=t.match(/^(.*\S)\s*[-–—|]\s*([^-–—|]*)$/);
+  if(m){const resto=searchFold(m[2]);if(!resto||sameArtist(m[2],artist))t=m[1]}
+  return t.replace(/[\s\-–—:|]+$/,"").trim();
+}
+function sameSongOtherVersion(record,song){
+  return searchFold(coreTitle(record.trackName,record.artistName))===searchFold(coreTitle(song.title,song.artist))&&sameArtist(record.artistName,song.artist);
+}
+// Entre as versões da mesma música, prefere a de duração igual (a sincronia só
+// vale para a mesma gravação), depois a que tem letra sincronizada.
+function pickOtherVersion(rows,song){
+  const cands=(rows||[]).filter(r=>r&&!r.instrumental&&(r.plainLyrics||r.syncedLyrics)&&sameSongOtherVersion(r,song));
+  const perto=r=>song.duration&&r.duration?Math.abs(song.duration-r.duration)<=3:false;
+  return cands.sort((a,b)=>(perto(b)-perto(a))||(!!b.syncedLyrics-!!a.syncedLyrics))[0]||null;
+}
+/*
+ * Mesmo título, OUTRO artista — só por escolha do usuário.
+ *
+ * "Estamos de Pé" tem regravações (AtituD, Lagoinha Move, Felipe Casttro…) que
+ * o LRCLIB não conhece, mas conhece a do Marcus Salles. Regravação costuma ter a
+ * mesma letra, mas mesmo título de outro cantor também pode ser outra música —
+ * então isto nunca é aplicado sozinho: a tela "não achei a letra" lista as
+ * opções e quem decide é quem conhece a música.
+ */
+async function findSameTitleOtherArtists(song,limit=3){
+  const nucleo=coreTitle(song.title,song.artist);if(!nucleo)return[];
+  let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?${new URLSearchParams({track_name:nucleo})}`,{headers:SEARCH_HEADERS})}catch{return[]}
+  if(!r.ok)return[];
+  const alvo=searchFold(nucleo),vistos=new Set(),saida=[];
+  for(const x of await r.json()){
+    if(!x||x.instrumental||!(x.plainLyrics||x.syncedLyrics))continue;
+    if(searchFold(coreTitle(x.trackName,x.artistName))!==alvo||sameArtist(x.artistName,song.artist))continue;
+    const quem=[...artistTokens(x.artistName)].join(" ");if(vistos.has(quem))continue;vistos.add(quem);
+    saida.push(x);if(saida.length>=limit)break;
+  }
+  return saida;
+}
+function applyOtherVersion(song,x,outroArtista=false){
+  if(outroArtista){
+    Object.assign(song,{lyrics:x.plainLyrics||(x.syncedLyrics&&typeof parseLRC==="function"?parseLRC(x.syncedLyrics).map(l=>l.text).join("\n"):""),synced:"",duration:song.duration||x.duration||0,instrumental:false,source:"LRCLIB",
+      lyricNote:`Letra de “${x.trackName}”, na voz de ${x.artistName}, escolhida por você para esta gravação de ${song.artist||"outro artista"} — confira se é a mesma composição.`,
+      lyricSources:[`${x.trackName} — ${x.artistName}`]});
+    return song;
+  }
+  const mesmaGravacao=!song.duration||(x.duration&&Math.abs(song.duration-x.duration)<=3);
+  const plain=x.plainLyrics||(x.syncedLyrics&&typeof parseLRC==="function"?parseLRC(x.syncedLyrics).map(l=>l.text).join("\n"):"");
+  Object.assign(song,{
+    lyrics:plain,
+    // Sincronia de outra gravação sairia fora do tempo: só fica se a duração bate.
+    synced:mesmaGravacao?(x.syncedLyrics||""):"",
+    duration:song.duration||x.duration||0,
+    instrumental:false,source:"LRCLIB",
+    lyricNote:`Letra da gravação “${x.trackName}”, de ${x.artistName}: é a mesma música em outra versão — confira repetições e trechos ao vivo.${mesmaGravacao||!x.syncedLyrics?"":" A sincronia ficou desligada porque a duração desta versão é diferente."}`,
+    lyricSources:[`${x.trackName} — ${x.artistName}`]
+  });
+  return song;
+}
 function overlapScore(a,b){const A=searchTokens(a),B=searchTokens(b);if(!A.size||!B.size)return 0;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return hit/Math.max(A.size,B.size)}
 function titleSimilarity(a,b){
   const x=searchFold(a).replace(/ /g,""),y=searchFold(b).replace(/ /g,"");
@@ -20,10 +102,14 @@ function titleSimilarity(a,b){
 }
 function candidateScore(m,q){
   const qf=searchFold(q),tf=searchFold(m.title),af=searchFold(m.artist),hay=(tf+" "+af).trim();
-  let score=overlapScore(q,hay)*100;
-  const titleMatch=titleSimilarity(q,m.title);
+  // "Estamos de Pé - Ao Vivo" deve pontuar como "Estamos de Pé": sem isso a
+  // versão do LRCLIB, que TEM letra, ficava atrás de uma dúzia de gravações de
+  // catálogo sem letra.
+  const core=coreTitle(m.title,m.artist),cf=searchFold(core),hayCore=(cf+" "+af).trim();
+  let score=Math.max(overlapScore(q,hay),overlapScore(q,hayCore))*100;
+  const titleMatch=Math.max(titleSimilarity(q,m.title),titleSimilarity(q,core));
   if(titleMatch>=.72)score+=titleMatch*100;
-  if(hay===qf)score+=70;if(tf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay))score+=25;
+  if(hay===qf||hayCore===qf)score+=70;if(tf===qf||cf===qf)score+=55;if(hay.includes(qf)||qf.includes(hay)||qf.includes(hayCore))score+=25;
   // Dentro de resultados igualmente relevantes, texto disponível deve subir
   // acima de uma gravação que só existe no catálogo. Correspondência de artista
   // e título continua pesando mais para não destacar a letra da faixa errada.
@@ -43,7 +129,7 @@ function songKey(m){
 function mergeSongs(rows,q){const map=new Map();for(const raw of rows){if(!raw||!raw.title)continue;const k=songKey(raw);const old=map.get(k);if(!old){const x={...raw,sources:[...(raw.sources||[raw.source].filter(Boolean))]};map.set(k,x);continue}const src=new Set([...(old.sources||[]),...(raw.sources||[raw.source].filter(Boolean))]);old.sources=[...src];for(const f of ["lyrics","synced","vagId","vagUrl","catalogUrl","appleId","album","duration"]){if(!old[f]&&raw[f])old[f]=raw[f]}if((raw.synced||raw.lyrics)&&!(old.synced||old.lyrics)){old.lyrics=raw.lyrics||"";old.synced=raw.synced||""}}
   const all=[...map.values()];for(const m of all){m.source=m.sources.join(" + ");m._score=candidateScore(m,q)}return all.sort((a,b)=>b._score-a._score||String(a.title).localeCompare(String(b.title))).slice(0,35)}
 function queryVariants(q){const out=[q];const clean=cleanEdition(q);if(searchFold(clean)!==searchFold(q)&&clean.length>2)out.push(clean);const noFeat=clean.replace(/\b(feat\.?|ft\.?|com)\b.*$/i,"").trim();if(noFeat.length>2&&!out.some(x=>searchFold(x)===searchFold(noFeat)))out.push(noFeat);const dash=q.split(/\s[-–—]\s/).map(x=>x.trim()).filter(x=>x.length>2);for(const x of dash)if(!out.some(v=>searchFold(v)===searchFold(x)))out.push(x);return out.slice(0,3)}
-async function searchLrclib(q){if(sourceCoolingDown("lrclib"))return[];let r;try{r=await fetchRetrying(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`,{headers:SEARCH_HEADERS})}catch(e){markSource("lrclib",false,e.message);throw e}if(r.status===429){markSource("lrclib",false,429);return[]}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
+async function searchLrclib(q){if(sourceCoolingDown("lrclib"))return[];let r;try{r=await lrclibFreeSearch(q)}catch(e){markSource("lrclib",false,e.message);throw e}if(r.status===429){markSource("lrclib",false,429);return[]}if(!r.ok){markSource("lrclib",false,r.status);throw Error(`LRCLIB respondeu ${r.status}`)}markSource("lrclib",true);return(await r.json()).map(x=>({title:x.trackName||"Sem título",artist:x.artistName||"",album:x.albumName||"",duration:x.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB",sources:["LRCLIB"],lrclibId:x.id||0}))}
 async function searchVagalumeAdvanced(q,route="search.artmus"){
   if(sourceCoolingDown("vagalume"))return[];
   const key=state.keyVag?`&apikey=${encodeURIComponent(state.keyVag)}`:"";
@@ -153,6 +239,14 @@ fetchLrclibSong=async function(song){
     }
   }}catch{}}
   try{return await legacyFetchLrclibSong(song)}catch(first){
+    // A mesma música em outra versão, procurada nas linhas que o LRCLIB já
+    // devolveu. Se o título pedido tem marca de edição ("(Acústico)"), pergunta
+    // de novo pelo nome limpo — uma consulta a mais, no máximo.
+    let outraVersao=pickOtherVersion(first.rows,song);
+    const limpo=coreTitle(song.title,song.artist);
+    if(!outraVersao&&first.rows&&limpo&&searchFold(limpo)!==searchFold(song.title)){
+      try{const qs=new URLSearchParams({track_name:limpo});if(song.artist)qs.set("artist_name",song.artist);const r=await fetchRetrying(`https://lrclib.net/api/search?${qs}`,{headers:SEARCH_HEADERS});if(r.ok)outraVersao=pickOtherVersion(await r.json(),song)}catch{}
+    }
     if(state.keyVag&&!sourceCoolingDown("vagalume")){try{const hits=await searchVagalumeAdvanced(`${song.artist} ${song.title}`);const best=hits.sort((a,b)=>candidateScore(b,`${song.artist} ${song.title}`)-candidateScore(a,`${song.artist} ${song.title}`))[0];if(best){song.vagId=best.vagId;song.vagUrl=best.vagUrl;return await fetchVagalume(song)}}catch{}}
     // Reservas antes de desistir. Faixa achada só no catálogo (Apple ou Deezer)
     // abria com "encontrei a música, mas não a letra"; e sem chave do Vagalume
@@ -160,6 +254,9 @@ fetchLrclibSong=async function(song){
     // O acervo do site vem primeiro: é conteúdo próprio, conferido, e responde
     // sem rede. Depois LiriQo e lyrics.ovh, que dispensam chave e aceitam CORS.
     try{const daCasa=await fetchFromAcervo(song);if(daCasa)return daCasa}catch{}
+    // Antes do LiriQo: é a mesma base aberta e estável, já está baixada e abre
+    // na hora. O LiriQo levou 17 s e falhou várias vezes nos testes de 22/10.
+    if(outraVersao)return applyOtherVersion(song,outraVersao);
     try{const achou=await fetchLiriqoSong(song);if(achou)return achou}catch{}
     try{const achou=await fetchLyricsOvh(song);if(achou)return achou}catch{}
     throw first;
