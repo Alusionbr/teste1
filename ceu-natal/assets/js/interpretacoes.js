@@ -1,7 +1,6 @@
 /*
  * Textos de interpretação do mapa gratuito.
- * Para ampliar a leitura, edite os textos abaixo. A versão gratuita mostra
- * Sol, Lua e Ascendente completos e um resumo dos demais planetas.
+ * Leituras simbólicas abertas durante o piloto gratuito.
  */
 (function (root) {
   'use strict';
@@ -11,7 +10,7 @@
     'Com o Sol em Touro, sua identidade se constrói pela constância. Você valoriza o que é concreto, bonito e duradouro, e costuma ser a pessoa que sustenta o que os outros só começam. Seu desafio é não confundir segurança com resistência a mudanças necessárias.',
     'O Sol em Gêmeos traz uma mente curiosa, que se renova pela troca de ideias. Você se sente vivo quando aprende, conversa e conecta pessoas e assuntos. O desafio é aprofundar alguns caminhos em vez de se espalhar em muitos ao mesmo tempo.',
     'Com o Sol em Câncer, você brilha cuidando. Sua força está na sensibilidade, na memória afetiva e na capacidade de criar um ambiente de acolhimento. O crescimento vem quando você aprende a se proteger sem se fechar.',
-    'O Sol em Leão está em casa: você nasceu para expressar, criar e inspirar. Generosidade, calor humano e presença marcante são seus dons. O desafio é brilhar sem depender do aplauso dos outros para saber o seu valor.',
+    'Na leitura do Sol em Leão, expressão, criação e inspiração ganham destaque. Generosidade e presença podem ser recursos importantes. Uma pergunta útil é como reconhecer seu valor sem depender sempre do aplauso dos outros.',
     'Com o Sol em Virgem, você se realiza aperfeiçoando. Tem olhar para detalhes, senso prático e vontade genuína de ser útil. O aprendizado é aceitar que o bom feito é melhor que o perfeito não começado.',
     'O Sol em Libra busca harmonia, beleza e justiça. Você se descobre nas relações e tem talento para mediar, negociar e enxergar os dois lados. O desafio é não abrir mão das próprias vontades para manter a paz.',
     'Com o Sol em Escorpião, sua essência é intensa e transformadora. Você não se contenta com a superfície e tem coragem de atravessar crises e renascer delas. O crescimento vem quando a intensidade se torna confiança, e não controle.',
@@ -71,12 +70,12 @@
     mercurio: 'Mercúrio mostra como você pensa, aprende e se comunica',
     venus: 'Vênus revela como você ama, se relaciona e o que considera bonito e valioso',
     marte: 'Marte indica como você age, luta pelo que quer e expressa a sua energia',
-    jupiter: 'Júpiter aponta onde você cresce, tem sorte e encontra sentido',
+    jupiter: 'Júpiter aponta temas de crescimento, oportunidade e busca de sentido',
     saturno: 'Saturno mostra onde estão suas lições, responsabilidades e conquistas de longo prazo',
     urano: 'Urano, de ciclo geracional, indica como sua geração busca liberdade e inovação',
     netuno: 'Netuno, de ciclo geracional, fala dos sonhos e ideais da sua geração',
     plutao: 'Plutão, de ciclo geracional, mostra os temas de transformação profunda da sua geração',
-    nodo: 'O Nodo Norte aponta a direção de crescimento da sua alma nesta vida'
+    nodo: 'O Nodo Norte representa temas simbólicos de aprendizado e direção'
   };
 
   var CASAS = [
@@ -113,6 +112,21 @@
     neutro: 'funde essas energias, intensificando ambas'
   };
 
+  var TEMAS_PONTO = {
+    sol: 'identidade e vontade', lua: 'necessidades emocionais', mercurio: 'pensamento e comunicação',
+    venus: 'afeto e valores', marte: 'iniciativa e ação', jupiter: 'expansão e sentido',
+    saturno: 'limites e responsabilidade', urano: 'mudança e autonomia',
+    netuno: 'imaginação e ideais', plutao: 'transformação',
+    asc: 'forma de se apresentar', mc: 'direção pública e carreira'
+  };
+  var DINAMICA_ASPECTO = {
+    'Conjunção': 'aparecem próximos e podem se reforçar ou pedir diferenciação',
+    'Sextil': 'encontram uma oportunidade de colaboração que pede iniciativa',
+    'Quadratura': 'mostram um contraste que pode pedir ajuste e negociação',
+    'Trígono': 'se relacionam com fluidez, um recurso que pode ser usado conscientemente',
+    'Oposição': 'apontam para polos que pedem equilíbrio'
+  };
+
   function textoPlaneta(p) {
     var base = FUNCAO_PLANETA[p.id];
     if (!base) return '';
@@ -122,10 +136,24 @@
     return t;
   }
 
+  function textoAspecto(aspecto, mapa) {
+    var pontos = mapa.planetas.slice();
+    if (mapa.ascendente) pontos.push(Object.assign({ id: 'asc', casa: 1 }, mapa.ascendente));
+    if (mapa.meioDoCeu) pontos.push(Object.assign({ id: 'mc', casa: 10 }, mapa.meioDoCeu));
+    function posicao(id) {
+      var p = pontos.find(function (item) { return item.id === id; });
+      return p ? p.signo + (p.casa ? ', casa ' + p.casa : '') : 'posição não informada';
+    }
+    return 'Na leitura simbólica, ' + TEMAS_PONTO[aspecto.a] + ' (' + posicao(aspecto.a) + ') e ' +
+      TEMAS_PONTO[aspecto.b] + ' (' + posicao(aspecto.b) + ') ' +
+      DINAMICA_ASPECTO[aspecto.aspecto] + '. O orbe de ' + aspecto.orbe.toFixed(1) +
+      '° mede a distância até o ângulo exato; menor orbe indica maior proximidade geométrica, não uma certeza sobre a pessoa.';
+  }
+
   var API = {
     SOL: SOL, LUA: LUA, ASCENDENTE: ASCENDENTE, ESTILO_SIGNO: ESTILO_SIGNO,
     CASAS: CASAS, ELEMENTO: ELEMENTO, MODALIDADE: MODALIDADE, TIPO_ASPECTO: TIPO_ASPECTO,
-    textoPlaneta: textoPlaneta
+    textoPlaneta: textoPlaneta, textoAspecto: textoAspecto
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   else root.Interpretacoes = API;

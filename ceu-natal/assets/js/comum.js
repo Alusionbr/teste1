@@ -77,7 +77,7 @@
       else (el.closest('[data-link-telegram-wrap]') || el).hidden = true;
     });
     $$('input[type=date]').forEach(function(e){e.max=new Date().toISOString().slice(0,10);});
-    $$('.cidade-ajuda').forEach(function(e){e.textContent=(CFG.geocodificacao.modo==='local')?'Busca local: capitais brasileiras. Confirme a cidade na lista; outras cidades precisam da busca ampliada configurada.':'Digite a cidade e confirme estado e país na lista.';});
+    $$('.cidade-ajuda').forEach(function(e){e.textContent=(CFG.geocodificacao.modo==='local')?'Busca local: capitais brasileiras. Confirme a cidade na lista; outras cidades precisam da busca ampliada configurada.':'Digite a cidade e confirme região e país na lista. A busca está disponível sem conta.';});
     iniciarCookies();
     evento('origem', { origem: origem() });
   }

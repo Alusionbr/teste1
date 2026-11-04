@@ -150,7 +150,7 @@
    * Converte data/hora local de nascimento para UTC usando o fuso IANA
    * (respeita horário de verão histórico conforme a base do navegador).
    */
-  function localParaUTC(ano, mes, dia, hora, minuto, fusoIANA) {
+  function localParaUTC(ano, mes, dia, hora, minuto, fusoIANA, horarioRepetido) {
     var palpite = Date.UTC(ano, mes - 1, dia, hora, minuto);
     if (!fusoIANA) return new Date(palpite);
     function partes(ms) {
@@ -176,7 +176,12 @@
       if (+p.year === ano && +p.month === mes && +p.day === dia && +p.hour === hora && +p.minute === minuto) candidatos.push(utc);
     });
     if (!candidatos.length) throw new Error('Este horário não existiu nessa cidade devido à mudança do horário de verão. Confira a hora de nascimento.');
-    if (candidatos.length > 1) throw new Error('Este horário ocorreu duas vezes nessa cidade devido à mudança do horário de verão. Confirme qual horário consta no registro.');
+    if (candidatos.length > 1) {
+      candidatos.sort(function (a, b) { return a - b; });
+      if (horarioRepetido === 'primeiro') return new Date(candidatos[0]);
+      if (horarioRepetido === 'segundo') return new Date(candidatos[1]);
+      throw new Error('Este horário ocorreu duas vezes nessa cidade devido à mudança do horário de verão. Escolha a primeira ou a segunda ocorrência, se souber.');
+    }
     return new Date(candidatos[0]);
   }
 
@@ -209,7 +214,7 @@
     var horaDesconhecida = !!dados.horaDesconhecida;
     var h = horaDesconhecida ? 12 : dados.hora;
     var m = horaDesconhecida ? 0 : dados.minuto;
-    var dataUTC = localParaUTC(dados.ano, dados.mes, dados.dia, h, m, dados.fuso);
+    var dataUTC = localParaUTC(dados.ano, dados.mes, dados.dia, h, m, dados.fuso, dados.horarioRepetido);
     var time = A.MakeTime(dataUTC);
     var amanha = A.MakeTime(new Date(dataUTC.getTime() + 86400000));
     var eps = obliquidade(time);

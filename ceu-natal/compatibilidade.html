@@ -46,9 +46,10 @@
             <label>Data de nascimento <input type="date" id="a-data" min="1900-01-01" ></label>
             <label>Hora <small>(se souber)</small> <input type="time" id="a-hora"></label>
             <label class="campo-cidade">Cidade de nascimento
-              <input type="text" id="a-cidade" placeholder="Digite e confirme na lista">
+              <input type="text" id="a-cidade" placeholder="Digite e confirme na lista" aria-autocomplete="list" aria-controls="a-cidade-lista">
               <ul id="a-cidade-lista" class="sugestoes" role="listbox" hidden></ul>
             </label>
+            <p id="a-cidade-status" class="nota cidade-status" role="status" aria-live="polite">Digite pelo menos três letras da cidade.</p>
           </fieldset>
           <fieldset class="pessoa">
             <legend>Pessoa 2</legend>
@@ -56,9 +57,10 @@
             <label>Data de nascimento <input type="date" id="b-data" min="1900-01-01" ></label>
             <label>Hora <small>(se souber)</small> <input type="time" id="b-hora"></label>
             <label class="campo-cidade">Cidade de nascimento
-              <input type="text" id="b-cidade" placeholder="Digite e confirme na lista">
+              <input type="text" id="b-cidade" placeholder="Digite e confirme na lista" aria-autocomplete="list" aria-controls="b-cidade-lista">
               <ul id="b-cidade-lista" class="sugestoes" role="listbox" hidden></ul>
             </label>
+            <p id="b-cidade-status" class="nota cidade-status" role="status" aria-live="polite">Digite pelo menos três letras da cidade.</p>
           </fieldset>
         </div>
         <p id="compat-erro" class="erro" role="alert"></p>
@@ -93,6 +95,7 @@
     <p><a href="index.html">Mapa astral grátis</a> · <a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de uso</a></p>
     <p class="nota">Conteúdo para fins de entretenimento e autoconhecimento.</p>
     <p class="nota">© <span id="ano-atual"></span> <span data-nome-site>Céu Natal</span>.</p>
+    <p class="nota">Dados de localidades: <a href="https://www.geonames.org/" rel="noopener noreferrer">GeoNames</a>, licença CC BY 4.0.</p>
   </footer>
 
   <div id="cookies" class="cookies" hidden>

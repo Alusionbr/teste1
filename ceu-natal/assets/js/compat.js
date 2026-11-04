@@ -57,7 +57,7 @@
     box.scrollIntoView({ behavior: 'smooth' });
     Comum.carregarAnuncio($('#anuncio-compat'));
     $('#btn-compartilhar').addEventListener('click', function () {
-      Comum.compartilhar('Nosso índice simbólico no mapa astral foi ' + r.nota + '/100 (índice simbólico). Explore o seu: ' + (CFG.dominio || location.origin) + '/compatibilidade.html');
+      Comum.compartilhar('Nosso índice simbólico no mapa astral foi ' + r.nota + '/100 (índice simbólico). Explore o seu: ' + new URL('compatibilidade.html', location.href).href);
     });
     Comum.evento('compatibilidade_gerada', { nota: r.nota, origem: Comum.origem() });
   }

@@ -6,11 +6,11 @@
   <script src="assets/js/acesso.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mapa Astral Grátis Completo com Interpretação | Céu Natal</title>
-  <meta name="description" content="Faça seu mapa astral grátis em segundos: Sol, Lua, Ascendente, planetas, casas e aspectos com interpretação em português. Leituras simbólicas para reflexão e autoconhecimento.">
+  <meta name="description" content="Explore seu mapa astral grátis: roda interativa, planetas, casas, aspectos e dados do cálculo, com leitura simbólica em português e sem criar conta.">
   <meta name="theme-color" content="#0d1030">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Mapa Astral Grátis | Céu Natal">
-  <meta property="og:description" content="Explore planetas, casas e aspectos do seu mapa astral. Grátis e na hora.">
+  <meta property="og:description" content="Seu atlas celeste pessoal: planetas, casas e aspectos explicados. Grátis durante os testes.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%230d1030' stroke='%23e8c26a' stroke-width='6'/%3E%3Cpath d='M50 18l7 25 25 7-25 7-7 25-7-25-25-7 25-7z' fill='%23e8c26a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/css/style.css">
   <script type="application/ld+json">
@@ -41,17 +41,17 @@
 
   <main>
     <section class="hero">
-      <p class="sobretitulo">Seu céu, em linguagem simples</p>
-      <h1>Um momento para<br><em>olhar para você.</em></h1>
-      <p class="lead">Conheça seu mapa de nascimento e explore uma leitura astrológica com contexto. Grátis, no seu ritmo, sem criar conta.</p>
+      <p class="sobretitulo">Céu Natal / Atlas pessoal</p>
+      <h1>O céu do seu nascimento,<br><em>mais fácil de entender.</em></h1>
+      <p class="lead">Uma roda para explorar, capítulos para ler no seu ritmo e os dados do cálculo para conferir. Gratuito durante os testes, sem criar conta.</p>
       <a href="#calcular" class="btn grande">Fazer meu mapa agora</a>
-      <p class="hero-links"><a href="compatibilidade.html">Explore a compatibilidade</a><span data-link-telegram-wrap> · <a data-link-telegram href="#">Previsão diária grátis no Telegram</a></span></p>
+      <p class="hero-links">Data, hora e cidade de nascimento bastam. <a href="compatibilidade.html">Explorar compatibilidade</a></p>
     </section>
 
     <div class="anuncio" data-bloco="topo"></div>
 
     <section id="calcular" class="cartao formulario">
-      <h2>Comece pelo seu nascimento</h2><p class="nota cidade-ajuda"></p>
+      <p class="sobretitulo centro">01 / Seu ponto de partida</p><h2>Comece pelo seu nascimento</h2><p class="nota cidade-ajuda"></p>
       <form id="form-mapa" novalidate autocomplete="off">
         <label>Seu nome <small>(opcional)</small>
           <input type="text" id="nome" maxlength="60" placeholder="Como quer ser chamado">
@@ -65,23 +65,30 @@
           </label>
         </div>
         <label class="check"><input type="checkbox" id="sem-hora"> Não sei a hora em que nasci</label>
+        <fieldset id="horario-repetido" class="horario-repetido" hidden>
+          <legend>Essa hora ocorreu duas vezes na mudança do horário de verão</legend>
+          <p class="nota">Escolha somente se souber em qual parte da mudança ocorreu o nascimento. Se não souber, use “Não sei a hora”.</p>
+          <label class="check"><input type="radio" name="horario-repetido" value="primeiro"> Primeira ocorrência, antes de o relógio voltar</label>
+          <label class="check"><input type="radio" name="horario-repetido" value="segundo"> Segunda ocorrência, depois de o relógio voltar</label>
+        </fieldset>
         <label class="campo-cidade">Cidade de nascimento
           <input type="text" id="cidade" placeholder="Digite e confirme na lista" aria-autocomplete="list" aria-controls="cidade-lista">
           <ul id="cidade-lista" class="sugestoes" role="listbox" hidden></ul>
         </label>
+        <p id="cidade-status" class="nota cidade-status" role="status" aria-live="polite">Digite pelo menos três letras da cidade.</p>
         <p id="form-erro" class="erro" role="alert"></p>
         <button type="submit" class="btn grande">Ver meu mapa</button>
         <p class="nota">O formulário calcula no navegador. No acesso com código, o bot guarda os dados temporariamente por até 15 minutos. <a href="privacidade.html">Entenda a privacidade</a>.</p>
       </form>
     </section>
 
-    <section id="resultado" class="cartao resultado" hidden aria-live="polite"></section>
+    <section id="resultado" class="cartao resultado" hidden aria-label="Resultado do mapa astral"></section>
 
     <section id="produtos" class="cartao conteudo">
-      <p class="sobretitulo">Céu Natal em evolução</p><h2>Uma leitura para acompanhar o seu dia</h2>
-      <p>Conheça primeiro seu mapa gratuito. O bot pode guardar seu perfil, enviar uma reflexão diária no horário escolhido e mostrar a base da leitura.</p>
-      <div class="passos"><div><b>01 · Conheça</b><p>Roda, planetas, casas e aspectos do mapa.</p></div><div><b>02 · Explore</b><p>Leia cada seção gratuitamente durante os testes.</p></div><div><b>03 · Escolha</b><p>Se usar o bot depois, você controla os horários, a pausa e a exclusão.</p></div></div>
-      <p data-link-telegram-wrap><a data-link-telegram class="btn" href="#">Conhecer o bot no Telegram</a></p>
+      <p class="sobretitulo">Leitura aberta durante os testes</p><h2>Mais que uma lista de signos</h2>
+      <p>O mapa reúne posições, casas e aspectos em capítulos. Selecione um ponto na roda, acompanhe a interpretação e confira os números usados no cálculo.</p>
+      <div class="passos"><div><b>01 · Calcule</b><p>Confirme a cidade correta e informe a hora, se souber.</p></div><div><b>02 · Explore</b><p>Leia o resumo e aprofunde cada posição gratuitamente.</p></div><div><b>03 · Guarde</b><p>Imprima o mapa em PDF ou baixe os dados em CSV.</p></div></div>
+      <p class="nota">O bot do Telegram é uma experiência separada e opcional nesta fase. <span data-link-telegram-wrap><a data-link-telegram href="#">Conhecer o bot</a>.</span></p>
       <p class="nota">Relatórios pagos estão em preparação. Não recebemos pedidos nem pagamentos nesta versão.</p>
     </section>
 
@@ -111,6 +118,10 @@
         <summary>Meus dados ficam salvos?</summary>
         <p>O cálculo pelo formulário acontece no navegador. No bot, o progresso é guardado por até 6 horas; perfis do diário ficam salvos até a exclusão. A transferência com código expira em 15 minutos. Veja a <a href="privacidade.html">Política de Privacidade</a>.</p>
       </details>
+      <details>
+        <summary>Como conferir as posições do mapa?</summary>
+        <p>Abra “Dados do cálculo” no resultado para ver posições, casas, fuso e instante UTC. Você também pode baixar um CSV. O cálculo usa zodíaco tropical, posições geocêntricas e o sistema Placidus quando disponível.</p>
+      </details>
     </section>
 
     <div class="anuncio" data-bloco="rodape"></div>
@@ -121,6 +132,7 @@
     <p><a href="compatibilidade.html">Compatibilidade</a> · <a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de uso</a> · <a href="#duvidas">Dúvidas</a></p>
     <p class="nota">Conteúdo para fins de entretenimento e autoconhecimento. Não substitui orientação médica, psicológica, jurídica ou financeira.</p>
     <p class="nota">© <span id="ano-atual"></span> <span data-nome-site>Céu Natal</span>. Todos os direitos reservados.</p>
+    <p class="nota">Dados de localidades: <a href="https://www.geonames.org/" rel="noopener noreferrer">GeoNames</a>, licença CC BY 4.0.</p>
   </footer>
 
   <div id="cookies" class="cookies" hidden>
