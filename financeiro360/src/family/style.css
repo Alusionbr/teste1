@@ -2000,3 +2000,25 @@ input[type="checkbox"] {
   .page-intro p { font-size: 11px; }
   .modal { width: calc(100vw - 20px); max-width: 520px; max-height: calc(100dvh - 20px); padding: 17px; }
 }
+
+
+/* Financial calendar: clear due-date states and cash coverage. */
+.finance-calendar-summary { margin-bottom: 14px; border-color: #d2dfd8; }
+.finance-calendar-summary p { margin: 7px 0; font-size: 13px; }
+.finance-calendar-summary small { display: block; color: var(--muted); }
+.finance-alert-picker { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.finance-alert-picker select { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; padding: 5px; background: var(--surface, #fff); color: var(--ink); }
+.calendar-day.financial-unpaid { border-color: #d65a5a; background: color-mix(in srgb, #d94747 13%, transparent); }
+.calendar-day.financial-unpaid .calendar-day-number { color: #ba2525; font-weight: 900; }
+.calendar-day.financial-paid { border-color: #6aaf86; background: color-mix(in srgb, #27814a 10%, transparent); }
+.calendar-day.financial-unconfirmed { border: 1px dashed #b6924f; }
+.financial-calendar-item { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid var(--line); }
+.financial-calendar-item .record-info { flex: 1; min-width: 150px; }
+.financial-calendar-item.financial-unpaid .record-info small { color: #bc3a3a; font-weight: 700; }
+.financial-calendar-item.financial-paid .record-info small { color: #27814a; }
+.finance-warning { border-color: #e0a0a0; background: color-mix(in srgb, #e75d5d 8%, var(--surface, white)); }
+@media(max-width:640px) {
+  .finance-alert-picker { width: 100%; justify-content: flex-end; }
+  .financial-calendar-item { gap: 7px; }
+  .financial-calendar-item > strong { margin-left: auto; }
+}
