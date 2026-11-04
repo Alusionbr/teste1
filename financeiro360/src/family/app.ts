@@ -1,5 +1,6 @@
 import "./style.css";
 import { FamilyAPI } from "./api.ts";
+import { parseStatement, statementFingerprint, type StatementRow } from "./statement-import.ts";
 import {
   brl as formatBrl,
   today,
@@ -54,6 +55,10 @@ let page = "overview",
   modal = "",
   categoryPresetCategory = "",
   importRows: Partial<Entry>[] = [];
+let invoiceImportRows: Array<StatementRow & { duplicate: boolean }> = [];
+let invoiceImportCardId = "";
+let invoiceImportMonth = month;
+let invoiceImportWarnings: string[] = [];
 const esc = (v: unknown) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -97,6 +102,7 @@ const nav = [
   ["pantry", "Casa"],
   ["settings", "Perfil"],
   ["cards", "Cartões e faturas"],
+  ["invoice-import", "Importar fatura"],
   ["calendar", "Calendário familiar"],
   ["reminders", "Avisos e lembretes"],
   ["accounts", "Contas e dívidas"],
@@ -412,6 +418,50 @@ const cardDueDate = (card: Data["cards"][number]) => dueDate(month, {
   id: card.id, name: card.name, owner: "wife", limitCents: card.limit_cents || 0,
   closingDay: card.closing_day, dueDay: card.due_day,
 });
+
+function invoiceImport() {
+  const data = api.data!;
+  if (!api.allowed("entries") || !api.allowed("cards"))
+    return '<section class="panel"><h3>Importação indisponível</h3><p>É necessário ter permissão para cadastrar gastos e cartões.</p></section>';
+  const cards = data.cards.filter((card) => own(card) && !card.archived_at);
+  if (!cards.length) return '<section class="panel"><h3>Cadastre um cartão antes de importar faturas.</h3></section>';
+  const options = '<option value="">Selecione o cartão</option>' + cards.map((card) =>
+    opt(card.id, card.name + ' · fecha dia ' + card.closing_day + ' e vence dia ' + card.due_day, invoiceImportCardId)).join('');
+  const source = '<section class="panel"><form id="invoice-source-form" class="form-grid">' +
+    field('invoice_card', 'Cartão de destino', '<select name="invoice_card" required>' + options + '</select>', true) +
+    field('invoice_month', 'Mês da fatura', input('invoice_month', 'month', invoiceImportMonth, 'required')) +
+    field('invoice_file', 'Arquivo CSV/TXT (máximo 1 MB)', '<input name="invoice_file" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain">', true) +
+    '<label class="wide"><span>Ou cole o texto das compras</span><textarea name="invoice_text" rows="5" placeholder="05/10/2026;Paraíba;76,89&#10;10/10/2026;Pijama + secante;78,78"></textarea></label>' +
+    '<p class="fine wide">Para PDF com texto selecionável, copie os lançamentos e cole acima. PDFs digitalizados e imagens exigem OCR, ainda não incluído. Antes de confirmar, a leitura fica no seu navegador e não grava nem envia o arquivo.</p>' +
+    '<button type="submit" class="primary wide">Ler fatura e revisar</button></form>' +
+    invoiceImportWarnings.map((warning) => '<p class="fine">' + esc(warning) + '</p>').join('') + '</section>';
+  const duplicates = invoiceImportRows.filter((row) => row.duplicate).length;
+  const previewRows = invoiceImportRows.map((row, index) => '<tr class="' +
+    (row.duplicate ? 'invoice-duplicate' : '') +
+    '"><td><label><input type="checkbox" name="include_' + index + '" ' +
+    (row.duplicate ? '' : 'checked') + ' aria-label="Importar compra ' + (index + 1) + '">' +
+    (row.duplicate ? '<small>Possível duplicata</small>' : '') +
+    '</label></td><td>' + input('date_' + index, 'date', row.date, 'required') +
+    '</td><td>' + input('description_' + index, 'text', row.description, 'maxlength="160" required') +
+    (row.installment_label ? '<small>Parcela: ' + esc(row.installment_label) + '</small>' : '') +
+    '</td><td>' + moneyInput('amount_' + index, (row.amount_cents / 100).toFixed(2).replace('.', ',')) +
+    '</td><td><select name="category_' + index + '">' + categoryOptions(row.category) +
+    '</select></td></tr>').join('');
+  const total = invoiceImportRows.reduce((sum, row) => sum + row.amount_cents, 0);
+  const preview = !invoiceImportRows.length ? '' : '<section class="panel section-gap">' +
+    '<h3>Prévia: ' + invoiceImportRows.length + ' compra(s) · ' + brl(total) + '</h3>' +
+    '<p class="fine">' + duplicates + ' possível(is) duplicata(s), desmarcadas. Confira data, valor, categoria e cada parcela. A aprovação confirma a compra no cartão, mas não marca a fatura como paga.</p>' +
+    '<form id="invoice-confirm-form"><div class="invoice-import-scroll"><table class="invoice-import-table">' +
+    '<thead><tr><th>Importar</th><th>Data</th><th>Descrição</th><th>Valor (R$)</th><th>Categoria</th></tr></thead><tbody>' +
+    previewRows + '</tbody></table></div>' +
+    field('invoice_area', 'Área dos lançamentos', '<select name="invoice_area">' +
+      opt('household', 'Casa / família', 'household') + opt('personal', 'Pessoal') +
+      opt('business', 'Empresa') + '</select>') +
+    '<div class="button-row"><button type="submit" class="primary">Confirmar compras selecionadas</button>' +
+    button('invoice-clear', 'Limpar prévia', 'secondary') + '</div></form></section>';
+  return '<section class="page-intro"><div><h2>Importar fatura</h2><p>Transforme compras de CSV ou texto em lançamentos associados ao cartão e ao mês correto, sem importações duplicadas.</p></div>' +
+    button('nav', 'Voltar aos cartões', 'secondary', 'data-page="cards"') + '</section>' + source + preview;
+}
 function cards() {
   const d = api.data!;
   const duplicates = d.cards.filter((card) => !card.archived_at && d.cards.some((other) => other.id !== card.id && !other.archived_at && other.owner_id === card.owner_id && other.name.trim().toLocaleLowerCase() === card.name.trim().toLocaleLowerCase() && other.closing_day === card.closing_day && other.due_day === card.due_day));
@@ -426,7 +476,7 @@ function cards() {
   const openTotal = visibleCards.reduce((sum, card) => sum + invoice(d, card, month).remaining, 0);
   const nextDue = visibleCards.filter((card) => invoice(d, card, month).remaining > 0)
     .map((card) => ({ card, date: cardDueDate(card) })).sort((a, b) => a.date.localeCompare(b.date))[0];
-  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Confira o total de cada cartão e seu próprio vencimento.</p></div>${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</section>${duplicates.length ? `<div class="hint-banner">${icon("cards")}<div><strong>Possíveis cartões duplicados</strong><p>${[...new Set(duplicates.map((item) => item.name))].map(esc).join(", ")}. Abra o cartão que será removido e toque em “Unir duplicado”. Compras e anexos serão preservados.</p></div></div>` : ""}<section class="panel card-filter-panel"><div class="card-filter-heading"><div><span class="eyebrow">FATURAS PREVISTAS</span><strong>${brl(invoiceTotal)}</strong></div><div><span class="eyebrow">EM ABERTO</span><strong>${brl(openTotal)}</strong></div><div><span class="eyebrow">PRÓXIMO VENCIMENTO</span><strong>${nextDue ? `${esc(nextDue.card.name)} · ${nextDue.date.split("-").reverse().join("/")}` : "Nenhum"}</strong></div></div><div class="card-filters"><label><span>Cartão</span><select name="card_id_filter">${opt("all", "Todos os cartões", cardIdFilter)}${availableCards.map((card) => opt(card.id, card.name, cardIdFilter)).join("")}</select></label><label><span>Titular</span><select name="card_owner_filter">${opt("all", "Todos os titulares", cardOwnerFilter)}${owners.map((member) => opt(member.user_id, member.display_name, cardOwnerFilter)).join("")}</select></label><label><span>Situação</span><select name="card_status_filter">${opt("all", "Todas as faturas", cardStatusFilter)}${opt("open", "Com valor em aberto", cardStatusFilter)}${opt("paid", "Quitadas", cardStatusFilter)}</select></label></div><p class="fine">Os totais respeitam a fatura e o vencimento cadastrados em cada cartão.</p></section><div class="card-grid">${
+  return `<section class="page-intro"><div><h2>Cartões sem surpresas.</h2><p>Confira o total de cada cartão e seu próprio vencimento.</p></div><div class="button-row">${button("nav", "Importar fatura", "secondary", 'data-page="invoice-import"')}${api.allowed("cards") ? button("add-card", icon("plus") + " Adicionar cartão") : ""}</div></section>${duplicates.length ? `<div class="hint-banner">${icon("cards")}<div><strong>Possíveis cartões duplicados</strong><p>${[...new Set(duplicates.map((item) => item.name))].map(esc).join(", ")}. Abra o cartão que será removido e toque em “Unir duplicado”. Compras e anexos serão preservados.</p></div></div>` : ""}<section class="panel card-filter-panel"><div class="card-filter-heading"><div><span class="eyebrow">FATURAS PREVISTAS</span><strong>${brl(invoiceTotal)}</strong></div><div><span class="eyebrow">EM ABERTO</span><strong>${brl(openTotal)}</strong></div><div><span class="eyebrow">PRÓXIMO VENCIMENTO</span><strong>${nextDue ? `${esc(nextDue.card.name)} · ${nextDue.date.split("-").reverse().join("/")}` : "Nenhum"}</strong></div></div><div class="card-filters"><label><span>Cartão</span><select name="card_id_filter">${opt("all", "Todos os cartões", cardIdFilter)}${availableCards.map((card) => opt(card.id, card.name, cardIdFilter)).join("")}</select></label><label><span>Titular</span><select name="card_owner_filter">${opt("all", "Todos os titulares", cardOwnerFilter)}${owners.map((member) => opt(member.user_id, member.display_name, cardOwnerFilter)).join("")}</select></label><label><span>Situação</span><select name="card_status_filter">${opt("all", "Todas as faturas", cardStatusFilter)}${opt("open", "Com valor em aberto", cardStatusFilter)}${opt("paid", "Quitadas", cardStatusFilter)}</select></label></div><p class="fine">Os totais respeitam a fatura e o vencimento cadastrados em cada cartão.</p></section><div class="card-grid">${
     visibleCards
       .map((c, i) => {
         const f = invoice(d, c, month),
@@ -802,6 +852,7 @@ function render() {
     recurring: "Nova despesa fixa",
     member: "Novo usuário da família",
     import: "Importar relatório",
+    "invoice-import": "Importar fatura",
     "import-preview": "Confira antes de importar",
   };
   const views: Record<string, () => string> = {
@@ -810,6 +861,7 @@ function render() {
     analysis,
     categories,
     cards,
+    "invoice-import": invoiceImport,
     reminders,
     calendar,
     accounts,
@@ -1267,6 +1319,7 @@ root.addEventListener("click", (event) => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return;
   }
+  if (a === "invoice-clear") { invoiceImportRows = []; invoiceImportWarnings = []; render(); return; }
   if (a === "confirm-import") {
     void run(async () => {
       await api.importEntries(importRows);
@@ -1494,6 +1547,94 @@ root.addEventListener("submit", (event) => {
   const f = event.target as HTMLFormElement;
   void run(async () => {
     const id = val(f, "id");
+    if (f.getAttribute("id") === "invoice-source-form") {
+      if (!api.allowed("entries") || !api.allowed("cards")) throw Error("Sem permissão para importar faturas.");
+      const cardId = val(f, "invoice_card");
+      const card = api.data!.cards.find(c => c.id === cardId && !c.archived_at && own(c));
+      if (!card) throw Error("Selecione um cartão ativo.");
+      const invoiceMonthValue = val(f, "invoice_month");
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(invoiceMonthValue))
+        throw Error("Informe um mês de fatura válido.");
+      let rawText = val(f, "invoice_text");
+      const file = f.querySelector<HTMLInputElement>('[name="invoice_file"]')?.files?.[0];
+      if (file) {
+        if (!/\.(csv|txt|tsv)$/i.test(file.name))
+          throw Error("Nesta versão, envie CSV/TXT. Para PDF selecione e copie o texto dos lançamentos.");
+        if (file.size > 1000000) throw Error("Arquivo acima de 1 MB. Divida por fatura.");
+        const bytes = await file.arrayBuffer();
+        const decoded = new TextDecoder("utf-8").decode(bytes);
+        rawText = decoded.includes("\uFFFD") ? new TextDecoder("windows-1252").decode(bytes) : decoded;
+      }
+      if (!rawText.trim()) throw Error("Anexe CSV/TXT ou cole as compras da fatura.");
+      const parsed = parseStatement(rawText, invoiceMonthValue);
+      if (!parsed.rows.length) throw Error(parsed.warnings.join(" "));
+      if (parsed.rows.length > 250) throw Error("Confira no máximo 250 compras por importação.");
+      const existing = new Set(invoiceInstallments(api.data!.entries, card, invoiceMonthValue)
+        .map(line => statementFingerprint({date: line.entry.date, description: line.entry.description, amount_cents: line.amount_cents})));
+      for (const entry of api.data!.entries.filter(e => e.card_id === card.id && e.payment === "card" &&
+        e.kind === "expense" && e.status === "pending_review" &&
+        (e.first_invoice_month || invoiceMonth(e.date, card.closing_day)) === invoiceMonthValue)) {
+        existing.add(statementFingerprint(entry));
+      }
+      const seen = new Set<string>();
+      invoiceImportRows = parsed.rows.map(row => {
+        const key = statementFingerprint(row);
+        const duplicate = existing.has(key) || seen.has(key);
+        seen.add(key);
+        return { ...row, duplicate };
+      });
+      invoiceImportCardId = card.id;
+      invoiceImportMonth = invoiceMonthValue;
+      invoiceImportWarnings = parsed.warnings;
+      return;
+    }
+    if (f.getAttribute("id") === "invoice-confirm-form") {
+      if (!api.allowed("entries") || !api.allowed("cards")) throw Error("Sem permissão para importar faturas.");
+      const card = api.data!.cards.find(c => c.id === invoiceImportCardId && !c.archived_at && own(c));
+      if (!card) throw Error("Cartão não está mais disponível; leia a fatura novamente.");
+      const areaValue = val(f, "invoice_area");
+      if (!["household","personal","business"].includes(areaValue)) throw Error("Área financeira inválida.");
+      const selected: Partial<Entry>[] = [];
+      const selectedFingerprints = new Set<string>();
+      for (let index = 0; index < invoiceImportRows.length; index++) {
+        if (!new FormData(f).has("include_" + index)) continue;
+        const row = invoiceImportRows[index];
+        const date = val(f, "date_" + index);
+        const description = val(f, "description_" + index);
+        const amount_cents = parseMoney(val(f, "amount_" + index));
+        const category = val(f, "category_" + index);
+        if (!validIsoDate(date) || date.slice(0, 7) > invoiceImportMonth || !description ||
+            description.length > 160 || !amount_cents || !category)
+          throw Error("Corrija data, descrição, categoria e valor das compras selecionadas.");
+        const fingerprint = statementFingerprint({ date, description, amount_cents });
+        const identifier = card.id + "|" + invoiceImportMonth + "|" + fingerprint + "|" + index;
+        let hash = 2166136261;
+        for (let j = 0; j < identifier.length; j++)
+          hash = Math.imul(hash ^ identifier.charCodeAt(j), 16777619);
+        const source_ref = "invoice-import:" + card.id + ":" + invoiceImportMonth + ":" + (hash >>> 0).toString(36);
+        if (api.data!.entries.some(entry => entry.source_ref === source_ref))
+          throw Error("Uma compra selecionada já foi importada. Atualize e revise as duplicatas.");
+        if (selectedFingerprints.has(fingerprint) && !row.duplicate)
+          throw Error("Há duas compras idênticas selecionadas. Confira antes de continuar.");
+        selectedFingerprints.add(fingerprint);
+        selected.push({
+          description, payee: description, date, amount_cents, category,
+          area: areaValue, shared: api.me.role === "member" && areaValue !== "personal",
+          status: "paid", payment: "card", kind: "expense", card_id: card.id,
+          account_id: null, target_account_id: null, debt_id: null, due_date: null,
+          installments: 1, first_invoice_month: invoiceImportMonth,
+          invoice_month: null, source_ref,
+        });
+      }
+      if (!selected.length) throw Error("Selecione pelo menos uma compra para importar.");
+      await api.importEntries(selected);
+      month = invoiceImportMonth;
+      cardIdFilter = card.id;
+      page = "cards";
+      invoiceImportRows = [];
+      invoiceImportWarnings = [];
+      return;
+    }
     if (f.getAttribute("id") === "login-form") {
       await api.login(val(f, "email"), val(f, "password"));
       return;
