@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-contato]').forEach(function(el){var email=window.CONFIG.emailContato;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email||'')){var a=document.createElement('a');a.href='mailto:'+email;a.textContent=email;el.textContent='Fale com o responsável: ';el.append(a);}});

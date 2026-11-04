@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <script src="assets/js/acesso.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compatibilidade Amorosa Grátis pelo Mapa Astral | Céu Natal</title>
+  <meta name="description" content="Teste grátis a compatibilidade entre duas pessoas pelo mapa astral completo: nota do casal, atração, emoções, diálogo e afinidade. Vai muito além do signo solar.">
+  <meta name="theme-color" content="#0d1030">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Compatibilidade amorosa grátis | Céu Natal">
+  <meta property="og:description" content="Descubra a nota de vocês dois pelo mapa astral completo.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%230d1030' stroke='%23e8c26a' stroke-width='6'/%3E%3Cpath d='M50 18l7 25 25 7-25 7-7 25-7-25-25-7 25-7z' fill='%23e8c26a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/css/style.css">
+<meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+  <div class="estrelas" aria-hidden="true"></div>
+
+  <header class="cabecalho">
+    <a href="index.html" class="logo"><span class="logo-icone">✦</span> <span data-nome-site>Céu Natal</span></a>
+    <nav>
+      <a href="index.html#calcular">Mapa grátis</a>
+      <a href="compatibilidade.html">Compatibilidade</a>
+      <a href="index.html#produtos">Sobre o projeto</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero hero-curto">
+      <p class="sobretitulo">Sinastria · mapa astral completo</p>
+      <h1>Compatibilidade amorosa<br><em>com contexto</em></h1>
+      <p class="lead">Não é só o signo: comparamos Sol, Lua, Vênus, Marte, Mercúrio e Ascendente das duas pessoas para criar uma leitura simbólica sobre temas da convivência.</p>
+    </section>
+
+    <div class="anuncio" data-bloco="topo"></div>
+
+    <section class="cartao formulario largo">
+      <p class="nota cidade-ajuda"></p>
+      <form id="form-compat" novalidate autocomplete="off">
+        <div class="duas-pessoas">
+          <fieldset class="pessoa">
+            <legend>Pessoa 1</legend>
+            <label>Nome <input type="text" id="a-nome" maxlength="40" placeholder="Ex.: Ana"></label>
+            <label>Data de nascimento <input type="date" id="a-data" min="1900-01-01" ></label>
+            <label>Hora <small>(se souber)</small> <input type="time" id="a-hora"></label>
+            <label class="campo-cidade">Cidade de nascimento
+              <input type="text" id="a-cidade" placeholder="Digite e confirme na lista">
+              <ul id="a-cidade-lista" class="sugestoes" role="listbox" hidden></ul>
+            </label>
+          </fieldset>
+          <fieldset class="pessoa">
+            <legend>Pessoa 2</legend>
+            <label>Nome <input type="text" id="b-nome" maxlength="40" placeholder="Ex.: Bruno"></label>
+            <label>Data de nascimento <input type="date" id="b-data" min="1900-01-01" ></label>
+            <label>Hora <small>(se souber)</small> <input type="time" id="b-hora"></label>
+            <label class="campo-cidade">Cidade de nascimento
+              <input type="text" id="b-cidade" placeholder="Digite e confirme na lista">
+              <ul id="b-cidade-lista" class="sugestoes" role="listbox" hidden></ul>
+            </label>
+          </fieldset>
+        </div>
+        <p id="compat-erro" class="erro" role="alert"></p>
+        <button type="submit" class="btn grande">Ver a compatibilidade</button>
+        <p class="nota">Cálculo local no navegador. Use apenas dados que tem autorização para informar. No acesso vindo do bot, os dados ficam temporariamente salvos por até 15 minutos.</p>
+      </form>
+    </section>
+
+    <section id="resultado-compat" class="cartao resultado" hidden aria-live="polite"></section>
+
+    <section class="cartao conteudo">
+      <h2>Como funciona a compatibilidade astrológica</h2>
+      <details open>
+        <summary>Por que não basta comparar os signos?</summary>
+        <p>O signo solar é só uma parte do mapa. A química de um casal aparece principalmente na Lua (emoções e convivência), em Vênus (como cada um ama), em Marte (desejo e iniciativa) e em Mercúrio (a conversa). Duas pessoas de signos "incompatíveis" podem ter Luas e Vênus em total harmonia.</p>
+      </details>
+      <details>
+        <summary>O que significa a nota?</summary>
+        <p>É um índice simbólico de 0 a 100, não uma chance de sucesso. A fórmula editorial soma os aspectos entre os planetas das duas pessoas: trígonos e sextis facilitam, quadraturas geram atrito, conjunções intensificam. Uma nota baixa não condena a relação: mostra onde vocês vão precisar de mais diálogo.</p>
+      </details>
+      <details>
+        <summary>Preciso da hora de nascimento?</summary>
+        <p>Não é obrigatória. Com a hora, o cálculo inclui o Ascendente e fica mais preciso. Sem ela, usamos meio-dia, e a Lua pode variar e até mudar de signo; o índice também é aproximado.</p>
+      </details>
+    </section>
+
+    <div class="anuncio" data-bloco="rodape"></div>
+  </main>
+
+  <footer class="rodape">
+    <p><strong data-nome-site>Céu Natal</strong> · Astrologia para autoconhecimento</p>
+    <p><a href="index.html">Mapa astral grátis</a> · <a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de uso</a></p>
+    <p class="nota">Conteúdo para fins de entretenimento e autoconhecimento.</p>
+    <p class="nota">© <span id="ano-atual"></span> <span data-nome-site>Céu Natal</span>.</p>
+  </footer>
+
+  <div id="cookies" class="cookies" hidden>
+    <p>Usamos cookies para exibir anúncios e medir o uso do site, conforme a <a href="privacidade.html">Política de Privacidade</a>.</p>
+    <div><button type="button" class="btn secundario" id="cookies-recusar">Recusar</button><button type="button" class="btn" id="cookies-aceitar">Aceitar</button></div>
+  </div>
+
+  <script src="assets/js/vendor/astronomy.browser.min.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/validacao.js"></script>
+  <script src="assets/js/astro.js"></script>
+  <script src="assets/js/sinastria.js"></script>
+  <script src="assets/js/cidades.js"></script>
+  <script src="assets/js/comum.js"></script>
+  <script src="assets/js/compat.js"></script>
+</body>
+</html>

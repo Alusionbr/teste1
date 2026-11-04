@@ -31,6 +31,13 @@ const HUB_TOOLS = [
     status: "ativo"
   },
   {
+    name: "Céu Natal",
+    tagline: "Calcule seu mapa astral e veja a compatibilidade com cálculos feitos no navegador.",
+    href: "./ceu-natal/",
+    tags: ["astrologia", "mapa astral", "compatibilidade", "local"],
+    status: "ativo"
+  },
+  {
     name: "File360",
     tagline: "Converta imagens e mídia, organize PDFs e compacte arquivos sem enviar nada para um servidor.",
     href: "./file360/",
@@ -43,15 +50,12 @@ function toolCard(tool) {
   const card = document.createElement("a");
   card.className = "card" + (tool.status === "rascunho" ? " draft" : "");
   card.href = tool.href;
-
   const title = document.createElement("h2");
   title.textContent = tool.name;
   card.appendChild(title);
-
   const tagline = document.createElement("p");
   tagline.textContent = tool.tagline;
   card.appendChild(tagline);
-
   if (tool.tags && tool.tags.length) {
     const tags = document.createElement("div");
     tags.className = "tags";
@@ -62,15 +66,12 @@ function toolCard(tool) {
     });
     card.appendChild(tags);
   }
-
   const open = document.createElement("span");
   open.className = "open";
   open.textContent = tool.status === "rascunho" ? "Em construção" : "Abrir";
   card.appendChild(open);
-
   return card;
 }
-
 function renderTools() {
   const grid = document.getElementById("tools");
   if (!grid) return;
@@ -81,5 +82,4 @@ function renderTools() {
   slot.innerHTML = "<h2>Próxima ferramenta</h2><p>Crie uma pasta na raiz do repositório e acrescente uma linha em <code>hub/tools.js</code>.</p>";
   grid.appendChild(slot);
 }
-
 renderTools();

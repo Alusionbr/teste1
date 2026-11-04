@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <script src="assets/js/acesso.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mapa Astral Grátis Completo com Interpretação | Céu Natal</title>
+  <meta name="description" content="Faça seu mapa astral grátis em segundos: Sol, Lua, Ascendente, planetas, casas e aspectos com interpretação em português. Leituras simbólicas para reflexão e autoconhecimento.">
+  <meta name="theme-color" content="#0d1030">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Mapa Astral Grátis | Céu Natal">
+  <meta property="og:description" content="Descubra seu Sol, Lua e Ascendente com interpretação completa. Grátis e na hora.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%230d1030' stroke='%23e8c26a' stroke-width='6'/%3E%3Cpath d='M50 18l7 25 25 7-25 7-7 25-7-25-25-7 25-7z' fill='%23e8c26a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {"@type": "Question", "name": "O que é mapa astral?", "acceptedAnswer": {"@type": "Answer", "text": "É uma fotografia do céu no exato momento e local do seu nascimento, mostrando onde estavam o Sol, a Lua e os planetas em relação aos signos e às casas."}},
+      {"@type": "Question", "name": "Preciso da hora exata de nascimento?", "acceptedAnswer": {"@type": "Answer", "text": "Para calcular ascendente e casas, sim. Sem hora, calculamos posições aproximadas ao meio-dia; a Lua pode mudar de signo."}},
+      {"@type": "Question", "name": "O mapa astral grátis é completo?", "acceptedAnswer": {"@type": "Answer", "text": "A versão gratuita mostra todas as posições, a roda do mapa e a interpretação de Sol, Lua e Ascendente. Relatórios em PDF ainda não estão disponíveis para compra."}}
+    ]
+  }
+  </script>
+<meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+  <div class="estrelas" aria-hidden="true"></div>
+
+  <header class="cabecalho">
+    <a href="#" class="logo"><span class="logo-icone">✦</span> <span data-nome-site>Céu Natal</span></a>
+    <nav>
+      <a href="#calcular">Mapa grátis</a>
+      <a href="compatibilidade.html">Compatibilidade</a>
+      <a href="#produtos">Sobre o projeto</a>
+      <a href="#duvidas">Dúvidas</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="sobretitulo">Seu céu, em linguagem simples</p>
+      <h1>Um momento para<br><em>olhar para você.</em></h1>
+      <p class="lead">Conheça seu mapa de nascimento e explore uma leitura astrológica com contexto. Grátis, no seu ritmo, sem criar conta.</p>
+      <a href="#calcular" class="btn grande">Fazer meu mapa agora</a>
+      <p class="hero-links"><a href="compatibilidade.html">Explore a compatibilidade</a><span data-link-telegram-wrap> · <a data-link-telegram href="#">Previsão diária grátis no Telegram</a></span></p>
+    </section>
+
+    <div class="anuncio" data-bloco="topo"></div>
+
+    <section id="calcular" class="cartao formulario">
+      <h2>Comece pelo seu nascimento</h2><p class="nota cidade-ajuda"></p>
+      <form id="form-mapa" novalidate autocomplete="off">
+        <label>Seu nome <small>(opcional)</small>
+          <input type="text" id="nome" maxlength="60" placeholder="Como quer ser chamado">
+        </label>
+        <div class="linha-campos">
+          <label>Data de nascimento
+            <input type="date" id="data" required min="1900-01-01" >
+          </label>
+          <label>Hora de nascimento
+            <input type="time" id="hora">
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" id="sem-hora"> Não sei a hora em que nasci</label>
+        <label class="campo-cidade">Cidade de nascimento
+          <input type="text" id="cidade" placeholder="Digite e confirme na lista" aria-autocomplete="list" aria-controls="cidade-lista">
+          <ul id="cidade-lista" class="sugestoes" role="listbox" hidden></ul>
+        </label>
+        <p id="form-erro" class="erro" role="alert"></p>
+        <button type="submit" class="btn grande">Ver meu mapa</button>
+        <p class="nota">O formulário calcula no navegador. No acesso com código, o bot guarda os dados temporariamente por até 15 minutos. <a href="privacidade.html">Entenda a privacidade</a>.</p>
+      </form>
+    </section>
+
+    <section id="resultado" class="cartao resultado" hidden aria-live="polite"></section>
+
+    <section id="produtos" class="cartao conteudo">
+      <p class="sobretitulo">Céu Natal em evolução</p><h2>Uma leitura para acompanhar o seu dia</h2>
+      <p>Conheça primeiro seu mapa gratuito. O bot pode guardar seu perfil, enviar uma reflexão diária no horário escolhido e mostrar a base da leitura.</p>
+      <div class="passos"><div><b>01 · Conheça</b><p>Sol, Lua, Ascendente e a roda do mapa.</p></div><div><b>02 · Reflita</b><p>Uma leitura curta e uma ação possível.</p></div><div><b>03 · Escolha</b><p>Você controla os horários, a pausa e a exclusão.</p></div></div>
+      <p data-link-telegram-wrap><a data-link-telegram class="btn" href="#">Conhecer o bot no Telegram</a></p>
+      <p class="nota">Relatórios pagos estão em preparação. Não recebemos pedidos nem pagamentos nesta versão.</p>
+    </section>
+
+    <section id="duvidas" class="cartao conteudo">
+      <h2>Perguntas frequentes</h2>
+      <details open>
+        <summary>O que é mapa astral?</summary>
+        <p>O mapa astral, ou mapa natal, é uma fotografia do céu no exato momento e local do seu nascimento. Ele mostra em quais signos e casas estavam o Sol, a Lua e os planetas. Cada posição descreve uma parte da sua personalidade: o Sol fala da essência, a Lua das emoções e o Ascendente da forma como você se apresenta ao mundo.</p>
+      </details>
+      <details>
+        <summary>Por que preciso da hora de nascimento?</summary>
+        <p>O céu gira cerca de um grau a cada quatro minutos. A hora define o Ascendente e a posição das doze casas, que mostram em quais áreas da vida cada planeta atua. Sem a hora, ainda dá para ver os signos dos planetas, mas a leitura fica menos personalizada. A hora costuma estar na certidão de nascimento.</p>
+      </details>
+      <details>
+        <summary>O que são as casas astrológicas?</summary>
+        <p>São doze setores do mapa, cada um ligado a uma área da vida: identidade, dinheiro, comunicação, família, criatividade, rotina, relacionamentos, transformação, estudos, carreira, amizades e espiritualidade. Usamos o sistema Placidus, o mais popular no Brasil.</p>
+      </details>
+      <details>
+        <summary>O que é sinastria?</summary>
+        <p>Sinastria é a comparação entre os mapas de duas pessoas. Ela mostra onde existe afinidade natural, onde surgem atritos e como cada um afeta o outro. Não determina se um casal vai dar certo, mas ajuda a entender a dinâmica da relação.</p>
+      </details>
+      <details>
+        <summary>Qual a diferença entre o mapa grátis e o completo?</summary>
+        <p>O mapa grátis traz a roda, todas as posições planetárias e a interpretação de Sol, Lua, Ascendente e equilíbrio de elementos. Relatórios aprofundados estão em estudo. Esta versão não vende nem promete entrega de PDFs.</p>
+      </details>
+      <details>
+        <summary>Meus dados ficam salvos?</summary>
+        <p>O cálculo pelo formulário acontece no navegador. No bot, o progresso é guardado por até 6 horas; perfis do diário ficam salvos até a exclusão. A transferência com código expira em 15 minutos. Veja a <a href="privacidade.html">Política de Privacidade</a>.</p>
+      </details>
+    </section>
+
+    <div class="anuncio" data-bloco="rodape"></div>
+  </main>
+
+  <footer class="rodape">
+    <p><strong data-nome-site>Céu Natal</strong> · Astrologia para autoconhecimento</p>
+    <p><a href="compatibilidade.html">Compatibilidade</a> · <a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de uso</a> · <a href="#duvidas">Dúvidas</a></p>
+    <p class="nota">Conteúdo para fins de entretenimento e autoconhecimento. Não substitui orientação médica, psicológica, jurídica ou financeira.</p>
+    <p class="nota">© <span id="ano-atual"></span> <span data-nome-site>Céu Natal</span>. Todos os direitos reservados.</p>
+  </footer>
+
+  <div id="cookies" class="cookies" hidden>
+    <p>Usamos cookies para exibir anúncios e medir o uso do site, conforme a <a href="privacidade.html">Política de Privacidade</a>.</p>
+    <div><button type="button" class="btn secundario" id="cookies-recusar">Recusar</button><button type="button" class="btn" id="cookies-aceitar">Aceitar</button></div>
+  </div>
+
+  <script src="assets/js/vendor/astronomy.browser.min.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/validacao.js"></script>
+  <script src="assets/js/astro.js"></script>
+  <script src="assets/js/interpretacoes.js"></script>
+  <script src="assets/js/cidades.js"></script>
+  <script src="assets/js/comum.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
