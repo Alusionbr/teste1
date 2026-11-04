@@ -117,8 +117,8 @@
     h.push('<div id="anuncio-resultado" class="anuncio" data-bloco="resultado"></div>');
 
     h.push('<div class="leitura">');
-    h.push('<article><h3>☉︎ Sol em ' + sol.signo + ' — sua essência</h3><p>' + I.SOL[sol.signoIndice] + '</p></article>');
-    h.push('<article><h3>☽︎ Lua em ' + lua.signo + ' — suas emoções</h3><p>' + I.LUA[lua.signoIndice] + '</p></article>');
+    h.push('<article><h3>☉︎ Sol em ' + sol.signo + ' — sua essência</h3><p>' + I.SOL[sol.signoIndice] + (sol.casa ? ' Na casa ' + sol.casa + ', essa expressão aparece em temas de ' + I.CASAS[sol.casa - 1] + '.' : '') + '</p></article>');
+    h.push('<article><h3>☽︎ Lua em ' + lua.signo + ' — suas emoções</h3><p>' + I.LUA[lua.signoIndice] + (lua.casa ? ' Na casa ' + lua.casa + ', essa vivência aparece em temas de ' + I.CASAS[lua.casa - 1] + '.' : '') + '</p></article>');
     if (mapa.ascendente) h.push('<article><h3>↑ Ascendente em ' + mapa.ascendente.signo + ' — como você se mostra</h3><p>' + I.ASCENDENTE[mapa.ascendente.signoIndice] + '</p></article>');
     var el = maior(mapa.elementos), mo = maior(mapa.modalidades);
     h.push('<article><h3>Equilíbrio do seu mapa</h3><p>' + I.ELEMENTO[el] + ' ' + I.MODALIDADE[mo] + '</p>' + barras(mapa.elementos) + '</article>');
