@@ -153,7 +153,7 @@
   function localParaUTC(ano, mes, dia, hora, minuto, fusoIANA) {
     var palpite = Date.UTC(ano, mes - 1, dia, hora, minuto);
     if (!fusoIANA) return new Date(palpite);
-    function deslocamento(ms) {
+    function partes(ms) {
       var fmt = new Intl.DateTimeFormat('en-US', {
         timeZone: fusoIANA, hourCycle: 'h23',
         year: 'numeric', month: '2-digit', day: '2-digit',
@@ -161,14 +161,23 @@
       });
       var p = {};
       fmt.formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+      return p;
+    }
+    function deslocamento(ms) {
+      var p = partes(ms);
       var comoUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
       return comoUTC - ms;
     }
-    var off = deslocamento(palpite);
-    var utc = palpite - off;
-    var off2 = deslocamento(utc);
-    if (off2 !== off) utc = palpite - off2;
-    return new Date(utc);
+    var candidatos = [];
+    [palpite - 86400000, palpite, palpite + 86400000].forEach(function (sonda) {
+      var utc = palpite - deslocamento(sonda);
+      if (candidatos.indexOf(utc) >= 0) return;
+      var p = partes(utc);
+      if (+p.year === ano && +p.month === mes && +p.day === dia && +p.hour === hora && +p.minute === minuto) candidatos.push(utc);
+    });
+    if (!candidatos.length) throw new Error('Este horário não existiu nessa cidade devido à mudança do horário de verão. Confira a hora de nascimento.');
+    if (candidatos.length > 1) throw new Error('Este horário ocorreu duas vezes nessa cidade devido à mudança do horário de verão. Confirme qual horário consta no registro.');
+    return new Date(candidatos[0]);
   }
 
   function calcularAspectos(pontos) {

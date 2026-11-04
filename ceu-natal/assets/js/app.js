@@ -100,9 +100,19 @@
       h.push('<tr><td>MC Meio do Céu</td><td>' + mapa.meioDoCeu.texto + '</td><td>10</td></tr>');
     }
     h.push('</tbody></table>');
-    if (mapa.sistemaCasas) h.push('<p class="nota">Casas: sistema ' + mapa.sistemaCasas + '. Zodíaco tropical.</p>');
+    if (mapa.sistemaCasas) h.push('<p class="nota">Casas: sistema ' + mapa.sistemaCasas + '. Zodíaco tropical. Cálculo geocêntrico.</p>');
+    if (mapa.sistemaCasas === 'Porfírio') h.push('<p class="nota">Nesta latitude, o cálculo de casas Placidus não se resolveu; usamos Porfírio e indicamos a troca aqui.</p>');
     if (mapa.horaDesconhecida) h.push('<p class="nota">Sem a hora de nascimento, não é possível calcular ascendente e casas. A Lua pode ter mudado de signo nesse dia.</p>');
     h.push('</div></div>');
+
+    if (mapa.casas) {
+      h.push('<details class="leitura detalhe-mapa"><summary>Explore as 12 casas do seu mapa</summary><p class="nota">A cúspide é o início de cada casa. Uma casa sem planetas continua fazendo parte do mapa.</p><ol class="lista-casas">');
+      mapa.casas.forEach(function (c, i) {
+        var ocupantes = mapa.planetas.filter(function (p) { return p.casa === i + 1; }).map(function (p) { return p.nome; });
+        h.push('<li><b>Casa ' + (i + 1) + ' · ' + c.texto + '</b><span>' + I.CASAS[i] + '. ' + (ocupantes.length ? 'Planetas: ' + ocupantes.join(', ') + '.' : 'Sem planetas nesta casa.') + '</span></li>');
+      });
+      h.push('</ol></details>');
+    }
 
     h.push('<div id="anuncio-resultado" class="anuncio" data-bloco="resultado"></div>');
 
@@ -114,7 +124,7 @@
     h.push('<article><h3>Equilíbrio do seu mapa</h3><p>' + I.ELEMENTO[el] + ' ' + I.MODALIDADE[mo] + '</p>' + barras(mapa.elementos) + '</article>');
     h.push('</div>');
 
-    h.push('<details class="leitura"><summary>Explore os outros planetas</summary>');
+    h.push('<details class="leitura detalhe-mapa"><summary>Explore os outros planetas</summary>');
     mapa.planetas.slice(2).forEach(function (p, idx) {
       var cls = '';
       h.push('<p' + cls + '><b>' + p.simbolo + '︎ ' + p.nome + ' em ' + p.signo + '.</b> ' + I.textoPlaneta(p) + '</p>');
@@ -125,9 +135,15 @@
     if (mapa.aspectos.length) {
       h.push('<div class="leitura"><h3>Aspectos mais fortes</h3><ul class="aspectos">');
       mapa.aspectos.slice(0, 5).forEach(function (a) {
-        h.push('<li><b>' + a.nomeA + ' ' + a.aspecto.toLowerCase() + ' ' + a.nomeB + '</b>: ' + I.TIPO_ASPECTO[a.tipo] + '.</li>');
+        h.push('<li><b>' + a.nomeA + ' ' + a.aspecto.toLowerCase() + ' ' + a.nomeB + '</b>: ' + I.TIPO_ASPECTO[a.tipo] + ' (orbe ' + a.orbe.toFixed(1) + '°).</li>');
       });
-      h.push('</ul></div>');
+      h.push('</ul>');
+      if (mapa.aspectos.length > 5) {
+        h.push('<details class="detalhe-mapa"><summary>Ver os outros ' + (mapa.aspectos.length - 5) + ' aspectos</summary><p class="nota">Orbe é a distância até o ângulo exato do aspecto; quanto menor, mais próximo da exatidão.</p><ul class="aspectos">');
+        mapa.aspectos.slice(5).forEach(function (a) { h.push('<li>' + a.nomeA + ' ' + a.aspecto.toLowerCase() + ' ' + a.nomeB + ' — orbe ' + a.orbe.toFixed(1) + '°</li>'); });
+        h.push('</ul></details>');
+      }
+      h.push('</div>');
     }
 
     h.push('<div class="cta-extra"><a class="cartao-link" href="compatibilidade.html"><b>♡ Compatibilidade grátis</b><span>Explore temas da convivência</span></a>' +
@@ -190,7 +206,7 @@
           renderResultado(mapa, $('#nome').value.trim());
           Comum.evento('mapa_gerado', { signo_sol: mapa.planetas[0].signo, origem: Comum.origem() });
         } catch (err) {
-          erro.textContent = 'Não foi possível calcular o mapa. Confira os dados e tente novamente.';
+          erro.textContent = /horário de verão/.test(err.message) ? err.message : 'Não foi possível calcular o mapa. Confira os dados e tente novamente.';
         }
       };
 

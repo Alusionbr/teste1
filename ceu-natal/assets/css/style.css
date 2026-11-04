@@ -126,6 +126,14 @@ form .btn { width: 100%; margin-top: .5rem; }
 
 .leitura { margin-top: 2rem; }
 .leitura article { margin-bottom: 1.6rem; }
+.detalhe-mapa { border: 1px solid var(--borda); border-radius: var(--raio); background: var(--cartao); padding: 1rem 1.25rem; }
+.detalhe-mapa summary { cursor: pointer; color: var(--ouro-forte); font-weight: 600; }
+.detalhe-mapa summary:focus-visible { outline: 2px solid var(--ouro-forte); outline-offset: 4px; }
+.detalhe-mapa[open] summary { margin-bottom: 1rem; }
+.lista-casas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .75rem; padding: 0; list-style: none; }
+.lista-casas li { border: 1px solid var(--borda); border-radius: 10px; padding: .85rem; }
+.lista-casas b, .lista-casas span { display: block; }
+.lista-casas b { color: var(--ouro-forte); margin-bottom: .35rem; }
 .barras { display: grid; gap: .45rem; margin-top: .8rem; max-width: 420px; }
 .barra { display: grid; grid-template-columns: 4rem 1fr 3rem; align-items: center; gap: .6rem; font-size: .9rem; }
 .barra div { height: 8px; background: rgba(255, 255, 255, .08); border-radius: 99px; overflow: hidden; }
