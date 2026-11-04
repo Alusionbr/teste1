@@ -1,5 +1,6 @@
 import "./style.css";
 import { FamilyAPI } from "./api.ts";
+import { parseStatement, statementFingerprint, type StatementRow } from "./statement-import.ts";
 import {
   brl as formatBrl,
   today,
@@ -54,6 +55,10 @@ let page = "overview",
   modal = "",
   categoryPresetCategory = "",
   importRows: Partial<Entry>[] = [];
+let invoiceImportRows: Array<StatementRow & { duplicate: boolean }> = [];
+let invoiceImportCardId = "";
+let invoiceImportMonth = month;
+let invoiceImportWarnings: string[] = [];
 const esc = (v: unknown) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -97,6 +102,7 @@ const nav = [
   ["pantry", "Casa"],
   ["settings", "Perfil"],
   ["cards", "Cartões e faturas"],
+  ["invoice-import", "Importar fatura"],
   ["calendar", "Calendário familiar"],
   ["reminders", "Avisos e lembretes"],
   ["accounts", "Contas e dívidas"],
@@ -412,6 +418,50 @@ const cardDueDate = (card: Data["cards"][number]) => dueDate(month, {
   id: card.id, name: card.name, owner: "wife", limitCents: card.limit_cents || 0,
   closingDay: card.closing_day, dueDay: card.due_day,
 });
+
+function invoiceImport() {
+  const data = api.data!;
+  if (!api.allowed("entries") || !api.allowed("cards"))
+    return '<section class="panel"><h3>Importação indisponível</h3><p>É necessário ter permissão para cadastrar gastos e cartões.</p></section>';
+  const cards = data.cards.filter((card) => own(card) && !card.archived_at);
+  if (!cards.length) return '<section class="panel"><h3>Cadastre um cartão antes de importar faturas.</h3></section>';
+  const options = '<option value="">Selecione o cartão</option>' + cards.map((card) =>
+    opt(card.id, card.name + ' · fecha dia ' + card.closing_day + ' e vence dia ' + card.due_day, invoiceImportCardId)).join('');
+  const source = '<section class="panel"><form id="invoice-source-form" class="form-grid">' +
+    field('invoice_card', 'Cartão de destino', '<select name="invoice_card" required>' + options + '</select>', true) +
+    field('invoice_month', 'Mês da fatura', input('invoice_month', 'month', invoiceImportMonth, 'required')) +
+    field('invoice_file', 'Arquivo CSV/TXT (máximo 1 MB)', '<input name="invoice_file" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain">', true) +
+    '<label class="wide"><span>Ou cole o texto das compras</span><textarea name="invoice_text" rows="5" placeholder="05/10/2026;Paraíba;76,89&#10;10/10/2026;Pijama + secante;78,78"></textarea></label>' +
+    '<p class="fine wide">Para PDF com texto selecionável, copie os lançamentos e cole acima. PDFs digitalizados e imagens exigem OCR, ainda não incluído. Antes de confirmar, a leitura fica no seu navegador e não grava nem envia o arquivo.</p>' +
+    '<button type="submit" class="primary wide">Ler fatura e revisar</button></form>' +
+    invoiceImportWarnings.map((warning) => '<p class="fine">' + esc(warning) + '</p>').join('') + '</section>';
+  const duplicates = invoiceImportRows.filter((row) => row.duplicate).length;
+  const previewRows = invoiceImportRows.map((row, index) => '<tr class="' +
+    (row.duplicate ? 'invoice-duplicate' : '') +
+    '"><td><label><input type="checkbox" name="include_' + index + '" ' +
+    (row.duplicate ? '' : 'checked') + ' aria-label="Importar compra ' + (index + 1) + '">' +
+    (row.duplicate ? '<small>Possível duplicata</small>' : '') +
+    '</label></td><td>' + input('date_' + index, 'date', row.date, 'required') +
+    '</td><td>' + input('description_' + index, 'text', row.description, 'maxlength="160" required') +
+    (row.installment_label ? '<small>Parcela: ' + esc(row.installment_label) + '</small>' : '') +
+    '</td><td>' + moneyInput('amount_' + index, (row.amount_cents / 100).toFixed(2).replace('.', ',')) +
+    '</td><td><select name="category_' + index + '">' + categoryOptions(row.category) +
+    '</select></td></tr>').join('');
+  const total = invoiceImportRows.reduce((sum, row) => sum + row.amount_cents, 0);
+  const preview = !invoiceImportRows.length ? '' : '<section class="panel section-gap">' +
+    '<h3>Prévia: ' + invoiceImportRows.length + ' compra(s) · ' + brl(total) + '</h3>' +
+    '<p class="fine">' + duplicates + ' possível(is) duplicata(s), desmarcadas. Confira data, valor, categoria e cada parcela. A aprovação confirma a compra no cartão, mas não marca a fatura como paga.</p>' +
+    '<form id="invoice-confirm-form"><div class="invoice-import-scroll"><table class="invoice-import-table">' +
+    '<thead><tr><th>Importar</th><th>Data</th><th>Descrição</th><th>Valor (R$)</th><th>Categoria</th></tr></thead><tbody>' +
+    previewRows + '</tbody></table></div>' +
+    field('invoice_area', 'Área dos lançamentos', '<select name="invoice_area">' +
+      opt('household', 'Casa / família', 'household') + opt('personal', 'Pessoal') +
+      opt('business', 'Empresa') + '</select>') +
+    '<div class="button-row"><button type="submit" class="primary">Confirmar compras selecionadas</button>' +
+    button('invoice-clear', 'Limpar prévia', 'secondary') + '</div></form></section>';
+  return '<section class="page-intro"><div><h2>Importar fatura</h2><p>Transforme compras de CSV ou texto em lançamentos associados ao cartão e ao mês correto, sem importações duplicadas.</p></div>' +
+    button('nav', 'Voltar aos cartões', 'secondary', 'data-page="cards"') + '</section>' + source + preview;
+}
 function cards() {
   const d = api.data!;
   const duplicates = d.cards.filter((card) => !card.archived_at && d.cards.some((other) => other.id !== card.id && !other.archived_at && other.owner_id === card.owner_id && other.name.trim().toLocaleLowerCase() === card.name.trim().toLocaleLowerCase() && other.closing_day === card.closing_day && other.due_day === card.due_day));
@@ -802,6 +852,7 @@ function render() {
     recurring: "Nova despesa fixa",
     member: "Novo usuário da família",
     import: "Importar relatório",
+    "invoice-import": "Importar fatura",
     "import-preview": "Confira antes de importar",
   };
   const views: Record<string, () => string> = {
@@ -810,6 +861,7 @@ function render() {
     analysis,
     categories,
     cards,
+    "invoice-import": invoiceImport,
     reminders,
     calendar,
     accounts,
@@ -1267,6 +1319,7 @@ root.addEventListener("click", (event) => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     return;
   }
+  if (a === "invoice-clear") { invoiceImportRows = []; invoiceImportWarnings = []; render(); return; }
   if (a === "confirm-import") {
     void run(async () => {
       await api.importEntries(importRows);
