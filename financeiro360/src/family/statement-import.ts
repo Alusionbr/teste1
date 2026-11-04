@@ -16,7 +16,7 @@ const cleanHeader = (value: string) => value.toLowerCase().normalize("NFD")
 const normalizeDescription = (value: string) => value.replace(/\s+/g, " ").trim().slice(0, 160);
 export const statementFingerprint = (row: Pick<StatementRow, "date" | "description" | "amount_cents">) =>
   row.date + "|" + row.amount_cents + "|" +
-  cleanHeader(row.description).replace(/\b(?:parcela\s*)?\d{1,2}\s*\/\s*\d{1,2}\b/g, "").trim();
+  cleanHeader(row.description.replace(/\b(?:parcela\s*)?\d{1,2}\s*\/\s*\d{1,2}\b/g, "")).trim();
 
 function isoDate(value: string, invoiceMonth: string): string | null {
   const text = value.trim();
