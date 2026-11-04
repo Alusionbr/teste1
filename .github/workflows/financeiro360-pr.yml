@@ -1,0 +1,30 @@
+name: Financeiro360 PR checks
+
+on:
+  pull_request:
+    paths:
+      - "financeiro360/**"
+      - ".github/workflows/financeiro360-pr.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: financeiro360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: financeiro360/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:db
+      - run: npm run typecheck
+      - run: npm run build -- --base /teste1/financeiro360/
