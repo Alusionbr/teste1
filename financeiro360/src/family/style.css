@@ -2000,3 +2000,18 @@ input[type="checkbox"] {
   .page-intro p { font-size: 11px; }
   .modal { width: calc(100vw - 20px); max-width: 520px; max-height: calc(100dvh - 20px); padding: 17px; }
 }
+
+
+/* Fatura importer keeps its review table accessible on small screens. */
+.invoice-import-scroll { overflow-x: auto; scrollbar-width: thin; margin: 14px 0; }
+.invoice-import-table { width: 100%; border-collapse: collapse; min-width: 780px; }
+.invoice-import-table th, .invoice-import-table td { text-align: left; border-bottom: 1px solid var(--line); padding: 9px 7px; vertical-align: middle; }
+.invoice-import-table th { color: var(--muted); font-weight: 700; font-size: 11px; }
+.invoice-import-table td { font-size: 12px; }
+.invoice-import-table input[type="date"] { min-width: 135px; }
+.invoice-import-table input[type="text"] { min-width: 115px; width: 100%; }
+.invoice-import-table td:nth-child(3) input { min-width: 220px; }
+.invoice-import-table select { min-width: 150px; }
+.invoice-import-table td small { display: block; color: var(--muted); margin-top: 4px; font-size: 10px; }
+.invoice-import-table tr.invoice-duplicate { background: color-mix(in srgb, #d99c40 10%, transparent); }
+.invoice-import-table tr.invoice-duplicate td small { color: #a96a20; }
