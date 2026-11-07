@@ -95,6 +95,7 @@ const DIA = (() => {
     let almocou = jaAlmocou();
     let pos = me ? { x: me.x, y: me.y } : null;
     const passos = [];
+    const conflitos = [];
 
     const todos = LUGARES.oficiais();
     const livres = p => BRINQUEDO.has(p.cat) && !p.oficial.ver && !p.oficial.pago && !feitos[p.id] && SHOW.cabe(p.oficial);
@@ -103,7 +104,8 @@ const DIA = (() => {
 
     const janelas = SHOW.sessoes().filter(s => s.show.id === "of-hw-epic-show");
     const emJanela = d => janelas.some(s => d >= new Date(s.inicio.getTime() - 10 * 60000) && d <= s.fim);
-    const noturnos = SHOW.sessoes().filter(s => !s.show.grande && s.inicio.getHours() >= 17 && s.inicio >= t);
+    const escolhas = STORE.data.showChoices || {};
+    const noturnos = SHOW.sessoes().filter(s => s.inicio >= t && (escolhas[SHOW.sessionKey(s)] || (!s.show.grande && s.inicio.getHours() >= 17)));
     const lugarDoShow = id => todos.find(p => p.id === id);
 
     const andar = (a, b) => (a && b && b.x != null ? GEO.walkMinutes(GEO.dist(a, b)) : 0);
@@ -119,10 +121,15 @@ const DIA = (() => {
       const alvo = lugarDoShow(sh.show.id);
       const a = alvo ? andar(pos, alvo) : 0;
       const chega = new Date(Math.max(t.getTime() + a * 60000, sh.inicio.getTime() - 10 * 60000));
-      passos.push({ tipo: "show", quando: chega, place: alvo || { name: sh.show.name, id: sh.show.id, x: null }, andar: a, sessao: sh });
+      if (sh.fim > fim || chega >= sh.fim || chega > fim) {
+        if (escolhas[SHOW.sessionKey(sh)]) conflitos.push(`${sh.show.name} às ${sh.hm}: não dá para chegar dentro do horário planejado.`);
+        sh.feito = true; return false;
+      }
+      passos.push({ tipo: "show", quando: chega, place: alvo || { name: sh.show.name, id: sh.show.id, x: null }, andar: a, sessao: sh, fixo: !!escolhas[SHOW.sessionKey(sh)] });
       sh.feito = true;
       t = new Date(sh.fim);
       if (alvo && alvo.x != null) pos = { x: alvo.x, y: alvo.y };
+      return true;
     };
 
     let guarda = 0;
@@ -130,8 +137,10 @@ const DIA = (() => {
       // Almoço
       if (!almocou && t >= ini) {
         const r = maisPerto(pos, ["refeicao"]) || maisPerto(pos);
+        const duracao = ALMOCO_MIN + andar(pos, r);
+        if (new Date(t.getTime() + duracao * 60000) > fim) break;
         passos.push({ tipo: "almoco", quando: new Date(t), place: r, andar: andar(pos, r), dur: ALMOCO_MIN });
-        t = new Date(t.getTime() + (ALMOCO_MIN + andar(pos, r)) * 60000);
+        t = new Date(t.getTime() + duracao * 60000);
         if (r) pos = { x: r.x, y: r.y };
         almocou = true;
         continue;
@@ -155,6 +164,7 @@ const DIA = (() => {
       const f = fila(escolha, janela);
       const chega = new Date(t.getTime() + a * 60000);
       const termina = new Date(chega.getTime() + (f.min + 6) * 60000);
+      if (termina > fim) break;
 
       // Se este brinquedo faria perder o próximo show, vai ao show antes.
       if (show) {
@@ -168,7 +178,7 @@ const DIA = (() => {
       t = termina;
       pos = { x: escolha.x, y: escolha.y };
     }
-    return { passos, semPosicao, termina: t, comeca: passos.length ? passos[0].quando : t };
+    return { passos, semPosicao, conflitos, termina: t, comeca: passos.length ? passos[0].quando : t };
   }
 
   return {

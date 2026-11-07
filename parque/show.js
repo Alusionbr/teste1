@@ -88,5 +88,9 @@ const SHOW = (() => {
     return Math.round((d - Date.now()) / 60000);
   }
 
-  return { sessoes, janelaAgora, proximoGrande, plano, candidatos, cabe, minutosAte, AVISO_ANTES_MIN };
+  function sessionKey(s) {
+    return `${s.inicio.toLocaleDateString("sv-SE")}|${s.show.id}@${s.hm}`;
+  }
+
+  return { sessoes, janelaAgora, proximoGrande, plano, candidatos, cabe, minutosAte, sessionKey, AVISO_ANTES_MIN };
 })();
