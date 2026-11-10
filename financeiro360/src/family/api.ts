@@ -57,6 +57,24 @@ export class FamilyAPI {
     this.userId = data.user.id;
     await this.load();
   }
+  async sendRecoveryEmail(email: string) {
+    if (!this.client) throw Error("O banco familiar não está configurado.");
+    const redirectTo = new URL(import.meta.env.BASE_URL + "?redefinir=1", window.location.origin).toString();
+    const { error } = await this.client.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw Error("Não foi possível enviar a solicitação. Tente novamente mais tarde.");
+  }
+  async resetRecoveredPassword(password: string) {
+    if (!this.client) throw Error("O banco familiar não está configurado.");
+    if (password.length < 8) throw Error("Use ao menos 8 caracteres.");
+    const { data, error } = await this.client.auth.getSession();
+    if (error || !data.session) throw Error("O link expirou ou é inválido. Solicite outra recuperação.");
+    const updated = await this.client.auth.updateUser({ password });
+    if (updated.error) throw Error("Não foi possível redefinir a senha. Solicite outro link.");
+    await this.client.auth.signOut();
+    this.userId = "";
+    this.data = null;
+    this.demo = false;
+  }
   startDemo() {
     this.demo = true;
     this.demoStore = demoData();
