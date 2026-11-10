@@ -32,6 +32,8 @@ import {
 } from "../logic.ts";
 const api = new FamilyAPI();
 const root = document.querySelector<HTMLDivElement>("#app")!;
+let authScreen: "login" | "forgot" | "reset" =
+  new URLSearchParams(window.location.search).has("redefinir") ? "reset" : "login";
 let page = "overview",
   month = today().slice(0, 7),
   calendarSelectedDate = today(),
@@ -299,7 +301,22 @@ const deleteButton = (table: string, id: string) =>
     `data-table="${table}" data-id="${esc(id)}"`,
   );
 function login() {
-  return `<main class="login"><section class="login-story"><a class="brand"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><div class="story-content"><span class="eyebrow">SUA CASA. SEU EQUILÍBRIO.</span><h1>Cuide do dinheiro.<br><em>Viva melhor em família.</em></h1><p>Finanças organizadas, uma despensa planejada e mais tranquilidade para o que realmente importa.</p><div class="story-cards"><article><span>${icon("cards")}</span><strong>Tudo no lugar</strong><small>Gastos, faturas e comprovantes</small></article><article><span>${icon("family")}</span><strong>Privacidade com controle</strong><small>Cada pessoa vê o que deve ver</small></article><article><span>${icon("pantry")}</span><strong>Uma casa mais inteligente</strong><small>Menos desperdício, compras melhores</small></article></div></div><small>Organização começa com pequenos hábitos.</small></section><section class="login-form"><div class="welcome-mark">${icon("overview")}</div><span class="eyebrow">BEM-VINDO À SUA CASA</span><h2>Vamos organizar o dia?</h2><p>Acesse seu espaço seguro da família.</p>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}<form id="login-form">${field("email", "Seu e-mail", input("email", "email", "", 'autocomplete="username" required'))}${field("password", "Sua senha", input("password", "password", "", 'autocomplete="current-password" required'))}<button class="primary full" type="submit" ${busy ? "disabled" : ""}>${busy ? "Entrando…" : "Entrar no meu painel"} ${icon("arrow")}</button></form><div class="divider"><span>CONHEÇA O APP</span></div>${button("demo", "Explorar demonstração", "secondary full")}<p class="fine">A demonstração usa dados fictícios e não guarda informações. Para acessar seus dados reais, use a conta cadastrada pelo administrador.</p></section></main>`;
+  return `<main class="login"><section class="login-story"><a class="brand"><span class="brand-mark">${icon("goals")}</span>Financeiro<span>360</span></a><div class="story-content"><span class="eyebrow">SUA CASA. SEU EQUILÍBRIO.</span><h1>Cuide do dinheiro.<br><em>Viva melhor em família.</em></h1><p>Finanças organizadas, uma despensa planejada e mais tranquilidade para o que realmente importa.</p><div class="story-cards"><article><span>${icon("cards")}</span><strong>Tudo no lugar</strong><small>Gastos, faturas e comprovantes</small></article><article><span>${icon("family")}</span><strong>Privacidade com controle</strong><small>Cada pessoa vê o que deve ver</small></article><article><span>${icon("pantry")}</span><strong>Uma casa mais inteligente</strong><small>Menos desperdício, compras melhores</small></article></div></div><small>Organização começa com pequenos hábitos.</small></section><section class="login-form"><div class="welcome-mark">${icon("overview")}</div><span class="eyebrow">BEM-VINDO À SUA CASA</span><h2>Vamos organizar o dia?</h2><p>Acesse seu espaço seguro da família.</p>${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}<form id="login-form">${field("email", "Seu e-mail", input("email", "email", "", 'autocomplete="username" required'))}${field("password", "Sua senha", input("password", "password", "", 'autocomplete="current-password" required'))}<button class="primary full" type="submit" ${busy ? "disabled" : ""}>${busy ? "Entrando…" : "Entrar no meu painel"} ${icon("arrow")}</button></form><div class="form-actions">${button("forgot-password", "Esqueci minha senha", "text-button")}</div><div class="divider"><span>CONHEÇA O APP</span></div>${button("demo", "Explorar demonstração", "secondary full")}<p class="fine">A demonstração usa dados fictícios e não guarda informações. Para acessar seus dados reais, use a conta cadastrada pelo administrador.</p></section></main>`;
+}
+function authRecoveryView() {
+  const reset = authScreen === "reset";
+  return `<main class="login"><section class="login-form"><div class="welcome-mark">${icon("settings")}</div><span class="eyebrow">ACESSO SEGURO</span>
+    <h2>${reset ? "Definir nova senha" : "Recuperar minha senha"}</h2>
+    <p>${reset ? "Digite a nova senha após abrir o link enviado por e-mail." : "Informe o e-mail da conta. Se ele estiver cadastrado, você receberá um link de recuperação."}</p>
+    ${notice ? `<div class="notice" role="alert">${esc(notice)}</div>` : ""}
+    ${reset ? `<form id="recovery-password-form">
+      ${field("password", "Nova senha", input("password", "password", "", 'autocomplete="new-password" minlength="8" required'))}
+      ${field("confirm", "Repita a senha", input("confirm", "password", "", 'autocomplete="new-password" minlength="8" required'))}
+      <button class="primary full" type="submit" ${busy ? "disabled" : ""}>Salvar nova senha</button></form>`
+    : `<form id="recovery-email-form">
+      ${field("email", "E-mail cadastrado", input("email", "email", "", 'autocomplete="email" required'))}
+      <button class="primary full" type="submit" ${busy ? "disabled" : ""}>Enviar link de recuperação</button></form>`}
+    ${button("back-login", "Voltar ao login", "secondary full")}</section></main>`;
 }
 function quickPanel() {
   const allowed: Record<QuickAction, boolean> = { expense: api.allowed("entries"), cards: true, shopping: true, pantry: true };
@@ -826,6 +843,10 @@ function render() {
   surface.dataset.textSize = pref.text_size;
   surface.dataset.comfortable = String(pref.comfortable);
   surface.dataset.hideValues = String(pref.hide_values);
+  if (authScreen !== "login") {
+    root.innerHTML = authRecoveryView();
+    return;
+  }
   if (!api.data) {
     root.innerHTML = login();
     return;
@@ -1044,6 +1065,19 @@ root.addEventListener("click", (event) => {
   }
   if (a === "close") {
     modal = "";
+    render();
+    return;
+  }
+  if (a === "forgot-password") {
+    authScreen = "forgot";
+    notice = "";
+    render();
+    return;
+  }
+  if (a === "back-login") {
+    authScreen = "login";
+    notice = "";
+    window.history.replaceState(null, "", import.meta.env.BASE_URL);
     render();
     return;
   }
@@ -1545,6 +1579,26 @@ const cash = (f: HTMLFormElement, n: string, allowZero = false) => {
 root.addEventListener("submit", (event) => {
   event.preventDefault();
   const f = event.target as HTMLFormElement;
+  if (f.id === "recovery-email-form") {
+    void run(
+      () => api.sendRecoveryEmail(val(f, "email")),
+      "Se o e-mail estiver cadastrado, enviaremos um link de recuperação. Confira também o spam.",
+    );
+    return;
+  }
+  if (f.id === "recovery-password-form") {
+    if (val(f, "password") !== val(f, "confirm")) {
+      notice = "As senhas não coincidem.";
+      render();
+      return;
+    }
+    void run(async () => {
+      await api.resetRecoveredPassword(val(f, "password"));
+      authScreen = "login";
+      window.history.replaceState(null, "", import.meta.env.BASE_URL);
+    }, "Senha atualizada. Entre com a nova senha.");
+    return;
+  }
   void run(async () => {
     const id = val(f, "id");
     if (f.getAttribute("id") === "invoice-source-form") {
