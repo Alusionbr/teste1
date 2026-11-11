@@ -10,6 +10,7 @@ const UI = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  const activeToday = STORE.data.activePlan && STORE.data.activePlan.day === new Date().toLocaleDateString("sv-SE") ? STORE.data.activePlan : null;
   const state = {
     follow: false,          // câmera acompanha o GPS
     rotateMode: "norte",    // "norte" | "direcao" (mapa gira com a bússola)
@@ -17,10 +18,12 @@ const UI = (() => {
     route: null,            // {targetId, target:{x,y,name}, plan}
     tab: "lugares",
     listCat: "",
-    plano: null,            // ids das atrações do plano "Hora do Show", em ordem
+    plano: activeToday && Array.isArray(activeToday.ids) ? activeToday.ids.slice() : activeToday && Array.isArray(activeToday.steps) ? activeToday.steps.map(s => s.id).filter(Boolean) : null,
+    planPaused: !!(activeToday && activeToday.paused),
     avisoShow: "",
     avisoAlmoco: "",
-    arrivedAt: 0
+    arrivedAt: 0,
+    routeSeq: 0
   };
   let wakeLock = null;
 
@@ -210,6 +213,7 @@ const UI = (() => {
       ${!temPos ? `<p class="warn-line">📍 O mapa ainda não sabe onde fica. Quando estiver na frente, toque em <b>Estou aqui agora</b>: a posição vai para todo mundo que usa o app.</p>` : ""}
       ${p.fonte === "aprox" ? `<p class="warn-line">≈ Posição aproximada: ${esc(p.aproxTexto)}. Na frente dela, toque em <b>Estou aqui agora</b> para marcar o ponto exato para todo mundo.</p>` : ""}
       ${p.fonte === "comunidade" ? `<p class="muted small">📍 Posição marcada por ${p.marcas === 1 ? "1 visitante" : p.marcas + " visitantes"}.</p>` : ""}
+      ${p.fonte === "mapa" ? `<p class="muted small">Fonte da posição: mapa público OpenStreetMap.</p>` : ""}
       ${waitLine(wait, mine)}
       ${d.done[p.id] ? `<p class="done-line">✓ Você foi às ${clock(d.done[p.id])}</p>` : ""}
       ${note ? `<p class="note-line">📝 ${esc(note)}</p>` : ""}
@@ -235,7 +239,7 @@ const UI = (() => {
     const p = STORE.placeById(state.selected);
     if (!p) return;
     if (act === "go") return startRoute(p);
-    if (act === "proximo") return seguirPlano();
+    if (act === "proximo") { avancarPlano("pulado"); return seguirPlano(); }
     if (act === "comendo") {
       if (p.oficial && p.oficial.refeicao) DIA.marcarAlmoco(true);
       GROUP.setStatus(("Comendo: " + p.name).slice(0, 40));
@@ -261,7 +265,7 @@ const UI = (() => {
     if (act === "done") {
       const on = STORE.toggle("done", p.id);
       if (on) toast(`Boa! ${countDone()} lugares no dia.`);
-      if (on && state.plano && state.plano[0] === p.id) state.plano.shift();
+      if (on && state.plano && state.plano[0] === p.id) avancarPlano("concluido");
     }
     if (act === "wait") {
       const prev = STORE.data.waits[p.id];
@@ -441,7 +445,8 @@ const UI = (() => {
       .join("");
     const list = sortedPlaces(filtroLista(state.listCat));
     const hotChip = `<button class="chip ${state.listCat === "disputado" ? "active" : ""}" data-listcat="disputado" style="--c:#ff4d6d">🔥 Disputados</button>`;
-    return `<div class="chips wrap">${hotChip}${chips}</div>
+    const needs = ["banheiro", "bebedouro", "comida", "descanso", "socorro"].map(c => `<button class="chip" data-cat="${c}">${CATEGORIES[c].icon} ${CATEGORIES[c].label}</button>`).join("");
+    return `<h3>Preciso agora</h3><div class="chips wrap">${needs}</div><div class="chips wrap">${hotChip}${chips}</div>
       <button class="btn wide" data-marcar="1">➕ Marcar bebedouro, lixeira, banheiro… onde estou</button>
       <p class="muted small">${myPos() ? "Ordenado pela distância de você." : "Ligue o GPS para ordenar pela distância."}</p>
       <div class="list">${list.map(placeRow).join("") || '<p class="empty">Nada nesta categoria.</p>'}</div>`;
@@ -455,7 +460,12 @@ const UI = (() => {
     const favs = sortedPlaces(p => d.favorites[p.id] && !d.done[p.id]);
     const done = STORE.places().filter(p => d.done[p.id]).sort((a, b) => d.done[a.id] - d.done[b.id]);
     const next = favs[0];
+    const ativo = state.plano && state.plano.length ? STORE.placeById(state.plano[0]) : null;
+    const ativoFila = ativo ? FILAS.info(ativo.id) : null;
+    const confianca = ativo ? (ativo.fonte === "mapa" ? "posição do mapa público" : ativo.fonte === "comunidade" ? "posição da comunidade" : ativo.fonte === "aprox" ? "posição aproximada" : "posição não confirmada") : "";
     return `
+      ${ativo ? `<div class="day-card"><strong>Próxima parada: ${esc(ativo.name)}</strong><p>${state.planPaused ? "Roteiro pausado" : "Roteiro ativo e salvo"} · ${esc(confianca)}${ativoFila ? ` · fila ${ativoFila.shared ? "relatada" : "anotada"} ${ago(ativoFila.at)}` : " · sem informação de fila"}.</p><div class="actions"><button class="btn" data-plan="${state.planPaused ? "resume" : "pause"}">${state.planPaused ? "▶ Retomar" : "⏸ Pausar"}</button><button class="btn" data-plan="skip">Pular</button>${(STORE.data.planHistory || []).length ? '<button class="btn" data-plan="undo">Desfazer</button>' : ""}</div></div>` : ""}
+      ${!ativo && (STORE.data.planHistory || []).length ? `<div class="day-card done"><strong>Roteiro concluído</strong><p>Você pode restaurar a última parada.</p><div class="actions"><button class="btn" data-plan="undo">Desfazer última ação</button></div></div>` : ""}
       <div class="progress-card">
         <div class="progress-num">${doneCount}<small>/${attractions.length}</small></div>
         <div class="progress-txt"><strong>atrações no dia</strong><div class="bar"><span style="width:${pct}%"></span></div></div>
@@ -490,8 +500,10 @@ const UI = (() => {
       const passou = s.fim < now;
       const min = SHOW.minutosAte(s.inicio);
       const when = passou ? "terminou" : min > 0 ? (min > 60 ? `em ${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}` : `em ${min} min`) : "agora";
-      return `<button class="show-row${passou ? " is-past" : ""}" data-open="${esc(s.show.id)}">
-        <span class="hm">${s.hm}</span><span>${s.show.grande ? "⭐ " : ""}${esc(s.show.name)}</span><span class="when">${when}</span></button>`;
+      const key = SHOW.sessionKey(s);
+      const escolhido = !!(STORE.data.showChoices || {})[key];
+      return `<div class="show-row${passou ? " is-past" : ""}">
+        <button class="show-main" data-open="${esc(s.show.id)}"><span class="hm">${s.hm}</span><span>${s.show.grande ? "⭐ " : ""}${esc(s.show.name)}</span><span class="when">${when}</span></button>${!passou ? `<button class="btn ${escolhido ? "on" : ""}" data-show-choice="${esc(key)}">${escolhido ? "✓ Quero assistir" : "+ Quero assistir"}</button>` : ""}</div>`;
     }).join("");
     const altura = STORE.data.alturaCm;
     const passos = plano.map((st, i) => {
@@ -508,9 +520,10 @@ const UI = (() => {
       <div class="list">${passos || '<p class="empty">Nenhum disputado com posição conhecida e ainda não visitado.</p>'}</div>
       ${semPos.length ? `<p class="muted small">Ainda sem posição no mapa: ${semPos.map(p => esc(p.name)).join(", ")}. Ao passar por eles, toque no nome → “Estou aqui agora”.</p>` : ""}
       <p class="muted small">${altura ? `Filtrando pela altura de ${altura} cm.` : "Dica: cadastre a altura da pessoa mais baixa em Ajustes para tirar do plano o que ela não pode ir."} Pagos à parte ficam fora do plano.</p>
-      <h3>🎭 Shows de hoje (horário oficial)</h3>
+      <h3>🎭 Horários salvos para consulta</h3>
       <div class="list">${linhas}</div>
-      <p class="muted small">⭐ = show grande (puxa muito público). Duração estimada em ${DURACAO_SHOW_MIN} min. ${esc(OFICIAL_FONTE)}.</p>`;
+      <p class="warn-line">A programação varia por data e pode mudar sem aviso. Confira os horários do dia nos canais e placas do parque.</p>
+      <p class="muted small">⭐ = show grande (puxa muito público). Duração estimada em ${DURACAO_SHOW_MIN} min. Fonte e data da consulta: ${esc(OFICIAL_FONTE)}.</p>`;
   }
 
   function tabDia() {
@@ -543,7 +556,7 @@ const UI = (() => {
         titulo = p ? `Almoço: ${p.name}` : "Almoço (escolha um restaurante)";
         sub = `${s.andar ? s.andar + " min a pé · " : ""}${s.dur} min${aprox}`;
       } else if (s.tipo === "show") {
-        titulo = p.name;
+        titulo = p.name + (s.fixo ? " · compromisso" : "");
         sub = `${s.andar ? s.andar + " min a pé · " : ""}sessão ${s.sessao.hm}`;
       } else {
         titulo = p.name;
@@ -561,10 +574,11 @@ const UI = (() => {
       <div class="list">${refeicoes.map(placeRow).join("")}</div>
       <h3>Lanches, doces e bebidas</h3>
       <div class="list">${outros.map(placeRow).join("")}</div>
-      <p class="muted small">Lista oficial do parque (16/10/2026). Os sem posição aparecem quando alguém marca "Estou aqui agora" na frente deles. O pico das 12:00–13:30 é uma dica comum de visitantes, não um dado do parque: confie mais na fila ao vivo (⏱ Informar fila).</p>
+      <p class="muted small">Lista consultada no parque em 16/10/2026. Os sem posição aparecem quando alguém marca "Estou aqui agora" na frente deles. A programação varia por data: confirme horários nas placas e canais do parque. O pico das 12:00–13:30 é uma dica comum de visitantes, não um dado do parque: confie mais na fila ao vivo (⏱ Informar fila).</p>
       <h3>Meu dia (simulação a partir de agora)</h3>
       ${ids.length ? `<button class="btn btn-primary wide" data-dia="seguir">▶ Seguir o plano do dia</button>` : ""}
       <div class="list">${passos || '<p class="empty">Nada a planejar: tudo marcado como já fui, ou sem posição conhecida.</p>'}</div>
+      ${(plano.conflitos || []).map(c => `<p class="warn-line">⚠ ${esc(c)}</p>`).join("")}
       ${plano.passos.length ? `<p class="muted small">Termina por volta de ${DIA.hm(plano.termina)}. Tempos de fila são estimativas (25 min nos disputados, 10 min nos demais) e viram a fila ao vivo quando alguém informa. Disputados vêm antes do almoço e durante o Hot Wheels Epic Show; shows de fim de tarde fecham o dia.</p>` : ""}
       ${semPos.length ? `<p class="muted small">Fora do plano por falta de posição: ${semPos.map(p => esc(p.name)).join(", ")}.</p>` : ""}`;
   }
@@ -587,15 +601,46 @@ const UI = (() => {
   }
 
   function seguirPlano() {
+    if (state.planPaused) { toast("Roteiro pausado. Retome na aba Roteiro."); return; }
     if (!state.plano || !state.plano.length) {
-      state.plano = SHOW.plano(myPos(), 8).map(s => s.place.id);
+      finishPlano();
+      toast("Plano concluído! 🎉");
+      return;
     }
     // Pula o que já foi marcado.
-    state.plano = state.plano.filter(id => !STORE.data.done[id]);
+    const pendentes = state.plano.filter(id => !STORE.data.done[id]);
+    if (pendentes.length !== state.plano.length) { state.plano = pendentes; savePlano(); }
     const id = state.plano[0];
-    if (!id) { toast("Plano concluído! 🎉"); state.plano = null; return; }
+    if (!id) { toast("Plano concluído! 🎉"); finishPlano(); return; }
     const p = STORE.placeById(id);
     if (p) { openPlace(id, false); startRoute(p); toast(`Parada ${1}: ${p.name}`); }
+  }
+
+  function setPlano(ids, source, steps) {
+    state.plano = ids && ids.length ? ids.slice() : null;
+    state.planPaused = false;
+    STORE.data.activePlan = state.plano ? { ids: state.plano.slice(), steps: steps || state.plano.map(id => ({ id, tipo: "parada", status: "pendente" })), paused: false, completed: false, source: source || "manual", day: new Date().toLocaleDateString("sv-SE"), updatedAt: Date.now() } : null;
+    STORE.save();
+  }
+
+  function savePlano() {
+    if (!state.plano || !state.plano.length) return finishPlano();
+    const previous = (STORE.data.activePlan && STORE.data.activePlan.steps) || [];
+    const steps = state.plano.map(id => previous.find(s => s.id === id) || { id, tipo: "parada", status: "pendente" });
+    STORE.data.activePlan = Object.assign({}, STORE.data.activePlan, { ids: state.plano.slice(), steps, paused: state.planPaused, completed: false, day: new Date().toLocaleDateString("sv-SE"), updatedAt: Date.now() });
+    STORE.save();
+  }
+
+  function finishPlano() {
+    state.plano = [];
+    state.planPaused = false;
+    STORE.finishActivePlan();
+  }
+
+  function avancarPlano(action) {
+    if (!state.plano || !state.plano.length) return;
+    const id = state.plano.shift();
+    STORE.recordPlanAdvance(id, action, state.plano);
   }
 
   // Marcação pública rápida (bebedouro, lixeira…): no GPS ou no ponto tocado.
@@ -686,11 +731,12 @@ const UI = (() => {
     const rows = GROUP.members.map(m => {
       const xy = GEO.toXY(m.lat, m.lon);
       const dist = me ? GEO.fmtDist(GEO.dist(me, xy)) + " · " + GEO.compassName(GEO.bearing(me, xy)) : "";
-      const stale = m.ageSec > 60 ? ` · visto ${ago(Date.now() - m.ageSec * 1000)}` : "";
+      const navegavel = Number.isFinite(m.ageSec) && m.ageSec <= 120;
+      const stale = m.ageSec == null ? " · posição sem horário confiável" : m.ageSec > 60 ? ` · visto ${ago(Date.now() - m.ageSec * 1000)}` : "";
       return `<button class="row" data-member="${esc(m.member_id)}">
         <span class="row-icon" style="background:${esc(m.color)}">${esc((m.name || "?").slice(0, 2).toUpperCase())}</span>
         <span class="row-main"><strong>${esc(m.name)}</strong><small>${esc(m.status || "")}${m.status ? " · " : ""}${dist}${stale}</small></span>
-        <span class="row-flags">🧭</span>
+        <span class="row-flags">${navegavel ? "🧭" : ""}</span>
       </button>`;
     }).join("");
     const statuses = ["", "Na fila", "Comendo", "No banheiro", "Me espera", "Indo pro encontro", "Saindo do parque"];
@@ -724,7 +770,7 @@ const UI = (() => {
       <label class="field-inline">Pessoa mais baixa do grupo: <input id="optAltura" type="number" inputmode="numeric" min="0" max="250" value="${d.alturaCm || ""}" placeholder="cm"> cm</label>
       <p class="muted small">Marca com ⛔ e tira do plano o que ela não pode ir (altura mínima oficial). Vazio = não filtrar.</p>
       <h3>Caminhos</h3>
-      <label class="toggle"><input type="checkbox" id="optMapear" ${d.mapearCaminhos !== false ? "checked" : ""}> Ajudar a mapear caminhos</label>
+      <label class="toggle"><input type="checkbox" id="optMapear" ${d.mapearConsentiu === true && d.mapearCaminhos === true ? "checked" : ""}> Ajudar a mapear caminhos</label>
       <p class="muted small">Grava seu trajeto a pé dentro do parque, sem nome, só com GPS bom, para as rotas seguirem os caminhos reais em vez de linha reta. Trechos aprendidos: ${TRILHAS.trechos}${TRILHAS.pendentes ? ` · ${TRILHAS.pendentes} esperando internet` : ""}.</p>
       <h3>Ruas e caminhos no mapa</h3>
       <div class="toggles">${[["caminhos", "Caminhos de pedestre"], ["aprendidos", "Caminhos aprendidos"], ["servicos", "Vias de serviço"], ["ruas", "Ruas e estacionamentos"]].map(([k, n]) => `<label class="toggle"><input type="checkbox" data-cam="${k}" ${(d.camadas || {})[k] === false ? "" : "checked"}> ${n}</label>`).join("")}</div>
@@ -746,7 +792,7 @@ const UI = (() => {
       <p class="muted small">“Começar dia novo” limpa as atrações visitadas e as filas anotadas. Favoritos, notas e lugares marcados continuam.</p>
       <h3>Sobre</h3>
       <p class="muted small">Mapa do Parque v${APP_VERSION}. Desenho e posições vêm do OpenStreetMap (© colaboradores do OpenStreetMap, licença ODbL), dados de ${esc(PARK_DATA.generated)}. Atrações, alturas e horários: ${esc(OFICIAL_FONTE)}. Bebedouros, lixeiras e o que faltar no mapa são marcados pelos visitantes (botão ＋).</p>
-      <p class="muted small">Funciona sem internet depois de aberto uma vez. Só o grupo precisa de conexão.</p>`;
+      <p class="muted small">Mapa, GPS e dados já baixados funcionam offline. Grupo e atualizações colaborativas precisam de conexão.</p>`;
   }
 
   async function groupAction(act) {
@@ -814,7 +860,8 @@ const UI = (() => {
       GPS.start();
       return;
     }
-    state.route = { targetId: target.id, target: { x: target.x, y: target.y, name: target.name }, plan: null, lastPlanAt: 0, from: null };
+    state.routeSeq++;
+    state.route = { token: state.routeSeq, targetId: target.id, target: { x: target.x, y: target.y, name: target.name, fonte: target.fonte }, plan: null, lastPlanAt: 0, from: null, nearCount: 0 };
     state.arrivedAt = 0;
     replan(true);
     updateNav();
@@ -826,6 +873,7 @@ const UI = (() => {
   }
 
   function stopRoute() {
+    state.routeSeq++;
     state.route = null;
     MAP.setRoute(null);
     $("navBanner").hidden = true;
@@ -860,24 +908,29 @@ const UI = (() => {
     const ref = me.heading != null ? me.heading : MAP.view.rot;
     $("navArrow").style.transform = `rotate(${bearing - ref - 90}deg)`;
     $("navTitle").textContent = r.target.name;
+    const fixBom = !me.manual && Date.now() - me.at < 15000 && me.acc <= 20;
+    const aproximado = r.target.fonte === "aprox" || r.plan.accessTarget || r.plan.straight;
+    r.nearCount = remaining < 20 && fixBom && !aproximado ? r.nearCount + 1 : 0;
+    const chegou = r.nearCount >= 2;
     $("navSub").textContent = remaining < 20
-      ? "Você chegou! 🎉"
-      : `${GEO.fmtDist(remaining)} · ${GEO.walkMinutes(remaining)} min${{ caminho: " · pelo caminho", estimada: " · rota estimada (desvia de prédios e lagos)", reta: " · siga a seta" }[r.plan.kind || "reta"]}`;
+      ? (aproximado || !fixBom ? `Você está perto da área${r.plan.destinationOffset > 6 ? ` · destino a ~${Math.round(r.plan.destinationOffset)} m` : ""}; confirme pela sinalização.` : chegou ? "Você chegou! 🎉" : "Confirmando sua chegada…")
+      : `${GEO.fmtDist(remaining)} · ${GEO.walkMinutes(remaining)} min${{ caminho: " · pelo caminho", estimada: " · rota estimada", reta: " · direção aproximada; siga a sinalização" }[r.plan.kind || "reta"]}`;
     const curva = remaining < 20 ? null : ROUTE.nextTurn(r.plan, me);
     $("navTurn").textContent = remaining < 20 ? "" : curva
       ? (curva.dist < 15 ? `↱ Agora vire à ${curva.dir}` : `Em ${GEO.fmtDist(curva.dist)} vire à ${curva.dir}`)
       : (r.plan.straight ? "" : "Siga em frente");
     $("navBanner").hidden = false;
-    if (remaining < 20 && !state.arrivedAt) {
+    if (chegou && !state.arrivedAt) {
+      const token = r.token;
       state.arrivedAt = Date.now();
       if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
       toast(`Chegou em ${r.target.name}!`);
       setTimeout(() => {
-        if (state.route && state.arrivedAt) {
+        if (state.route && state.route.token === token && state.arrivedAt) {
           const id = state.route.targetId;
           stopRoute();
           if (id) openPlace(id);
-          if (state.plano && state.plano[0] === id) { state.plano.shift(); toast("No plano: marque “Já fui” e toque em ⏭ Próximo"); }
+          if (state.plano && state.plano[0] === id) toast("No plano: marque “Já fui” e toque em ⏭ Próximo");
         }
       }, 4000);
     }
@@ -886,7 +939,10 @@ const UI = (() => {
 
   async function requestWake() {
     try {
-      if ("wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+      if ("wakeLock" in navigator && (!wakeLock || wakeLock.released)) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; }, { once: true });
+      }
     } catch (e) { wakeLock = null; }
   }
 
@@ -964,7 +1020,18 @@ const UI = (() => {
     updateGroupPill();
     if (state.route && state.route.memberId) {
       const m = GROUP.members.find(x => x.member_id === state.route.memberId);
-      if (m) state.route.target = Object.assign(GEO.toXY(m.lat, m.lon), { name: m.name });
+      if (m && Number.isFinite(m.ageSec) && m.ageSec <= 120) {
+        const next = GEO.toXY(m.lat, m.lon);
+        if (GEO.dist(state.route.target, next) > 5) {
+          state.route.target = Object.assign(next, { name: m.name });
+          state.route.lastPlanAt = 0;
+          replan(true);
+          updateNav();
+        }
+      } else if (m) {
+        stopRoute();
+        toast("Rota pausada: a pessoa não tem uma posição recente.");
+      }
     }
     if (!$("panel").hidden && state.tab === "grupo" && document.activeElement?.tagName !== "INPUT") renderPanel();
   }
@@ -981,9 +1048,9 @@ const UI = (() => {
       <div class="place-head">
         <span class="place-icon" style="background:${esc(m.color)}">${esc((m.name || "?").slice(0, 2).toUpperCase())}</span>
         <div><h2>${esc(m.name)}</h2>
-        <p class="muted">${esc(m.status || "Sem status")}${me ? ` · <b>${GEO.fmtDist(GEO.dist(me, xy))}</b> ao ${GEO.compassName(GEO.bearing(me, xy))}` : ""} · ±${Math.round(m.acc || 0)} m · ${m.ageSec < 15 ? "ao vivo" : "visto " + ago(Date.now() - m.ageSec * 1000)}</p></div>
+        <p class="muted">${esc(m.status || "Sem status")}${me ? ` · <b>${GEO.fmtDist(GEO.dist(me, xy))}</b> ao ${GEO.compassName(GEO.bearing(me, xy))}` : ""} · ±${Math.round(m.acc || 0)} m · ${m.ageSec == null ? "última posição sem horário confiável" : m.ageSec < 15 ? "ao vivo" : "visto " + ago(Date.now() - m.ageSec * 1000)}</p></div>
       </div>
-      <div class="actions"><button class="btn btn-primary" data-member-go="${esc(m.member_id)}">🧭 Ir até ${esc(m.name)}</button></div>`;
+      <div class="actions">${Number.isFinite(m.ageSec) && m.ageSec <= 120 ? `<button class="btn btn-primary" data-member-go="${esc(m.member_id)}">🧭 Ir até ${esc(m.name)}</button>` : `<p class="muted small">Aguarde uma posição recente para iniciar a rota.</p>`}</div>`;
     openSheet();
   }
 
@@ -1028,7 +1095,7 @@ const UI = (() => {
 
     // Cliques delegados: listas, folha e painel usam data-atributos.
     document.addEventListener("click", e => {
-      const t = e.target.closest("[data-open],[data-act],[data-lp],[data-cat],[data-listcat],[data-group],[data-status],[data-color],[data-set],[data-member],[data-member-go],[data-tabgo],[data-marcar],[data-tipo],[data-refpick],[data-plan],[data-dia]");
+      const t = e.target.closest("[data-open],[data-act],[data-lp],[data-cat],[data-listcat],[data-group],[data-status],[data-color],[data-set],[data-member],[data-member-go],[data-tabgo],[data-marcar],[data-tipo],[data-refpick],[data-plan],[data-dia],[data-show-choice]");
       if (!t) return;
       const ds = t.dataset;
       if (ds.open) {
@@ -1040,13 +1107,33 @@ const UI = (() => {
       else if (ds.marcar) openMarcar(null);
       else if (ds.tipo) marcarTipo(ds.tipo);
       else if (ds.refpick) marcarRef(ds.refpick);
-      else if (ds.plan) { state.plano = null; closePanel(); seguirPlano(); }
+      else if (ds.showChoice) {
+        const choices = STORE.data.showChoices || (STORE.data.showChoices = {});
+        if (choices[ds.showChoice]) delete choices[ds.showChoice]; else choices[ds.showChoice] = true;
+        STORE.save(); renderPanel();
+      }
+      else if (ds.plan) {
+        if (ds.plan === "start") { setPlano(SHOW.plano(myPos(), 8).map(s => s.place.id), "shows"); closePanel(); seguirPlano(); }
+        else if (ds.plan === "pause" || ds.plan === "resume") { state.planPaused = ds.plan === "pause"; if (state.planPaused && state.route) stopRoute(); savePlano(); renderPanel(); }
+        else if (ds.plan === "skip") { if (state.route) stopRoute(); avancarPlano("pulado"); renderPanel(); }
+        else if (ds.plan === "undo") {
+          const restored = STORE.undoPlanAdvance();
+          if (restored) { state.plano = restored; state.planPaused = false; }
+          renderPanel();
+        }
+      }
       else if (ds.dia) {
         if (ds.dia === "almocei") { DIA.marcarAlmoco(true); checarAlmoco(); renderPanel(); }
         else if (ds.dia === "desfazer") { DIA.marcarAlmoco(false); checarAlmoco(); renderPanel(); }
         else if (ds.dia === "seguir") {
           const plano = DIA.montar(myPos(), new Date());
-          state.plano = plano.passos.filter(s => s.place && s.place.id && s.place.x != null).map(s => s.place.id);
+          const navegaveis = plano.passos.filter(s => s.place && s.place.id && s.place.x != null);
+          setPlano(navegaveis.map(s => s.place.id), "dia", navegaveis.map(s => ({
+            id: s.place.id, tipo: s.tipo, inicio: s.quando && s.quando.toISOString(),
+            fim: s.sessao ? s.sessao.fim.toISOString() : null, status: "pendente",
+            fonteTempo: s.fila ? s.fila.tipo : s.tipo === "show" ? "programação salva" : "estimada",
+            restricoes: s.fixo ? ["compromisso escolhido"] : []
+          })));
           closePanel();
           seguirPlano();
         }
@@ -1061,7 +1148,8 @@ const UI = (() => {
       else if (ds.set) settingsAction(ds.set);
       else if (ds.memberGo) {
         const m = GROUP.members.find(x => x.member_id === ds.memberGo);
-        if (m) { startRoute(Object.assign(GEO.toXY(m.lat, m.lon), { id: null, name: m.name })); state.route.memberId = m.member_id; }
+        if (!m || !Number.isFinite(m.ageSec) || m.ageSec > 120) { toast("Aguarde uma posição recente dessa pessoa."); return; }
+        startRoute(Object.assign(GEO.toXY(m.lat, m.lon), { id: null, name: m.name })); state.route.memberId = m.member_id;
       } else if (ds.member) openMember(ds.member);
     });
 
@@ -1088,8 +1176,8 @@ const UI = (() => {
         MAP.buildMarkers();
       }
       if (t.id === "optMapear") {
-        STORE.data.mapearCaminhos = t.checked;
-        STORE.save();
+        const discard = !t.checked && TRILHAS.pendentes > 0 && confirm("Descartar também os trajetos pendentes deste aparelho?");
+        TRILHAS.setEnabled(t.checked, discard);
       }
       if (t.id === "optLabels") {
         STORE.data.showLabels = t.checked;
@@ -1171,6 +1259,7 @@ const UI = (() => {
   // ---- início -------------------------------------------------------------
 
   function init() {
+    STORE.expireActivePlan(new Date().toLocaleDateString("sv-SE"));
     renderChips();
     MAP.init($("map"));
     bind();

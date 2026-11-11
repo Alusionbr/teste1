@@ -9,7 +9,7 @@
  * APP_VERSION em store.js e o ?v= do index.html.
  */
 "use strict";
-const VERSION = "1.3.0";
+const VERSION = "1.5.1";
 const CACHE = `parque-${VERSION}`;
 const SHELL = [
   "./",

@@ -24,6 +24,7 @@
 const LUGARES = (() => {
   const POLL_MS = 5 * 60000;
   const JUNTAR_M = 12;
+  const CACHE_KEY = "parque:lugares-cache-v1";
 
   // Tipos que o visitante pode marcar (o "kind" no servidor).
   const TIPOS = {
@@ -42,7 +43,7 @@ const LUGARES = (() => {
     foto:       { label: "Ponto de foto",      icon: "📸" }
   };
 
-  let crowd = [];             // linhas do servidor: {id, kind, ref_id, name, lat, lon, at}
+  let crowd = (() => { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); return c && Array.isArray(c.items) ? c.items : []; } catch (e) { return []; } })();
   let timer = 0;
   const listeners = [];
 
@@ -162,6 +163,7 @@ const LUGARES = (() => {
     if (document.visibilityState === "hidden") return;
     try {
       crowd = (await GROUP.rpc("parque_lugares", {})) || [];
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), items: crowd.slice(0, 3000) })); } catch (e) { /* cache opcional */ }
       for (const fn of listeners) fn();
     } catch (e) {
       // Sem internet: segue com a última lista recebida.
