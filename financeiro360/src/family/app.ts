@@ -22,7 +22,17 @@ import {
   type Reminder,
 } from "./model.ts";
 import { dashboardWidgets, quickActions, defaultPreferences, type DashboardWidget, type QuickAction } from "./preferences.ts";
-import { financialSeries, financialTotals, spendingGroups, type FlowPoint } from "./insights.ts";
+import {
+  financialSeries,
+  financialTotals,
+  financialTotalsInRange,
+  spendingGroups,
+  spendingGroupsInRange,
+  shiftDate,
+  weekRange,
+  weeklyFinancialSeries,
+  type FlowPoint,
+} from "./insights.ts";
 import {
   addMonths,
   dueDate,
@@ -36,6 +46,9 @@ let authScreen: "login" | "forgot" | "reset" =
   new URLSearchParams(window.location.search).has("redefinir") ? "reset" : "login";
 let page = "overview",
   month = today().slice(0, 7),
+  weekAnchor = today(),
+  overviewPeriod: "weekly" | "monthly" = "monthly",
+  entryPeriod: "weekly" | "monthly" = "monthly",
   calendarSelectedDate = today(),
   calendarFilter: "all" | "reminder" | "due_date" = "all",
   newReminderKind: Reminder["kind"] = "reminder",
@@ -52,7 +65,8 @@ let page = "overview",
   cardIdFilter = "all",
   cardOwnerFilter = "all",
   cardStatusFilter: "all" | "open" | "paid" = "all",
-  analysisPeriod: "monthly" | "yearly" = "monthly",
+  analysisPeriod: "weekly" | "monthly" | "yearly" = "monthly",
+  lastUpdatedAt: Date | null = null,
   editId = "",
   modal = "",
   categoryPresetCategory = "",
@@ -323,16 +337,78 @@ function quickPanel() {
   const visible = api.preferences.quick_actions.filter((id) => id !== "expense" && allowed[id]);
   return visible.length ? `<nav class="quick-panel" aria-label="Seus atalhos">${visible.map((id) => button("nav", actionNames[id], "secondary", `data-page="${id === "cards" ? "cards" : id === "shopping" ? "shopping" : "pantry"}"`)).join("")}</nav>` : "";
 }
+const dateShort = (date: string) => date.split("-").reverse().join("/");
+function selectedRange(period: "weekly" | "monthly") {
+  if (period === "weekly") return weekRange(weekAnchor);
+  const lastDay = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
+  return { start: `${month}-01`, end: `${month}-${String(lastDay).padStart(2, "0")}` };
+}
+function rangeLabel(period: "weekly" | "monthly") {
+  if (period === "weekly") {
+    const range = weekRange(weekAnchor);
+    return `Semana de ${dateShort(range.start)} a ${dateShort(range.end)}`;
+  }
+  return new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", {
+    month: "long", year: "numeric", timeZone: "UTC",
+  });
+}
+function periodControls(period: "weekly" | "monthly", compact = false, target: "overview" | "entries" | "analysis" = "overview") {
+  const isWeek = period === "weekly";
+  const action = target === "analysis" ? "analysis-range-period" : `${target}-period`;
+  return `<div class="range-controls ${compact ? "compact" : ""}"><div class="period-switch" role="group" aria-label="Período dos gastos">${button(action, "Semana", isWeek ? "active" : "", 'data-period="weekly" aria-pressed="' + isWeek + '"')}${button(action, "Mês", !isWeek ? "active" : "", 'data-period="monthly" aria-pressed="' + !isWeek + '"')}</div><div class="range-navigation">${button(`${target}-period-shift`, "‹", "secondary", 'data-step="-1" aria-label="Período anterior"')}${button(`${target}-period-current`, isWeek ? "Esta semana" : "Este mês", "text-button")}${button(`${target}-period-shift`, "›", "secondary", 'data-step="1" aria-label="Próximo período"')}</div><strong class="range-label">${esc(rangeLabel(period))}</strong></div>`;
+}
+function nextMonthEstimate(data: Data, nextMonth: string) {
+  const known = monthPicture(data, nextMonth);
+  const recurring = data.recurring.filter((item) => item.start_month <= nextMonth &&
+    !data.entries.some((entry) => entry.source_ref === `recurring:${item.id}:${nextMonth}`));
+  const cardInvoices = data.cards.map((card) => {
+    const cycles = [nextMonth, addMonths(nextMonth, -1)].filter((cycle) =>
+      (card.due_day <= card.closing_day ? addMonths(cycle, 1) : cycle) === nextMonth);
+    const amount = cycles.reduce((sum, cycle) => sum + invoice(data, card, cycle).remaining, 0);
+    return { card, amount };
+  }).filter((item) => item.amount > 0);
+  return { total: known.due + recurring.reduce((sum, item) => sum + item.amount_cents, 0),
+    cash: known.cashDue, cards: cardInvoices, recurring };
+}
+function recentActivity() {
+  const data = api.data!;
+  if (admin()) {
+    const events = data.audit.filter((item) => item.table_name === "fin_entries" && item.record_id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6);
+    if (events.length) return `<div class="activity-list">${events.map((event) => {
+      const entry = data.entries.find((item) => item.id === event.record_id);
+      const action = event.action === "INSERT" ? "Lançamento adicionado" : event.action === "UPDATE" ? "Lançamento alterado" : "Lançamento removido";
+      return `<article class="activity-row"><div><strong>${esc(entry?.description || action)}</strong><small>${entry ? `${esc(names(event.actor_id))} alterou · pertence a ${esc(names(entry.owner_id))} · compra em ${dateShort(entry.date)}` : action} · registrado ${new Date(event.created_at).toLocaleString("pt-BR")}</small></div>${entry ? button("open-entry-month", "Ver lançamento", "text-button", `data-id="${entry.id}"`) : ""}</article>`;
+    }).join("")}</div>`;
+  }
+  const entries = [...data.entries].sort((a, b) => (b.updated_at || b.created_at || "").localeCompare(a.updated_at || a.created_at || "")).slice(0, 6);
+  if (!entries.length) return '<p class="fine">Seus lançamentos recentes aparecerão aqui.</p>';
+  return `<div class="activity-list">${entries.map((entry) => {
+    const changed = entry.updated_at || entry.created_at;
+    return `<article class="activity-row"><div><strong>${esc(entry.description)}</strong><small>Compra em ${dateShort(entry.date)} · registrado ${changed ? new Date(changed).toLocaleString("pt-BR") : "sem data"}</small></div>${button("open-entry-month", "Ver lançamento", "text-button", `data-id="${entry.id}"`)}</article>`;
+  }).join("")}</div>`;
+}
 function summary() {
   const data = api.data!;
   const monthly = metrics(data, month);
-  const cash = financialTotals(data.entries, month);
+  const range = selectedRange(overviewPeriod);
+  const periodTotals = overviewPeriod === "weekly"
+    ? financialTotalsInRange(data.entries, range.start, range.end)
+    : financialTotals(data.entries, month);
   const picture = monthPicture(data, month);
-  const groups = spendingGroups(data, month);
+  const groups = overviewPeriod === "weekly"
+    ? spendingGroupsInRange(data, range.start, range.end)
+    : spendingGroups(data, month);
   const monthName = new Date(`${month}-01T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
   const previousMonth = addMonths(month, -1);
-  const previousSpending = metrics(data, previousMonth).spend;
-  const trend = previousSpending ? Math.round((monthly.spend - previousSpending) / previousSpending * 100) : null;
+  const previousRange = overviewPeriod === "weekly"
+    ? weekRange(shiftDate(weekAnchor, -7))
+    : selectedRange("monthly");
+  const previousTotals = overviewPeriod === "weekly"
+    ? financialTotalsInRange(data.entries, previousRange.start, previousRange.end)
+    : financialTotals(data.entries, previousMonth);
+  const previousSpending = previousTotals.spending;
+  const trend = previousSpending ? Math.round((periodTotals.spending - previousSpending) / previousSpending * 100) : null;
   const accountBalances = data.accounts.map((account) => balance(data, account)).filter((value): value is number => value !== null);
   const knownBalance = accountBalances.reduce((sum, value) => sum + value, 0);
   const pendingReviews = data.entries.filter((entry) => entry.status === "pending_review").length;
@@ -343,15 +419,22 @@ function summary() {
     return estimate.stock <= item.minimum || estimate.days !== null && estimate.days < 7;
   });
   const householdPercent = data.home.budget_cents ? Math.min(100, Math.round(monthly.home / data.home.budget_cents * 100)) : 0;
-  return `<section class="overview-heading"><div><span class="eyebrow">VISÃO DA FAMÍLIA</span><h2>Seu mês, sem complicação.</h2><p>Valores de ${esc(monthName)}. Você vê apenas os registros permitidos para a sua conta.</p></div>${button("nav", "Ver análises", "secondary", 'data-page="analysis"')}</section>
-  <section class="overview-hero"><div><span class="eyebrow">GASTOS LANÇADOS NO MÊS</span><strong>${brl(monthly.spend)}</strong><p>Compras pelo valor total, inclusive no cartão. Este número mostra quanto foi gasto, não quanto saiu da conta.</p><span class="overview-trend">${trend === null ? "Sem comparação com o mês anterior" : `${trend > 0 ? "↑" : trend < 0 ? "↓" : "="} ${Math.abs(trend)}% em relação ao mês anterior`}</span></div><div class="overview-hero-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div></section>
-  <div class="cash-summary" aria-label="Dinheiro recebido e pago no mês"><article class="cash-tile cash-received"><span>${icon("accounts")} Entrou nas contas</span><strong>${brl(cash.received)}</strong><small>Receitas confirmadas</small></article><article class="cash-tile cash-paid"><span>${icon("entries")} Saiu das contas</span><strong>${brl(cash.paid)}</strong><small>Pagamentos confirmados, inclusive faturas</small></article></div>
+  const nextMonth = addMonths(month, 1);
+  const nextLabel = new Date(`${nextMonth}-01T12:00:00Z`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const estimate = nextMonthEstimate(data, nextMonth);
+  const trendLabel = overviewPeriod === "weekly" ? "em relação à semana anterior" : "em relação ao mês anterior";
+  const points = overviewPeriod === "weekly" ? weeklyFinancialSeries(data, weekAnchor) : financialSeries(data, month, "monthly").slice(-6);
+  return `<section class="overview-heading"><div><span class="eyebrow">VISÃO DA FAMÍLIA</span><h2>Acompanhe seu dinheiro.</h2><p>${overviewPeriod === "weekly" ? `Gastos de ${esc(rangeLabel("weekly"))}` : `Valores de ${esc(monthName)}`}. Só aparecem os registros permitidos para sua conta.</p></div>${button("nav", "Ver análises", "secondary", 'data-page="analysis"')}</section>
+  ${periodControls(overviewPeriod)}
+  <section class="overview-hero"><div><span class="eyebrow">${overviewPeriod === "weekly" ? "GASTOS DESTA SEMANA" : "GASTOS LANÇADOS NO MÊS"}</span><strong>${brl(periodTotals.spending)}</strong><p>Compras pelo valor total, inclusive no cartão. Pagamentos são mostrados separadamente.</p><span class="overview-trend">${trend === null ? "Sem dados para comparar com o período anterior" : `${trend > 0 ? "↑" : trend < 0 ? "↓" : "="} ${Math.abs(trend)}% ${trendLabel}`}</span></div><div class="overview-hero-art" aria-hidden="true"><span></span><span></span><span></span><span></span></div></section>
+  <div class="cash-summary" aria-label="Dinheiro recebido e pago no período"><article class="cash-tile cash-received"><span>${icon("accounts")} Entrou nas contas</span><strong>${brl(periodTotals.received)}</strong><small>Receitas confirmadas</small></article><article class="cash-tile cash-paid"><span>${icon("entries")} Saiu das contas</span><strong>${brl(periodTotals.paid)}</strong><small>Pagamentos confirmados, inclusive faturas</small></article></div>
   <section class="quick-create"><div><span class="eyebrow">REGISTRE EM SEGUNDOS</span><h3>O que aconteceu agora?</h3></div><div class="quick-create-actions">${api.allowed("entries") ? (api.preferences.quick_actions.includes("expense") ? button("quick-expense", `${icon("plus")} Gasto rápido`, "primary") : "") + button("add-entry", "Mais detalhes", "secondary") + button("add-income", `${icon("accounts")} Receita`, "secondary") + button("add-payable", `${icon("calendar")} Conta a pagar`, "secondary") + button("transfer", `${icon("arrow")} Transferência`, "secondary") : ""}</div></section>${quickPanel()}
   <div class="overview-status"><article><span>A pagar neste mês</span><strong>${brl(picture.due)}</strong><small>Contas pendentes e faturas por vencimento</small></article><article><span>Saldo conhecido em contas</span><strong>${accountBalances.length ? brl(knownBalance) : "Ainda não informado"}</strong><small>${accountBalances.length} conta(s) com saldo visível</small></article><article><span>Para conferir</span><strong>${pendingReviews}</strong><small>Lançamentos fora dos totais até confirmar</small></article></div>
   ${data.home.budget_cents ? `<section class="budget-strip"><div><span>Orçamento do lar</span><strong>${brl(monthly.home)} de ${brl(data.home.budget_cents)}</strong></div><div class="bar"><b style="width:${householdPercent}%"></b></div><small>${householdPercent}% usado pelos gastos visíveis da casa</small></section>` : ""}
   ${urgentReminders.length ? `<section class="overview-alert"><span>${icon("reminders")}</span><div><strong>${urgentReminders.length} aviso(s) próximos</strong><p>${urgentReminders.slice(0, 2).map((item) => `${esc(item.title)} · ${reminderTiming(item.due_on!)}`).join("<br>")}</p></div>${button("nav", "Abrir calendário", "text-button", 'data-page="calendar"')}</section>` : ""}
-  <div class="overview-chart">${flowChart(financialSeries(data, month, "monthly").slice(-6), "Entradas e saídas · 6 meses")}${button("nav", "Explorar meses e anos", "text-button", 'data-page="analysis"')}</div>
-  <div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">ONDE FOI GASTO</span><h3>Principais categorias</h3></div>${button("nav", "Ver detalhes", "text-button", 'data-page="analysis"')}</div>${groups.length ? `<div class="category-chart">${groups.slice(0, 5).map((group, index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong><div class="bar"><b style="width:${monthly.spend ? Math.round(group.total / monthly.spend * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div>` : '<p class="fine">Os gastos classificados aparecerão aqui.</p>'}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">PRECISA DE ATENÇÃO</span><h3>Próximos passos</h3></div></div>${monthly.overdue.length ? `<article class="insight warning"><span>${icon("calendar")}</span><div><strong>${monthly.overdue.length} conta(s) vencida(s)</strong><p>Confira ${brl(monthly.overdue.reduce((sum, item) => sum + item.amount_cents, 0))} em pendências.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem vencimentos atrasados</strong><p>Os registros visíveis estão em dia.</p></div></article>`}<article class="insight"><span>${icon("pantry")}</span><div><strong>${lowPantry.length ? `${lowPantry.length} produto(s) para repor` : "Despensa em ordem"}</strong><p>${lowPantry.length ? lowPantry.slice(0, 3).map((item) => esc(item.name)).join(", ") : "O estoque cadastrado não pede reposição agora."}</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">ÚLTIMOS REGISTROS</span><h3>Movimentações recentes</h3></div>${button("nav", "Ver todos", "text-button", 'data-page="entries"')}</div>${entryList([...data.entries].sort((x, y) => y.date.localeCompare(x.date)).slice(0, 5))}</section></div><p class="fine overview-footnote">Recebido e pago consideram apenas operações confirmadas. Transferências entre contas não entram como receita ou despesa. Gastos incluem o valor integral da compra na data do lançamento.</p>`;
+  <div class="overview-chart">${flowChart(points, overviewPeriod === "weekly" ? "Entradas e saídas · dia a dia" : "Entradas e saídas · últimos 6 meses")}${button("nav", "Explorar semanas e meses", "text-button", 'data-page="analysis"')}</div>
+  <section class="panel next-forecast"><div class="panel-title"><div><span class="eyebrow">PREVISÃO CONHECIDA</span><h3>Próximo mês · ${esc(nextLabel)}</h3></div><strong>${brl(estimate.total)}</strong></div><p>Contas pendentes, faturas previstas e despesas fixas ainda não geradas. Gastos variáveis que não foram lançados não entram nesta estimativa.</p><div class="forecast-sources"><span>Contas pendentes <strong>${brl(estimate.cash)}</strong></span><span>Faturas de cartão <strong>${brl(estimate.cards.reduce((sum, item) => sum + item.amount, 0))}</strong></span><span>Despesas fixas não geradas <strong>${brl(estimate.recurring.reduce((sum, item) => sum + item.amount_cents, 0))}</strong></span></div><details><summary>Ver de onde vem a previsão</summary><div class="activity-list">${estimate.cards.map(({ card, amount }) => `<p class="detail-line">${esc(card.name)} · fatura que vence no próximo mês <strong>${brl(amount)}</strong></p>`).join("")}${data.entries.filter((entry) => entry.kind === "expense" && entry.payment === "cash" && entry.status === "pending" && (entry.due_date || entry.date).startsWith(nextMonth)).map((entry) => `<p class="detail-line">${esc(entry.description)} · vence ${dateShort(entry.due_date || entry.date)} <strong>${brl(entry.amount_cents)}</strong></p>`).join("")}${estimate.recurring.map((item) => `<p class="detail-line">${esc(item.name)} · previsão dia ${item.day} <strong>${brl(item.amount_cents)}</strong></p>`).join("") || ""}</div>${estimate.total ? "" : '<p class="fine">Ainda não há contas, faturas ou despesas fixas cadastradas para esse mês.</p>'}</details></section>
+  <div class="dashboard-grid"><section class="panel" data-widget="categories"><div class="panel-title"><div><span class="eyebrow">ONDE FOI GASTO</span><h3>Principais categorias · ${overviewPeriod === "weekly" ? "semana" : "mês"}</h3></div>${button("nav", "Ver detalhes", "text-button", 'data-page="analysis"')}</div>${groups.length ? `<div class="category-chart">${groups.slice(0, 5).map((group, index) => `<div class="category-row"><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong><div class="bar"><b style="width:${periodTotals.spending ? Math.round(group.total / periodTotals.spending * 100) : 0}%;background:var(--chart-${index % 4})"></b></div></div>`).join("")}</div>` : '<p class="fine">Sem gastos neste período. Tente outra semana ou mês.</p>'}</section><section class="panel intelligence" data-widget="insights"><div class="panel-title"><div><span class="eyebrow">PRECISA DE ATENÇÃO</span><h3>Próximos passos</h3></div></div>${monthly.overdue.length ? `<article class="insight warning"><span>${icon("calendar")}</span><div><strong>${monthly.overdue.length} conta(s) vencida(s)</strong><p>Confira ${brl(monthly.overdue.reduce((sum, item) => sum + item.amount_cents, 0))} em pendências.</p></div></article>` : `<article class="insight"><span>${icon("check")}</span><div><strong>Sem vencimentos atrasados</strong><p>Os registros visíveis estão em dia.</p></div></article>`}<article class="insight"><span>${icon("pantry")}</span><div><strong>${lowPantry.length ? `${lowPantry.length} produto(s) para repor` : "Despensa em ordem"}</strong><p>${lowPantry.length ? lowPantry.slice(0, 3).map((item) => esc(item.name)).join(", ") : "O estoque cadastrado não pede reposição agora."}</p></div></article></section><section class="panel wide-panel" data-widget="recent"><div class="panel-title"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h3>O que mudou por último</h3></div>${button("nav", "Ver lançamentos", "text-button", 'data-page="entries"')}</div>${recentActivity()}</section></div><p class="fine overview-footnote">${lastUpdatedAt ? `Dados atualizados às ${lastUpdatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. ` : ""}Os valores semanais seguem de segunda a domingo. Valores recebidos, pagos e gastos são separados; transferências não são receita nem despesa.</p>`;
 }
 function entryList(rows: Entry[]) {
   if (!rows.length) return empty("Nenhum lançamento por aqui", "add-entry");
@@ -392,10 +475,13 @@ function analysis() {
   const data = api.data!;
   const year = month.slice(0, 4);
   const prefix = analysisPeriod === "monthly" ? month : year;
-  const totals = financialTotals(data.entries, prefix);
-  const groups = spendingGroups(data, prefix);
-  const points = financialSeries(data, month, analysisPeriod);
-  return `<section class="page-intro"><div><h2>Entenda o ritmo da casa.</h2><p>Compare o que entrou, o que foi pago e onde os gastos aconteceram.</p></div><div class="period-switch" role="group" aria-label="Período dos gráficos">${button("analysis-period", "Mês a mês", analysisPeriod === "monthly" ? "active" : "", 'data-period="monthly"')}${button("analysis-period", "Ano a ano", analysisPeriod === "yearly" ? "active" : "", 'data-period="yearly"')}</div></section><section class="analysis-summary"><article class="analysis-total received"><span>Recebido · ${analysisPeriod === "monthly" ? month.split("-").reverse().join("/") : year}</span><strong>${brl(totals.received)}</strong><small>Receitas confirmadas</small></article><article class="analysis-total paid"><span>Pago</span><strong>${brl(totals.paid)}</strong><small>Saídas confirmadas das contas</small></article><article class="analysis-total spending"><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong><small>Valor integral das compras</small></article></section>${flowChart(points, analysisPeriod === "monthly" ? "Últimos 12 meses" : "Últimos 5 anos")}<div class="analysis-breakdown"><section class="panel"><div class="panel-title"><div><span class="eyebrow">COMPOSIÇÃO DOS GASTOS</span><h3>Por categoria</h3></div></div>${spendingDonut(groups)}</section><section class="panel"><div class="panel-title"><div><span class="eyebrow">CLASSIFICAÇÃO</span><h3>Categorias e subcategorias</h3></div>${button("nav", "Gerenciar", "text-button", 'data-page="categories"')}</div>${groups.length ? groups.map((group, index) => `<details class="analysis-category"><summary><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong></summary><div>${group.subcategories.map(([name, value]) => `<p class="detail-line">${esc(name)} <strong>${brl(value)}</strong></p>`).join("")}</div></details>`).join("") : '<p class="fine">Sem gastos nesse período. Escolha outro mês ou registre um gasto.</p>'}</section></div>`;
+  const range = selectedRange("weekly");
+  const totals = analysisPeriod === "weekly" ? financialTotalsInRange(data.entries, range.start, range.end) : financialTotals(data.entries, prefix);
+  const groups = analysisPeriod === "weekly" ? spendingGroupsInRange(data, range.start, range.end) : spendingGroups(data, prefix);
+  const points = analysisPeriod === "weekly" ? weeklyFinancialSeries(data, weekAnchor) : financialSeries(data, month, analysisPeriod);
+  const heading = analysisPeriod === "weekly" ? rangeLabel("weekly") : analysisPeriod === "monthly" ? month.split("-").reverse().join("/") : year;
+  const title = analysisPeriod === "weekly" ? "Esta semana" : analysisPeriod === "monthly" ? "Este mês" : "Este ano";
+  return `<section class="page-intro"><div><h2>Entenda o ritmo da casa.</h2><p>Compare o que entrou, o que foi pago e onde os gastos aconteceram.</p></div><div class="period-switch" role="group" aria-label="Período dos gráficos">${button("analysis-period", "Semana", analysisPeriod === "weekly" ? "active" : "", 'data-period="weekly"')}${button("analysis-period", "Mês a mês", analysisPeriod === "monthly" ? "active" : "", 'data-period="monthly"')}${button("analysis-period", "Ano a ano", analysisPeriod === "yearly" ? "active" : "", 'data-period="yearly"')}</div></section>${analysisPeriod === "weekly" ? periodControls("weekly", true) : analysisPeriod === "monthly" ? periodControls("monthly", true) : ""}<section class="analysis-summary"><article class="analysis-total received"><span>Recebido · ${esc(heading)}</span><strong>${brl(totals.received)}</strong><small>Receitas confirmadas</small></article><article class="analysis-total paid"><span>Pago</span><strong>${brl(totals.paid)}</strong><small>Saídas confirmadas das contas</small></article><article class="analysis-total spending"><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong><small>Valor integral das compras</small></article></section>${flowChart(points, analysisPeriod === "weekly" ? "Dia a dia · semana selecionada" : analysisPeriod === "monthly" ? "Últimos 12 meses" : "Últimos 5 anos")}<div class="analysis-breakdown"><section class="panel"><div class="panel-title"><div><span class="eyebrow">COMPOSIÇÃO DOS GASTOS</span><h3>Por categoria · ${esc(title)}</h3></div></div>${spendingDonut(groups)}</section><section class="panel"><div class="panel-title"><div><span class="eyebrow">CLASSIFICAÇÃO</span><h3>Categorias e subcategorias</h3></div>${button("nav", "Gerenciar", "text-button", 'data-page="categories"')}</div>${groups.length ? groups.map((group, index) => `<details class="analysis-category"><summary><span><i style="background:var(--chart-${index % 4})"></i>${esc(group.name)}</span><strong>${brl(group.total)}</strong></summary><div>${group.subcategories.map(([name, value]) => `<p class="detail-line">${esc(name)} <strong>${brl(value)}</strong></p>`).join("")}</div></details>`).join("") : '<p class="fine">Sem gastos nesse período. Escolha outra semana ou mês, ou registre um gasto.</p>'}</section></div>`;
 }
 function categories() {
   const presets = api.data!.category_presets;
@@ -411,10 +497,11 @@ function categories() {
 }
 function entries() {
   const data = api.data!;
+  const range = selectedRange(entryPeriod);
   const categoryNames = sortCategoriesByUse(data.entries.map((item) => item.category));
   const subcategoryNames = Array.from(new Set(data.entries.filter((item) => entryCategory === "all" || item.category === entryCategory)
     .map((item) => item.subcategory).filter((item): item is string => !!item))).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const rows = data.entries.filter((entry) => entry.date.startsWith(month) &&
+  const rows = data.entries.filter((entry) => entry.date >= range.start && entry.date <= range.end &&
     (entryKind === "all" || entryKind === "expenses" && entry.kind === "expense" ||
       entryKind === "income" && entry.kind === "income" ||
       entryKind === "payments" && ["card_payment", "debt_payment"].includes(entry.kind) ||
@@ -426,10 +513,10 @@ function entries() {
     `${entry.description} ${entry.payee || ""} ${entry.category} ${entry.subcategory || ""}`
       .toLocaleLowerCase().includes(filter.toLocaleLowerCase()))
     .sort((a, b) => b.date.localeCompare(a.date) || (b.created_at || "").localeCompare(a.created_at || ""));
-  const totals = financialTotals(data.entries, month);
+  const totals = entryPeriod === "weekly" ? financialTotalsInRange(data.entries, range.start, range.end) : financialTotals(data.entries, month);
   const tabs = [["all", "Tudo"], ["expenses", "Gastos"], ["income", "Receitas"],
     ["payments", "Pagamentos"], ["transfers", "Transferências"]];
-  return `<section class="page-intro"><div><h2>Todos os movimentos, no lugar certo.</h2><p>Veja gastos, dinheiro recebido e pagamentos sem misturar os totais.</p></div><div class="button-row">${button("nav", "Categorias", "secondary", 'data-page="categories"')}${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</div></section><div class="entry-overview"><div><span>Gastos lançados</span><strong>${brl(totals.spending)}</strong></div><div><span>Entrou</span><strong>${brl(totals.received)}</strong></div><div><span>Saiu das contas</span><strong>${brl(totals.paid)}</strong></div></div><section class="panel entry-panel"><div class="entry-tabs" role="group" aria-label="Tipo de lançamento">${tabs.map(([kind, label]) => button("entry-kind", label, entryKind === kind ? "active" : "", `data-kind="${kind}" aria-pressed="${entryKind === kind}"`)).join("")}</div><div class="entry-search">${input("search", "search", filter, 'placeholder="Buscar descrição, lugar ou categoria" aria-label="Buscar lançamentos"')}<span>${rows.length} registro(s)</span></div><details class="entry-extra-filters" ${entryFiltersOpen ? "open" : ""}><summary>Filtrar por pessoa, categoria ou situação</summary><div class="filters"><select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Casa", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todas as pessoas", owner) + data.members.map((item) => opt(item.user_id, item.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select><select name="entry_category" aria-label="Filtrar categoria">${opt("all", "Todas as categorias", entryCategory) + categoryNames.map((item) => opt(item, item, entryCategory)).join("")}</select><select name="entry_subcategory" aria-label="Filtrar subcategoria">${opt("all", "Todas as subcategorias", entrySubcategory) + subcategoryNames.map((item) => opt(item, item, entrySubcategory)).join("")}</select></div></details>${entryList(rows)}</section>`;
+  return `<section class="page-intro"><div><h2>Todos os movimentos, no lugar certo.</h2><p>Veja gastos, dinheiro recebido e pagamentos sem misturar os totais.</p></div><div class="button-row">${button("nav", "Categorias", "secondary", 'data-page="categories"')}${api.allowed("entries") ? button("add-entry", icon("plus") + " Novo lançamento") : ""}</div></section>${periodControls(entryPeriod, true)}<div class="entry-overview"><div><span>Gastos lançados · ${esc(rangeLabel(entryPeriod))}</span><strong>${brl(totals.spending)}</strong></div><div><span>Entrou</span><strong>${brl(totals.received)}</strong></div><div><span>Saiu das contas</span><strong>${brl(totals.paid)}</strong></div></div><section class="panel entry-panel"><div class="entry-tabs" role="group" aria-label="Tipo de lançamento">${tabs.map(([kind, label]) => button("entry-kind", label, entryKind === kind ? "active" : "", `data-kind="${kind}" aria-pressed="${entryKind === kind}"`)).join("")}</div><div class="entry-search">${input("search", "search", filter, 'placeholder="Buscar descrição, lugar ou categoria" aria-label="Buscar lançamentos"')}<span>${rows.length} registro(s)</span></div><details class="entry-extra-filters" ${entryFiltersOpen ? "open" : ""}><summary>Filtrar por pessoa, categoria ou situação</summary><div class="filters"><select name="area" aria-label="Filtrar área">${opt("all", "Todas as áreas", area) + opt("household", "Casa", area) + opt("personal", "Pessoal", area) + opt("business", "Empresa", area)}</select><select name="owner" aria-label="Filtrar responsável">${opt("all", "Todas as pessoas", owner) + data.members.map((item) => opt(item.user_id, item.display_name, owner)).join("")}</select><select name="status" aria-label="Filtrar situação">${opt("all", "Todas as situações", status) + opt("paid", "Confirmados", status) + opt("pending", "A pagar", status) + opt("pending_review", "Em revisão", status)}</select><select name="entry_category" aria-label="Filtrar categoria">${opt("all", "Todas as categorias", entryCategory) + categoryNames.map((item) => opt(item, item, entryCategory)).join("")}</select><select name="entry_subcategory" aria-label="Filtrar subcategoria">${opt("all", "Todas as subcategorias", entrySubcategory) + subcategoryNames.map((item) => opt(item, item, entrySubcategory)).join("")}</select></div></details>${entryList(rows)}</section>`;
 }
 const cardDueDate = (card: Data["cards"][number]) => dueDate(month, {
   id: card.id, name: card.name, owner: "wife", limitCents: card.limit_cents || 0,
@@ -944,6 +1031,7 @@ async function run(work: () => Promise<unknown>, message = "") {
     .forEach((b) => (b.disabled = true));
   try {
     await work();
+    if (api.data) lastUpdatedAt = new Date();
     notice = message;
   } catch (e) {
     failed = true;
@@ -1007,8 +1095,48 @@ root.addEventListener("click", (event) => {
     window.scrollTo(0, 0);
     return;
   }
+  if (a === "open-entry-month") {
+    const entry = api.data?.entries.find((item) => item.id === id);
+    if (entry) {
+      month = entry.date.slice(0, 7);
+      weekAnchor = entry.date;
+      entryPeriod = "monthly";
+      page = "entries";
+      modal = "";
+      render();
+      window.scrollTo(0, 0);
+    }
+    return;
+  }
+  if (["overview-period", "entries-period", "analysis-range-period"].includes(a)) {
+    const period = b.dataset.period === "weekly" ? "weekly" : "monthly";
+    if (a === "overview-period") overviewPeriod = period;
+    if (a === "entries-period") entryPeriod = period;
+    if (a === "analysis-range-period") analysisPeriod = period;
+    render();
+    return;
+  }
+  if (["overview-period-shift", "entries-period-shift", "analysis-period-shift"].includes(a)) {
+    const targetPeriod = a.startsWith("overview") ? overviewPeriod : a.startsWith("entries") ? entryPeriod : analysisPeriod;
+    const step = Number(b.dataset.step || 0);
+    if (targetPeriod === "weekly") {
+      weekAnchor = shiftDate(weekAnchor, step * 7);
+      month = weekAnchor.slice(0, 7);
+    } else {
+      month = addMonths(month, step);
+      weekAnchor = `${month}-01`;
+    }
+    render();
+    return;
+  }
+  if (["overview-period-current", "entries-period-current", "analysis-period-current"].includes(a)) {
+    month = today().slice(0, 7);
+    weekAnchor = today();
+    render();
+    return;
+  }
   if (a === "analysis-period") {
-    analysisPeriod = b.dataset.period === "yearly" ? "yearly" : "monthly";
+    analysisPeriod = b.dataset.period === "yearly" ? "yearly" : b.dataset.period === "weekly" ? "weekly" : "monthly";
     render();
     return;
   }
@@ -1384,6 +1512,7 @@ root.addEventListener("change", (event) => {
   if (el.name === "month") {
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(el.value)) {
       month = el.value;
+      weekAnchor = `${month}-01`;
       calendarSelectedDate = `${month}-01`;
     }
     render();

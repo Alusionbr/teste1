@@ -1803,7 +1803,10 @@ input[type="checkbox"] {
 :root[data-palette="plum"] .overview-hero { background: linear-gradient(115deg, #422d50, #704b78); }
 @media(max-width:640px) { .money-record .record-pay { grid-column: 2; grid-row: 3; margin-top: 4px; }.money-record .record-menu { grid-column: 3; grid-row: 2; } }
 @media (prefers-color-scheme: dark) { :root[data-theme="system"] :is(.cash-tile,.overview-status article,.budget-strip,.analysis-total,.entry-overview > div,.quick-create,.spending-donut > span,.record-menu-pop) { background: #1d2c27; border-color: #355048; } }
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] :is(.range-controls,.forecast-sources > span) { background: #1d2c27; border-color: #355048; color: #e5f0e9; } :root[data-theme="system"] .forecast-sources strong { color: #e5f0e9; } }
 :root[data-theme="dark"] :is(.cash-tile,.overview-status article,.budget-strip,.analysis-total,.entry-overview > div,.quick-create,.spending-donut > span,.record-menu-pop) { background: #1d2c27; color: #e5f0e9; border-color: #355048; }
+:root[data-theme="dark"] :is(.range-controls,.forecast-sources > span) { background: #1d2c27; color: #e5f0e9; border-color: #355048; }
+:root[data-theme="dark"] .forecast-sources strong { color: #e5f0e9; }
 .quick-grocery-panel { margin: 18px 0; }
 .quick-grocery-list { display: flex; flex-wrap: wrap; gap: 9px; }
 .quick-grocery-list button { min-height: 44px; }
@@ -2015,3 +2018,38 @@ input[type="checkbox"] {
 .invoice-import-table td small { display: block; color: var(--muted); margin-top: 4px; font-size: 10px; }
 .invoice-import-table tr.invoice-duplicate { background: color-mix(in srgb, #d99c40 10%, transparent); }
 .invoice-import-table tr.invoice-duplicate td small { color: #a96a20; }
+.range-controls { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 14px; margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-soft, #f4f8f5); }
+.range-controls .period-switch { width: auto; }
+.range-controls .period-switch button { min-height: 36px; }
+.range-navigation { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.range-navigation .secondary { min-width: 38px; min-height: 36px; padding: 4px; font-size: 20px; }
+.range-label { text-align: right; color: var(--muted); font-size: 12px; }
+.range-controls.compact { margin-top: -6px; }
+.next-forecast { margin: 16px 0; }
+.next-forecast .panel-title { align-items: flex-start; }
+.next-forecast .panel-title > strong { font-size: 23px; white-space: nowrap; }
+.next-forecast > p { max-width: 740px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.forecast-sources { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 12px 0; }
+.forecast-sources > span { display: flex; flex-direction: column; gap: 5px; padding: 11px; border-radius: 12px; background: var(--surface-soft, #f2f6f2); color: var(--muted); font-size: 11px; }
+.forecast-sources strong { color: var(--ink); }
+.next-forecast details > summary { cursor: pointer; color: var(--green); font-size: 12px; font-weight: 700; }
+.activity-list { display: grid; gap: 7px; }
+.activity-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.activity-row:last-child { border-bottom: 0; }
+.activity-row > div { display: grid; gap: 4px; min-width: 0; }
+.activity-row strong { overflow-wrap: anywhere; }
+.activity-row small { color: var(--muted); font-size: 11px; }
+.overview-footnote { margin: 12px 0 24px; }
+@media (max-width: 640px) {
+  .range-controls { grid-template-columns: 1fr; gap: 8px; padding: 9px; }
+  .range-controls .period-switch { width: 100%; }
+  .range-navigation { justify-content: space-between; }
+  .range-label { text-align: center; font-size: 11px; }
+  .range-controls.compact { margin-top: 0; }
+  .forecast-sources { grid-template-columns: 1fr; gap: 6px; }
+  .forecast-sources > span { flex-direction: row; justify-content: space-between; align-items: center; }
+  .next-forecast .panel-title { flex-direction: column; }
+  .next-forecast .panel-title > strong { font-size: 20px; }
+  .activity-row { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .activity-row .text-button { align-self: flex-start; }
+}

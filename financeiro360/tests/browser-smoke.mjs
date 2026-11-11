@@ -21,11 +21,20 @@ try {
   assert.match(await page.locator(".overview-hero").innerText(), /GASTOS LANÇADOS NO MÊS/);
   assert.match(await page.locator(".cash-summary").innerText(), /Entrou nas contas/);
   assert.match(await page.locator(".cash-summary").innerText(), /Saiu das contas/);
+  assert.match(await page.locator(".next-forecast").innerText(), /PREVISÃO CONHECIDA/);
   assert.ok(await page.locator(".flow-chart-scroll").evaluate((chart) => chart.scrollLeft > 0), "the current month should be visible on a phone");
+  await page.getByRole("button", { name: "Semana", exact: true }).first().click();
+  assert.equal(await page.locator(".flow-column").count(), 7, "the overview should show the selected week day by day");
+  assert.match(await page.locator(".overview-hero").innerText(), /GASTOS DESTA SEMANA/);
+  await page.getByRole("button", { name: "Mês", exact: true }).first().click();
   await capture(page, "home-mobile");
 
   await page.locator('.mobile-nav [data-page="analysis"]').click();
   await page.getByRole("heading", { name: "Entenda o ritmo da casa." }).waitFor();
+  assert.equal(await page.locator(".flow-column").count(), 12);
+  await page.getByRole("button", { name: "Semana", exact: true }).first().click();
+  assert.equal(await page.locator(".flow-column").count(), 7, "analysis should switch to a weekly chart");
+  await page.getByRole("button", { name: "Mês a mês" }).click();
   assert.equal(await page.locator(".flow-column").count(), 12);
   await page.getByRole("button", { name: "Ano a ano" }).click();
   assert.equal(await page.locator(".flow-column").count(), 5);

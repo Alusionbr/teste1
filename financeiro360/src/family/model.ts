@@ -71,6 +71,7 @@ export interface Card extends RecordBase {
   merged_into_id?: string | null;
 }
 export interface Entry extends RecordBase {
+  updated_at?: string | null;
   description: string;
   payee?: string | null;
   amount_cents: number;
@@ -167,6 +168,7 @@ export interface Audit {
   actor_id: string;
   action: string;
   table_name: string;
+  record_id?: string | null;
   created_at: string;
 }
 export interface Recurring extends RecordBase {
