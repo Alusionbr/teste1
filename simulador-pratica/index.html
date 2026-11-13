@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel de prática · simulação sem dinheiro real</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--card:#141c30;--line:#2f3d5c;--txt:#edf1fb;--mut:#b4c0d8;--ok:#64e5b3;--bad:#ff9aa8;--warn:#ffd27a;--blue:#8ab4ff;--btn:#3b78f0}
+*{box-sizing:border-box}html{scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.55 system-ui,Segoe UI,sans-serif}
+main{max-width:1180px;margin:auto;padding:16px 20px 40px}main:focus{outline:none}
+h1{margin:0;font-size:24px}h2{font-size:19px;margin:0 0 6px}h3{font-size:16px;margin:16px 0 6px}
+p{color:var(--mut);margin:6px 0}small,.mut{color:var(--mut)}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.pular{position:absolute;left:8px;top:-60px;background:#ffd166;color:#111;padding:10px 14px;border-radius:8px;z-index:20;font-weight:700}
+.pular:focus{top:8px}
+:focus-visible{outline:3px solid #ffd166;outline-offset:2px;border-radius:4px}
+.topo{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 20px;background:#0d1426;border-bottom:1px solid var(--line)}
+.selo{margin:0;background:#113c35;color:#7bf0c9;border:1px solid #1f6b5c;border-radius:20px;padding:6px 14px;font-weight:800;letter-spacing:.3px;font-size:14px}
+.aviso{background:#1a2440;border:1px solid #3d5190;border-radius:12px;padding:14px 16px;margin:14px 0}
+.aviso ul{margin:8px 0 0;padding-left:20px;color:var(--mut)}.aviso b{color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.sim{border-left:5px solid var(--ok)}.pub{border-left:5px solid var(--blue)}
+.rotulo{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.4px;border-radius:6px;padding:2px 8px;vertical-align:middle;margin-left:6px}
+.rotulo.sim{background:#113c35;color:#7bf0c9;border:1px solid #1f6b5c}.rotulo.pub{background:#1b2c55;color:#b9d0ff;border:1px solid #3d5190}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.label{color:var(--mut);font-size:13px}.value{font-size:26px;font-weight:700;line-height:1.2}
+.good{color:var(--ok)}.badc{color:var(--bad)}
+.precos{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:8px}
+.preco{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px;background:#10172a;color:var(--txt);font:inherit;cursor:pointer}
+.preco.fixo{cursor:default}.preco[aria-pressed="true"]{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset}
+.preco .nome{font-weight:700;display:block}.preco .v{font-size:21px;font-weight:700;display:block}.preco .est,.preco .var,.preco .fnt{display:block;font-size:13px;color:var(--mut)}
+.badge{display:inline-block;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700;border:1px solid}
+.badge.ok{color:var(--ok);border-color:#2a7a62;background:#0f2c27}.badge.neutro{color:#c8d3ea;border-color:#46567c;background:#18223c}
+.badge.aviso{color:var(--warn);border-color:#8a6a1f;background:#33290f}.badge.ruim{color:var(--bad);border-color:#8a3a46;background:#341a21}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:8px 0}
+select,button,input{background:#202b43;color:#fff;border:1px solid #4a5b80;border-radius:8px;padding:9px 12px;font:inherit}
+button{cursor:pointer}
+canvas{display:block;width:100%;height:270px}canvas.peq{height:190px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:8px 6px;vertical-align:top}
+th{color:var(--mut);font-weight:700}.scroll{overflow-x:auto}
+.vazio{padding:14px;border:1px dashed #4a5b80;border-radius:10px;color:var(--mut);margin:8px 0}
+.compra{color:var(--ok);font-weight:700}.venda{color:var(--bad);font-weight:700}
+details{margin-top:10px}summary{cursor:pointer;color:var(--mut)}
+code{background:#0e1426;padding:1px 6px;border-radius:5px;font-size:13px}
+#msg{min-height:22px;color:var(--warn)}
+@media(max-width:800px){.cols{grid-template-columns:1fr}main{padding:12px}.topo{padding:8px 12px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<a class="pular" href="#principal">Pular para o conteúdo principal</a>
+<header class="topo">
+  <div><h1>Painel de prática</h1><small>Simulador pessoal de cripto e câmbio · somente leitura</small></div>
+  <p class="selo">● SIMULAÇÃO · SEM DINHEIRO REAL</p>
+</header>
+
+<main id="principal" tabindex="-1">
+
+<section aria-labelledby="h-estado">
+  <h2 id="h-estado">Estado dos dados por mercado</h2>
+  <p>Cada dado tem fonte, forma de atualização e idade própria. Preços e registros do experimento não são a mesma coisa.</p>
+  <div id="estado"></div>
+  <div class="row">
+    <button type="button" id="btnLive">Pausar conexões ao vivo</button>
+    <small id="wsEstado"></small>
+  </div>
+  <p id="msg" role="status"></p>
+  <div id="anuncio" class="sr-only" aria-live="polite"></div>
+  <div class="aviso">
+    <b>O que é ao vivo e o que não é</b>
+    <ul>
+      <li><b>Ao vivo:</b> preços das criptomoedas (Binance, dados públicos) por conexão contínua (WebSocket) quando ela está conectada; se cair, a página volta a consultar a cada 15 s e tenta reconectar. A conexão pode cair ou atrasar; o estado aparece acima, sem promessa de atualização contínua. A avaliação da carteira fictícia acompanha esses preços.</li>
+      <li><b>Não é ao vivo:</b> decisões, compras e vendas fictícias e o histórico de patrimônio. Só mudam quando a rotina do agente roda (de hora em hora) e o arquivo de dados é atualizado. Esta página <b>não decide, não executa e não envia ordens</b>.</li>
+      <li><b>Câmbio (EUR/BRL):</b> taxa diária de referência, não é preço intradiário nem cotação executável de Forex.</li>
+      <li>Nenhuma conta real é acessada. Valores em reais fictícios (R$ 1.000 por mercado).</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="h-sim" style="margin-top:18px">
+  <h2 id="h-sim">Minha simulação <span class="rotulo sim">SIMULAÇÃO</span></h2>
+  <p>Duas carteiras fictícias independentes, cada uma com R$ 1.000,00 iniciais. Não somo as duas num total único: são mercados e regras de preço diferentes. <b id="nOps">—</b></p>
+  <div class="cols">
+    <article class="card sim" aria-labelledby="h-wc">
+      <h3 id="h-wc" style="margin-top:0">Carteira Cripto <span class="rotulo sim">SIMULAÇÃO</span></h3>
+      <div class="label">Patrimônio estimado (cripto)</div><div class="value" id="pCripto">—</div>
+      <div id="pCriptoRes"></div>
+      <p id="pCriptoSub"></p><p id="pCriptoReg"></p>
+      <div id="posCripto"></div>
+    </article>
+    <article class="card sim" aria-labelledby="h-wb">
+      <h3 id="h-wb" style="margin-top:0">Carteira Câmbio (EUR/BRL) <span class="rotulo sim">SIMULAÇÃO</span></h3>
+      <div class="label">Patrimônio estimado (câmbio)</div><div class="value" id="pCambio">—</div>
+      <div id="pCambioRes"></div>
+      <p id="pCambioSub"></p><p id="pCambioReg"></p>
+      <div id="posCambio"></div>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="h-cot" style="margin-top:18px">
+  <h2 id="h-cot">Cotações</h2>
+  <h3>Cripto · Binance (dados públicos) <small id="notaCripto2"></small></h3>
+  <p>Escolha um ativo para ver o gráfico. A variação é a das últimas 24 h informada pela Binance.</p>
+  <div class="precos" id="precos" role="group" aria-label="Cotações de criptomoedas em reais"></div>
+  <h3>Câmbio · taxa diária de referência</h3>
+  <div class="precos" id="cambioTile"></div>
+</section>
+
+<section aria-labelledby="h-graf" style="margin-top:18px">
+  <h2 id="h-graf">Gráficos</h2>
+  <div class="card">
+    <h3 style="margin-top:0">Preço de <span id="parTitulo"></span></h3>
+    <div class="row"><label>Período de cada vela<br><select id="intervalo"><option value="1h">1 hora</option><option value="4h">4 horas</option><option value="1d">1 dia</option></select></label></div>
+    <canvas id="grafPreco" role="img" aria-label="Gráfico de preço: aguardando dados"></canvas>
+    <p id="resumoPreco"></p>
+    <small>Triângulo verde = compra fictícia · triângulo vermelho = venda fictícia (do registro oficial, não ao vivo) · linha pontilhada amarela = preço agora.</small>
+  </div>
+  <div class="cols">
+    <div class="card sim"><h3 style="margin-top:0">Patrimônio da carteira Cripto <span class="rotulo sim">SIMULAÇÃO</span></h3>
+      <canvas class="peq" id="grafCripto" role="img" aria-label="Gráfico do patrimônio cripto: aguardando dados"></canvas><p id="resumoCripto"></p>
+      <details><summary>Ver os pontos do gráfico em tabela</summary><div id="tabCripto"></div></details></div>
+    <div class="card sim"><h3 style="margin-top:0">Patrimônio da carteira Câmbio <span class="rotulo sim">SIMULAÇÃO</span></h3>
+      <canvas class="peq" id="grafCambio" role="img" aria-label="Gráfico do patrimônio câmbio: aguardando dados"></canvas><p id="resumoCambio"></p>
+      <details><summary>Ver os pontos do gráfico em tabela</summary><div id="tabCambio"></div></details></div>
+  </div>
+  <p><small>Círculo amarelo = cálculo de agora com o preço atual (não é registro) · linha pontilhada cinza = R$ 1.000 iniciais. Cada ponto verde é uma medição registrada pela rotina horária.</small></p>
+</section>
+
+<section aria-labelledby="h-minhas" class="card sim" style="margin-top:18px">
+  <h2 id="h-minhas">Minhas operações fictícias <span class="rotulo sim">SIMULAÇÃO</span></h2>
+  <p>Linhas do registro oficial da rotina. Afetam <b>somente</b> as carteiras fictícias acima; nenhuma ordem foi enviada a corretora.</p>
+  <div id="ops"></div>
+  <h3>Últimas decisões registradas (a rotina avaliou e decidiu)</h3><div id="decisoes"></div>
+  <h3>Mudanças de regra do experimento</h3><div id="regras"></div>
+</section>
+
+<section aria-labelledby="h-pub" class="card pub" style="margin-top:18px">
+  <h2 id="h-pub">Operações públicas que acompanho <span class="rotulo pub">TERCEIROS · OBSERVAÇÃO</span></h2>
+  <p><b>Não são minhas e não alteram caixa, posição nem desempenho da simulação.</b> São carteiras públicas da Hyperliquid acompanhadas pelo agente: observação, não recomendação; nada é copiado nem executado. O endereço é só um identificador público (não identifica a pessoa) e o desempenho passado não garante nada. A fonte é a API pública da plataforma, sem link de publicação.</p>
+  <h3>Carteiras acompanhadas</h3><div id="traders"></div>
+  <h3>Execuções públicas ao vivo (recebidas nesta aba) <small id="hlEstado"></small></h3>
+  <p>Vêm direto da Hyperliquid (conexão contínua) e <b>não são gravadas</b> em lugar nenhum: somem ao fechar a página. Ao conectar, a plataforma envia primeiro as últimas execuções de cada carteira (<b>histórico recente</b>) e depois as novas (<b>ao vivo</b>). É mercado de derivativos em dólar, diferente das simulações em reais; a conexão pode ficar sem mensagens ou cair.</p>
+  <div id="hlLive"></div>
+  <h3>Execuções públicas registradas no banco (rotina do agente)</h3><div id="opsPub"></div>
+  <h3>Alertas de alta observados</h3><div id="altas"></div>
+</section>
+
+<section aria-labelledby="h-atual" class="card" style="margin-top:18px">
+  <h2 id="h-atual">Atualizar os registros</h2>
+  <p>Fonte oficial: banco do OpenBot, mantido pela rotina do agente TRADER CRIPTO. Esta página lê só o arquivo <code>dados.js</code> desta pasta (um retrato do banco).</p>
+  <div class="row">
+    <button type="button" id="btnReler">Reler dados.js agora</button>
+    <label>Ou carregar um arquivo <code>dados.json</code><br><input type="file" id="arq" accept=".json,application/json"></label>
+  </div>
+  <details><summary>Como gerar um retrato novo</summary>
+    <p>A rotina envia os resultados das consultas por entrada padrão: <code>python atualizar_dados.py --stdin --mesclar</code>. Detalhes e consultas exatas no <code>LEIA-ME.md</code>. A página relê o arquivo sozinha a cada 5 minutos.</p>
+  </details>
+</section>
+<p><small>Custos simulados: taxa de 0,1% por operação, sem deslizamento. Saídas são avaliadas em horários discretos, não são ordens de proteção garantidas. Conteúdo educativo, não é recomendação de investimento.</small></p>
+</main>
+
+<script src="nucleo.js"></script>
+<script src="dados.js" onerror="window.DADOS=window.DADOS||null"></script>
+<script>
+(function(){
+'use strict';
+const N=Nucleo, $=id=>document.getElementById(id);
+const BIN='https://data-api.binance.vision/api/v3';
+const BASE_PARES=['BTCBRL','ETHBRL','SOLBRL'];
+const FRESCO=60000, ATRASO_ROTINA=2*3600e3;
+const S={D:window.DADOS||null, origemDados:'arquivo dados.js desta pasta', remoto:{estado:'inativo',t:0,erro:''}, precos:{}, var24:{}, vol24:{}, tAtivo:{}, fonte:{}, tPreco:null, falhas:0, cambio:null, parSel:'BTCBRL', klines:null, klinesKey:'', tKl:0};
+/* Quando publicado no GitHub Pages, lê também o retrato mais novo do ramo de dados (sem novo deploy do site). */
+const REMOTO='https://raw.githubusercontent.com/Alusionbr/teste1/dados-simulador/simulador-pratica/dados.json';
+const USAR_REMOTO=location.protocol==='https:'||/[?&]remoto=1/.test(location.search);
+
+/* Conexões ao vivo (WebSocket). Só leitura de dados públicos; nada é gravado. */
+const L={ligado:true,
+  bin:{estado:'inativo',ws:null,ultima:0,tentativa:0,timer:null,chave:''},
+  hl:{estado:'inativo',ws:null,ultima:0,tentativa:0,timer:null,ping:null,ends:'',snap:[],vivo:[],chaves:new Set()}};
+let rt=null;
+const pedirRender=()=>{if(rt)return;rt=setTimeout(()=>{rt=null;render();},1000);};
+const agendar=(o,fn)=>{o.tentativa++;clearTimeout(o.timer);o.timer=setTimeout(fn,Math.min(30000,1000*Math.pow(2,Math.min(o.tentativa,5))));};
+const WS_BIN='wss://data-stream.binance.vision/stream?streams=', WS_HL='wss://api.hyperliquid.xyz/ws';
+const frescoBin=()=>L.ligado&&L.bin.estado==='conectado'&&Date.now()-L.bin.ultima<20000;
+
+const pacote=()=>S.D&&S.D.tabelas?S.D.tabelas:{registros:[],traders:[],metricas:[],operacoes_publicas:[],altas:[]};
+const regs=()=>pacote().registros||[];
+const pares=()=>[...new Set([...BASE_PARES,...N.ativosAbertos(regs()).filter(a=>/BRL$/.test(a)&&a!=='EURBRL')])];
+const fmtHora=(t,seg)=>{const x=typeof t==='number'?t:Date.parse(t);return Number.isFinite(x)?new Date(x).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',...(seg?{second:'2-digit'}:{})}):'—';};
+const soHora=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const msg=t=>{$('msg').textContent=t||''};
+const hojeISO=()=>new Date().toLocaleDateString('sv-SE');
+const setHTML=(el,h)=>{if(el.__h!==h){el.innerHTML=h;el.__h=h;}};
+const setTxt=(el,t)=>{if(el.textContent!==t)el.textContent=t;};
+const badge=(cls,t)=>'<span class="badge '+cls+'">'+N.esc(t)+'</span>';
+let anunciado='';
+const anunciar=t=>{if(t!==anunciado){anunciado=t;$('anuncio').textContent=t;}};
+
+async function json(url,ms=10000){
+  const c=new AbortController(), id=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch(url,{signal:c.signal,cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}
+  finally{clearTimeout(id);}
+}
+
+async function atualizarPrecos(){
+  if(frescoBin())return; /* a conexão contínua está entregando preços */
+  try{
+    const lista=pares();
+    const rows=await json(BIN+'/ticker/24hr?symbols='+encodeURIComponent(JSON.stringify(lista)));
+    const agora=Date.now();
+    for(const x of rows){const p=parseFloat(x.lastPrice);if(Number.isFinite(p)&&p>0){S.precos[x.symbol]=p;S.var24[x.symbol]=parseFloat(x.priceChangePercent);S.vol24[x.symbol]=parseFloat(x.quoteVolume);S.tAtivo[x.symbol]=agora;S.fonte[x.symbol]='consulta a cada 15 s';}}
+    S.tPreco=agora;S.falhas=0;msg('');
+  }catch(e){S.falhas++;msg('Não consegui atualizar os preços agora ('+(e.message||'erro')+'). Os valores abaixo são os últimos recebidos e estão marcados com a idade.');}
+  render();
+}
+async function atualizarCambio(){
+  try{
+    const x=await json('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=BRL');
+    const v=x&&x.rates&&x.rates.BRL;
+    if(Number.isFinite(v)&&v>0){S.cambio={taxa:v,data:x.date,consultadoEm:Date.now()};S.precos.EURBRL=v;}
+  }catch(e){/* mantém a última taxa obtida, com a data dela */}
+  render();
+}
+async function atualizarKlines(forcar){
+  const iv=$('intervalo').value, key=S.parSel+iv;
+  if(!forcar&&key===S.klinesKey&&Date.now()-S.tKl<60000)return;
+  try{
+    const k=await json(BIN+'/klines?symbol='+S.parSel+'&interval='+iv+'&limit=120');
+    S.klines=k.map(v=>({t:v[0],v:parseFloat(v[4])})).filter(p=>Number.isFinite(p.v));S.klinesKey=key;S.tKl=Date.now();
+  }catch(e){if(key!==S.klinesKey)S.klines=null;}
+  render();
+}
+
+/* ---- estado de cada preço ---- */
+function estadoAtivo(sym){
+  const p=S.precos[sym], t=S.tAtivo[sym];
+  if(!(p>0))return{cls:'ruim',rot:'Sem cotação disponível',obsoleto:false,sem:true};
+  if(t&&Date.now()-t<=FRESCO)return{cls:'ok',rot:'Atualizado '+N.idade(t),obsoleto:false};
+  if(frescoBin())return{cls:'neutro',rot:'Sem mudança de preço recebida '+N.idade(t)+' (conexão ativa)',obsoleto:false};
+  return{cls:'aviso',rot:'DESATUALIZADO '+N.idade(t)+'. Último valor conhecido às '+(t?soHora(t):'—'),obsoleto:true};
+}
+function estadoCambio(){
+  const c=S.cambio;
+  if(!c)return{cls:'ruim',rot:'Sem taxa disponível',sem:true};
+  const velho=c.data!==hojeISO();
+  return velho?{cls:'aviso',rot:'Última taxa diária disponível: '+N.dataBR(c.data)+' (não há taxa de hoje)'}:{cls:'ok',rot:'Taxa diária de '+N.dataBR(c.data)};
+}
+function ultimaRodada(R,m){
+  const ls=R.filter(r=>r.mercado===m&&(r.tipo==='decisao'||(r.tipo==='patrimonio'&&r.fonte!=='Inicial'))&&Number.isFinite(Date.parse(r.instante_utc)));
+  if(!ls.length)return null;
+  const u=ls.reduce((a,b)=>Date.parse(b.instante_utc)>Date.parse(a.instante_utc)?b:a);
+  return{t:Date.parse(u.instante_utc),fonte:u.fonte};
+}
+
+/* ---- tabelas ---- */
+function tabela(legenda,cols,linhas,vazio){
+  if(!linhas.length)return '<div class="vazio">'+N.esc(vazio)+'</div>';
+  return '<div class="scroll"><table><caption class="sr-only">'+N.esc(legenda)+'</caption><thead><tr>'+cols.map(c=>'<th scope="col">'+N.esc(c)+'</th>').join('')+'</tr></thead><tbody>'+linhas.map(l=>'<tr>'+l.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+}
+const endTxt=e=>`<code>${N.esc(N.enderecoCurto(e))}<span class="sr-only"> (endereço completo ${N.esc(e)})</span></code>`;
+
+/* ---- cartões das carteiras ---- */
+function carteira(R,mercado,id,ativosPreco){
+  const c=N.conta(R,mercado), v=N.patrimonioAoVivo(c,S.precos);
+  if(c.erro)msg('Atenção: '+c.erro+'. Os totais desta carteira podem não valer.');
+  const abertos=Object.entries(c.posicoes).filter(([,p])=>p.qtd>1e-12);
+  const obsoletos=abertos.map(([a])=>a).filter(a=>mercado==='cripto'?estadoAtivo(a).obsoleto:false);
+  const eq=v.patrimonio;
+  setTxt($('p'+id),eq===null?'—':(obsoletos.length?'≈ ':'')+N.moeda(eq));
+  if(eq===null){setHTML($('p'+id+'Res'),'<p>Sem resultado: falta preço de '+N.esc(v.faltando.join(', '))+'.</p>');}
+  else{const r=eq-N.SALDO_INICIAL,t=N.resultadoTexto(r);
+    setHTML($('p'+id+'Res'),'<p><b class="'+t.classe+'">'+(t.icone?t.icone+' ':'')+N.esc(t.rotulo)+': '+N.moeda(r)+' ('+N.pct(r/N.SALDO_INICIAL)+')</b> sobre R$ 1.000,00 iniciais.</p>');}
+  const aprox=obsoletos.length?' Avaliação aproximada: preço de '+obsoletos.join(', ')+' desatualizado.':'';
+  setTxt($('p'+id+'Sub'),'Caixa '+N.moeda(c.caixa)+' · '+(eq===null?'posições sem avaliação (falta preço de '+v.faltando.join(', ')+')':'posições '+N.moeda(v.ativos)+' · avaliado com o preço atual.')+aprox);
+  const ur=ultimaRodada(R,mercado), atras=ur&&Date.now()-ur.t>ATRASO_ROTINA;
+  const conf=S.D&&S.D.conferencia&&mercado==='cripto'&&S.D.conferencia.ordens_conferidas_com_o_banco?' Compras/vendas conferidas com o banco.':'';
+  setTxt($('p'+id+'Reg'),ur?'Registros da rotina: última rodada '+N.idade(ur.t)+' (fonte '+ur.fonte+')'+(atras?' · ATRASADOS (a rotina é horária)':'')+'.'+conf:'Registros da rotina: nenhuma rodada registrada ainda.');
+  const linhas=abertos.map(([a,p])=>{
+    const preco=S.precos[a], val=preco>0?p.qtd*preco:null, res=val===null?null:val-p.custo, t=N.resultadoTexto(res);
+    const est=mercado==='cripto'?estadoAtivo(a).rot:estadoCambio().rot;
+    return[N.esc(a),N.esc(String(+p.qtd.toFixed(8))),N.moeda(p.custo),preco>0?N.moeda(preco)+'<br><small>'+N.esc(est)+'</small>':'—<br><small>'+N.esc(est)+'</small>',N.moeda(val),res===null?'—':'<span class="'+t.classe+'">'+t.icone+' '+N.esc(t.rotulo)+' '+N.moeda(res)+'</span>'];
+  });
+  setHTML($('pos'+id),'<h4 style="margin:12px 0 4px">Posições abertas</h4>'+tabela('Posições abertas da carteira '+mercado,['Ativo','Quantidade','Custo simulado','Preço usado','Valor estimado','Resultado (antes da taxa de saída)'],linhas,'Nenhuma posição aberta: todo o saldo está em caixa.'));
+  return{c,v};
+}
+
+/* ---- cotações ---- */
+const tiles={};
+function blocoPrecos(){
+  const lista=pares(), chave=lista.join(',');
+  const cont=$('precos');
+  if(cont.__k!==chave){
+    cont.innerHTML='';cont.__k=chave;
+    for(const k of Object.keys(tiles))delete tiles[k];
+    for(const p of lista){
+      const b=document.createElement('button');b.type='button';b.className='preco';b.dataset.par=p;
+      b.innerHTML='<span class="nome"></span><span class="v"></span><span class="var"></span><span class="est"></span><span class="fnt"></span>';
+      b.onclick=()=>{S.parSel=p;S.klinesKey='';atualizarKlines(true);render();};
+      cont.appendChild(b);tiles[p]={b,nome:b.children[0],v:b.children[1],var:b.children[2],est:b.children[3],fnt:b.children[4]};
+    }
+  }
+  const R=regs(), abertos=new Set(N.ativosAbertos(R));
+  for(const p of lista){
+    const t=tiles[p],e=estadoAtivo(p),v=S.precos[p],c=S.var24[p];
+    setTxt(t.nome,p+(abertos.has(p)?' · em carteira':''));
+    setTxt(t.v,v>0?N.moeda(v):'—');
+    setTxt(t.var,v>0&&Number.isFinite(c)?(c>0?'▲ ':c<0?'▼ ':'= ')+N.pctDireto(c)+' em 24 h':'variação indisponível');
+    setTxt(t.est,e.rot);
+    setTxt(t.fnt,'Fonte: Binance'+(S.fonte[p]?' · última atualização por '+S.fonte[p]:''));
+    t.b.setAttribute('aria-pressed',p===S.parSel?'true':'false');
+    const rotulo='Cotação '+p+(v>0?', '+N.moeda(v):', sem cotação')+', fonte Binance, '+e.rot+'. '+(p===S.parSel?'Gráfico selecionado.':'Selecionar para ver o gráfico.');
+    if(t.b.getAttribute('aria-label')!==rotulo)t.b.setAttribute('aria-label',rotulo);
+  }
+  const ec=estadoCambio(), c=S.cambio, R2=regs();
+  const decs=R2.filter(r=>r.tipo==='decisao'&&r.ativo==='EURBRL').sort((a,b)=>Date.parse(b.instante_utc)-Date.parse(a.instante_utc));
+  const reserva=!c&&decs.length&&Number(decs[0].preco)>0?'Último valor registrado pela rotina: '+N.moeda(decs[0].preco)+' em '+fmtHora(decs[0].instante_utc)+' (não é atual).':'';
+  setHTML($('cambioTile'),'<div class="preco fixo" aria-label="'+N.esc('EUR/BRL, taxa diária de referência'+(c?' de '+N.dataBR(c.data):'')+', não executável')+'"><span class="nome">EUR/BRL · câmbio</span><span class="v">'+(c?N.moeda(c.taxa):'—')+'</span><span class="est">'+N.esc(ec.rot)+'</span><span class="fnt">Fonte: Frankfurter (taxa diária de referência). Não é preço intradiário nem cotação de execução Forex.'+(c?' Consultada '+N.idade(c.consultadoEm)+'.':'')+'</span>'+(reserva?'<span class="est">'+N.esc(reserva)+'</span>':'')+'</div>');
+  setTxt($('notaCripto2'),frescoBin()?'· conexão contínua':'· consulta a cada 15 s');
+}
+
+/* ---- estado dos dados ---- */
+function blocoEstado(){
+  const R=regs(), linhas=[];
+  const idades=Object.values(S.tAtivo).filter(Boolean), ult=idades.length?Math.max(...idades):null;
+  let ec;
+  if(frescoBin())ec={cls:'ok',rot:'Ao vivo'};
+  else if(ult&&Date.now()-ult<30000)ec={cls:'neutro',rot:'Consulta periódica (a cada 15 s)'};
+  else if(ult)ec={cls:'aviso',rot:'DESATUALIZADO'};
+  else ec={cls:'ruim',rot:'Sem cotação'};
+  const velhos=pares().filter(p=>estadoAtivo(p).obsoleto), sem=pares().filter(p=>estadoAtivo(p).sem);
+  if(sem.length&&ult)ec={cls:'ruim',rot:'SEM COTAÇÃO: '+sem.join(', ')};
+  else if(velhos.length)ec={cls:'aviso',rot:'DESATUALIZADO: '+velhos.join(', ')};
+  linhas.push(['Cripto · cotações','Binance (dados públicos, Binance Vision)','Conexão contínua (WebSocket); se cair, consulta a cada 15 s',ult?N.idade(ult):'—',badge(ec.cls,ec.rot)]);
+  const cb=estadoCambio();
+  linhas.push(['Câmbio · EUR/BRL','Frankfurter (taxa diária de referência)','Consulta a cada 30 min; a taxa muda uma vez por dia',S.cambio?'taxa de '+N.dataBR(S.cambio.data)+', consultada '+N.idade(S.cambio.consultadoEm):'—',badge(cb.cls,cb.rot)]);
+  for(const [m,nome] of [['cripto','Registros · carteira cripto'],['cambio','Registros · carteira câmbio']]){
+    const ur=ultimaRodada(R,m), atras=ur&&Date.now()-ur.t>ATRASO_ROTINA;
+    const e=!S.D?{cls:'ruim',rot:'Arquivo dados.js ausente'}:!ur?{cls:'ruim',rot:'Sem rodadas registradas'}:atras?{cls:'aviso',rot:'ATRASADOS (rotina horária)'}:{cls:'ok',rot:'Atuais'};
+    const rem=USAR_REMOTO?(S.remoto.estado==='erro'?' · GitHub indisponível agora ('+S.remoto.erro+'); usando o último arquivo conhecido':S.remoto.estado==='ok'?' · GitHub conferido '+N.idade(S.remoto.t):''):'';
+    linhas.push([nome,'Rotina do agente (banco OpenBot) → '+S.origemDados,'Rodada horária; arquivo regerado e relido a cada 5 min'+rem,ur?'última rodada '+N.idade(ur.t)+' (fonte '+ur.fonte+')'+(S.D?'; arquivo gerado '+N.idade(S.D.gerado_em):''):'—',badge(e.cls,e.rot)]);
+  }
+  const h=L.hl, nm={conectado:['ok','Conectada'],conectando:['neutro','Conectando…'],reconectando:['aviso','Caiu, reconectando…'],pausado:['neutro','Pausada'],inativo:['neutro','Inativa'],erro:['ruim','Erro'],'sem carteiras':['ruim','Sem carteiras']}[h.estado]||['neutro',h.estado];
+  linhas.push(['Operações públicas · Hyperliquid','API pública da Hyperliquid (userFills)','Conexão contínua; só na memória desta aba',h.ultima?'última mensagem '+N.idade(h.ultima):'—',badge(nm[0],nm[1])]);
+  setHTML($('estado'),tabela('Estado dos dados por mercado',['Dado','Fonte','Como atualiza','Última atualização','Estado'],linhas,'Sem dados.'));
+  const bn={conectado:'conectado',conectando:'conectando…',reconectando:'caiu, reconectando…',pausado:'pausado',inativo:'inativo',erro:'erro'}[L.bin.estado]||L.bin.estado;
+  setTxt($('wsEstado'),'Conexão Binance: '+bn+' · Hyperliquid: '+nm[1].toLowerCase());
+  setTxt($('btnLive'),L.ligado?'Pausar conexões ao vivo':'Retomar conexões ao vivo');
+  anunciar('Conexão Binance '+bn+'. Conexão Hyperliquid '+nm[1].toLowerCase()+'.'+(ec.cls==='aviso'||ec.cls==='ruim'?' Preços '+ec.rot+'.':''));
+}
+
+/* ---- desenho ---- */
+function area(cv){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.max(10,Math.round(r.width*d));cv.height=Math.max(10,Math.round(r.height*d));const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);return{c,w:r.width,h:r.height};}
+function linha(cv,pts,o={}){
+  const{c,w,h}=area(cv);c.clearRect(0,0,w,h);c.font='12px system-ui';
+  if(!pts.length){c.fillStyle='#b4c0d8';c.fillText('Sem dados para mostrar.',12,24);return;}
+  const Lm=76,Rm=12,T=12,B=26;
+  let t0=Math.min(...pts.map(p=>p.t)),t1=Math.max(...pts.map(p=>p.t));if(o.agora)t1=Math.max(t1,o.agora.t);if(t1-t0<3600e3)t1=t0+3600e3;
+  const vs=pts.map(p=>p.v).concat(o.extraY||[]);let v0=Math.min(...vs),v1=Math.max(...vs);const pad=Math.max((v1-v0)*.12,Math.abs(v1)*.0005,1e-6);v0-=pad;v1+=pad;
+  const X=t=>Lm+(t-t0)/(t1-t0)*(w-Lm-Rm),Y=v=>T+(1-(v-v0)/(v1-v0))*(h-T-B),fy=o.fmtY||(v=>v.toFixed(2));
+  c.strokeStyle='#2f3d5c';c.fillStyle='#b4c0d8';c.lineWidth=1;
+  for(let i=0;i<=3;i++){const v=v0+(v1-v0)*i/3,y=Y(v);c.beginPath();c.moveTo(Lm,y);c.lineTo(w-Rm,y);c.stroke();c.fillText(fy(v),4,y+4);}
+  const f=t=>new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  c.fillText(f(t0),Lm,h-8);const s=f(t1);c.fillText(s,w-Rm-c.measureText(s).width,h-8);
+  if(o.base!==undefined){c.setLineDash([4,4]);c.strokeStyle='#7b8bb0';c.beginPath();c.moveTo(Lm,Y(o.base));c.lineTo(w-Rm,Y(o.base));c.stroke();c.setLineDash([]);}
+  c.strokeStyle='#64e5b3';c.lineWidth=2;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(X(p.t),Y(p.v)):c.moveTo(X(p.t),Y(p.v)));c.stroke();
+  if(o.pontos){c.fillStyle='#64e5b3';pts.forEach(p=>{c.beginPath();c.arc(X(p.t),Y(p.v),3.5,0,7);c.fill();});}
+  if(o.linhaPreco!==undefined){c.setLineDash([3,4]);c.strokeStyle='#ffd27a';c.beginPath();c.moveTo(Lm,Y(o.linhaPreco));c.lineTo(w-Rm,Y(o.linhaPreco));c.stroke();c.setLineDash([]);}
+  for(const m of o.marcas||[]){if(m.t<t0||m.t>t1)continue;const x=X(m.t),y=Y(m.v);c.fillStyle=m.compra?'#64e5b3':'#ff9aa8';c.beginPath();if(m.compra){c.moveTo(x,y-9);c.lineTo(x-7,y+5);c.lineTo(x+7,y+5);}else{c.moveTo(x,y+9);c.lineTo(x-7,y-5);c.lineTo(x+7,y-5);}c.closePath();c.fill();}
+  if(o.agora){c.strokeStyle='#ffd27a';c.lineWidth=2;c.beginPath();c.arc(X(o.agora.t),Y(o.agora.v),5,0,7);c.stroke();}
+}
+function desenhar(cv,chave,fn){const k=chave+'|'+Math.round(cv.getBoundingClientRect().width);if(cv.__k===k)return;cv.__k=k;fn();}
+const fmtEixo=v=>v>=1000?v.toLocaleString('pt-BR',{maximumFractionDigits:0}):v.toLocaleString('pt-BR',{maximumFractionDigits:2});
+
+function graficoPreco(){
+  const ops=regs().filter(r=>r.mercado==='cripto'&&(r.tipo==='compra'||r.tipo==='venda')&&r.ativo===S.parSel&&Number.isFinite(Number(r.preco)));
+  setTxt($('parTitulo'),S.parSel);
+  const cv=$('grafPreco'),iv=$('intervalo').options[$('intervalo').selectedIndex].text;
+  if(!S.klines){desenhar(cv,'sem|'+S.parSel,()=>linha(cv,[]));setTxt($('resumoPreco'),'Aguardando as velas da Binance para '+S.parSel+'.');cv.setAttribute('aria-label','Gráfico de preço de '+S.parSel+': aguardando dados');return;}
+  const marcas=ops.map(r=>({t:Date.parse(r.instante_utc),v:Number(r.preco),compra:r.tipo==='compra'}));
+  const preco=S.precos[S.parSel];
+  desenhar(cv,[S.klinesKey,S.klines.length,S.klines[S.klines.length-1].v,preco,marcas.length].join('|'),()=>linha(cv,S.klines,{fmtY:fmtEixo,linhaPreco:preco,marcas,extraY:marcas.map(m=>m.v)}));
+  const r=N.resumoSerie(S.klines);
+  const txt=r.n+' velas de '+iv.toLowerCase()+', de '+fmtHora(r.ini.t)+' a '+fmtHora(r.fim.t)+': fechamento inicial '+N.moeda(r.ini.v)+', final '+N.moeda(r.fim.v)+', variação '+N.pct(r.variacao)+', mínimo '+N.moeda(r.min)+', máximo '+N.moeda(r.max)+'.'+(preco>0?' Preço agora: '+N.moeda(preco)+' ('+estadoAtivo(S.parSel).rot.toLowerCase()+').':'')+(marcas.length?' '+marcas.length+' operação(ões) fictícia(s) marcada(s).':' Nenhuma operação fictícia neste ativo.');
+  setTxt($('resumoPreco'),txt);cv.setAttribute('aria-label','Gráfico de preço de '+S.parSel+'. '+txt);
+}
+function graficoPatrimonio(m,idCv,idRes,idTab,v,nome){
+  const s=N.serie(regs(),m), agora=v.patrimonio!==null&&v.patrimonio!==undefined?{t:Date.now(),v:v.patrimonio}:null;
+  const cv=$(idCv), chave=[m,s.length,s.length?s[s.length-1].v:'',agora?Math.round(agora.v*100):'-'].join('|');
+  desenhar(cv,chave,()=>linha(cv,s,{base:N.SALDO_INICIAL,extraY:[N.SALDO_INICIAL].concat(agora?[agora.v]:[]),fmtY:x=>N.moeda(x),pontos:true,agora}));
+  const r=N.resumoSerie(s);
+  let txt;
+  if(!r)txt='Nenhuma medição registrada ainda para '+nome+'.';
+  else{txt='De '+N.moeda(r.ini.v)+' ('+fmtHora(r.ini.t)+') a '+N.moeda(r.fim.v)+' ('+fmtHora(r.fim.t)+'): '+r.n+' medições registradas, variação '+N.pct(r.variacao)+'.'+(r.n<3?' Ainda há poucas medições para ver uma tendência.':'');}
+  if(agora)txt+=' Cálculo de agora: '+N.moeda(agora.v)+'.';
+  setTxt($(idRes),txt);cv.setAttribute('aria-label','Gráfico do patrimônio '+nome+'. '+txt);
+  setHTML($(idTab),tabela('Pontos do gráfico de patrimônio '+nome,['Data e hora (local)','Patrimônio'],s.slice().reverse().map(p=>[N.esc(fmtHora(p.t,true)),N.moeda(p.v)]),'Sem medições.'));
+}
+
+/* ---- listas ---- */
+function listas(){
+  const R=regs(), P=pacote();
+  const ops=R.filter(r=>r.tipo==='compra'||r.tipo==='venda').sort((a,b)=>Date.parse(b.instante_utc)-Date.parse(a.instante_utc));
+  const dec=R.filter(r=>r.tipo==='decisao').sort((a,b)=>Date.parse(b.instante_utc)-Date.parse(a.instante_utc));
+  setTxt($('nOps'),ops.length?'Operações fictícias feitas: '+ops.length+'.':'Nenhuma operação fictícia feita ainda: a rotina só opera com sinal confirmado.');
+  setHTML($('ops'),tabela('Minhas operações fictícias',['Quando (local)','Mercado','Tipo','Ativo','Preço','Valor','Taxa simulada','Motivo'],
+    ops.map(r=>[N.esc(fmtHora(r.instante_utc)),N.esc(r.mercado),'<span class="'+N.esc(r.tipo)+'">'+(r.tipo==='compra'?'▲ ':'▼ ')+N.esc(r.tipo)+' fictícia</span>',N.esc(r.ativo),N.moeda(r.preco),N.moeda(r.valor_brl),N.moeda(r.taxa_brl),N.esc(r.motivo)]),
+    'Nenhuma compra ou venda fictícia foi feita ainda. '+(dec.length?'A rotina já registrou '+dec.length+' decisão(ões); as mais recentes estão abaixo.':'Aguardando a primeira rodada da rotina.')));
+  setHTML($('decisoes'),tabela('Últimas decisões registradas pela rotina',['Quando (local)','Mercado','Ativo','Preço na hora','Resultado da avaliação','Fonte'],
+    dec.slice(0,12).map(r=>[N.esc(fmtHora(r.instante_utc)),N.esc(r.mercado),N.esc(r.ativo),N.moeda(r.preco),N.esc(r.motivo),N.esc(r.fonte)]),'Nenhuma decisão registrada ainda.'));
+  setHTML($('regras'),tabela('Mudanças de regra do experimento',['Quando (local)','Mudança'],R.filter(r=>r.tipo==='alteracao_regra').map(r=>[N.esc(fmtHora(r.instante_utc)),N.esc(r.motivo)]),'Nenhuma mudança de regra registrada.'));
+  const ultM={};
+  for(const m of P.metricas||[]){if(!ultM[m.endereco]||Date.parse(m.instante_utc)>Date.parse(ultM[m.endereco].instante_utc))ultM[m.endereco]=m;}
+  setHTML($('traders'),tabela('Carteiras públicas acompanhadas',['Autor (endereço público)','Fonte','Conta (US$)','ROI semana','ROI mês','Lucro no mês (US$)','Métricas medidas em (local)','Por que está na lista'],
+    (P.traders||[]).map(t=>{const m=ultM[t.endereco];return[endTxt(t.endereco),'Hyperliquid (API pública)',N.usd(m&&m.conta_usd),N.pct(m?m.roi_semana:t.roi_semana_inicial),N.pct(m?m.roi_mes:t.roi_mes_inicial),N.usd(m?m.pnl_mes_usd:t.pnl_mes_usd_inicial),m?N.esc(fmtHora(m.instante_utc)):'<small>só a medição inicial</small>',N.esc(t.criterio)];}),
+    'Nenhuma carteira acompanhada no arquivo de dados.'));
+  const h=L.hl,lista=N.recentes(h.snap.concat(h.vivo),40);
+  setTxt($('hlEstado'),'· '+({conectado:'conectado',conectando:'conectando…',reconectando:'caiu, reconectando…',pausado:'pausado',inativo:'inativo',erro:'erro','sem carteiras':'sem carteiras para acompanhar'}[h.estado]||h.estado)+(h.vivo.length?' · '+h.vivo.length+' nova(s) desde que abriu':''));
+  const vazio=h.estado==='conectado'?'Conectado, ainda sem execuções recebidas.':h.estado==='pausado'?'Conexão pausada.':h.estado==='sem carteiras'?'Nenhuma carteira no arquivo de dados.':'Aguardando conexão com a Hyperliquid…';
+  setHTML($('hlLive'),tabela('Execuções públicas recebidas da Hyperliquid nesta aba',['Executada em (local)','Recebida nesta aba às','Autor (endereço público)','Ativo','Ação observada','Preço (US$)','Tamanho','Lucro fechado (US$)','Origem'],
+    lista.map(f=>[N.esc(fmtHora(f.t,true)),N.esc(f.recebido?soHora(f.recebido):'—'),endTxt(f.endereco),N.esc(f.ativo),'<span class="'+(f.lado==='compra'?'compra':f.lado==='venda'?'venda':'')+'">'+(f.lado==='compra'?'▲ ':f.lado==='venda'?'▼ ':'')+N.esc(f.lado)+'</span> '+N.esc(f.direcao)+'<br><small>Observada; não executada pela sua simulação.</small>',N.usdDec(f.preco,f.preco<1?5:2),N.esc(f.tamanho),f.pnl===null?'—':N.usdDec(f.pnl),f.origem==='ao vivo'?'<b>ao vivo</b>':'histórico recente']),vazio));
+  setHTML($('opsPub'),tabela('Execuções públicas registradas no banco',['Instante registrado (local)','Autor (endereço público)','Fonte','Ativo','Direção','Preço','Quantidade','Resultado fechado'],
+    [...(P.operacoes_publicas||[])].sort((a,b)=>Date.parse(b.instante_utc)-Date.parse(a.instante_utc)).slice(0,50).map(o=>[N.esc(fmtHora(o.instante_utc)),endTxt(o.endereco),N.esc(o.fonte||'—'),N.esc(o.ativo),N.esc(o.direcao||'—'),o.preco==null?'—':N.esc(o.preco),o.quantidade==null?'—':N.esc(o.quantidade),o.resultado_fechado==null?'—':N.esc(o.resultado_fechado)]),
+    'Nenhuma execução pública registrada no banco ainda. O agente só grava quando a rotina de acompanhamento roda; elas aparecem aqui depois de uma atualização dos dados.'));
+  setHTML($('altas'),tabela('Alertas de alta observados',['Quando (local)','Par','Variação 24 h','Volume 24 h','Preço','Fonte'],
+    [...(P.altas||[])].sort((a,b)=>Date.parse(b.instante_utc)-Date.parse(a.instante_utc)).slice(0,20).map(a=>[N.esc(fmtHora(a.instante_utc)),N.esc(a.par),N.pctDireto(a.variacao_24h_pct),N.moeda(a.volume_24h_brl),N.moeda(a.preco_brl),N.esc(a.fonte||'—')]),'Nenhum alerta de alta registrado ainda.'));
+}
+
+function render(){
+  const R=regs();
+  const cc=carteira(R,'cripto','Cripto'), cb=carteira(R,'cambio','Cambio');
+  blocoPrecos();blocoEstado();listas();
+  graficoPreco();
+  graficoPatrimonio('cripto','grafCripto','resumoCripto','tabCripto',cc.v,'cripto');
+  graficoPatrimonio('cambio','grafCambio','resumoCambio','tabCambio',cb.v,'câmbio');
+}
+
+/* ---- conexões ao vivo ---- */
+function conectarBinance(){
+  const b=L.bin;clearTimeout(b.timer);if(!L.ligado||b.ws)return;
+  const lista=pares();b.chave=lista.join(',');
+  let ws;try{ws=new WebSocket(WS_BIN+lista.map(p=>p.toLowerCase()+'@miniTicker').join('/'));}catch(e){b.estado='erro';agendar(b,conectarBinance);return;}
+  b.ws=ws;b.estado='conectando';
+  ws.onopen=()=>{b.estado='conectado';b.tentativa=0;pedirRender();};
+  ws.onmessage=e=>{const m=N.lerMiniTicker(e.data);if(!m)return;
+    const agora=Date.now();S.precos[m.simbolo]=m.preco;if(m.var24!==null)S.var24[m.simbolo]=m.var24;if(m.volume!==null)S.vol24[m.simbolo]=m.volume;
+    S.tAtivo[m.simbolo]=S.tPreco=b.ultima=agora;S.fonte[m.simbolo]='conexão contínua';S.falhas=0;pedirRender();};
+  ws.onclose=()=>{if(b.ws!==ws)return;b.ws=null;b.estado=L.ligado?'reconectando':'pausado';if(L.ligado)agendar(b,conectarBinance);pedirRender();};
+  ws.onerror=()=>{};
+}
+function carteirasHL(){return(pacote().traders||[]).map(t=>t.endereco).filter(a=>/^0x[0-9a-fA-F]{40}$/.test(a)).slice(0,10);}
+function conectarHL(){
+  const h=L.hl;clearTimeout(h.timer);if(!L.ligado||h.ws)return;
+  const ends=carteirasHL();h.ends=ends.join(',');
+  if(!ends.length){h.estado='sem carteiras';pedirRender();return;}
+  let ws;try{ws=new WebSocket(WS_HL);}catch(e){h.estado='erro';agendar(h,conectarHL);return;}
+  h.ws=ws;h.estado='conectando';
+  ws.onopen=()=>{h.estado='conectado';h.tentativa=0;
+    for(const a of ends)ws.send(JSON.stringify({method:'subscribe',subscription:{type:'userFills',user:a,aggregateByTime:true}}));
+    clearInterval(h.ping);h.ping=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({method:'ping'}));},30000);pedirRender();};
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}
+    h.ultima=Date.now();
+    if(m.channel!=='userFills'||!m.data)return;
+    const snap=!!m.data.isSnapshot,alvo=snap?'snap':'vivo';
+    for(const f of N.fillsParaLinhas(m.data.user,m.data.fills,snap?'recente':'ao vivo')){if(h.chaves.has(f.chave))continue;h.chaves.add(f.chave);f.recebido=h.ultima;h[alvo].push(f);}
+    h.snap=N.recentes(h.snap,150);h.vivo=N.recentes(h.vivo,200);pedirRender();};
+  ws.onclose=()=>{clearInterval(h.ping);if(h.ws!==ws)return;h.ws=null;h.estado=L.ligado?'reconectando':'pausado';if(L.ligado)agendar(h,conectarHL);pedirRender();};
+  ws.onerror=()=>{};
+}
+function fechar(o){clearTimeout(o.timer);clearInterval(o.ping);const w=o.ws;o.ws=null;if(w){try{w.close();}catch(_){}}}
+function alternarLive(){
+  L.ligado=!L.ligado;
+  if(L.ligado){L.bin.tentativa=L.hl.tentativa=0;L.bin.estado=L.hl.estado='conectando';conectarBinance();conectarHL();}
+  else{fechar(L.bin);fechar(L.hl);L.bin.estado=L.hl.estado='pausado';}
+  render();
+}
+/* Se a lista de ativos/carteiras mudar (dados atualizados), reabre a conexão correspondente. */
+function conferirConexoes(){
+  if(!L.ligado)return;
+  if(L.bin.ws&&L.bin.chave!==pares().join(','))fechar(L.bin),L.bin.estado='reconectando',conectarBinance();
+  if(L.hl.ws&&L.hl.ends!==carteirasHL().join(','))fechar(L.hl),L.hl.estado='reconectando',conectarHL();
+}
+
+/* ---- dados ---- */
+async function buscarRemoto(){
+  if(!USAR_REMOTO)return;
+  try{
+    const p=await json(REMOTO+'?t='+Math.floor(Date.now()/60000),12000);
+    const pr=N.validarPacote(p);
+    if(pr.length)throw new Error('retrato recusado: '+pr.join('; '));
+    S.remoto={estado:'ok',t:Date.now(),erro:''};
+    if(!S.D||Date.parse(p.gerado_em)>Date.parse(S.D.gerado_em)){S.D=p;S.origemDados='GitHub (ramo dados-simulador)';}
+  }catch(e){S.remoto={estado:'erro',t:Date.now(),erro:e.message||'erro'};}
+  render();
+}
+function relerDados(){
+  buscarRemoto();
+  return new Promise(res=>{
+    const s=document.createElement('script');s.src='dados.js?x='+Date.now();
+    s.onload=()=>{if(window.DADOS&&(!S.D||Date.parse(window.DADOS.gerado_em)>=Date.parse(S.D.gerado_em))){S.D=window.DADOS;S.origemDados='arquivo dados.js desta pasta';}s.remove();render();res(true);};
+    s.onerror=()=>{s.remove();msg('Não consegui reler o dados.js.');res(false);};
+    document.head.appendChild(s);
+  });
+}
+$('btnReler').onclick=async()=>{const ok=await relerDados();if(ok)msg('Dados relidos. Se nada mudou, o arquivo ainda não foi atualizado pelo agente.');};
+$('arq').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const p=JSON.parse(await f.text());const pr=N.validarPacote(p);if(pr.length){msg('Arquivo recusado: '+pr.join('; '));return;}S.D=p;S.origemDados='arquivo carregado: '+f.name;msg('Carregado de '+f.name+' (vale só nesta aba até recarregar).');render();}
+  catch(err){msg('Arquivo inválido: '+err.message);}
+};
+$('intervalo').onchange=()=>atualizarKlines(true);
+$('btnLive').onclick=alternarLive;
+window.addEventListener('resize',()=>{clearTimeout(window.__rz);window.__rz=setTimeout(render,150);});
+
+render();
+atualizarPrecos();atualizarCambio();atualizarKlines(true);
+conectarBinance();conectarHL();buscarRemoto();
+setInterval(atualizarPrecos,15000);
+setInterval(conferirConexoes,15000);
+setInterval(()=>atualizarKlines(false),60000);
+setInterval(atualizarCambio,30*60000);
+setInterval(relerDados,5*60000);
+setInterval(render,1000);
+window.__S=S;window.__L=L; /* para diagnóstico no console */
+})();
+</script>
+</body>
+</html>
