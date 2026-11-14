@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#263d2a">
+  <meta name="description" content="Quintal do Tesouro: cave, ache, pule e explore com a raposa.">
+  <title>Quintal do Tesouro</title>
+  <link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+  <style>
+    :root { color-scheme: dark; background: #18251a; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { display: grid; place-items: center; background: #18251a; }
+    #game { position: relative; width: 100vw; height: 100dvh; overflow: hidden; }
+    canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+    #rotate { display: none; position: absolute; inset: 0; z-index: 5; place-items: center; padding: 24px; text-align: center; background: rgba(20, 32, 22, .94); color: #fff1c7; font-size: clamp(20px, 5vw, 30px); font-weight: 700; }
+    @media (orientation: portrait) and (pointer: coarse) { #rotate { display: grid; } }
+  </style>
+</head>
+<body>
+  <main id="game">
+    <canvas id="canvas" aria-label="Jogo Quintal do Tesouro" tabindex="0"></canvas>
+    <div id="rotate" role="status">Gire o celular para jogar na horizontal.</div>
+  </main>
+  <script src="index.js"></script>
+  <script>
+    const engine = new Engine({"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":920152,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4});
+    engine.startGame({ canvas: document.getElementById("canvas") }).catch((error) => {
+      document.getElementById("rotate").style.display = "grid";
+      document.getElementById("rotate").textContent = "Não foi possível carregar o jogo. Tente recarregar a página.";
+      console.error(error);
+    });
+  </script>
+</body>
+</html>
