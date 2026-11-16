@@ -13,7 +13,7 @@ export interface Preferences {
   quick_actions: QuickAction[];
 }
 export function defaultPreferences(): Preferences {
-  return { theme: 'system', palette: 'forest', text_size: 'standard', comfortable: true,
+  return { theme: 'system', palette: 'ocean', text_size: 'standard', comfortable: true,
     simple_mode: true, hide_values: false, dashboard_order: [...dashboardWidgets], quick_actions: ['expense', 'shopping'] };
 }
 export function normalizePreferences(input: Partial<Preferences>): Preferences {
