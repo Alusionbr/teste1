@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
-  <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");if(p.theme)document.documentElement.dataset.theme=p.theme}catch(e){}</script>
-  <script data-version="4.1.2">
+  <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");document.documentElement.dataset.theme=p.theme||"hibrido-inteligente"}catch(e){}</script>
+  <script data-version="4.2.0">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -49,7 +49,8 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.1.2">
+  <link rel="stylesheet" href="./styles.css?v=4.2.0">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.2.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -57,7 +58,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <header class="brand"><strong>ESTANTE</strong><span>ensaio e repertório</span><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
+    <header class="brand"><img src="./icon.svg" class="brandMark" alt="" aria-hidden="true"><span class="brandCopy"><strong>ESTANTE</strong><span>música e repertório</span></span><span class="brandBadges"><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i></span><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
 
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
@@ -108,15 +109,22 @@
     <div id="setlistSummary" class="setlistSummary" aria-live="polite" hidden></div>
 
     <footer class="sidebarFooter">
-      <button id="pasteBtn">Colar letra</button>
-      <button id="sourcesBtn">Fontes</button>
-      <button id="themeBtn">Tema</button>
-      <button id="shareBtn">Compartilhar</button>
-      <button id="exportBtn">Exportar</button>
-      <button id="importBtn">Importar</button>
-      <button id="trashBtn">Lixeira</button>
-      <button id="helpBtn">Ajuda</button>
-      <button id="reportBugBtn" type="button">Informar um bug</button>
+      <div class="sidebarPrimaryActions">
+        <button id="pasteBtn" type="button">Colar letra</button>
+        <button id="themeBtn" type="button">Aparência</button>
+      </div>
+      <details class="sidebarExtras">
+        <summary>Ferramentas e configurações</summary>
+        <div class="sidebarExtraActions">
+          <button id="sourcesBtn" type="button">Fontes</button>
+          <button id="shareBtn" type="button">Compartilhar</button>
+          <button id="exportBtn" type="button">Exportar</button>
+          <button id="importBtn" type="button">Importar</button>
+          <button id="trashBtn" type="button">Lixeira</button>
+          <button id="helpBtn" type="button">Ajuda</button>
+          <button id="reportBugBtn" type="button">Informar um bug</button>
+        </div>
+      </details>
     </footer>
   </aside>
 
@@ -128,12 +136,13 @@
         <h1 id="songTitle">Nenhuma música aberta</h1>
         <p id="songArtist">Busque uma música ou cole sua própria letra</p>
       </div>
-      <div class="headerActions">
+      <div class="headerActions" id="headerActions">
         <button id="saveBtn">+ Repertório</button>
         <button id="editBtn" disabled>Editar letra</button>
         <button id="notesBtn" disabled>Anotações</button>
         <button id="stageBtn">Modo palco</button>
         <button id="fullscreenBtn">Tela cheia</button>
+        <button id="headerMoreBtn" type="button" aria-controls="headerActions" aria-expanded="false">Mais</button>
       </div>
     </header>
 
@@ -147,7 +156,7 @@
       <footer class="credits" id="credits"></footer>
     </section>
 
-    <footer class="transport">
+    <footer class="transport" id="transport">
       <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
       <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Karaokê</b></button>
@@ -159,6 +168,7 @@
       <div class="spacer"></div>
       <button class="pedal small" id="prevBtn" aria-label="Música anterior">‹</button>
       <button class="pedal small" id="nextBtn" aria-label="Próxima música">›</button>
+      <button class="pedal transportMore" id="transportMoreBtn" type="button" aria-controls="transport" aria-expanded="false">Ajustes</button>
       <button class="pedal small" id="topBtn" aria-label="Voltar ao topo">↑</button>
     </footer>
   </main>
@@ -189,6 +199,13 @@
 <dialog id="themeDialog">
   <form method="dialog" class="modal">
     <header><h2>Tema visual</h2><button value="cancel" aria-label="Fechar">×</button></header>
+    <p class="themeIntro">Escolha o visual do aplicativo. As músicas e os repertórios não são modificados.</p>
+    <div class="themeGallery" role="group" aria-label="Novos temas">
+      <button type="button" class="themeCard chip" data-theme="hibrido-inteligente" aria-pressed="false"><span class="themePreview previewHybrid" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Híbrido inteligente</strong><small>Biblioteca clara e palco escuro</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
+      <button type="button" class="themeCard chip" data-theme="palco-premium" aria-pressed="false"><span class="themePreview previewPremium" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Palco Premium</strong><small>Grafite, âmbar e imersão</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
+      <button type="button" class="themeCard chip" data-theme="biblioteca-clean" aria-pressed="false"><span class="themePreview previewClean" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Biblioteca Clean</strong><small>Clareza e organização</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
+    </div>
+    <details class="themeLegacy"><summary>Ver temas clássicos</summary>
     <div class="themeGrid" role="group" aria-label="Escolha o tema visual">
       <button type="button" class="chip active" data-theme="neon-palco"><i style="background:oklch(0.85 0.22 145)" aria-hidden="true"></i>Neon de palco</button>
       <button type="button" class="chip" data-theme="classico-ambar"><i style="background:#ffc15e" aria-hidden="true"></i>Clássico âmbar</button>
@@ -198,6 +215,7 @@
       <button type="button" class="chip" data-theme="minimal-mono"><i style="background:oklch(0.55 0.15 25)" aria-hidden="true"></i>Minimal mono</button>
       <button type="button" class="chip" data-theme="cancioneiro-editorial"><i style="background:oklch(0.4 0.1 25)" aria-hidden="true"></i>Cancioneiro editorial</button>
     </div>
+    </details>
   </form>
 </dialog>
 
@@ -381,22 +399,23 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.1.2" defer></script>
-<script src="./storage.js?v=4.1.2" defer></script>
-<script src="./core.js?v=4.1.2" defer></script>
-<script src="./search-engine.js?v=4.1.2" defer></script>
-<script src="./library.js?v=4.1.2" defer></script>
-<script src="./acervo.js?v=4.1.2" defer></script>
-<script src="./setlists.js?v=4.1.2" defer></script>
-<script src="./song-prefs.js?v=4.1.2" defer></script>
-<script src="./autoscroll.js?v=4.1.2" defer></script>
-<script src="./player.js?v=4.1.2" defer></script>
-<script src="./karaoke.js?v=4.1.2" defer></script>
-<script src="./song-edit.js?v=4.1.2" defer></script>
-<script src="./print.js?v=4.1.2" defer></script>
-<script src="./ui.js?v=4.1.2" defer></script>
-<script src="./search-ui.js?v=4.1.2" defer></script>
-<script src="./offline.js?v=4.1.2" defer></script>
-<script src="./bug-report.js?v=4.1.2" defer></script>
+<script src="./domain.js?v=4.2.0" defer></script>
+<script src="./storage.js?v=4.2.0" defer></script>
+<script src="./core.js?v=4.2.0" defer></script>
+<script src="./search-engine.js?v=4.2.0" defer></script>
+<script src="./library.js?v=4.2.0" defer></script>
+<script src="./acervo.js?v=4.2.0" defer></script>
+<script src="./setlists.js?v=4.2.0" defer></script>
+<script src="./song-prefs.js?v=4.2.0" defer></script>
+<script src="./autoscroll.js?v=4.2.0" defer></script>
+<script src="./player.js?v=4.2.0" defer></script>
+<script src="./karaoke.js?v=4.2.0" defer></script>
+<script src="./song-edit.js?v=4.2.0" defer></script>
+<script src="./print.js?v=4.2.0" defer></script>
+<script src="./ui.js?v=4.2.0" defer></script>
+<script src="./search-ui.js?v=4.2.0" defer></script>
+<script src="./offline.js?v=4.2.0" defer></script>
+<script src="./bug-report.js?v=4.2.0" defer></script>
+<script src="./themes-v2.js?v=4.2.0" defer></script>
 </body>
 </html>
