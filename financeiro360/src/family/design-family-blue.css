@@ -299,3 +299,47 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .f360-donut-center strong { font-size: 11px; }
   .f360-category-summary > p { font-size: 10px; }
 }
+
+/* Administrative cash-reconciliation reminder. Visible only to authenticated admin. */
+.f360-admin-finance-reminder {
+  border: 1px solid #f0cf8a;
+  border-left: 4px solid #e0a733;
+  background: #fffaf0;
+  padding: 16px 20px;
+  margin: 14px 0 20px;
+  border-radius: 16px;
+}
+.f360-admin-reminder-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.f360-admin-reminder-heading strong {
+  color: #785318;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.f360-admin-reminder-heading small { color: #7f682d; font-weight: 700; }
+.f360-admin-finance-reminder p {
+  color: #624c27;
+  line-height: 1.5;
+  margin: 9px 0 0;
+  overflow-wrap: anywhere;
+}
+:root[data-theme="dark"] .f360-admin-finance-reminder {
+  background: #332916; border-color: #8e6a2a;
+}
+:root[data-theme="dark"] .f360-admin-reminder-heading strong,
+:root[data-theme="dark"] .f360-admin-reminder-heading small,
+:root[data-theme="dark"] .f360-admin-finance-reminder p { color: #ffdf97; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .f360-admin-finance-reminder {
+    background: #332916; border-color: #8e6a2a;
+  }
+  :root[data-theme="system"] .f360-admin-reminder-heading strong,
+  :root[data-theme="system"] .f360-admin-reminder-heading small,
+  :root[data-theme="system"] .f360-admin-finance-reminder p { color: #ffdf97; }
+}
