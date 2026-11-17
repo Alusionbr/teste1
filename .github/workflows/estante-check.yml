@@ -1,0 +1,28 @@
+name: Estante checks
+on:
+  push:
+    paths:
+      - 'estante/**'
+      - '.github/workflows/estante-check.yml'
+  pull_request:
+    paths:
+      - 'estante/**'
+      - '.github/workflows/estante-check.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check script syntax
+        run: |
+          for f in estante/*.js; do
+            if [ "$f" != "estante/sw.js" ]; then node --check "$f"; fi
+          done
+          node --check estante/sw.js
+      - name: Unit and contract tests
+        run: node --test estante/tests/*.test.js
