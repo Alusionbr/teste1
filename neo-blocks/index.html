@@ -14,7 +14,7 @@
     <header class="topbar">
       <a href="../" class="back" aria-label="Voltar às ferramentas">‹ <span>LAB</span></a>
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><div><span class="eyebrow">ARCADE // PROTÓTIPO 01</span><h1>NEO <em>BLOCKS</em></h1></div></div>
-      <div class="top-actions"><button id="soundBtn" class="icon-btn" aria-label="Ativar som" title="Ativar som">♪ <span id="soundState">OFF</span></button><button id="helpBtn" class="icon-btn" title="Como jogar" aria-label="Como jogar">?</button></div>
+      <div class="top-actions"><button id="soundBtn" class="icon-btn audio-btn" aria-label="Desativar efeitos sonoros" title="Efeitos sonoros">🔊<span id="soundState">ON</span></button><button id="musicBtn" class="icon-btn audio-btn" aria-label="Ativar música" title="Música de fundo">♫<span id="musicState">OFF</span></button><button id="helpBtn" class="icon-btn" title="Como jogar" aria-label="Como jogar">?</button></div>
     </header>
     <section class="intro"><div><span class="section-label">SELECIONE O DESAFIO</span><p id="modeDescription">Encaixe peças, limpe linhas e conquiste seu recorde.</p></div><div class="pill">8 MODOS JOGÁVEIS <span class="led"></span></div></section>
     <nav id="modeList" class="mode-list" aria-label="Modos de jogo">
@@ -46,6 +46,17 @@
           <div id="flash" class="flash" aria-hidden="true"></div>
         </div>
         <div class="arena-bottom"><span id="eventText" aria-live="polite">PREPARE SEU COMBO</span><span>10 × 20</span></div>
+      <section class="bottom-bar">
+      <div class="touch-controls" aria-label="Controles por toque">
+      <button data-action="left" aria-label="Mover para a esquerda">◀</button>
+      <button data-action="rotate" aria-label="Girar">⟳</button>
+      <button data-action="right" aria-label="Mover para a direita">▶</button>
+      <button data-action="down" aria-label="Descer">▼</button>
+      <button data-action="drop" class="hot" aria-label="Soltar peça instantaneamente">⤓</button>
+      <button data-action="hold" aria-label="Guardar peça" class="hold-button">HOLD</button>
+      </div>
+      <div class="secondary-controls"><button id="pauseBtn" class="button-ghost">Ⅱ PAUSAR</button><button id="mobileRestart" class="button-ghost">↻ NOVA PARTIDA</button></div>
+      </section>
       </section>
       <aside class="side stack">
         <div class="panel piece-panel"><div class="panel-header"><span>PRÓXIMA</span><small>QUEUE // 03</small></div><canvas id="next" width="164" height="272" aria-label="Próximas três peças"></canvas></div>
@@ -54,20 +65,9 @@
         <div class="panel power-panel"><div class="stat-line"><span id="powerLabel">ENERGIA</span><strong id="powerText">0%</strong></div><div class="meter orange"><span id="powerMeter"></span></div><p id="powerHint">Limpe linhas para carregar energia.</p></div>
       </aside>
     </main>
-    <section class="bottom-bar">
-      <div class="touch-controls" aria-label="Controles por toque">
-        <button data-action="left" aria-label="Mover para a esquerda">◀</button>
-        <button data-action="rotate" aria-label="Girar">⟳</button>
-        <button data-action="right" aria-label="Mover para a direita">▶</button>
-        <button data-action="down" aria-label="Descer">▼</button>
-        <button data-action="drop" class="hot" aria-label="Soltar peça instantaneamente">⤓</button>
-        <button data-action="hold" aria-label="Guardar peça" class="hold-button">HOLD</button>
-      </div>
-      <div class="secondary-controls"><button id="pauseBtn" class="button-ghost">Ⅱ PAUSAR</button><button id="mobileRestart" class="button-ghost">↻ NOVA PARTIDA</button></div>
-    </section>
     <footer><span>NEO BLOCKS / VERSÃO DE TESTE</span><span>HTML5 · SEM LOGIN · SEM INSTALAÇÃO</span></footer>
   </div>
-  <dialog id="helpDialog" class="help-dialog"><div class="dialog-inner"><div class="dialog-top"><h2>COMO JOGAR</h2><button id="closeHelp" class="icon-btn" aria-label="Fechar ajuda">✕</button></div><p>Organize as peças que caem para completar linhas horizontais. Cada linha completa desaparece e libera espaço.</p><p><b>Celular:</b> use os seis botões abaixo do tabuleiro. Mantenha as setas pressionadas para repetir o movimento.</p><p><b>PC:</b> setas para mover, cima para girar, espaço para soltar, C para reservar e P para pausar.</p><p><b>Modos:</b> Clássico (pontuação); Tempo (2 minutos); Turbo (aceleração a cada 20s); Sobrevivência (obstáculos periódicos); Puzzle (limpar 4 linhas com até 8 peças); Laboratório (poder de limpar a linha inferior com tecla X ou botão); Gravidade (velocidade oscilante); Zen (sem derrota).</p><p>Rotação com pequenos ajustes de posição; sistema de 7 peças por pacote; visualização de sombra e reserva por turno.</p><button id="helpPlay" class="button-primary">ENTENDI</button></div></dialog>
+  <dialog id="helpDialog" class="help-dialog"><div class="dialog-inner"><div class="dialog-top"><h2>COMO JOGAR</h2><button id="closeHelp" class="icon-btn" aria-label="Fechar ajuda">✕</button></div><p>Organize as peças que caem para completar linhas horizontais. Cada linha completa desaparece e libera espaço.</p><p><b>Celular:</b> use os seis botões abaixo do tabuleiro. Mantenha as setas pressionadas para repetir o movimento.</p><p><b>PC:</b> setas para mover, cima para girar, espaço para soltar, C para reservar e P para pausar.</p><p><b>Modos:</b> Clássico (pontuação); Tempo (2 minutos); Turbo (aceleração a cada 20s); Sobrevivência (obstáculos periódicos); Puzzle (limpar 4 linhas com até 8 peças); Laboratório (poder de limpar a linha inferior com tecla X ou botão); Gravidade (velocidade oscilante); Zen (sem derrota).</p><p>Rotação com pequenos ajustes de posição; sistema de 7 peças por pacote; visualização de sombra e reserva por turno. Os efeitos sonoros ficam ligados quando você inicia uma partida; a música é opcional e pode ser ativada no topo. Alguns navegadores liberam o áudio apenas depois de tocar em Jogar.</p><button id="helpPlay" class="button-primary">ENTENDI</button></div></dialog>
   <script src="./game.js" defer></script>
 </body>
 </html>
