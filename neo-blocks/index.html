@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070b1c">
+  <meta name="description" content="Neo Blocks: jogo de blocos futurista com visual neon, oito modos e controles para celular e computador.">
+  <title>NEO BLOCKS — Arcade Futurista</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="bg-glow bg-a" aria-hidden="true"></div><div class="bg-glow bg-b" aria-hidden="true"></div>
+  <div class="app">
+    <header class="topbar">
+      <a href="../" class="back" aria-label="Voltar às ferramentas">‹ <span>LAB</span></a>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><div><span class="eyebrow">ARCADE // PROTÓTIPO 01</span><h1>NEO <em>BLOCKS</em></h1></div></div>
+      <div class="top-actions"><button id="soundBtn" class="icon-btn" aria-label="Ativar som" title="Ativar som">♪ <span id="soundState">OFF</span></button><button id="helpBtn" class="icon-btn" title="Como jogar" aria-label="Como jogar">?</button></div>
+    </header>
+    <section class="intro"><div><span class="section-label">SELECIONE O DESAFIO</span><p id="modeDescription">Encaixe peças, limpe linhas e conquiste seu recorde.</p></div><div class="pill">8 MODOS JOGÁVEIS <span class="led"></span></div></section>
+    <nav id="modeList" class="mode-list" aria-label="Modos de jogo">
+      <button class="mode active" data-mode="classic"><b>◈</b><span>Clássico</span></button>
+      <button class="mode" data-mode="time"><b>◷</b><span>Contra o Tempo</span></button>
+      <button class="mode" data-mode="turbo"><b>ϟ</b><span>Turbo</span></button>
+      <button class="mode" data-mode="survival"><b>⛨</b><span>Sobrevivência</span></button>
+      <button class="mode" data-mode="puzzle"><b>⬡</b><span>Puzzle</span></button>
+      <button class="mode" data-mode="lab"><b>✦</b><span>Laboratório</span></button>
+      <button class="mode" data-mode="gravity"><b>◎</b><span>Gravidade</span></button>
+      <button class="mode" data-mode="zen"><b>∞</b><span>Zen</span></button>
+    </nav>
+    <main class="play-layout">
+      <aside class="stats stack">
+        <div class="panel identity"><span class="eyebrow">MISSÃO ATUAL</span><strong id="missionTitle">RESISTÊNCIA INFINITA</strong><p id="missionText">Limpe linhas sem alcançar o topo.</p><div id="missionMeter" class="meter"><span></span></div></div>
+        <div class="panel score-panel"><span class="stat-label">PONTUAÇÃO</span><div id="score" class="score">000000</div><div class="stat-line"><span>RECORDE</span><strong id="best">0</strong></div></div>
+        <div class="duo"><div class="panel small-stat"><span class="stat-label">LINHAS</span><strong id="lines">0</strong></div><div class="panel small-stat"><span class="stat-label">NÍVEL</span><strong id="level">1</strong></div></div>
+        <div class="panel mini-stat"><div class="stat-line"><span>COMBO</span><strong id="combo">—</strong></div><div class="stat-line"><span>TEMPO</span><strong id="timer">00:00</strong></div><div class="stat-line"><span>STATUS</span><strong id="status" class="cyan">PRONTO</strong></div></div>
+        <button id="restartBtn" class="button-ghost desktop-restart">↻ REINICIAR</button>
+      </aside>
+      <section class="arena-section" aria-label="Campo do jogo">
+        <div class="arena-top"><span><span class="led"></span> NEON REACTOR</span><span id="speedLabel">GRAVIDADE 01</span></div>
+        <div class="board-frame">
+          <canvas id="game" width="300" height="600" role="img" aria-label="Tabuleiro com dez colunas e vinte linhas"></canvas>
+          <div class="board-gloss" aria-hidden="true"></div>
+          <div id="overlay" class="overlay" aria-live="polite">
+            <div class="overlay-inner"><span id="overlayTag" class="eyebrow">ARCADE INICIADO</span><h2 id="overlayTitle">PRONTO PARA JOGAR?</h2><p id="overlayText">Escolha um modo e comece a partida.</p><button id="playBtn" class="button-primary">▶ COMEÇAR PARTIDA</button></div>
+          </div>
+          <div id="flash" class="flash" aria-hidden="true"></div>
+        </div>
+        <div class="arena-bottom"><span id="eventText" aria-live="polite">PREPARE SEU COMBO</span><span>10 × 20</span></div>
+      </section>
+      <aside class="side stack">
+        <div class="panel piece-panel"><div class="panel-header"><span>PRÓXIMA</span><small>QUEUE // 03</small></div><canvas id="next" width="164" height="272" aria-label="Próximas três peças"></canvas></div>
+        <div class="panel piece-panel hold-panel"><div class="panel-header"><span>RESERVA</span><small>HOLD</small></div><canvas id="hold" width="164" height="94" aria-label="Peça guardada"></canvas></div>
+        <div class="panel guide"><span class="eyebrow">CONTROLES · PC</span><p><kbd>←</kbd><kbd>→</kbd> mover <kbd>↑</kbd> girar</p><p><kbd>↓</kbd> descer <kbd>SPACE</kbd> soltar</p><p><kbd>C</kbd> guardar <kbd>P</kbd> pausar</p></div>
+        <div class="panel power-panel"><div class="stat-line"><span id="powerLabel">ENERGIA</span><strong id="powerText">0%</strong></div><div class="meter orange"><span id="powerMeter"></span></div><p id="powerHint">Limpe linhas para carregar energia.</p></div>
+      </aside>
+    </main>
+    <section class="bottom-bar">
+      <div class="touch-controls" aria-label="Controles por toque">
+        <button data-action="left" aria-label="Mover para a esquerda">◀</button>
+        <button data-action="rotate" aria-label="Girar">⟳</button>
+        <button data-action="right" aria-label="Mover para a direita">▶</button>
+        <button data-action="down" aria-label="Descer">▼</button>
+        <button data-action="drop" class="hot" aria-label="Soltar peça instantaneamente">⤓</button>
+        <button data-action="hold" aria-label="Guardar peça" class="hold-button">HOLD</button>
+      </div>
+      <div class="secondary-controls"><button id="pauseBtn" class="button-ghost">Ⅱ PAUSAR</button><button id="mobileRestart" class="button-ghost">↻ NOVA PARTIDA</button></div>
+    </section>
+    <footer><span>NEO BLOCKS / VERSÃO DE TESTE</span><span>HTML5 · SEM LOGIN · SEM INSTALAÇÃO</span></footer>
+  </div>
+  <dialog id="helpDialog" class="help-dialog"><div class="dialog-inner"><div class="dialog-top"><h2>COMO JOGAR</h2><button id="closeHelp" class="icon-btn" aria-label="Fechar ajuda">✕</button></div><p>Organize as peças que caem para completar linhas horizontais. Cada linha completa desaparece e libera espaço.</p><p><b>Celular:</b> use os seis botões abaixo do tabuleiro. Mantenha as setas pressionadas para repetir o movimento.</p><p><b>PC:</b> setas para mover, cima para girar, espaço para soltar, C para reservar e P para pausar.</p><p><b>Modos:</b> Clássico (pontuação); Tempo (2 minutos); Turbo (aceleração a cada 20s); Sobrevivência (obstáculos periódicos); Puzzle (limpar 4 linhas com até 8 peças); Laboratório (poder de limpar a linha inferior com tecla X ou botão); Gravidade (velocidade oscilante); Zen (sem derrota).</p><p>Rotação com pequenos ajustes de posição; sistema de 7 peças por pacote; visualização de sombra e reserva por turno.</p><button id="helpPlay" class="button-primary">ENTENDI</button></div></dialog>
+  <script src="./game.js" defer></script>
+</body>
+</html>
