@@ -10,6 +10,13 @@
  */
 const HUB_TOOLS = [
   {
+    name: "Neo Blocks",
+    tagline: "Arcade futurista de blocos neon com 8 modos jogáveis, controles por toque, pontuação e recordes locais.",
+    href: "./neo-blocks/",
+    tags: ["jogo", "arcade", "neon", "celular"],
+    status: "ativo"
+  },
+  {
     name: "Estante",
     tagline: "Letras e cifras no palco: busca em várias fontes, repertório offline, rolagem automática, sincronia e transposição.",
     href: "./estante/",
