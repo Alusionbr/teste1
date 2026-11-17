@@ -29,7 +29,7 @@
   const overlay=el("overlay");
   let mode="classic",board=[],piece=null,queue=[],bag=[],held=null,holdAllowed=true;
   let phase="menu",score=0,lines=0,level=1,combo=-1,placed=0,elapsed=0,gravityTick=0,garbageAt=25,energy=0;
-  let lastFrame=0,lastHud=0,eventUntil=0,particles=[],soundOn=false,audio=null,repeatStart=null,repeatInterval=null;
+  let lastFrame=0,lastHud=0,eventUntil=0,particles=[],soundOn=true,musicOn=false,audio=null,musicTimer=null,musicStep=0,repeatStart=null,repeatInterval=null;
   let best=0;
   function blank(){return Array.from({length:H},()=>Array(W).fill(null));}
   function clone(m){return m.map(row=>row.slice());}
@@ -37,7 +37,77 @@
   function ensureQueue(){while(queue.length<5){if(!bag.length)bag=shuffle();queue.push(bag.pop());}}
   function savedBest(){try{return Number(localStorage.getItem("neo_blocks_best_"+mode))||0;}catch{return 0;}}
   function saveBest(){if(score>best){best=score;try{localStorage.setItem("neo_blocks_best_"+mode,String(score));}catch{}}}
-  function beep(f=440,length=.08,kind="sine",volume=.035){if(!soundOn)return;try{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==="suspended")audio.resume();const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.type=kind;o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(Math.max(80,f*.7),t+length);g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.001,t+length);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+length);}catch{}}
+  function audioReady(){
+    try{
+      if(!audio){
+        const AudioEngine=window.AudioContext||window.webkitAudioContext;
+        if(!AudioEngine)return null;
+        audio=new AudioEngine();
+      }
+      if(audio.state==="suspended"&&typeof audio.resume==="function"){
+        const attempt=audio.resume();
+        if(attempt&&typeof attempt.catch==="function")attempt.catch(()=>{});
+      }
+      return audio;
+    }catch{return null;}
+  }
+  // Síntese em tempo real: efeitos e melodia próprios, sem arquivos externos.
+  function tone(freq,duration=.08,wave="sine",volume=.03,delay=0,slide=.76){
+    const a=audioReady();if(!a)return;
+    try{
+      const t=a.currentTime+delay;
+      const o=a.createOscillator(),gain=a.createGain();
+      o.type=wave;
+      o.frequency.setValueAtTime(freq,t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(35,freq*slide),t+duration);
+      gain.gain.setValueAtTime(.0001,t);
+      gain.gain.exponentialRampToValueAtTime(Math.max(.00011,volume),t+Math.min(.012,duration*.2));
+      gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+      o.connect(gain);gain.connect(a.destination);
+      o.start(t);o.stop(t+duration+.015);
+    }catch{}
+  }
+  function beep(freq=440,duration=.08,wave="sine",volume=.035,delay=0,slide=.76){
+    if(soundOn)tone(freq,duration,wave,volume,delay,slide);
+  }
+  const melody=[659.25,0,783.99,0,880,783.99,659.25,0,587.33,0,659.25,783.99,523.25,0,493.88,0];
+  const bass=[110,110,130.81,130.81,146.83,146.83,123.47,123.47];
+  function musicBeat(){
+    if(!musicOn||phase!=="playing")return;
+    const step=musicStep++%16;
+    if(melody[step])tone(melody[step],.16,"triangle",.015,0,.96);
+    if(step%2===0)tone(bass[(step/2)%bass.length],.21,"sine",.018,0,.90);
+    if(step%4===2)tone(980,.027,"triangle",.003,0,.60);
+  }
+  function updateMusic(){
+    if(musicTimer!==null){clearInterval(musicTimer);musicTimer=null;}
+    if(musicOn&&phase==="playing"&&audioReady()){
+      musicStep=0;
+      musicBeat();
+      musicTimer=setInterval(musicBeat,192);
+    }
+  }
+  function updateAudioButtons(){
+    el("soundState").textContent=soundOn?"ON":"OFF";
+    el("musicState").textContent=musicOn?"ON":"OFF";
+    el("soundBtn").setAttribute("aria-pressed",String(soundOn));
+    el("musicBtn").setAttribute("aria-pressed",String(musicOn));
+    el("soundBtn").setAttribute("aria-label",soundOn?"Desativar efeitos sonoros":"Ativar efeitos sonoros");
+    el("musicBtn").setAttribute("aria-label",musicOn?"Desativar música":"Ativar música");
+  }
+  function loadAudioPrefs(){
+    try{
+      soundOn=localStorage.getItem("neo_blocks_sfx")!=="off";
+      musicOn=localStorage.getItem("neo_blocks_music")==="on";
+    }catch{}
+    updateAudioButtons();
+  }
+  function saveAudioPrefs(){
+    try{
+      localStorage.setItem("neo_blocks_sfx",soundOn?"on":"off");
+      localStorage.setItem("neo_blocks_music",musicOn?"on":"off");
+    }catch{}
+  }
   function inform(message){el("eventText").textContent=message;eventUntil=performance.now()+1900;}
   function displayOverlay(tag,title,desc,button){el("overlayTag").textContent=tag;el("overlayTitle").textContent=title;el("overlayText").textContent=desc;el("playBtn").textContent=button;overlay.classList.remove("hidden");}
   function speedInterval(){
@@ -48,7 +118,7 @@
   }
   function reset(selectedMode){
     mode=selectedMode;board=blank();piece=null;queue=[];bag=[];held=null;holdAllowed=true;
-    phase="menu";score=0;lines=0;level=1;combo=-1;placed=0;elapsed=0;gravityTick=0;garbageAt=25;energy=0;particles=[];best=savedBest();ensureQueue();
+    phase="menu";updateMusic();score=0;lines=0;level=1;combo=-1;placed=0;elapsed=0;gravityTick=0;garbageAt=25;energy=0;particles=[];best=savedBest();ensureQueue();
     if(mode==="puzzle"){
       for(let y=H-4;y<H;y++)for(let x=0;x<W;x++)if(x!==4)board[y][x]="G";
       queue[0]="I";
@@ -103,7 +173,7 @@
     else{held=t;spawn();}
     holdAllowed=false;drawPreviews();beep(390,.09);
   }
-  function softDrop(){if(move(0,1)){score++;return;}lock();}
+  function softDrop(){if(move(0,1)){score++;beep(185,.027,"triangle",.011);return;}lock();}
   function hardDrop(){
     if(phase!=="playing"||!piece)return;
     let n=0;while(move(0,1))n++;
@@ -117,11 +187,11 @@
     board=board.filter(r=>r.some(v=>!v));while(board.length<H)board.unshift(Array(W).fill(null));
     const n=full.length;
     combo++;score+=([0,100,300,500,800][n]||800)*level+combo*50*level;
-    lines+=n;level=1+Math.floor(lines/10);
+    lines+=n;const previousLevel=level;level=1+Math.floor(lines/10);
     if(mode==="lab")energy=Math.min(100,energy+n*25);
     inform(n===4?"TETRIS! +"+(800*level):n>=2?"COMBO DE "+n+" LINHAS!":"LINHA ELIMINADA!");
     el("flash").classList.add("on");setTimeout(()=>el("flash").classList.remove("on"),45);
-    beep(n===4?850:600,.18,"triangle",.06);
+    beep(n===4?850:600,.18,"triangle",.06);beep(n===4?1270:880,.16,"triangle",.033,.09,1.04);if(level>previousLevel){beep(1046,.26,"sine",.055,.15,1.25);}
     if(mode==="puzzle"&&lines>=4){finish(true,"AS QUATRO LINHAS FORAM ELIMINADAS!");}
   }
   function lock(){
@@ -131,7 +201,7 @@
       const x=piece.x+i,y=piece.y+j;
       if(y<0)topped=true;else if(y<H&&x>=0&&x<W)board[y][x]=piece.type;
     }
-    placed++;holdAllowed=true;piece=null;
+    placed++;holdAllowed=true;piece=null;beep(145,.065,"triangle",.027);
     if(topped){
       if(mode==="zen"){board=blank();inform("CAMPO RENOVADO · CONTINUE");}
       else{finish(false,"O CAMPO FICOU CHEIO");return;}
@@ -157,18 +227,18 @@
   }
   function finish(won,reason){
     if(phase!=="playing")return;
-    phase="over";saveBest();
+    phase="over";updateMusic();saveBest();
     const tag=won?"MISSÃO CUMPRIDA":"FIM DE PARTIDA";
     displayOverlay(tag,won?"VITÓRIA!":"FIM DE JOGO",reason+" · Pontuação: "+score.toLocaleString("pt-BR"),"↻ JOGAR NOVAMENTE");
     el("status").textContent=won?"VITÓRIA":"FINALIZADO";beep(won?880:160,.35,"triangle",.05);
     updateHUD();
   }
   function start(){
-    if(phase==="paused"){phase="playing";overlay.classList.add("hidden");el("status").textContent="JOGANDO";el("pauseBtn").textContent="Ⅱ PAUSAR";lastFrame=performance.now();return;}
-    reset(mode);phase="playing";overlay.classList.add("hidden");spawn();lastFrame=performance.now();updateHUD();beep(660,.08);
+    if(phase==="paused"){audioReady();phase="playing";overlay.classList.add("hidden");el("status").textContent="JOGANDO";el("pauseBtn").textContent="Ⅱ PAUSAR";lastFrame=performance.now();updateMusic();beep(630,.10);return;}
+    audioReady();reset(mode);phase="playing";overlay.classList.add("hidden");spawn();lastFrame=performance.now();updateMusic();updateHUD();beep(660,.10);beep(990,.12,"triangle",.028,.09,1.10);
   }
   function pause(){
-    if(phase==="playing"){phase="paused";displayOverlay("PARTIDA PAUSADA","PAUSA","Seu progresso está preservado.","▶ CONTINUAR");el("pauseBtn").textContent="▶ CONTINUAR";}
+    if(phase==="playing"){phase="paused";updateMusic();displayOverlay("PARTIDA PAUSADA","PAUSA","Seu progresso está preservado.","▶ CONTINUAR");el("pauseBtn").textContent="▶ CONTINUAR";}
     else if(phase==="paused")start();
     updateHUD();
   }
@@ -254,8 +324,8 @@
   function action(name){
     if(phase!=="playing")return;
     switch(name){
-      case"left":move(-1,0);break;
-      case"right":move(1,0);break;
+      case"left":if(move(-1,0))beep(310,.025,"triangle",.012);break;
+      case"right":if(move(1,0))beep(360,.025,"triangle",.012);break;
       case"down":softDrop();break;
       case"rotate":rotate();break;
       case"drop":hardDrop();break;
@@ -285,11 +355,12 @@
   el("restartBtn").addEventListener("click",()=>start());
   el("mobileRestart").addEventListener("click",()=>start());
   el("pauseBtn").addEventListener("click",pause);
-  el("soundBtn").addEventListener("click",()=>{soundOn=!soundOn;el("soundState").textContent=soundOn?"ON":"OFF";el("soundBtn").setAttribute("aria-label",soundOn?"Desativar som":"Ativar som");beep(660,.1);});
+  el("soundBtn").addEventListener("click",()=>{audioReady();soundOn=!soundOn;saveAudioPrefs();updateAudioButtons();if(soundOn)beep(740,.12,"triangle",.05);});
+  el("musicBtn").addEventListener("click",()=>{audioReady();musicOn=!musicOn;saveAudioPrefs();updateAudioButtons();updateMusic();if(musicOn)beep(880,.12,"sine",.026);});
   el("helpBtn").addEventListener("click",()=>{if(phase==="playing")pause();el("helpDialog").showModal();});
   el("closeHelp").addEventListener("click",()=>el("helpDialog").close());
   el("helpPlay").addEventListener("click",()=>el("helpDialog").close());
   document.addEventListener("visibilitychange",()=>{if(document.hidden&&phase==="playing")pause();});
   const powerButton=document.createElement("button");powerButton.id="powerButton";powerButton.type="button";powerButton.className="button-primary";powerButton.style.cssText="width:100%;margin-top:12px;padding:10px;font-size:11px";powerButton.textContent="⚡ ATIVAR PODER";powerButton.addEventListener("click",()=>action("power"));document.querySelector(".power-panel").appendChild(powerButton);
-  reset("classic");requestAnimationFrame(frame);
+  loadAudioPrefs();reset("classic");requestAnimationFrame(frame);
 })();
