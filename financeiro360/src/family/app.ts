@@ -409,7 +409,7 @@ function adminFinancialNotes() {
   if (!notes.length) return "";
   return `<aside class="panel f360-admin-finance-reminder" role="note">
     <div class="f360-admin-reminder-heading"><strong>${icon("reminders")} Conferir repasse do celular</strong><small>Somente administrador</small></div>
-    ${notes.map((note) => `<p>${esc(note.text.replace(/^\\[FIN-CELULAR-SANTANDER-2026-10-08\\]\\s*/, ""))}</p>`).join("")}
+    ${notes.map((note) => `<p>${esc(note.text.replace("[FIN-CELULAR-SANTANDER-2026-10-08]", "").trim())}</p>`).join("")}
   </aside>`;
 }
 function summary() {
