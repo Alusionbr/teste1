@@ -206,8 +206,8 @@ export class FamilyAPI {
         .is("done_at", null)
         .order("created_at", { ascending: false })
         .limit(20);
-      if (notes.error) throw Error("Não foi possível carregar seus recados privados.");
-      this.privateNotes = notes.data || [];
+      // An optional private note must never block access to the financial app.
+      this.privateNotes = notes.error ? [] : (notes.data || []);
     } else {
       this.privateNotes = [];
     }
