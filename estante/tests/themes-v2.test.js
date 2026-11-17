@@ -31,3 +31,37 @@ test("recursos visuais registrados para uso offline",()=>{
   assert.ok(html.includes("themes-v2.css?v="));
   assert.ok(html.includes("themes-v2.js?v="));
 });
+
+test("nova aparência vira padrão na primeira atualização e conserva escolhas seguintes",()=>{
+  const vm=require("node:vm");
+  const html=read("index.html");
+  const boot=html.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(boot?.includes("estante:theme-default-4.2.1"));
+
+  function bootWith(theme,done=false){
+    const prefs={theme,source:"smart",speed:21};
+    const data=new Map([["estante:v2:prefs",JSON.stringify(prefs)]]);
+    if(done)data.set("estante:theme-default-4.2.1","1");
+    const document={documentElement:{dataset:{}}};
+    const localStorage={
+      getItem:key=>data.get(key)??null,
+      setItem:(key,value)=>data.set(key,value)
+    };
+    vm.runInNewContext(boot,{document,localStorage});
+    return {data,document,prefs:JSON.parse(data.get("estante:v2:prefs"))};
+  }
+
+  const legacy=bootWith("neon-palco");
+  assert.equal(legacy.document.documentElement.dataset.theme,"hibrido-inteligente");
+  assert.equal(legacy.prefs.speed,21);
+  assert.equal(legacy.data.get("estante:theme-default-4.2.1"),"1");
+
+  const chosen=bootWith("palco-premium");
+  assert.equal(chosen.document.documentElement.dataset.theme,"palco-premium");
+
+  const clean=bootWith("biblioteca-clean");
+  assert.equal(clean.document.documentElement.dataset.theme,"biblioteca-clean");
+
+  const laterClassic=bootWith("classico-ambar",true);
+  assert.equal(laterClassic.document.documentElement.dataset.theme,"classico-ambar");
+});

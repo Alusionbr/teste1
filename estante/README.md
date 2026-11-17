@@ -1,8 +1,8 @@
 # Estante — letras e cifras no palco
 
-## Aparência (versão 4.2)
+## Aparência (versão 4.2.1)
 
-Em **Aparência**, escolha **Palco Premium** (escuro e imersivo), **Biblioteca Clean** (claro e organizado) ou **Híbrido inteligente** (biblioteca clara e palco escuro). Os temas anteriores continuam disponíveis em **Ver temas clássicos**. A preferência é salva no aparelho, sem alterar músicas ou repertórios. No celular, **Mais** revela as ações adicionais do cabeçalho e **Ajustes** revela os controles secundários da pedaleira.
+Em **Aparência**, escolha **Palco Premium** (escuro e imersivo), **Biblioteca Clean** (claro e organizado) ou **Híbrido inteligente** (biblioteca clara e palco escuro). Os temas anteriores continuam disponíveis em **Ver temas clássicos**. O Híbrido inteligente é o tema inicial. Uma migração única atualiza temas antigos para esse padrão; após isso, a escolha do usuário sempre prevalece. A preferência é salva no aparelho, sem alterar músicas ou repertórios. No celular, **Mais** revela as ações adicionais do cabeçalho e **Ajustes** revela os controles secundários da pedaleira.
 
 
 Organizador de ensaios e repertórios feito para tocar: biblioteca de arranjos reutilizáveis, sessões de ensaio, repertórios salvos no aparelho, busca em várias fontes, rolagem automática, sincronia, transposição e anotações.

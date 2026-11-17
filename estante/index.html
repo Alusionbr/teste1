@@ -9,8 +9,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Estante — ensaios e repertórios</title>
-  <script>try{var p=JSON.parse(localStorage.getItem("estante:v2:prefs")||"{}");document.documentElement.dataset.theme=p.theme||"hibrido-inteligente"}catch(e){}</script>
-  <script data-version="4.2.0">
+  <script>
+  // Migração visual única: aplica o padrão novo a preferências antigas sem alterar repertórios.
+  // Após a migração, o tema escolhido pelo usuário (inclusive os clássicos) sempre prevalece.
+  try {
+    const key="estante:v2:prefs", marker="estante:theme-default-4.2.1";
+    const p=JSON.parse(localStorage.getItem(key)||"{}");
+    if(localStorage.getItem(marker)!=="1"){
+      if(!["hibrido-inteligente","palco-premium","biblioteca-clean"].includes(p.theme)){
+        p.theme="hibrido-inteligente";
+        localStorage.setItem(key,JSON.stringify(p));
+      }
+      localStorage.setItem(marker,"1");
+    }
+    document.documentElement.dataset.theme=p.theme||"hibrido-inteligente";
+  } catch(e) { document.documentElement.dataset.theme="hibrido-inteligente"; }
+  </script>
+  <script data-version="4.2.1">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -49,8 +64,8 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.2.0">
-  <link rel="stylesheet" href="./themes-v2.css?v=4.2.0">
+  <link rel="stylesheet" href="./styles.css?v=4.2.1">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.2.1">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -399,23 +414,23 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.2.0" defer></script>
-<script src="./storage.js?v=4.2.0" defer></script>
-<script src="./core.js?v=4.2.0" defer></script>
-<script src="./search-engine.js?v=4.2.0" defer></script>
-<script src="./library.js?v=4.2.0" defer></script>
-<script src="./acervo.js?v=4.2.0" defer></script>
-<script src="./setlists.js?v=4.2.0" defer></script>
-<script src="./song-prefs.js?v=4.2.0" defer></script>
-<script src="./autoscroll.js?v=4.2.0" defer></script>
-<script src="./player.js?v=4.2.0" defer></script>
-<script src="./karaoke.js?v=4.2.0" defer></script>
-<script src="./song-edit.js?v=4.2.0" defer></script>
-<script src="./print.js?v=4.2.0" defer></script>
-<script src="./ui.js?v=4.2.0" defer></script>
-<script src="./search-ui.js?v=4.2.0" defer></script>
-<script src="./offline.js?v=4.2.0" defer></script>
-<script src="./bug-report.js?v=4.2.0" defer></script>
-<script src="./themes-v2.js?v=4.2.0" defer></script>
+<script src="./domain.js?v=4.2.1" defer></script>
+<script src="./storage.js?v=4.2.1" defer></script>
+<script src="./core.js?v=4.2.1" defer></script>
+<script src="./search-engine.js?v=4.2.1" defer></script>
+<script src="./library.js?v=4.2.1" defer></script>
+<script src="./acervo.js?v=4.2.1" defer></script>
+<script src="./setlists.js?v=4.2.1" defer></script>
+<script src="./song-prefs.js?v=4.2.1" defer></script>
+<script src="./autoscroll.js?v=4.2.1" defer></script>
+<script src="./player.js?v=4.2.1" defer></script>
+<script src="./karaoke.js?v=4.2.1" defer></script>
+<script src="./song-edit.js?v=4.2.1" defer></script>
+<script src="./print.js?v=4.2.1" defer></script>
+<script src="./ui.js?v=4.2.1" defer></script>
+<script src="./search-ui.js?v=4.2.1" defer></script>
+<script src="./offline.js?v=4.2.1" defer></script>
+<script src="./bug-report.js?v=4.2.1" defer></script>
+<script src="./themes-v2.js?v=4.2.1" defer></script>
 </body>
 </html>
