@@ -1,10 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Estante">
-  <rect width="512" height="512" fill="#0d1117"/>
-  <g fill="#ffc15e">
-    <rect x="102" y="123" width="56" height="235" rx="6"/>
-    <rect x="174" y="92" width="56" height="266" rx="6"/>
-    <rect x="246" y="143" width="56" height="215" rx="6"/>
-    <rect x="318" y="113" width="56" height="245" rx="6"/>
-    <rect x="82" y="374" width="312" height="36" rx="8"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Estante — repertório musical">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#29374c"/><stop offset="1" stop-color="#080d16"/></linearGradient><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe6b5"/><stop offset="1" stop-color="#c99248"/></linearGradient></defs>
+<rect width="512" height="512" rx="110" fill="url(#bg)"/><rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#ffffff" stroke-opacity=".11" stroke-width="3"/>
+<g fill="none" stroke="url(#gold)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"><path d="M256 154c-32-28-78-42-146-36v230c63-6 111 7 146 37 35-30 83-43 146-37V118c-68-6-114 8-146 36Z"/><path d="M256 154v231"/><path d="M149 173c27-1 51 3 70 12M149 219c27-1 51 3 70 12M293 185c19-9 43-13 70-12M293 231c19-9 43-13 70-12" stroke-width="9" opacity=".8"/></g>
+<g fill="#f9d8a1"><rect x="204" y="278" width="12" height="48" rx="6"/><rect x="230" y="262" width="12" height="65" rx="6"/><rect x="270" y="272" width="12" height="55" rx="6"/><rect x="296" y="292" width="12" height="35" rx="6"/></g><path d="M124 414h264" stroke="#c8a06b" stroke-width="5" stroke-linecap="round" opacity=".65"/></svg>
