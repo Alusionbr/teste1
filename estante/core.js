@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.1.2";
+const APP_VERSION="4.2.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
  *
  * Nenhum dos dois é persistido: modo de festa não deve voltar sozinho amanhã.
  */
-const state={workspace:null,results:[],library:[],setlist:[],setlists:[],trash:[],sessions:[],activeSession:null,activeSetlistId:"",selectedLibrary:new Set(),tab:"results",source:"smart",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,theme:"neon-palco",keyVag:"",keyYT:"",audioDelay:0};
+const state={workspace:null,results:[],library:[],setlist:[],setlists:[],trash:[],sessions:[],activeSession:null,activeSetlistId:"",selectedLibrary:new Set(),tab:"results",source:"smart",current:null,currentIndex:-1,lines:[],lrc:[],scrolling:false,syncing:false,karaoke:false,videoPlaying:false,speed:18,speedGlobal:18,font:26,key:0,capo:0,auto:false,stage:false,theme:"hibrido-inteligente",keyVag:"",keyYT:"",audioDelay:0};
 const KEYS={setlist:"estante:v2:setlist",setlists:"estante:v3:setlists",workspace:"estante:v4:workspace",prefs:"estante:v2:prefs"};
 const SHARP=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FLAT=["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 const CHORD=/^[A-G][#b]?(?:m|maj|min|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:(?:sus|add|maj|dim|aug|m|M|b|#|\+|-)[0-9]*)*(?:\([^)]*\))?(?:\/[A-G][#b]?)?$/;
