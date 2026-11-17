@@ -21,6 +21,7 @@ export class FamilyAPI {
   private demoPreferences = new Map<string, Preferences>();
   preferences: Preferences = defaultPreferences();
   preferencesRevision = 0;
+  privateNotes: Array<{ id: string; text: string; done_at: string | null }> = [];
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL,
       key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -122,6 +123,7 @@ export class FamilyAPI {
       this.data = d;
       this.preferences = this.demoPreferences.get(this.userId) || defaultPreferences();
       this.preferencesRevision = 0;
+      this.privateNotes = [];
       return;
     }
     if (!this.client) throw Error("Banco indisponível.");
@@ -196,6 +198,19 @@ export class FamilyAPI {
       throw Error("Não foi possível carregar sua aparência pessoal. Tente atualizar.");
     this.preferences = normalizePreferences(preference.data || {});
     this.preferencesRevision = preference.data?.revision || 0;
+    // fin_inbox is private per owner via RLS; never load or display it for other members.
+    if (mem.data.role === "admin") {
+      const notes = await this.client.from("fin_inbox")
+        .select("id,text,done_at")
+        .eq("owner_id", this.userId)
+        .is("done_at", null)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (notes.error) throw Error("Não foi possível carregar seus recados privados.");
+      this.privateNotes = notes.data || [];
+    } else {
+      this.privateNotes = [];
+    }
     this.data = {
       home: results[0].data![0],
       members: results[1].data!,
@@ -639,5 +654,6 @@ export class FamilyAPI {
     this.demoPreferences.clear();
     this.preferences = defaultPreferences();
     this.preferencesRevision = 0;
+    this.privateNotes = [];
   }
 }
