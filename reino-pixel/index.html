@@ -19,7 +19,7 @@ footer{text-align:center;color:#829585;font-size:11px;padding:0 12px 20px}.hidde
 </style>
 </head>
 <body>
-<header><div><h1>Reino Pixel <span style="font-size:13px;color:#b9b5a0">· v0.1</span></h1><p class="tagline">O Vale de Arvandor · Protótipo explorável</p></div><div class="top-actions"><span class="tiny">RPG 2D original · 32×32</span><button id="modeBtn" type="button">Editar mapa</button><button id="dayBtn" type="button">Modo noturno</button></div></header>
+<header><div><h1>Reino Pixel <span style="font-size:13px;color:#b9b5a0">· v0.2</span></h1><p class="tagline">O Vale de Arvandor · Protótipo explorável</p></div><div class="top-actions"><span class="tiny">RPG 2D original · 32×32</span><button id="modeBtn" type="button">Editar mapa</button><button id="dayBtn" type="button">Modo noturno</button></div></header>
 <main><section class="game-wrap"><div class="frame"><canvas id="game" tabindex="0" role="img" aria-label="Mapa explorável de Arvandor. Use WASD, setas ou toque no mapa para caminhar."></canvas><div class="overlay location"><strong id="region">Praça da Vila</strong><small id="coord">Aldeia de Brumavale</small></div><div class="overlay notice" id="toast"></div></div><div class="statusbar"><span class="pill">Herói <b>Explorador</b></span><span class="pill">Cristais <b id="coinCount">0 / 3</b></span><span class="pill">Missão <b id="questStatus">Fale com Eldric</b></span><span class="pill" id="brushStatus">Modo <b>Explorar</b></span></div><div class="control-pad" id="mobileControls"><div class="dpad"><button class="up" data-move="0,-1" aria-label="Cima">▲</button><button class="left" data-move="-1,0" aria-label="Esquerda">◀</button><button class="down" data-move="0,1" aria-label="Baixo">▼</button><button class="right" data-move="1,0" aria-label="Direita">▶</button></div><button class="actionBtn" id="touchAct">AÇÃO</button></div></section>
 <aside><section class="panel"><h2>Mapa do Vale</h2><canvas id="minimap" width="288" height="216" aria-label="Minimapa"></canvas><p class="muted">Verde: floresta · Azul: rio · Marrom: trilhas · Branco: sua posição</p><div class="legend"><span><i style="background:#eaca77"></i>Vila</span><span><i style="background:#a7d9fa"></i>Herói</span><span><i style="background:#e6a66a"></i>Objetivo</span></div></section>
 <section class="panel" id="questPanel"><h2>A primeira aventura</h2><p id="questText">Encontre Eldric, o guardião da praça, para receber sua primeira missão.</p><div class="progress"><div id="questBar"></div></div><p class="muted">Explore a floresta, atravesse a ponte e descubra as ruínas.</p><h3>Como jogar</h3><p><span class="key">W A S D</span> ou <span class="key">↑ ← ↓ →</span> para andar. Toque no chão para caminhar. <span class="key">E</span> ou <span class="key">AÇÃO</span> para interagir.</p></section>
@@ -80,19 +80,23 @@ function collision(x,y){if(!within(x,y)||blockedTerrain.has(terrain[y][x]))retur
  if(p.type==='house_stone'&&x>=p.x-2&&x<=p.x+2&&y>=p.y-2&&y<=p.y)return true;
  if(p.type==='house_wood'&&x>=p.x-2&&x<=p.x+2&&y>=p.y-1&&y<=p.y)return true;}
  return false;}
-function nearestAvailable(x,y){if(!collision(x,y))return{x,y};for(let r=1;r<=4;r++)for(let a=-r;a<=r;a++)for(let b=-r;b<=r;b++){if(Math.abs(a)!==r&&Math.abs(b)!==r)continue;let xx=x+a,yy=y+b;if(within(xx,yy)&&!collision(xx,yy))return{x:xx,y:yy}}return null}
+function nearestAvailable(x,y){if(!collision(x,y))return{x,y};for(let r=1;r<=Math.max(W,H);r++)for(let a=-r;a<=r;a++)for(let b=-r;b<=r;b++){if(Math.abs(a)!==r&&Math.abs(b)!==r)continue;let xx=x+a,yy=y+b;if(within(xx,yy)&&!collision(xx,yy))return{x:xx,y:yy}}return null}
 function astar(tx,ty){const end=nearestAvailable(tx,ty);if(!end)return[];const start=player.y*W+player.x,target=end.y*W+end.x;
  let queue=[start],g=new Map([[start,0]]),back=new Map(),seen=new Set();const h=(id)=>Math.abs(id%W-end.x)+Math.abs(Math.floor(id/W)-end.y);
  for(let n=0;queue.length&&n<6000;n++){queue.sort((a,b)=>(g.get(a)+h(a))-(g.get(b)+h(b)));let cur=queue.shift();if(cur===target){let out=[];while(cur!==start&&back.has(cur)){out.push({x:cur%W,y:Math.floor(cur/W)});cur=back.get(cur)}return out.reverse()}if(seen.has(cur))continue;seen.add(cur);let x=cur%W,y=Math.floor(cur/W);
  for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){let xx=x+dx,yy=y+dy,id=yy*W+xx;if(collision(xx,yy)||seen.has(id))continue;let ng=g.get(cur)+1;if(!g.has(id)||ng<g.get(id)){g.set(id,ng);back.set(id,cur);queue.push(id)}}}return[]}
+function ensurePlayerWalkable(){if(!collision(player.x,player.y))return true;const pos=nearestAvailable(player.x,player.y);if(!pos)return false;player=pos;walkPath=[];return true;}
+function isQuestCrystal(p){return p.type==='crystal'&&Number.isInteger(p.questId)&&p.questId>=1&&p.questId<=3;}
 function message(s){const t=$('toast');t.textContent=s;t.classList.add('show');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>t.classList.remove('show'),3400)}
-function interact(){let actionable=new Set(['npc','crystal','chest','orc','sign','cave','well','fountain','house_stone','house_wood']);let near=props.filter(p=>actionable.has(p.type)&&Math.max(Math.abs(p.x-player.x),Math.abs(p.y-player.y))<=2).sort((a,b)=>Math.abs(a.x-player.x)+Math.abs(a.y-player.y)-Math.abs(b.x-player.x)-Math.abs(b.y-player.y));let p=near[0];if(!p){message('Aproxime-se de um personagem ou objeto para interagir.');return}
+function interact(target=null){if(editor)return;let actionable=new Set(['npc','crystal','chest','orc','sign','cave','well','fountain','house_stone','house_wood']);let near=props.filter(p=>actionable.has(p.type)&&Math.max(Math.abs(p.x-player.x),Math.abs(p.y-player.y))<=2).sort((a,b)=>Math.abs(a.x-player.x)+Math.abs(a.y-player.y)-Math.abs(b.x-player.x)-Math.abs(b.y-player.y));let p=target&&near.includes(target)?target:near[0];if(!p){message('Aproxime-se de um personagem ou objeto para interagir.');return}
  if(p.type==='npc'){
+ if(!p.label?.startsWith('Eldric')){message((p.label||'Morador')+': bem-vindo ao vale!');return}
  if(quests.completed){message('Eldric: Arvandor está em dívida com você, aventureiro!');return}
  if(!quests.started){quests.started=true;message('Eldric: procure os três cristais espalhados pelo vale!')}
  else if(quests.collected.length===3){quests.completed=true;message('Missão concluída! Eldric agradece pelos três cristais.');}
  else message('Eldric: faltam '+(3-quests.collected.length)+' cristais. Consulte o minimapa!');
  }else if(p.type==='crystal'){
+ if(!isQuestCrystal(p)){message('Cristal decorativo do editor.');return}
  if(!quests.started){message('Um cristal antigo. Converse com Eldric antes de recolhê-lo.');return}
  if(!quests.collected.includes(p.questId)){quests.collected.push(p.questId);props=props.filter(q=>q!==p);message('Cristal encontrado! '+quests.collected.length+' de 3 coletados.')}
  }else if(p.type==='chest')message('Baú das ruínas: seu conteúdo será uma recompensa de outra missão.');
@@ -102,18 +106,29 @@ function interact(){let actionable=new Set(['npc','crystal','chest','orc','sign'
  else if(p.label)message(p.label);else message('Uma parte do Vale de Arvandor.');
  updateUI();persist();}
 function walk(dx,dy){if(editor)return;walkPath=[];let xx=player.x+dx,yy=player.y+dy;if(!collision(xx,yy)){player.x=xx;player.y=yy;checkQuestNearby()}else{let p=props.find(p=>Math.max(Math.abs(p.x-player.x),Math.abs(p.y-player.y))<=1&&p.x===xx&&p.y===yy);if(p?.type==='crystal'){interact()}}}
-function checkQuestNearby(){if(quests.started){for(let p of [...props])if(p.type==='crystal'&&p.x===player.x&&p.y===player.y){quests.collected.push(p.questId);props=props.filter(q=>q!==p);message('Cristal encontrado!');updateUI();persist();}}}
+function checkQuestNearby(){if(quests.started){for(let p of [...props])if(isQuestCrystal(p)&&!quests.collected.includes(p.questId)&&p.x===player.x&&p.y===player.y){quests.collected.push(p.questId);props=props.filter(q=>q!==p);message('Cristal encontrado!');updateUI();persist();}}}
 function updateUI(){const q=quests.collected.length;$('coinCount').textContent=q+' / 3';$('questStatus').textContent=quests.completed?'Concluída':quests.started?q===3?'Retorne a Eldric':'Em andamento':'Fale com Eldric';$('questText').textContent=quests.completed?'Você recuperou os três cristais e salvou a primeira missão de Brumavale.':quests.started?q===3?'Os três cristais foram encontrados. Retorne à praça para falar com Eldric.':'Colete os três cristais antigos. Eles estão na floresta, ao sul do vale e nas ruínas do leste.':'Encontre Eldric, o guardião da praça, para receber sua primeira missão.';$('questBar').style.width=(q/3*100)+'%';$('modeBtn').textContent=editor?'Voltar a explorar':'Editar mapa';$('editorPanel').classList.toggle('visible',editor);$('brushStatus').innerHTML=editor?'Modo <b>Editor</b>':'Modo <b>Explorar</b>';$('mobileControls').classList.toggle('hidden',editor);}
-function saveSnapshot(){stack.push(JSON.stringify({terrain,props}));if(stack.length>25)stack.shift()}
+function saveSnapshot(){stack.push(JSON.stringify({terrain,props,player,quests}));if(stack.length>25)stack.shift()}
 function persist(){try{localStorage.setItem(STOR,JSON.stringify({terrain,props,player,quests}))}catch(e){}}
-function restore(){try{const d=JSON.parse(localStorage.getItem(STOR));if(d&&validMap(d)){terrain=d.terrain;props=d.props;player=d.player||player;quests=d.quests||quests;return}}catch(e){}newWorld()}
-function validMap(d){return Array.isArray(d.terrain)&&d.terrain.length===H&&d.terrain.every(row=>Array.isArray(row)&&row.length===W&&row.every(t=>typeof t==='string'&&terrainNames.includes(t)))&&Array.isArray(d.props)&&d.props.length<2000&&d.props.every(p=>p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&within(p.x,p.y)&&objectNames.includes(p.type))}
+function restore(){try{const d=JSON.parse(localStorage.getItem(STOR));if(d&&validMap(d)){terrain=d.terrain;props=d.props;player=d.player||player;quests=d.quests||quests;if(ensurePlayerWalkable())return}}catch(e){}newWorld()}
+function validMap(d){
+ if(!d||typeof d!=='object'||!Array.isArray(d.terrain)||d.terrain.length!==H||!d.terrain.every(row=>Array.isArray(row)&&row.length===W&&row.every(t=>typeof t==='string'&&terrainNames.includes(t))))return false;
+ if(!Array.isArray(d.props)||d.props.length>=2000||!d.props.every(p=>p&&Number.isInteger(p.x)&&Number.isInteger(p.y)&&within(p.x,p.y)&&objectNames.includes(p.type)&&(!('questId' in p)||p.questId===null||Number.isSafeInteger(p.questId))&&(!('label' in p)||p.label===null||(typeof p.label==='string'&&p.label.length<=120))))return false;
+ if(d.player&&(!Number.isInteger(d.player.x)||!Number.isInteger(d.player.y)||!within(d.player.x,d.player.y)))return false;
+ if(d.quests){let q=d.quests;if(typeof q.started!=='boolean'||typeof q.completed!=='boolean'||!Array.isArray(q.collected)||q.collected.length>3||!q.collected.every(id=>[1,2,3].includes(id))||new Set(q.collected).size!==q.collected.length||(!q.started&&q.collected.length>0)||(q.completed&&(!q.started||q.collected.length!==3)))return false}
+ return true;
+}
 function exportMap(){let blob=new Blob([JSON.stringify({name:'O Vale de Arvandor',version:1,tileSize:32,width:W,height:H,terrain,props,player,quests},null,2)],{type:'application/json'});let a=document.createElement('a');let url=URL.createObjectURL(blob);a.href=url;a.download='mapa-arvandor.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message('Mapa JSON exportado.')}
 function setBrush(n){brush=n;document.querySelectorAll('[data-brush]').forEach(b=>b.classList.toggle('active',b.dataset.brush===n));message('Ferramenta selecionada: '+n.replace('_',' '));}
 const tileTools=[['grass','Grama'],['dirt','Terra'],['stone','Pedra'],['moss','Musgo'],['water','Água'],['planks','Ponte'],['sand','Areia'],['cobble','Calçada'],['deepwater','Rio']];
 const propTools=[['tree_green','Árvore'],['tree_gold','Árvore dourada'],['rock','Rocha'],['house_wood','Casa'],['bush','Arbusto'],['chest','Baú'],['npc','NPC'],['crystal','Cristal'],['erase','Apagar']];
 function initBrushes(){for(let [list,id] of [[tileTools,'terrainTools'],[propTools,'objectTools']]){for(let [name,label] of list){let b=document.createElement('button');b.textContent=label;b.dataset.brush=name;b.onclick=()=>setBrush(name);$(id).appendChild(b)}}setBrush('grass')}
-function editAt(x,y){if(!within(x,y))return;saveSnapshot();if(terrainNames.includes(brush)){paint(x,y,brush)}else if(brush==='erase'){props=props.filter(p=>p.x!==x||p.y!==y)}else{props=props.filter(p=>p.x!==x||p.y!==y);props.push({x,y,type:brush,label:brush==='npc'?'Morador':undefined,questId:brush==='crystal'?Math.ceil(Math.random()*100000):undefined})}persist();}
+function editAt(x,y){if(!within(x,y))return;
+ if(terrainNames.includes(brush)){if(terrain[y][x]===brush)return;paint(x,y,brush)}
+ else if(brush==='erase'){props=props.filter(p=>p.x!==x||p.y!==y)}
+ else{props=props.filter(p=>p.x!==x||p.y!==y);props.push({x,y,type:brush,label:brush==='npc'?'Morador':undefined,questId:brush==='crystal'?null:undefined})}
+ if(!ensurePlayerWalkable()){undo();message('Não é possível bloquear todo o mapa.');return}
+ persist();}
 function worldToScreen(x,y){return{x:x*scale*T-cam.x,y:y*scale*T-cam.y}}
 function screenToWorld(sx,sy){return{x:Math.floor((sx+cam.x)/(T*scale)),y:Math.floor((sy+cam.y)/(T*scale))}}
 function drawImage(n,x,y,w,h){const im=images[n];if(im&&im.complete&&im.naturalWidth)ctx.drawImage(im,Math.round(x),Math.round(y),Math.round(w),Math.round(h));else{ctx.fillStyle=n==='water'?'#287baf':n==='grass'?'#4f7b38':'#8b7155';ctx.fillRect(Math.floor(x),Math.floor(y),Math.ceil(w),Math.ceil(h))}}
@@ -125,7 +140,7 @@ function drawProp(p){let iw={tree_green:2.8,tree_gold:2.7,tree_pine:2.2,tree_dea
  if(['tree_green','tree_gold','tree_pine','rock','house_stone','house_wood','npc','orc','chest','cave'].includes(p.type)){ctx.fillStyle='#06110d50';ctx.beginPath();ctx.ellipse(pos.x,pos.y-3*scale,Math.min(px*.32,33*scale),7*scale,0,0,Math.PI*2);ctx.fill()}
  if(p.type==='crystal'){ctx.fillStyle='#dca84e65';ctx.beginPath();ctx.ellipse(pos.x,pos.y-7*scale,14*scale,7*scale,0,0,Math.PI*2);ctx.fill();y+=Math.sin(animTime*.003+p.x)*4*scale}
  drawImage(p.type,x,y,px,h);
- if(p.type==='npc'){ctx.fillStyle='#191c11dd';ctx.fillRect(pos.x-21*scale,y-14*scale,42*scale,13*scale);ctx.font=`bold ${9*scale}px sans-serif`;ctx.fillStyle='#f9d682';ctx.textAlign='center';ctx.fillText('ELDRIC',pos.x,y-4*scale);}
+ if(p.type==='npc'){ctx.fillStyle='#191c11dd';ctx.fillRect(pos.x-21*scale,y-14*scale,42*scale,13*scale);ctx.font=`bold ${9*scale}px sans-serif`;ctx.fillStyle='#f9d682';ctx.textAlign='center';ctx.fillText(p.label?.startsWith('Eldric')?'ELDRIC':'MORADOR',pos.x,y-4*scale);}
 }
 function drawPlayer(){let pos=worldToScreen(player.x+.5,player.y+1),w=1.26*T*scale,h=1.95*T*scale;ctx.fillStyle='#0e180b90';ctx.beginPath();ctx.ellipse(pos.x,pos.y-5*scale,16*scale,6*scale,0,0,7);ctx.fill();drawImage('player',pos.x-w/2,pos.y-h+Math.sin(animTime/200)*1.5*scale,w,h);ctx.textAlign='center';ctx.font=`bold ${10*scale}px sans-serif`;ctx.fillStyle='#fff0c4';ctx.fillText('VOCÊ',pos.x,pos.y-h-8*scale);}
 function draw(){let sz=T*scale,tx1=Math.max(0,Math.floor(cam.x/sz)-2),tx2=Math.min(W,Math.ceil((cam.x+viewport.w)/sz)+2),ty1=Math.max(0,Math.floor(cam.y/sz)-2),ty2=Math.min(H,Math.ceil((cam.y+viewport.h)/sz)+2);
@@ -147,14 +162,16 @@ function frame(t){let dt=Math.min(t-animTime,55);if(!Number.isFinite(dt))dt=16;a
  cam.x=Math.max(0,Math.min(W*T*scale-viewport.w,cam.x+(targetX-cam.x)*.13));cam.y=Math.max(0,Math.min(H*T*scale-viewport.h,cam.y+(targetY-cam.y)*.13));
  draw();minimap();region();requestAnimationFrame(frame)}
 function canvasPoint(e){let r=canvas.getBoundingClientRect();return screenToWorld(e.clientX-r.left,e.clientY-r.top)}
-canvas.addEventListener('pointermove',e=>{mouse=canvasPoint(e)});
-canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();let t=canvasPoint(e);if(editor)editAt(t.x,t.y);else{const p=props.find(p=>p.x===t.x&&p.y===t.y);if(p&&Math.max(Math.abs(p.x-player.x),Math.abs(p.y-player.y))<=2){interact();return}walkPath=astar(t.x,t.y);if(!walkPath.length&&p)message('Aproxime-se do objeto pelo caminho livre.')}});
-window.addEventListener('keydown',e=>{let d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(d&&!e.ctrlKey&&!e.metaKey){e.preventDefault();walk(...d);persist()}if(e.key.toLowerCase()==='e'&&!e.repeat&&!e.ctrlKey){interact()}if(e.ctrlKey&&e.key.toLowerCase()==='z'&&editor){e.preventDefault();undo();}});
-function undo(){if(stack.length){let d=JSON.parse(stack.pop());terrain=d.terrain;props=d.props;persist();message('Última alteração desfeita.')}}
-$('modeBtn').onclick=()=>{editor=!editor;walkPath=[];updateUI();message(editor?'Editor ativado. Pinte o mapa com as ferramentas ao lado.':'Modo exploração ativado.')};
+let painting=false,lastPaint='';
+canvas.addEventListener('pointermove',e=>{mouse=canvasPoint(e);if(editor&&painting){let key=mouse.x+','+mouse.y;if(lastPaint!==key){lastPaint=key;editAt(mouse.x,mouse.y)}}});
+for(const eventName of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(eventName,()=>{painting=false;lastPaint='' });
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.focus();let t=canvasPoint(e);if(editor){painting=true;lastPaint=t.x+','+t.y;saveSnapshot();editAt(t.x,t.y);if(canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId)}else{const p=props.find(p=>p.x===t.x&&p.y===t.y);if(p&&Math.max(Math.abs(p.x-player.x),Math.abs(p.y-player.y))<=2){interact(p);return}walkPath=astar(t.x,t.y);if(!walkPath.length&&p)message('Aproxime-se do objeto pelo caminho livre.')}});
+window.addEventListener('keydown',e=>{let d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(d&&!e.ctrlKey&&!e.metaKey&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){e.preventDefault();walk(...d);persist()}if(e.key.toLowerCase()==='e'&&!e.repeat&&!e.ctrlKey){interact()}if(e.ctrlKey&&e.key.toLowerCase()==='z'&&editor){e.preventDefault();undo();}});
+function undo(){if(stack.length){let d=JSON.parse(stack.pop());terrain=d.terrain;props=d.props;player=d.player||player;quests=d.quests||quests;persist();updateUI();message('Última alteração desfeita.')}}
+$('modeBtn').onclick=()=>{editor=!editor;walkPath=[];painting=false;updateUI();message(editor?'Editor ativado. Pinte o mapa com as ferramentas ao lado.':'Modo exploração ativado.')};
 $('dayBtn').onclick=()=>{night=!night;$('dayBtn').textContent=night?'Modo diurno':'Modo noturno'};
 $('undoBtn').onclick=undo;$('exportBtn').onclick=exportMap;$('importBtn').onclick=()=>$('importFile').click();
-$('importFile').onchange=async e=>{let f=e.target.files?.[0];if(!f)return;try{let d=JSON.parse(await f.text());if(!validMap(d))throw Error('formato inválido');saveSnapshot();terrain=d.terrain;props=d.props;player=d.player||player;quests=d.quests||quests;persist();updateUI();message('Mapa importado com sucesso.')}catch(e){message('Arquivo inválido: use JSON de 48×36 tiles.')}e.target.value=''};
+$('importFile').onchange=async e=>{let f=e.target.files?.[0];if(!f)return;try{let d=JSON.parse(await f.text());if(!validMap(d))throw Error('formato inválido');saveSnapshot();terrain=d.terrain;props=d.props;player=d.player||player;quests=d.quests||quests;if(!ensurePlayerWalkable()){undo();throw Error('sem espaço caminhável')}persist();updateUI();message('Mapa importado com sucesso.');}catch(e){message('Arquivo inválido: use JSON de 48×36 tiles.')}e.target.value=''};
 $('resetBtn').onclick=()=>{if(confirm('Restaurar o mapa original? As alterações locais serão perdidas.')){saveSnapshot();newWorld();persist();updateUI();message('Mapa original restaurado.')}};
 for(let b of document.querySelectorAll('[data-move]')){let repeat;const go=()=>{let [x,y]=b.dataset.move.split(',').map(Number);walk(x,y);persist()};b.addEventListener('pointerdown',e=>{e.preventDefault();go();repeat=setInterval(go,160)});for(let ev of ['pointerup','pointercancel','pointerleave'])b.addEventListener(ev,()=>clearInterval(repeat))}
 $('touchAct').onclick=interact;
