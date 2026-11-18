@@ -10,6 +10,13 @@
  */
 const HUB_TOOLS = [
   {
+    name: "Reino Pixel — Vale de Arvandor",
+    tagline: "RPG 2D com mapa medieval explorável, missão dos cristais, personagens e editor de terreno.",
+    href: "./reino-pixel/",
+    tags: ["jogo", "RPG", "pixel art", "editor de mapa", "celular"],
+    status: "ativo"
+  },
+  {
     name: "Neo Blocks",
     tagline: "Arcade futurista de blocos neon com 8 modos jogáveis, controles por toque, pontuação e recordes locais.",
     href: "./neo-blocks/",
