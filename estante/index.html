@@ -13,7 +13,7 @@
   // Migração visual única: aplica o padrão novo a preferências antigas sem alterar repertórios.
   // Após a migração, o tema escolhido pelo usuário (inclusive os clássicos) sempre prevalece.
   try {
-    const key="estante:v2:prefs", marker="estante:theme-default-4.2.2";
+    const key="estante:v2:prefs", marker="estante:theme-default-4.2.1";
     const p=JSON.parse(localStorage.getItem(key)||"{}");
     if(localStorage.getItem(marker)!=="1"){
       if(!["hibrido-inteligente","palco-premium","biblioteca-clean"].includes(p.theme)){
