@@ -103,3 +103,165 @@ html:is([data-theme="palco-premium"],[data-theme="biblioteca-clean"],[data-theme
 html:is([data-theme="palco-premium"],[data-theme="biblioteca-clean"],[data-theme="hibrido-inteligente"]) .pedal{height:49px}}
 @media(max-width:380px){.themeGallery .themeCard{grid-template-columns:105px 1fr}.brandBadges #network{display:none}}
 @media(prefers-reduced-motion:reduce){.themeGallery .themeCard{transition:none}}
+
+
+/* Estante 4.2.2 — contraste, identidade e toque no celular.
+   Ajustes de apresentação: sem tocar nos dados dos repertórios. */
+html[data-theme="hibrido-inteligente"]{
+  color-scheme:dark;
+  --bg:#0B1B2B;--panel:#132B3F;--panel2:#203F52;--line:#476376;
+  --text:#F7FBFD;--muted:#B8CED8;--accent:#47E1B9;--accent-ink:#082F29;
+  --paper:#111F2C;--ink:#F4F8FC;--weak:#C2D1DA;--chord:#FFD794;--glow:.18;
+}
+html[data-theme="hibrido-inteligente"] .sidebar{
+  color-scheme:dark;
+  background:linear-gradient(145deg,#11273B 0%,#17384B 57%,#102A3D 100%);
+  color:var(--text);border-color:#405F70;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .brand{
+  background:linear-gradient(110deg,#102638 0%,#1C4353 100%);
+  border-bottom-color:#416376;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .brand .brandCopy strong{
+  color:#FFFFFF;letter-spacing:.10em;text-shadow:0 1px 2px #0004;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .brand .brandCopy .brandSubtitle{
+  color:#B6D6DC;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .search input{
+  color:#F9FEFF;background:#0D2739;border-color:#54788A;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .search input::placeholder{
+  color:#B7CDD8;opacity:1;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .tabs{
+  background:#102C3D;border-color:#436477;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .tab{color:#C7DBE5}
+html[data-theme="hibrido-inteligente"] .sidebar .tab.active{
+  color:#FFFFFF;background:#28566A;box-shadow:inset 0 -3px 0 #47E1B9;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .tab b{color:#FFFFFF;background:#315A6A}
+html[data-theme="hibrido-inteligente"] .sidebar .chip{
+  color:#C7D7E1;border-color:#4D6A78;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .chip.active{
+  color:#FFFFFF;background:#245C63;border-color:#57D9BF;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .listRow{
+  color:#F6FBFF;background:#19384A;border-color:#456778;box-shadow:0 4px 16px #0001;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .songItem strong{color:#FFFFFF}
+html[data-theme="hibrido-inteligente"] .sidebar .songItem small{color:#BDD4DE}
+html[data-theme="hibrido-inteligente"] .sidebar .sidebarFooter{
+  background:#10283B;border-top-color:#456677;
+}
+html[data-theme="hibrido-inteligente"] .sidebar #pasteBtn{
+  color:#F6FCFF;background:#1D4151;border-color:#55798A;
+}
+html[data-theme="hibrido-inteligente"] .sidebar .sidebarExtras summary{color:#C1D6E0}
+html[data-theme="hibrido-inteligente"] .sidebar #themeBtn{
+  color:#062F28;background:#47E1B9;border-color:#47E1B9;
+}
+html[data-theme="hibrido-inteligente"] .stage{
+  --bg:#0B1825;--panel:#142436;--panel2:#223A4C;--line:#40576B;
+  --text:#F7FBFE;--muted:#C0CED8;--accent:#FFD08B;--accent-ink:#241706;
+  --paper:#10202E;--ink:#F7FAFC;--weak:#BFCAD5;--chord:#FFCE7D;
+  background:#0B1825;
+}
+html[data-theme="hibrido-inteligente"] .stage .paper{background:#10202E}
+html[data-theme="hibrido-inteligente"] .stage .emptyPaper b{color:#F8FBFF}
+html[data-theme="hibrido-inteligente"] .stage .emptyPaper small{color:#C7D3DC}
+html[data-theme="hibrido-inteligente"] .stage .songMeta h1{color:#FFFFFF}
+html[data-theme="hibrido-inteligente"] .stage .songMeta p{color:#C0CCD6}
+html[data-theme="hibrido-inteligente"] .stage .welcomeSteps span{
+  color:#E0E9EF;border-color:#547085;background:#20394B;
+}
+html[data-theme="hibrido-inteligente"] body.stageMode .stage .paper{
+  background:#070C13;
+}
+html[data-theme="hibrido-inteligente"] body.karaokeMode .stage .paper{
+  background:transparent;
+}
+/* Tema claro continua opcional, mas sem branco ofuscante nem texto apagado. */
+html[data-theme="biblioteca-clean"]{
+  --bg:#DCEBEA;--panel:#F3F9F6;--panel2:#D2E7E3;--line:#94B7B6;
+  --text:#10383C;--muted:#39626B;--accent:#126D71;--accent-ink:#FFFFFF;
+  --paper:#F5F8F3;--ink:#143037;--weak:#42646D;--chord:#0D6673;
+}
+html[data-theme="biblioteca-clean"] .sidebar .brand{
+  background:#D6EAE5;border-bottom-color:#9BBAB8;
+}
+html[data-theme="biblioteca-clean"] .sidebar .brand .brandCopy strong{
+  color:#103F43;
+}
+html[data-theme="biblioteca-clean"] .sidebar .songItem strong{
+  color:#10373F;
+}
+/* Identidade BETA discreta, sempre legível em todos os temas. */
+.brand .betaTag,.mobileIdentity small{
+  display:inline-block;margin-left:5px;padding:2px 5px;
+  font:800 9px/1.2 system-ui,sans-serif;letter-spacing:.07em;
+  vertical-align:middle;border-radius:4px;background:#43DEB7;color:#08362D;
+}
+html[data-theme="palco-premium"] .brand .betaTag,
+html[data-theme="palco-premium"] .mobileIdentity small{background:#F2BF76;color:#291A0D}
+html[data-theme="biblioteca-clean"] .brand .betaTag,
+html[data-theme="biblioteca-clean"] .mobileIdentity small{background:#126D71;color:#FFFFFF}
+.mobileIdentity{display:none}
+@media(max-width:650px){
+  .mobileIdentity{
+    width:100%;display:flex;align-items:center;gap:6px;
+    padding:1px 1px 5px;color:var(--accent);
+    font:800 11px/1.2 system-ui,sans-serif;letter-spacing:.15em;
+  }
+  html:is([data-theme="hibrido-inteligente"],[data-theme="palco-premium"],[data-theme="biblioteca-clean"]) .songHeader{
+    flex-wrap:wrap;align-content:center;row-gap:5px;
+  }
+}
+@media(max-width:520px){
+  /* styles.css escondia todos os spans da marca e apagava o nome Estante. */
+  .brand .brandCopy{display:flex;flex:1 1 auto;min-width:0}
+  .brand .brandCopy .brandSubtitle{display:block!important;white-space:nowrap}
+  .brand .brandCopy .betaTag{display:inline-block!important}
+  .brand .brandBadges{display:flex;flex:0 0 auto}
+  .brand .brandBadges i{display:block}
+}
+/* Seleção intencional com toque e arraste, inclusive no iOS Safari. */
+.paperViewport .lineLyric{
+  -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;
+}
+.lyricsSelectionToolbar{
+  position:relative;z-index:4;display:flex;align-items:center;
+  gap:8px;justify-content:flex-end;padding:6px 13px;
+  background:var(--panel);border-bottom:1px solid var(--line);
+  font:12px/1.3 system-ui,sans-serif;
+}
+.lyricsSelectionToolbar button{
+  border:1px solid var(--line);background:var(--panel2);
+  color:var(--text);padding:9px 11px;border-radius:9px;
+  min-height:38px;white-space:nowrap;font:700 12px system-ui,sans-serif;
+}
+.lyricsSelectionToolbar #selectLyricsBtn[aria-pressed="true"]{
+  color:var(--accent-ink);background:var(--accent);border-color:var(--accent);
+}
+.lyricsSelectionToolbar #copyLyricsSelectionBtn{
+  background:var(--accent);border-color:var(--accent);color:var(--accent-ink);
+}
+.lyricsSelectionToolbar #copyLyricsSelectionBtn:disabled{opacity:.48}
+.lyricsSelectionToolbar #selectionHint{
+  margin-right:auto;color:var(--muted);font-size:11px;
+}
+body.selectingLyrics .paperViewport .lineLyric{
+  -webkit-user-select:text!important;user-select:text!important;
+  -webkit-touch-callout:default;cursor:text;
+}
+body.selectingLyrics .paperViewport{-webkit-user-select:text;user-select:text}
+body.selectingLyrics .paperViewport .lineLyric::selection{
+  color:#FFFFFF;background:#1E7890;
+}
+@media(max-width:520px){
+  .lyricsSelectionToolbar{gap:6px;padding:5px 8px}
+  .lyricsSelectionToolbar button{min-height:40px;padding:8px 9px;font-size:11px}
+  .lyricsSelectionToolbar #selectionHint{font-size:10px}
+}
