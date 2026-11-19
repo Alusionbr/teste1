@@ -69,7 +69,7 @@
     const payload = {
       category: isBug ? category.value : "other",
       description: descriptionText.slice(0,1500),
-      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.1.2",
+      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.2.2",
       page_path: pagePath.startsWith("/") ? pagePath : "/",
       website: website.value.trim(),
     };
