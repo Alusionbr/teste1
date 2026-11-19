@@ -33,6 +33,7 @@ let browser;
   await page.goto("http://127.0.0.1:8765/",{waitUntil:"networkidle"});
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&state.setlists.length);
   assert.equal(await page.evaluate(()=>state.workspace.version),4);
+  await page.click(".sidebarExtras summary");
   await page.click("#reportBugBtn");
   await page.selectOption("#bugCategory","lyrics_search");
   await page.fill("#bugDescription","A busca não abriu a letra esperada.");
@@ -43,7 +44,7 @@ let browser;
   // nessa janela e o texto não entrava. Em máquina lenta o teste passava por sorte.
   await page.waitForFunction(()=>!document.querySelector("#bugReportDialog").open);
   assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
-  assert.deepEqual(bugSubmission,{app_version:"4.1.2",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
+  assert.deepEqual(bugSubmission,{app_version:await page.evaluate(()=>APP_VERSION),category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);

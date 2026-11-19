@@ -95,7 +95,7 @@ html:is([data-theme="palco-premium"],[data-theme="biblioteca-clean"],[data-theme
 .transport>*{order:initial!important;min-width:0}
 #prevBtn{grid-column:1;grid-row:1}#scrollBtn{grid-column:2;grid-row:1;width:100%}#nextBtn{grid-column:3;grid-row:1}
 #transportMoreBtn{display:inline-flex;grid-column:4;grid-row:1;min-width:0;padding:0 6px;text-transform:none;font-size:11px;letter-spacing:0}
-.transport:not(.expanded)>:not(#prevBtn):not(#scrollBtn):not(#nextBtn):not(#transportMoreBtn){display:none}
+.transport:not(.expanded)>:not(#prevBtn):not(#scrollBtn):not(#nextBtn):not(#transportMoreBtn):not(#backingBtn){display:none}
 .transport.expanded>#syncBtn,.transport.expanded>#karaokeBtn{grid-column:span 2}
 .transport.expanded>.control{grid-column:span 2;justify-content:center;width:100%;padding:0 5px}
 .transport.expanded>#karaokeSettingsBtn,.transport.expanded>#topBtn{grid-column:span 1}

@@ -18,6 +18,12 @@
   function normalizeHistoryEntry(entry={}){
     return{revision:Math.max(1,number(entry.revision,1)),savedAt:text(entry.savedAt||new Date().toISOString(),40),reason:text(entry.reason||"Edição",80),snapshot:normalizeSong(entry.snapshot||{},false)};
   }
+  function normalizeBacking(value){
+    if(!value || !["preset","recording","project","import"].includes(value.kind) || !value.id)return null;
+    const volume=value.volume==null?72:number(value.volume,0,100);
+    return{kind:value.kind,id:text(value.id,80),title:text(value.title,100),duration:number(value.duration,0,86400),
+      volume,follow:value.kind==="import"&&value.follow===true,offset:value.kind==="import"?number(value.offset,-120,120):0};
+  }
   function normalizeSong(source={},withHistory=true){
     const kind=source.kind==="note"?"note":"song";
     if(kind==="note")return{id:text(source.id||uid("item"),80),kind,title:text(source.title||"Pausa",100),artist:"",duration:number(source.duration,0,86400),notes:text(source.notes,10000),status:STATUSES.includes(source.status)?source.status:"ready",createdAt:text(source.createdAt||new Date().toISOString(),40)};
@@ -26,6 +32,11 @@
       title:text(source.title??source.titulo??"Sem título",200),artist:text(source.artist??source.artista??"",200),album:text(source.album,300),duration:number(source.duration??source.duracao,0,86400),lyrics:text(source.lyrics??source.letra),synced:text(source.synced??source.sincronizada),instrumental:!!source.instrumental,
       source:text(source.source??source.fonte,80),lyricNote:text(source.lyricNote,300),lyricSources:Array.isArray(source.lyricSources)?source.lyricSources.map(x=>text(x,200)).slice(0,5):[],vagUrl:text(source.vagUrl??source.urlVagalume,1000),vagId:text(source.vagId,100),catalogUrl:text(source.catalogUrl,1000),key:number(source.key,-11,11),capo:number(source.capo,0,12),speed:number(source.speed,0,200),auto:!!source.auto,notes:text(source.notes,10000),sectionNotes:source.sectionNotes&&typeof source.sectionNotes==="object"?clone(source.sectionNotes):{},videoId:text(source.videoId,24),videoOffset:number(source.videoOffset,-120,120),tags:Array.isArray(source.tags)?source.tags.map(x=>text(x,40)).filter(Boolean).slice(0,20):[],status:STATUSES.includes(source.status)?source.status:"learning",revision:Math.max(1,number(source.revision,1)),updatedAt:text(source.updatedAt||new Date().toISOString(),40),detached:!!source.detached
     };
+    if(source.genre)song.genre=text(source.genre,60);
+    if(source.rhythm)song.rhythm=text(source.rhythm,40);
+    if(Number(source.bpm)>=40&&Number(source.bpm)<=240)song.bpm=Math.round(Number(source.bpm));
+    const backing=normalizeBacking(source.backing);
+    if(backing)song.backing=backing;
     song.history=withHistory&&Array.isArray(source.history)?source.history.slice(-20).map(normalizeHistoryEntry):[];
     return song;
   }
@@ -63,6 +74,7 @@
     let setlists=Array.isArray(source.setlists)?source.setlists.map(normalizeSetlist):[];
     if(!setlists.length)setlists=[normalizeSetlist({name:"Repertório",songs:Array.isArray(legacySongs)?legacySongs:[]})];
     const workspace={version:VERSION,revision:Math.max(0,number(source.revision,0)),updatedAt:text(source.updatedAt||new Date().toISOString(),40),activeId:setlists.some(s=>s.id===source.activeId)?source.activeId:setlists[0].id,setlists,library:[],trash:Array.isArray(source.trash)?source.trash.slice(-100).map(x=>{const item=x.item&&x.item.kind==="setlist"?{kind:"setlist",...normalizeSetlist(x.item)}:normalizeSong(x.item||{});return{id:text(x.id||uid("trash"),80),removedAt:text(x.removedAt||new Date().toISOString(),40),setlistId:text(x.setlistId,80),index:number(x.index,0),item}}):[],sessions:Array.isArray(source.sessions)?source.sessions.map(normalizeSession):[],activeSession:source.activeSession?normalizeSession(source.activeSession):null};
+    workspace.projects=Array.isArray(source.projects)?source.projects.slice(0,250).map(project=>clone(project)):[];
     workspace.library=rebuildLibrary(workspace.setlists,Array.isArray(source.library)?source.library:[]);
     return workspace;
   }
@@ -81,9 +93,16 @@
   function progress(items=[]){const counts={learning:0,rehearsing:0,ready:0};items.filter(x=>x&&x.kind!=="note").forEach(x=>counts[STATUSES.includes(x.status)?x.status:"learning"]++);return counts}
   function newSession(setlistId,items=[]){return normalizeSession({setlistId,items:items.filter(x=>x.kind!=="note").map(x=>({itemId:x.id,status:x.status||"learning",notes:""}))})}
   function finishSession(session,items=[],notes=""){const done=normalizeSession(session);done.endedAt=new Date().toISOString();done.notes=text(notes,10000);done.items=items.filter(x=>x.kind!=="note").map(x=>({itemId:x.id,status:x.status||"learning",notes:text(x.sessionNotes,2000)}));return done}
-  function packageSetlist(setlist,includeContent=true){const normalized=normalizeSetlist(setlist);return{kind:"estante-setlist",version:VERSION,createdAt:new Date().toISOString(),setlist:{...normalized,songs:normalized.songs.map(song=>includeContent?song:{id:song.id,kind:song.kind,songId:song.songId,arrangementId:song.arrangementId,arrangementName:song.arrangementName,title:song.title,artist:song.artist,duration:song.duration,status:song.status,notes:song.notes,tags:song.tags,revision:song.revision})}}}
+  function publicSong(song){
+    if(song.backing&&!["preset","recording"].includes(song.backing.kind))delete song.backing;
+    (song.history||[]).forEach(entry=>{
+      if(entry.snapshot.backing&&!["preset","recording"].includes(entry.snapshot.backing.kind))delete entry.snapshot.backing;
+    });
+    return song;
+  }
+  function packageSetlist(setlist,includeContent=true){const normalized=normalizeSetlist(setlist);return{kind:"estante-setlist",version:VERSION,createdAt:new Date().toISOString(),setlist:{...normalized,songs:normalized.songs.map(song=>includeContent?publicSong(song):{id:song.id,kind:song.kind,songId:song.songId,arrangementId:song.arrangementId,arrangementName:song.arrangementName,title:song.title,artist:song.artist,duration:song.duration,status:song.status,notes:song.notes,tags:song.tags,revision:song.revision})}}}
 
-  const api={VERSION,STATUSES,STATUS_LABELS,uid,fold,songIdentity,normalizeSong,normalizeSetlist,normalizeSession,migrate,rebuildLibrary,revise,readiness,progress,newSession,finishSession,packageSetlist,clone};
+  const api={VERSION,STATUSES,STATUS_LABELS,uid,fold,songIdentity,normalizeSong,normalizeSetlist,normalizeSession,migrate,libraryRecord,rebuildLibrary,revise,readiness,progress,newSession,finishSession,packageSetlist,clone};
   root.EstanteDomain=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);

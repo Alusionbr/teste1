@@ -46,7 +46,10 @@ function renderList(){
     b.innerHTML=`<strong>${esc(m.title)}</strong><small>${esc(m.artist||"sem artista")}</small>${tags.length?`<div class="tags">${tags.join("")}</div>`:""}`;
     b.onclick=()=>{state.currentIndex=state.tab==="setlist"||state.tab==="rehearsal"?i:state.setlist.findIndex(x=>x.arrangementId&&x.arrangementId===m.arrangementId||sameSong(x,m));openSong(m);if(matchMedia("(max-width:900px)").matches)closeSidebar();renderList()};row.appendChild(b);
     if(state.tab==="setlist")row.appendChild(setlistActions(i,data.length));
-    if(state.tab==="rehearsal")row.appendChild(statusControl(m,i));
+    if(state.tab==="rehearsal"){
+      row.appendChild(statusControl(m,i));
+      if(m.backing)row.appendChild(EstanteBacking.rehearsalButton(m));
+    }
     if(state.tab==="library")row.appendChild(rowButton("＋",false,()=>addSongToActive(m),"addOne"));
     list.appendChild(row);
   });

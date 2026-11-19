@@ -25,7 +25,7 @@
     document.documentElement.dataset.theme=p.theme||"hibrido-inteligente";
   } catch(e) { document.documentElement.dataset.theme="hibrido-inteligente"; }
   </script>
-  <script data-version="4.2.1">
+  <script data-version="4.3.0">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -64,11 +64,12 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.2.1">
-  <link rel="stylesheet" href="./themes-v2.css?v=4.2.1">
+  <link rel="stylesheet" href="./styles.css?v=4.3.0">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.3.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./backing.css?v=4.3.0">
 </head>
 <body>
 <div class="app">
@@ -171,7 +172,16 @@
       <footer class="credits" id="credits"></footer>
     </section>
 
+    <div class="backingBar" id="backingBar" hidden>
+      <button id="backingToggle" type="button">Reproduzir</button>
+      <button id="backingStop" type="button">Parar</button>
+      <button id="backingNow" type="button" aria-label="Abrir acompanhamento atual"></button>
+      <input id="backingSeek" type="range" min="0" max="0" step="0.1" aria-label="Posição do acompanhamento">
+      <output id="backingClock"></output>
+      <label class="backingLevel">Volume <input id="backingVolume" type="range" min="0" max="100" value="72" aria-label="Volume do acompanhamento"></label>
+    </div>
     <footer class="transport" id="transport">
+      <button class="pedal" id="backingBtn" type="button"><span class="led"></span><b>Acompanhar</b></button>
       <button class="pedal primary" id="scrollBtn"><span class="led"></span><b>Rolar</b></button>
       <button class="pedal" id="syncBtn" disabled><span class="led"></span><b>Sincro</b></button>
       <button class="pedal" id="karaokeBtn"><span class="led"></span><b>Karaokê</b></button>
@@ -188,6 +198,101 @@
     </footer>
   </main>
 </div>
+
+<dialog id="backingDialog" aria-labelledby="backingTitle">
+  <div class="modal backingModal">
+    <header><h2 id="backingTitle">Acompanhar</h2><button id="backingClose" type="button" aria-label="Fechar acompanhamento">×</button></header>
+    <nav class="backingTabs" aria-label="Opções de acompanhamento">
+      <button type="button" data-backing-view="catalog">Ouvir uma base</button>
+      <button type="button" data-backing-view="import">Usar meu playback</button>
+      <button type="button" data-backing-view="editor">Criar uma trilha</button>
+    </nav>
+    <p class="backingStatus" id="backingStatus" role="status" hidden></p>
+    <div id="backingSelection" hidden>
+      <div class="backingHeading"><h3 id="backingSelectionTitle"></h3><button id="backingCredits" type="button">Créditos</button></div>
+      <p id="backingAttribution" class="backingMeta" hidden></p>
+      <div id="backingSyncOptions" class="backingFilters" hidden>
+        <label class="backingCheck"><input id="backingFollow" type="checkbox"> Seguir o playback</label>
+        <label>Entrada da letra (s)<input id="backingOffset" type="number" step="0.1" min="-120" max="120" value="0"></label>
+      </div>
+      <div class="backingActions">
+        <button id="backingPlay" class="accent" type="button">Tocar com a letra</button>
+        <button id="backingSave" type="button">Salvar no arranjo</button>
+        <button id="backingRemove" type="button" hidden>Remover do arranjo</button>
+      </div>
+    </div>
+    <details id="backingSongDetails" hidden>
+      <summary>Dados desta música para sugestões</summary>
+      <div class="backingFilters">
+        <label>Ritmo do arranjo<select id="backingSongGenre"></select></label>
+        <label>BPM da música<input id="backingSongBpm" type="number" min="40" max="240" inputmode="numeric"></label>
+      </div>
+    </details>
+    <div id="backingCatalog">
+      <div id="backingSuggested" hidden>
+        <h3>Sugestões para esta música</h3>
+        <div id="backingSuggestions" class="backingResults"></div>
+      </div>
+      <div class="backingFilters">
+        <label>Estilo<select id="backingGenre"></select></label>
+        <label>Tipo de base<select id="backingKind"><option value="">Todos</option><option value="beat">Só batida</option><option value="harmony">Com harmonia</option><option value="project">Minhas trilhas</option></select></label>
+        <label class="backingCheck"><input id="backingOffline" type="checkbox"> Offline</label>
+      </div>
+      <details id="backingFilters">
+        <summary>Mais filtros</summary>
+        <div class="backingFilters">
+          <label>Velocidade<select id="backingTempo"><option value="">Qualquer BPM</option><option value="slow">Lenta · até 89 BPM</option><option value="medium">Média · 90 a 119 BPM</option><option value="fast">Rápida · 120 BPM ou mais</option><option value="custom">Escolher faixa de BPM</option></select></label>
+          <label id="backingMinLabel" hidden>De<input id="backingMin" type="number" min="40" max="240" value="70"></label>
+          <label id="backingMaxLabel" hidden>Até<input id="backingMax" type="number" min="40" max="240" value="120"></label>
+          <label>Duração<select id="backingLength"><option value="">Qualquer duração</option><option value="short">Até 3 min</option><option value="medium">Mais de 3 até 4 min</option><option value="long">Mais de 4 min</option></select></label>
+        </div>
+      </details>
+      <div class="backingHeading"><h3 id="backingResultsTitle">Todas as bases</h3><button id="backingReset" type="button">Ver todas</button></div>
+      <div id="backingResults" class="backingResults"></div>
+    </div>
+    <div id="backingImport" hidden>
+      <label id="backingImportLabel">Escolher arquivo de áudio<input id="backingFile" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4"></label>
+      <p>MP3, WAV ou M4A de até 100 MB. O arquivo fica neste aparelho.</p>
+      <div id="backingImported" class="backingResults"></div>
+    </div>
+    <div id="backingEditor" hidden>
+      <div class="backingFilters">
+        <label>Nome da trilha<input id="beatTitle" maxlength="80"></label>
+        <label>Estilo<select id="beatGenre"></select></label>
+        <label>Duração<select id="beatMinutes"><option value="2">2 min</option><option value="3">3 min</option><option value="4">4 min</option></select></label>
+      </div>
+      <fieldset class="backingLayers"><legend>Instrumentos</legend>
+        <label class="backingCheck"><input id="beatPercussion" type="checkbox"> Percussão</label>
+        <label class="backingCheck"><input id="beatBass" type="checkbox"> Baixo</label>
+        <label class="backingCheck"><input id="beatKeys" type="checkbox"> Harmonia</label>
+      </fieldset>
+      <details id="beatAdvanced">
+        <summary>Mais ajustes</summary>
+        <div class="backingFilters">
+          <label>BPM<input id="beatBpm" type="number" min="50" max="180"></label>
+          <label>Tom<select id="beatKey"></select></label>
+          <label>Instrumento<select id="beatTrack"></select></label>
+        </div>
+        <div class="backingFilters">
+          <label class="backingCheck"><input id="beatEnabled" type="checkbox"> Ligar instrumento</label>
+          <label>Volume do instrumento <input id="beatVolume" type="range" min="0" max="100"></label>
+        </div>
+        <div class="beatGrid" id="beatGrid" role="group" aria-label="Passos do instrumento"></div>
+        <h3>Trechos da trilha</h3>
+        <ol id="beatSections" class="beatSections"></ol>
+        <button id="beatAddSection" type="button">Adicionar trecho</button>
+      </details>
+      <p id="beatLength" class="backingMeta"></p>
+      <div class="backingActions">
+        <button id="beatPreview" type="button">Ouvir trilha</button>
+        <button id="beatSave" type="button" class="accent">Salvar em Minhas trilhas</button>
+        <button id="beatExport" type="button">Baixar WAV</button>
+        <button id="beatNew" type="button">Nova trilha</button>
+      </div>
+    </div>
+
+  </div>
+</dialog>
 
 <dialog id="pasteDialog">
   <form method="dialog" class="modal" id="pasteForm">
@@ -264,6 +369,7 @@
     <p><b>Compartilhar:</b> o link pode levar as letras junto, e aí o show inteiro abre no aparelho de quem recebeu mesmo sem internet. O app mostra o tamanho antes: se o link ficar longo demais para colar, use <b>Exportar</b> e mande o arquivo.</p>
     <p><b>Biblioteca:</b> reúne músicas e arranjos reutilizáveis. Selecione vários para adicionar ao repertório de uma vez.</p>
     <p><b>Repertórios:</b> arraste ou use ↑/↓ para montar a ordem. Remoções podem ser desfeitas e ficam na Lixeira. Também é possível duplicar, arquivar, imprimir e inserir pausas ou notas entre músicas.</p>
+    <p><b>Acompanhar:</b> ouça uma base, use seu playback ou crie uma trilha enquanto lê a letra.</p>
     <p><b>Ensaio:</b> marque cada música como A aprender, Em ensaio ou Pronta. Iniciar e encerrar guarda o resumo e os estados no Histórico.</p>
     <p><b>Tom, capo, velocidade e anotações</b> ficam salvos em cada música do repertório: ao voltar nela no próximo show, tudo volta como você deixou.</p>
     <p><b>Imprimir:</b> gera a ordem do show em papel ou PDF, só a lista ou com as letras.</p>
@@ -414,23 +520,26 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.2.1" defer></script>
-<script src="./storage.js?v=4.2.1" defer></script>
-<script src="./core.js?v=4.2.1" defer></script>
-<script src="./search-engine.js?v=4.2.1" defer></script>
-<script src="./library.js?v=4.2.1" defer></script>
-<script src="./acervo.js?v=4.2.1" defer></script>
-<script src="./setlists.js?v=4.2.1" defer></script>
-<script src="./song-prefs.js?v=4.2.1" defer></script>
-<script src="./autoscroll.js?v=4.2.1" defer></script>
-<script src="./player.js?v=4.2.1" defer></script>
-<script src="./karaoke.js?v=4.2.1" defer></script>
-<script src="./song-edit.js?v=4.2.1" defer></script>
-<script src="./print.js?v=4.2.1" defer></script>
-<script src="./ui.js?v=4.2.1" defer></script>
-<script src="./search-ui.js?v=4.2.1" defer></script>
-<script src="./offline.js?v=4.2.1" defer></script>
-<script src="./bug-report.js?v=4.2.1" defer></script>
-<script src="./themes-v2.js?v=4.2.1" defer></script>
+<script src="./beats.js?v=4.3.0" defer></script>
+<script src="./domain.js?v=4.3.0" defer></script>
+<script src="./storage.js?v=4.3.0" defer></script>
+<script src="./core.js?v=4.3.0" defer></script>
+<script src="./search-engine.js?v=4.3.0" defer></script>
+<script src="./library.js?v=4.3.0" defer></script>
+<script src="./acervo.js?v=4.3.0" defer></script>
+<script src="./setlists.js?v=4.3.0" defer></script>
+<script src="./song-prefs.js?v=4.3.0" defer></script>
+<script src="./autoscroll.js?v=4.3.0" defer></script>
+<script src="./player.js?v=4.3.0" defer></script>
+<script src="./karaoke.js?v=4.3.0" defer></script>
+<script src="./song-edit.js?v=4.3.0" defer></script>
+<script src="./print.js?v=4.3.0" defer></script>
+<script src="./backing-audio.js?v=4.3.0" defer></script>
+<script src="./backing-ui.js?v=4.3.0" defer></script>
+<script src="./ui.js?v=4.3.0" defer></script>
+<script src="./search-ui.js?v=4.3.0" defer></script>
+<script src="./offline.js?v=4.3.0" defer></script>
+<script src="./bug-report.js?v=4.3.0" defer></script>
+<script src="./themes-v2.js?v=4.3.0" defer></script>
 </body>
 </html>

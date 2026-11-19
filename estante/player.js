@@ -55,6 +55,7 @@ async function openSong(song){
   // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
   // da caixa enquanto a tela já mostrava o título da próxima.
   karaokeOnSongChange();
+  EstanteBacking.onSongChange();
   if(!song.lyrics&&!song.synced){
     $("paper").innerHTML='<div class="emptyPaper"><b>Buscando a melhor versão…</b><small>Consultando as fontes disponíveis.</small></div>';
     const tryVagalume=song.vagId&&state.keyVag&&!sourceCoolingDown("vagalume");
@@ -79,7 +80,7 @@ function renderCurrentLyrics(){
   // capotraste e atalhos de seção só por ser temporizada.
   state.lines=state.lrc.length?state.lrc.map(x=>classify(x.text)):(song.lyrics||"").split(/\r?\n/).map(classify);
   renderPaper();
-  $("syncBtn").disabled=state.karaoke||!state.lrc.length;
+  $("syncBtn").disabled=state.karaoke||EstanteBacking.isFollowing()||!state.lrc.length;
   const temCifra=state.lines.some(x=>x.type==="chord");
   $("keyControl").hidden=!temCifra;$("capoControl").hidden=!temCifra;
   renderSectionBar();
@@ -133,17 +134,17 @@ function stopTickIfIdle(){if(state.scrolling||state.syncing||state.karaoke)retur
 // karaokeStop() só pausa o vídeo — não apaga state.karaoke. stopAll() roda a
 // cada troca de música (openSong chama primeiro que tudo); se derrubasse o
 // modo, o karaokê se desligaria sozinho a cada música da fila.
-function stopAll(){state.scrolling=false;state.syncing=false;stopTickIfIdle();lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake();karaokeStop()}
+function stopAll(){EstanteBacking.stop();state.scrolling=false;state.syncing=false;stopTickIfIdle();lastActive=-1;syncOffset=0;pixelRest=0;$("paper").querySelectorAll(".active,.past").forEach(x=>x.classList.remove("active","past"));updateControls();releaseAwake();karaokeStop()}
 // Nenhum dos dois liga durante o karaokê: os três escreveriam no mesmo
 // scrollTop (ou no mesmo relógio) ao mesmo tempo — Rolar por velocidade,
 // Sincro pelo relógio interno, karaokê pelo relógio do vídeo.
-function toggleScroll(){if(state.karaoke)return;if(state.syncing)stopAll();state.scrolling=!state.scrolling;if(state.scrolling){highlightVisibleLine();keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
-function toggleSync(){if(state.karaoke)return;if(!state.lrc.length)return;if(state.scrolling)stopAll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+function toggleScroll(){if(state.karaoke||EstanteBacking.isFollowing())return;if(state.syncing)toggleSync();state.scrolling=!state.scrolling;if(state.scrolling){highlightVisibleLine();keepAwake();startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
+function toggleSync(){if(state.karaoke||EstanteBacking.isFollowing())return;if(!state.lrc.length)return;if(state.scrolling)toggleScroll();state.syncing=!state.syncing;if(state.syncing){keepAwake();syncStart=performance.now()-syncOffset*1000;startTick()}else{stopTickIfIdle();releaseAwake()}updateControls()}
 // No karaokê o relógio é o do vídeo, não o interno (syncStart): reposicionar
 // tem de mandar o comando pro player, senão os dois relógios divergem — a
 // letra volta para onde a sincronia interna estava, o vídeo continua de onde já
 // estava.
-function seekSync(i){if(!state.lrc[i])return;if(state.karaoke){karaokeSeek(state.lrc[i].t);highlight(i);return}syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
+function seekSync(i){if(!state.lrc[i])return;if(EstanteBacking.isFollowing()){EstanteBacking.seekLyric(state.lrc[i].t);return;}if(state.karaoke){karaokeSeek(state.lrc[i].t);highlight(i);return}syncOffset=state.lrc[i].t;syncStart=performance.now()-syncOffset*1000;highlight(i);if(!state.syncing)toggleSync()}
 function setHighlight(i,follow){if(i===lastActive)return;lastActive=i;const nodes=$("paper").children;[...nodes].forEach((n,k)=>{n.classList.toggle("active",k===i);n.classList.toggle("past",k<i)});const n=nodes[i];if(follow&&n)$("paperViewport").scrollTo({top:Math.max(0,n.offsetTop-$("paperViewport").clientHeight*.38),behavior:"smooth"})}
 function highlight(i){setHighlight(i,true)}
 // Na rolagem livre, o foco visual da janela marca o trecho atual.
@@ -218,15 +219,33 @@ function finishImport(mode){
   if(mode==="replace"){
     const migrated=EstanteDomain.migrate(workspace||{setlists,activeId});
     state.setlists=migrated.setlists;state.library=migrated.library;state.trash=migrated.trash;state.sessions=migrated.sessions;
+    state.projects=migrated.projects.map(EstanteBeats.normalize).filter(Boolean);
     state.activeSetlistId=state.setlists.some(s=>s.id===migrated.activeId)?migrated.activeId:state.setlists[0].id;
   }else{
     // Entram como repertórios novos, com id próprio para não colidir com os que
     // já estão no aparelho.
-    setlists.forEach(s=>{s.id=newSetlistId();s.songs.forEach(item=>item.id=EstanteDomain.uid("item"));state.setlists.push(s)});
+    const projectIds=new Map();
+    if(Array.isArray(workspace?.projects))workspace.projects.slice(0,250).map(EstanteBeats.normalize).filter(Boolean).forEach(project=>{
+      if(state.projects.length>=250)return;
+      const id=EstanteDomain.uid("beat");
+      projectIds.set(project.id,id);
+      state.projects.push({...project,id});
+    });
+    setlists.forEach(setlist=>{
+      setlist.id=newSetlistId();
+      setlist.songs.forEach(item=>{
+        item.id=EstanteDomain.uid("item");
+        const snapshots=[item,...(item.history||[]).map(entry=>entry.snapshot)];
+        snapshots.forEach(song=>{
+          if(song.backing?.kind==="project"&&projectIds.has(song.backing.id))song.backing.id=projectIds.get(song.backing.id);
+        });
+      });
+      state.setlists.push(setlist);
+    });
     state.activeSetlistId=setlists[0].id;
     state.library=EstanteDomain.rebuildLibrary(state.setlists,state.library);
   }
-  state.currentIndex=-1;bindActiveSetlist();saveSetlists();
+  stopAll();state.currentIndex=-1;bindActiveSetlist();saveSetlists();
   state.tab="setlist";renderList();updateSaveButton();$("importDialog").close();
   notify(mode==="replace"
     ?`Repertórios substituídos: ${state.setlists.length} no aparelho.`
