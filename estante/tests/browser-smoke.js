@@ -19,6 +19,10 @@ let browser;
   await context.addInitScript(()=>{
     localStorage.setItem("estante:v3:setlists",JSON.stringify({version:3,activeId:"legacy",setlists:[{id:"legacy",name:"Legado",songs:[{title:"Canção antiga",artist:"Banda",lyrics:"[Refrão]\nC G\nTexto",notes:"entrada suave"}]}]}));
   });
+  if(process.env.ESTANTE_LIVE_LYRICS!=="1"){
+    await context.route("https://lrclib.net/api/**",route=>route.fulfill({json:[]}));
+    await context.route("https://api.vagalume.com.br/**",route=>route.fulfill({json:{response:{docs:[]}}}));
+  }
   const page=await context.newPage(),errors=[],failedRequests=[];
   page.on("pageerror",error=>errors.push(error.message));
   page.on("requestfailed",request=>failedRequests.push(request.url()));
