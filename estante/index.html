@@ -25,7 +25,7 @@
     document.documentElement.dataset.theme=p.theme||"hibrido-inteligente";
   } catch(e) { document.documentElement.dataset.theme="hibrido-inteligente"; }
   </script>
-  <script data-version="4.2.1">
+  <script data-version="4.2.2">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -64,8 +64,8 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.2.1">
-  <link rel="stylesheet" href="./themes-v2.css?v=4.2.1">
+  <link rel="stylesheet" href="./styles.css?v=4.2.2">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.2.2">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -73,7 +73,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <header class="brand"><img src="./icon.svg" class="brandMark" alt="" aria-hidden="true"><span class="brandCopy"><strong>ESTANTE</strong><span>música e repertório</span></span><span class="brandBadges"><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i></span><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
+    <header class="brand"><img src="./icon.svg" class="brandMark" alt="" aria-hidden="true"><span class="brandCopy"><strong>ESTANTE</strong><span class="brandSubtitle">música e repertório <small class="betaTag" aria-label="Versão beta">BETA</small></span></span><span class="brandBadges"><i id="network">rede</i><i id="saveState" class="saveState" data-state="saved">Salvo</i></span><button class="sidebarClose" id="sidebarCloseBtn" type="button" aria-label="Fechar repertório">×</button></header>
 
     <form class="search" id="searchForm">
       <input id="searchInput" type="search" placeholder="Música, artista, trecho ou versão" autocomplete="off" aria-label="Buscar música">
@@ -94,6 +94,7 @@
       <button class="tab" data-tab="library">Biblioteca <b id="libraryCount">0</b></button>
       <button class="tab" data-tab="setlist">Repertórios <b id="setlistCount">0</b></button>
       <button class="tab" data-tab="rehearsal">Ensaio</button>
+      <button class="tab feedbackTab" id="feedbackTab" type="button" aria-haspopup="dialog">Dúvidas e sugestões</button>
     </nav>
 
     <div class="setlistBar" id="setlistBar" hidden>
@@ -137,7 +138,7 @@
           <button id="importBtn" type="button">Importar</button>
           <button id="trashBtn" type="button">Lixeira</button>
           <button id="helpBtn" type="button">Ajuda</button>
-          <button id="reportBugBtn" type="button">Informar um bug</button>
+          <button id="reportBugBtn" type="button">Relatar problema</button>
         </div>
       </details>
     </footer>
@@ -146,6 +147,7 @@
   <main class="stage" id="stage">
     <div id="karaokeFrame" aria-hidden="true"></div>
     <header class="songHeader">
+      <div class="mobileIdentity"><strong>ESTANTE</strong><small>BETA</small></div>
       <button class="menu" id="menuBtn" aria-label="Abrir repertório" aria-expanded="false" aria-controls="sidebar">☰</button>
       <div class="songMeta">
         <h1 id="songTitle">Nenhuma música aberta</h1>
@@ -164,6 +166,11 @@
     <div class="songNotes" id="songNotes" hidden></div>
     <div class="sectionBar" id="sectionBar" hidden aria-label="Seções da música"></div>
 
+    <div class="lyricsSelectionToolbar" id="lyricsSelectionToolbar">
+      <span id="selectionHint">Toque em selecionar para copiar um trecho</span>
+      <button id="copyLyricsSelectionBtn" type="button" hidden>Copiar</button>
+      <button id="selectLyricsBtn" type="button" aria-pressed="false">Selecionar trecho</button>
+    </div>
     <section class="paperViewport" id="paperViewport">
       <article class="paper" id="paper">
         <div class="emptyPaper welcome"><b>Sua estante de palco.</b><small>A busca inteligente consulta várias fontes, combina versões e coloca os resultados mais prováveis primeiro.</small><div class="welcomeSteps"><span>1 · Buscar</span><span>2 · Salvar</span><span>3 · Tocar</span></div></div>
@@ -216,7 +223,7 @@
     <header><h2>Tema visual</h2><button value="cancel" aria-label="Fechar">×</button></header>
     <p class="themeIntro">Escolha o visual do aplicativo. As músicas e os repertórios não são modificados.</p>
     <div class="themeGallery" role="group" aria-label="Novos temas">
-      <button type="button" class="themeCard chip" data-theme="hibrido-inteligente" aria-pressed="false"><span class="themePreview previewHybrid" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Híbrido inteligente</strong><small>Biblioteca clara e palco escuro</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
+      <button type="button" class="themeCard chip" data-theme="hibrido-inteligente" aria-pressed="false"><span class="themePreview previewHybrid" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Estúdio em cores</strong><small>Azul-petróleo, verde e palco escuro</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
       <button type="button" class="themeCard chip" data-theme="palco-premium" aria-pressed="false"><span class="themePreview previewPremium" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Palco Premium</strong><small>Grafite, âmbar e imersão</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
       <button type="button" class="themeCard chip" data-theme="biblioteca-clean" aria-pressed="false"><span class="themePreview previewClean" aria-hidden="true"><span class="previewSidebar"><i></i><i></i><i></i></span><span class="previewStage"><i></i><i></i><i></i><b></b></span></span><span class="themeCardLabel"><strong>Biblioteca Clean</strong><small>Clareza e organização</small></span><span class="themeCheck" aria-hidden="true">✓</span></button>
     </div>
@@ -393,9 +400,17 @@
 
 <dialog id="bugReportDialog">
   <form method="dialog" class="modal" id="bugReportForm">
-    <header><h2>Informar um bug</h2><button id="bugReportClose" type="button" aria-label="Fechar">×</button></header>
-    <p>Conte rapidamente o que aconteceu. Não pedimos nome, e-mail ou login; a versão do Estante e a tela atual ajudam a equipe a reproduzir o problema.</p>
-    <label>Onde ocorreu?
+    <header><h2 id="bugReportTitle">Dúvidas e sugestões</h2><button id="bugReportClose" type="button" aria-label="Fechar">×</button></header>
+    <p id="bugReportIntro">Envie dúvidas, ideias, melhorias ou problemas. Não é necessário login; não inclua dados pessoais.</p>
+    <label>O que deseja enviar?
+      <select id="feedbackKind" required>
+        <option value="doubt">Dúvida</option>
+        <option value="suggestion">Sugestão</option>
+        <option value="improvement">Melhoria</option>
+        <option value="bug">Problema técnico</option>
+      </select>
+    </label>
+    <label id="bugCategoryLabel" hidden>Onde ocorreu?
       <select id="bugCategory" required>
         <option value="lyrics_search">Busca ou letra</option>
         <option value="rehearsal_setlists">Ensaio ou repertório</option>
@@ -403,34 +418,34 @@
         <option value="other">Outro</option>
       </select>
     </label>
-    <label>O que aconteceu?
-      <textarea id="bugDescription" required minlength="15" maxlength="1500" rows="5" placeholder="Ex.: toquei em Buscar, apareceu a música, mas a letra ficou em branco."></textarea>
+    <label>Descreva sua dúvida, sugestão ou problema
+      <textarea id="bugDescription" required minlength="15" maxlength="1500" rows="5" placeholder="Conte sua ideia ou descreva a dificuldade com alguns detalhes."></textarea>
     </label>
     <label class="bugReportTrap" aria-hidden="true">Site<input id="bugReportWebsite" tabindex="-1" autocomplete="off"></label>
     <p id="bugReportStatus" class="bugReportStatus" role="status" aria-live="polite"></p>
-    <footer><button id="bugReportCancel" type="button">Cancelar</button><button id="bugReportSubmit" class="accent" type="submit">Enviar relato</button></footer>
+    <footer><button id="bugReportCancel" type="button">Cancelar</button><button id="bugReportSubmit" class="accent" type="submit">Enviar mensagem</button></footer>
   </form>
 </dialog>
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./domain.js?v=4.2.1" defer></script>
-<script src="./storage.js?v=4.2.1" defer></script>
-<script src="./core.js?v=4.2.1" defer></script>
-<script src="./search-engine.js?v=4.2.1" defer></script>
-<script src="./library.js?v=4.2.1" defer></script>
-<script src="./acervo.js?v=4.2.1" defer></script>
-<script src="./setlists.js?v=4.2.1" defer></script>
-<script src="./song-prefs.js?v=4.2.1" defer></script>
-<script src="./autoscroll.js?v=4.2.1" defer></script>
-<script src="./player.js?v=4.2.1" defer></script>
-<script src="./karaoke.js?v=4.2.1" defer></script>
-<script src="./song-edit.js?v=4.2.1" defer></script>
-<script src="./print.js?v=4.2.1" defer></script>
-<script src="./ui.js?v=4.2.1" defer></script>
-<script src="./search-ui.js?v=4.2.1" defer></script>
-<script src="./offline.js?v=4.2.1" defer></script>
-<script src="./bug-report.js?v=4.2.1" defer></script>
-<script src="./themes-v2.js?v=4.2.1" defer></script>
+<script src="./domain.js?v=4.2.2" defer></script>
+<script src="./storage.js?v=4.2.2" defer></script>
+<script src="./core.js?v=4.2.2" defer></script>
+<script src="./search-engine.js?v=4.2.2" defer></script>
+<script src="./library.js?v=4.2.2" defer></script>
+<script src="./acervo.js?v=4.2.2" defer></script>
+<script src="./setlists.js?v=4.2.2" defer></script>
+<script src="./song-prefs.js?v=4.2.2" defer></script>
+<script src="./autoscroll.js?v=4.2.2" defer></script>
+<script src="./player.js?v=4.2.2" defer></script>
+<script src="./karaoke.js?v=4.2.2" defer></script>
+<script src="./song-edit.js?v=4.2.2" defer></script>
+<script src="./print.js?v=4.2.2" defer></script>
+<script src="./ui.js?v=4.2.2" defer></script>
+<script src="./search-ui.js?v=4.2.2" defer></script>
+<script src="./offline.js?v=4.2.2" defer></script>
+<script src="./bug-report.js?v=4.2.2" defer></script>
+<script src="./themes-v2.js?v=4.2.2" defer></script>
 </body>
 </html>
