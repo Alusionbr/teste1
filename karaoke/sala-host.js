@@ -169,7 +169,7 @@ const SalaHost=(()=>{
   function link(){return sala?linkControle(sala.codigo):""}
   function renderDialogo(){
     $("salaFechada").hidden=!!sala;$("salaAberta").hidden=!sala;
-    $("btnSala").textContent=sala?`📱 Sala ${sala.codigo}`:"📱 Controle pelo celular";
+    $("btnSala").textContent=sala?`📱 Sala ${sala.codigo}`:"📱 Controle remoto";
     $("btnSala").classList.toggle("ativa",!!sala);
     if(sala){
       $("salaCodigo").textContent=sala.codigo;

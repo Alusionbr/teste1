@@ -198,12 +198,16 @@ function mostrarErro(msg){
   $("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");
 }
 // Playback falhou: a letra segue pelo relógio do aparelho, sem travar a festa.
+// A letra continua de onde estava (ex.: a prévia do Spotify acabou aos 30 s),
+// em vez de recomeçar do zero.
 function seguirSemPlayback(){
   $("palcoErro").hidden=true;
+  let desde=0;
+  try{desde=P.fonte?P.fonte.tempo():0}catch{}
   try{P.fonte&&P.fonte.parar()}catch{}
   P.fonte=FonteRelogio;P.carregado=false;
   const f=P.fonte;
-  P.carregando=f.carregar(P.musica).then(()=>{P.carregado=true});
+  P.carregando=f.carregar(P.musica).then(()=>{P.carregado=true;if(desde>0)f.buscar(desde)});
   P.carregando.then(()=>{if(P.fonte===f){if(P.fase==="vez")return;P.fase=P.modo==="gravar"?"gravando":"cantando";f.tocar()}});
 }
 
@@ -426,6 +430,8 @@ document.addEventListener("keydown",e=>{
   if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)&&e.target.type!=="range")return;
   if(P.fase==="gravando"&&Sincronia.tecla(e))return;
   const k=e.key;
+  // Na barra de progresso, as setas movem a barra (padrão do navegador), não trocam de música.
+  if(e.target&&e.target.type==="range"&&(k==="ArrowLeft"||k==="ArrowRight"))return;
   if(k===" "||k==="k"){e.preventDefault();alternar()}
   else if(k==="ArrowRight"||k==="n"){e.preventDefault();proxima()}
   else if(k==="ArrowLeft"){e.preventDefault();anterior()}

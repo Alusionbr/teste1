@@ -151,10 +151,17 @@ $("mUsarYT").addEventListener("click",async e=>{
   const texto=$("mLinkYT").value.trim();
   const id=lerLinkYouTube(texto);
   if(!id)return notify(ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra a música e copie o link dela (com watch?v=).":"Não reconheci esse link do YouTube.");
-  let titulo="";
-  try{titulo=await ocupado(e.currentTarget,tituloYouTube(id))}
-  catch(err){if(err.codigo===401||err.codigo===404||err.codigo===400)return notify(err.message)}
-  definirPlaybackEditor({tipo:"youtube",id,titulo},"Playback do YouTube escolhido.");
+  let titulo="",veredito={ok:true};
+  notify("Conferindo se este vídeo pode tocar aqui…",true);
+  try{
+    await ocupado(e.currentTarget,(async()=>{
+      try{titulo=await tituloYouTube(id)}
+      catch(err){if(err.codigo===401||err.codigo===404||err.codigo===400)throw err}
+      veredito=await FonteYouTube.verificar(id);
+    })());
+  }catch(err){return notify(err.message)}
+  if(!veredito.ok)return notify(`${veredito.msg} Escolha outro vídeo (clipes oficiais costumam bloquear; procure por “playback” ou “karaokê”).`);
+  definirPlaybackEditor({tipo:"youtube",id,titulo},veredito.incerto?"Playback escolhido. Não consegui conferir agora se ele toca aqui (sem resposta do YouTube).":"Playback do YouTube escolhido: pode tocar aqui ✓");
 });
 $("mBuscarYTApp").addEventListener("click",async e=>{
   const q=`${$("mTitulo").value} ${$("mArtista").value} playback karaoke`.trim();

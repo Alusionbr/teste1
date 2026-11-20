@@ -6,7 +6,7 @@
  * index.html e do controle.html. Alterou qualquer arquivo, suba os três — o
  * teste de contrato (tests/contracts.test.js) falha se divergirem.
  */
-const APP_VERSION="1.0.1";
+const APP_VERSION="1.0.2";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`KaraokeEmCasa/${APP_VERSION} (https://alusionbr.github.io/teste1/karaoke/)`};
 
 const $=id=>document.getElementById(id);

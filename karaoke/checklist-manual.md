@@ -13,10 +13,11 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 - [ ] Arquivo MP3 do aparelho: escolhe, toca, letra sincroniza; funciona em **modo avião**.
 - [ ] YouTube (link comum, `youtu.be` e `music.youtube.com/watch?v=`): toca escondido atrás da letra (“só som”).
+- [ ] Colar o link de um clipe oficial de gravadora (ex.: Sia, Chandelier) é recusado na hora, com pedido de outro vídeo.
 - [ ] 🎬 alterna: só som → vídeo escurecido → vídeo aparecendo.
 - [ ] iPhone/iPad: na primeira música aparece “toque no ▶ do vídeo”; depois as próximas encadeiam sozinhas.
 - [ ] Vídeo de clipe oficial bloqueado: aviso claro + Trocar playback / Seguir sem playback.
-- [ ] Spotify sem login: aviso de prévia de 30 s. Com login: música inteira, letra acompanha.
+- [ ] Spotify sem login: aviso de prévia de 30 s; ao acabar a prévia NÃO vai para os aplausos (mostra o aviso). Com login: música inteira, letra acompanha.
 - [ ] Anúncio no YouTube: selo “Anúncio — a letra espera” e a letra não corre durante o comercial.
 - [ ] Letra −/+ ajusta e fica salvo na música; atraso Bluetooth em Ajustes vale para todas.
 

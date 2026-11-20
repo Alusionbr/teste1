@@ -20,11 +20,12 @@
 const FonteSpotify=(()=>{
   const ORIGEM="https://open.spotify.com";
   const TETO_EXTRAPOLA=1,SEM_NOTICIA_MS=3000;
-  let frame=null,pronto=false,faixa="",musicaDuracao=0;
+  let frame=null,vivo=false,pronto=false,faixa="",musicaDuracao=0;
   let ancora=0,ancoraEm=0,pausado=true,duracaoMs=0,jaTocou=false,acabou=false,avisouPrevia=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
 
   function enviar(msg){
-    if(!frame||!frame.contentWindow)return false;
+    // Antes de o iframe carregar, a janela ainda é a nossa: o navegador recusa o envio.
+    if(!frame||!vivo||!frame.contentWindow)return false;
     try{frame.contentWindow.postMessage(msg,ORIGEM);return true}catch{return false}
   }
   function aoReceber(e){
@@ -32,6 +33,9 @@ const FonteSpotify=(()=>{
     if(!frame||e.source!==frame.contentWindow)return;
     const msg=e.data;
     if(!msg||typeof msg!=="object")return;
+    // Mensagem válida do player = o iframe está vivo, mesmo que o evento "load"
+    // ainda não tenha disparado (o "ready" pode chegar antes dele).
+    vivo=true;
     if(msg.type==="ready"){
       pronto=true;enviar({command:"load_complete_ack"});
       if(tocarQuandoPronto){tocarQuandoPronto=false;enviar({command:"play"})}
@@ -50,9 +54,16 @@ const FonteSpotify=(()=>{
     if(dur)duracaoMs=dur;
     // Fim: parou no finalzinho, ou voltou ao zero depois de ter chegado perto do fim.
     const pertoDoFim=duracaoMs&&ancora*1000>=duracaoMs-1500;
-    if(jaTocou&&!acabou&&p.isPaused&&(pos>=duracaoMs-600||(pos===0&&pertoDoFim))){acabou=true;ancora=duracaoMs/1000;emitir("estado");emitir("fim");return}
+    if(jaTocou&&!acabou&&p.isPaused&&(pos>=duracaoMs-600||(pos===0&&pertoDoFim))){
+      acabou=true;ancora=duracaoMs/1000;emitir("estado");
+      // Sem login o Spotify toca só 30 s: isso não é o fim da música, e a família
+      // não pode ir para os aplausos no meio da canção.
+      if(avisouPrevia)emitir("erro",{msg:"O Spotify tocou só a prévia de 30 segundos (sem login neste navegador). Entre na sua conta do Spotify, ou escolha outro playback.",previa:true});
+      else emitir("fim");
+      return;
+    }
     ancora=pos/1000;ancoraEm=performance.now();
-    if(!p.isPaused&&dur&&dur<=31000&&musicaDuracao>45&&!avisouPrevia){avisouPrevia=true;emitir("previa")}
+    if(!p.isPaused&&dur&&dur<=31000&&(musicaDuracao>45||!musicaDuracao)&&!avisouPrevia){avisouPrevia=true;emitir("previa")}
     if(estavaPausado!==pausado)emitir("estado");
   }
   function criarFrame(){
@@ -62,6 +73,7 @@ const FonteSpotify=(()=>{
     f.setAttribute("allow","autoplay; clipboard-write; encrypted-media; picture-in-picture");
     f.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
     $("spBox").appendChild(f);
+    f.addEventListener("load",()=>{vivo=true});
     frame=f;
     return f;
   }
@@ -76,7 +88,7 @@ const FonteSpotify=(()=>{
     async carregar(musica){
       const f=criarFrame();
       faixa=musica.playback.id;musicaDuracao=musica.duration||0;
-      pronto=false;ancora=0;ancoraEm=performance.now();pausado=true;duracaoMs=0;jaTocou=false;acabou=false;avisouPrevia=false;tocarQuandoPronto=false;
+      vivo=false;pronto=false;ancora=0;ancoraEm=performance.now();pausado=true;duracaoMs=0;jaTocou=false;acabou=false;avisouPrevia=false;tocarQuandoPronto=false;
       f.src=`${ORIGEM}/embed/track/${encodeURIComponent(faixa)}?utm_source=generator&theme=0`;
     },
     tocar(){

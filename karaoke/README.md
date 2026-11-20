@@ -29,6 +29,8 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 - **Vídeo bloqueado fora do YouTube** (comum em clipes oficiais): o app avisa e oferece **Trocar playback** ou **Seguir sem playback** (a letra anda pelo relógio).
 - **Atraso da caixa Bluetooth**: em Ajustes. Vale para o aparelho, não para a música.
 
+**Escolher um vídeo do YouTube:** ao colar o link, o app abre por alguns segundos um player invisível para conferir se o vídeo **pode tocar fora do YouTube**. Clipes de gravadora (Sia, Despacito…) costumam ser bloqueados: o app recusa na hora e pede outro, em vez de descobrir isso com a festa começada. (O oEmbed do YouTube não serve para isso: responde "200 OK" até para vídeo bloqueado.) Se a verificação não responder (sem internet), o vídeo é aceito com um aviso.
+
 ### Gravar sincronia tocando
 
 Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas → Editar → ⏺ Gravar sincronia**. O playback toca e você aperta **Marcar** (ou espaço) quando cada verso começa. **♪ Pausa** marca uma parte instrumental. Ao salvar, a música toca do começo para conferir.
@@ -39,7 +41,7 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 
 ### Controle pelo celular (tela da festa)
 
-1. Na TV/projetor/computador: **📱 Controle pelo celular → Abrir sala**. Aparecem um QR code e um código de 6 letras.
+1. Na TV/projetor/computador: **📱 Controle remoto → Abrir sala**. Aparecem um QR code e um código de 6 letras.
 2. Nos celulares: leia o QR code (ou abra `…/karaoke/controle.html` e digite o código). Cada pessoa diz o nome e entra na família.
 3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
 
@@ -128,6 +130,8 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
+`node karaoke/tests/browser-uso.js` roda 15 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé. Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 
 **Testes da sala (banco):**
@@ -143,6 +147,16 @@ psql -q -f karaoke/supabase/teste_sala.sql
 ```
 
 `sala-real.js` aceita `KARAOKE_SUPABASE_URL` para apontar para outro servidor com a mesma API (por exemplo um PostgREST local).
+
+### Bugs achados testando com serviços reais (20/11/2026) e como ficaram
+
+- **✕ coberto**: nas telas "a vez de…", aplausos, fim e erro a camada de tela cheia tapava o botão de sair (impossível sair no celular). `#palcoTopo` agora fica acima das camadas (`z-index:18` contra `15`).
+- **Seta na barra de progresso trocava de música**: o atalho de teclado ignorava que o foco estava num `range`.
+- **Prévia do Spotify**: sem login ela termina aos 30 s e o app tratava isso como "fim da música" (ia para os aplausos no meio da canção). Agora avisa que foi só a prévia e oferece trocar o playback ou seguir só com a letra.
+- **"Seguir sem playback" recomeçava do zero**: agora continua de onde estava.
+- **Clipe bloqueado descoberto tarde**: o oEmbed devolve 200 para vídeo bloqueado; ver "Escolher um vídeo do YouTube" acima. No player real, `onReady` e `onError 150` chegam no **mesmo milissegundo**, por isso a verificação espera 1,5 s depois do "pronto" antes de aceitar.
+- **`postMessage` antes de o iframe existir**: o navegador recusava e poluía o console. O app só envia depois de receber uma mensagem do player ou do evento `load` (o que vier primeiro; o `ready` do Spotify pode chegar **antes** do `load`, e depender só dele perdia o pedido de tocar).
+- Celular em pé: título e botão em uma linha, seletor de playlist com a largura toda, abas com nome para leitor de tela.
 
 ### Ideias para evoluir
 

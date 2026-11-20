@@ -798,7 +798,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + sala-real.js (fluxo da sala contra o Supabase real, rodar após aplicar o SQL)
+                     + browser-uso.js (15 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -817,6 +817,10 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 10. **Array da playlist é mexido no lugar** (`splice`): `P.itens` do palco aponta para o mesmo array; `filter` com reatribuição desligaria o palco da playlist.
 11. **Microfone** só durante a medição do aplausômetro; nada gravado nem enviado. Ele não mede afinação e a tela não promete isso.
 12. **Importar nunca substitui sem perguntar**; normalização (`normalizarDados`) descarta o que não presta sem lançar erro.
+13. **Mensagem válida do player = iframe vivo**: `fonte-youtube.js` e `fonte-spotify.js` só enviam comandos depois de receber uma mensagem do player **ou** do evento `load` (o primeiro que vier). Depender só do `load` perde o `ready` do Spotify, que pode chegar antes dele.
+14. **O oEmbed do YouTube não detecta vídeo bloqueado** (devolve 200). `FonteYouTube.verificar(id)` abre um player invisível e espera 1,5 s depois do "pronto", porque `onReady` e `onError 150` chegam no mesmo instante. Use-a ao escolher um vídeo; busca com chave já usa `videoEmbeddable=true`.
+15. **Fim da prévia de 30 s do Spotify não é fim da música**: vira aviso (`erro` com `previa:true`), nunca `fim`. "Seguir sem playback" continua de onde estava.
+16. **O ✕ do palco tem de ser alcançável em toda tela**: `#palcoTopo` (z-index 18) fica acima das camadas `.sobre` (15). `browser-uso.js` testa isso.
 
 ## Modelo de dados
 
