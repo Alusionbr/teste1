@@ -12,6 +12,10 @@ for(const file of fs.readdirSync(root).filter(x=>/\.(js|css|html|json|webmanifes
 // Simula um worker legado cujo cache ainda não tem a reserva de letras.
 old.set("search-engine.js",Buffer.from(old.get("search-engine.js").toString().replace("try{const achou=await fetchLiriqoSong(song);if(achou)return achou}catch{}","")));
 const shell=JSON.parse(fs.readFileSync(path.join(root,"sw.js"),"utf8").match(/const SHELL = (\[[\s\S]*?\]);/)[1]);
+for(const asset of shell.filter(file=>file.startsWith("./assets/"))){
+  const filename=asset.slice(2);
+  old.set(filename,fs.readFileSync(path.join(root,filename)));
+}
 old.set("sw.js",Buffer.from(`const CACHE="estante-0.0.0",SHELL=${JSON.stringify(shell)};
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL))));
 self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
@@ -25,7 +29,7 @@ self.addEventListener("fetch",e=>{
  }));
 });`));
 let current=false,browser;
-const types={".js":"application/javascript",".html":"text/html",".css":"text/css",".json":"application/json",".webmanifest":"application/manifest+json",".svg":"image/svg+xml",".png":"image/png"};
+const types={".js":"application/javascript",".html":"text/html",".css":"text/css",".json":"application/json",".webmanifest":"application/manifest+json",".svg":"image/svg+xml",".png":"image/png",".mp3":"audio/mpeg"};
 const server=http.createServer((req,res)=>{
   const url=new URL(req.url,"http://localhost"),file=decodeURIComponent(url.pathname).replace(/^\//,"")||"index.html";
   if(file.includes("..")){res.writeHead(403).end();return}

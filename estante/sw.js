@@ -12,12 +12,21 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.2.2";
+const VERSION = "4.3.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./backing.css",
+  "./beats.js",
+  "./backing-audio.js",
+  "./backing-ui.js",
+  "./assets/acompanhamento/bumbo.mp3",
+  "./assets/acompanhamento/caixa.mp3",
+  "./assets/acompanhamento/chimbal.mp3",
+  "./assets/acompanhamento/pandeiro.mp3",
+  "./assets/acompanhamento/triangulo.mp3",
   "./themes-v2.css",
   "./domain.js",
   "./storage.js",
@@ -71,6 +80,9 @@ self.addEventListener("fetch", event => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // fontes de letra vão direto à rede
+
+  // Faixas longas usam Range na rede e só ficam offline por download explícito.
+  if (/\/acompanhamento\/(?:bossa-bossa|local-forecast|big-rock|griphop)\.mp3$/.test(url.pathname)) return;
 
   // Página sempre tenta a rede primeiro para receber a versão atual. Quando
   // offline, cai para o shell salvo. Scripts e imagens continuam cache-first.

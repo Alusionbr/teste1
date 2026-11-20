@@ -8,7 +8,7 @@ function bindActiveSetlist(){const s=activeSetlist();state.setlist=s?s.songs:[]}
 
 function workspaceSnapshot(){
   const current=state.workspace||{};
-  return{version:EstanteDomain.VERSION,revision:current.revision||0,updatedAt:current.updatedAt||new Date().toISOString(),activeId:state.activeSetlistId,setlists:state.setlists,library:state.library,trash:state.trash,sessions:state.sessions,activeSession:state.activeSession};
+  return{version:EstanteDomain.VERSION,revision:current.revision||0,updatedAt:current.updatedAt||new Date().toISOString(),activeId:state.activeSetlistId,setlists:state.setlists,library:state.library,trash:state.trash,projects:state.projects,sessions:state.sessions,activeSession:state.activeSession};
 }
 function saveSetlists(){
   const setlist=activeSetlist();if(setlist)setlist.updatedAt=new Date().toISOString();
@@ -29,6 +29,7 @@ async function loadSetlists(){
   state.activeSetlistId=state.workspace.activeId;
   state.library=state.workspace.library;
   state.trash=state.workspace.trash;
+  state.projects=state.workspace.projects.map(EstanteBeats.normalize).filter(Boolean);
   state.sessions=state.workspace.sessions;
   state.activeSession=state.workspace.activeSession;
   bindActiveSetlist();

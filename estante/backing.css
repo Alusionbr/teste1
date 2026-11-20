@@ -1,0 +1,62 @@
+#backingDialog { width: min(760px, calc(100% - 24px)); max-height: 90dvh; overflow: auto; }
+.backingModal { min-width: 0; display: grid; gap: 14px; padding: 0 14px 14px; }
+.backingModal > header {
+  position: sticky; top: 0; z-index: 3; margin-inline: -14px; background: var(--panel);
+}
+.backingModal button:not(#backingClose), .backingBar button {
+  padding: 5px 9px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel2); color: var(--text); font-size: .87rem;
+}
+.backingModal button.accent, .backingModal button[aria-pressed=true] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+.backingModal button:disabled, .backingBar button:disabled { opacity: .55; }
+.backingModal :is(h3, p) { margin: 0; }
+.backingModal :is(button, select, input:not([type=checkbox], [type=range])) { min-height: 38px; }
+.backingModal :is(select, input) { min-width: 0; max-width: 100%; }
+.backingTabs, .backingFilters, .backingHeading, .backingActions, .backingLayers {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.backingFilters { padding: 6px 0; align-items: end; }
+.backingModal .backingFilters label { flex: 1 1 125px; margin: 0; }
+.backingModal .backingCheck { display: inline-flex; align-items: center; flex: none; gap: 5px; margin: 0; min-height: 38px; }
+.backingModal .backingCheck input { width: auto; accent-color: var(--accent); }
+.backingHeading { justify-content: space-between; margin: 6px 0; }
+.backingResults { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+.backingCard, #backingSelection, .backingStatus, .backingLayers {
+  padding: 10px; border-radius: 9px; border: 1px solid var(--line, #596174);
+}
+.backingCard { display: grid; gap: 7px; align-content: start; min-width: 0; overflow-wrap: anywhere; }
+.backingMeta { font-size: .85rem; opacity: .8; }
+.backingModal details summary { cursor: pointer; min-height: 36px; padding: 6px 0; }
+.beatGrid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; margin: 8px 0; }
+.backingModal .beatGrid button { padding: 0; min-width: 0; }
+.backingModal .beatGrid button:nth-child(4n+1) { border-width: 2px; }
+.beatSections { padding-inline-start: 24px; margin-block: 8px; }
+.beatSections li { margin-block: 4px; }
+.beatSectionRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.beatSectionRow input { width: 62px; }
+.backingBar {
+  position: relative; z-index: 2; display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; background: var(--panel); color: var(--text); border-top: 1px solid var(--line, #596174);
+}
+.backingBar button { min-height: 36px; }
+#backingNow { flex: 0 1 auto; min-width: 0; max-width: 15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#backingSeek { min-width: 0; flex: 1; accent-color: var(--accent); }
+#backingClock { font-variant-numeric: tabular-nums; font-size: .85rem; }
+.backingLevel { display: inline-flex; align-items: center; gap: 4px; }
+.backingLevel input { width: 75px; accent-color: var(--accent); }
+.backingRehearsal { font-size: .8rem; }
+.backingModal [hidden], .backingBar[hidden] { display: none !important; }
+@media (max-width: 900px) {
+  .transport:not(.expanded) > #backingBtn { display: block; grid-column: 1 / -1; grid-row: 2; }
+  .transport.expanded > #backingBtn { grid-column: span 2; }
+}
+@media (max-width: 510px) {
+  .backingModal { gap: 9px; }
+  .backingBar { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  #backingSeek { grid-column: 1 / 4; grid-row: 2; width: 100%; }
+  .backingLevel { grid-column: 4; grid-row: 2; font-size: 0; }
+  .backingLevel input { width: 58px; }
+}
+@media print { .backingBar { display: none !important; } }

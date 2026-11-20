@@ -6,7 +6,7 @@ function closeSidebar(){$("sidebar").classList.remove("open");$("menuBtn").setAt
 function toggleSidebar(){const open=$("sidebar").classList.toggle("open");$("menuBtn").setAttribute("aria-expanded",String(open))}
 $("menuBtn").onclick=toggleSidebar;
 $("sidebarCloseBtn").onclick=closeSidebar;
-$("stage").addEventListener("click",e=>{if(e.target!==$("menuBtn")&&$("sidebar").classList.contains("open"))closeSidebar()});$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
+$("stage").addEventListener("click",e=>{if(!$("menuBtn").contains(e.target)&&$("sidebar").classList.contains("open"))closeSidebar()});$("saveBtn").onclick=addSong;$("prevBtn").onclick=()=>jumpSong(-1);$("nextBtn").onclick=()=>jumpSong(1);$("topBtn").onclick=()=>$("paperViewport").scrollTo({top:0,behavior:"smooth"});$("scrollBtn").onclick=toggleScroll;$("syncBtn").onclick=toggleSync;
 document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>changeSpeed(Number(b.dataset.speed)));
 // Mudar o tamanho da letra muda a altura do texto: o automático recalcula.
 document.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{state.font=Math.max(16,Math.min(72,state.font+Number(b.dataset.font)));updateControls();applyAutoSpeed();updatePrefsSoon()});
@@ -352,6 +352,7 @@ $("paperViewport").addEventListener("pointerdown",()=>{
 (async function init(){
   const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};
   await loadSetlists();
+  EstanteBacking.init();
   state.source=(p.source==="trecho"?"excerpt":p.source)||"smart";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"hibrido-inteligente";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;
   window.dispatchEvent(new Event("estante:prefs-loaded"));document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();
   const incoming=await readSharedLink();if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus();

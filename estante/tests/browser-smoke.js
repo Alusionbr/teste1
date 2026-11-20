@@ -19,6 +19,10 @@ let browser;
   await context.addInitScript(()=>{
     localStorage.setItem("estante:v3:setlists",JSON.stringify({version:3,activeId:"legacy",setlists:[{id:"legacy",name:"Legado",songs:[{title:"Canção antiga",artist:"Banda",lyrics:"[Refrão]\nC G\nTexto",notes:"entrada suave"}]}]}));
   });
+  if(process.env.ESTANTE_LIVE_LYRICS!=="1"){
+    await context.route("https://lrclib.net/api/**",route=>route.fulfill({json:[]}));
+    await context.route("https://api.vagalume.com.br/**",route=>route.fulfill({json:{response:{docs:[]}}}));
+  }
   const page=await context.newPage(),errors=[],failedRequests=[];
   page.on("pageerror",error=>errors.push(error.message));
   page.on("requestfailed",request=>failedRequests.push(request.url()));
@@ -33,6 +37,7 @@ let browser;
   await page.goto("http://127.0.0.1:8765/",{waitUntil:"networkidle"});
   await page.waitForFunction(()=>typeof state!=="undefined"&&state.workspace&&state.setlists.length);
   assert.equal(await page.evaluate(()=>state.workspace.version),4);
+  await page.click(".sidebarExtras summary");
   await page.click("#reportBugBtn");
   await page.selectOption("#bugCategory","lyrics_search");
   await page.fill("#bugDescription","A busca não abriu a letra esperada.");
@@ -43,7 +48,7 @@ let browser;
   // nessa janela e o texto não entrava. Em máquina lenta o teste passava por sorte.
   await page.waitForFunction(()=>!document.querySelector("#bugReportDialog").open);
   assert.deepEqual(Object.keys(bugSubmission).sort(),["app_version","category","description","page_path","website"]);
-  assert.deepEqual(bugSubmission,{app_version:"4.2.2",category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
+  assert.deepEqual(bugSubmission,{app_version:await page.evaluate(()=>APP_VERSION),category:"lyrics_search",description:"A busca não abriu a letra esperada.",page_path:"/",website:""});
   assert.equal(await page.evaluate(()=>state.setlist[0].title),"Canção antiga");
   const modes=await page.evaluate(()=>{
     markSource("vagalume",false,503);markSource("lrclib",false,503);
@@ -210,7 +215,7 @@ let browser;
     assert.match(await page.locator("#paper").textContent(),/Ele É o Leão da Tribo de Judá/);
     assert.match(await page.locator("#credits").textContent(),/Versão de ensaio montada de duas gravações/);
   }
-  assert.deepEqual(await page.locator(".tab").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
+  assert.deepEqual(await page.locator(".tab[data-tab]").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
 
   await page.click('[data-tab="setlist"]');
   assert.equal(await page.locator("#setlistBar").isVisible(),true);
