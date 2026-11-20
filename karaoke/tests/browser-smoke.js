@@ -75,14 +75,21 @@ function salaFalsa(){
 (async()=>{
   const wavPath=path.join(SAIDA,"playback.wav");fs.writeFileSync(wavPath,wav(6));
   const browser=await chromium.launch({args:["--autoplay-policy=no-user-gesture-required"]});
-  const context=await browser.newContext({viewport:{width:1280,height:720}});
+  const [LARG,ALT]=(process.env.KARAOKE_VIEWPORT||"1280x720").split("x").map(Number);
+  const context=await browser.newContext({viewport:{width:LARG,height:ALT}});
   const sala=salaFalsa();
   await context.route("https://lrclib.net/**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(r.request().url().includes("/api/get")?{...LRCLIB[0]}:LRCLIB)}));
   await context.route("https://www.youtube.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Canção de Teste (playback)"})}));
   await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
-  await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",r=>{
+  await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",async r=>{
     const fn=r.request().url().split("/").pop();
     if(r.request().method()==="OPTIONS")return r.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"POST"}});
+    // KARAOKE_SALA_URL: em vez da sala em memória, usa um servidor que fala com um
+    // Postgres de verdade rodando 001_sala.sql (ver supabase/teste_sala.sql).
+    if(process.env.KARAOKE_SALA_URL){
+      const resp=await fetch(`${process.env.KARAOKE_SALA_URL}/rest/v1/rpc/${fn}`,{method:"POST",headers:{"content-type":"application/json"},body:r.request().postData()||"{}"});
+      return r.fulfill({status:resp.status,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:await resp.text()});
+    }
     const[status,body]=sala(fn,JSON.parse(r.request().postData()||"{}"));
     return r.fulfill({status,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(body)});
   });

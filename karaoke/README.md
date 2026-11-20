@@ -116,6 +116,7 @@ tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay/1000
 - Projeto `iowuejrpzoibyidiuvpt` (o mesmo do Mapa do Parque e do Financeiro360). Tudo no schema `karaoke`, que a API não expõe; RLS ligado, sem política, sem GRANT para `anon`. A única porta são as funções `public.karaoke_*` (SECURITY DEFINER).
 - `karaoke_sala_abrir` (tela), `karaoke_host_sync` (tela, a cada 1,5 s: publica estado e recebe comandos; exige o token), `karaoke_sala_ver` (celular, a cada 2 s), `karaoke_comando` (celular; lista fechada de tipos, até 40 KB, 60 por minuto), `karaoke_sala_fechar`.
 - O celular **pede**; a tela **decide**. A playlist e as letras continuam morando só na tela.
+- A tela limita o que os celulares podem acrescentar (`MAX_CANTORES`, `MAX_MUSICAS`, `MAX_FILA` em `sala-host.js`): o código da sala é o convite, e o limite por minuto do servidor vale por aparelho, que o cliente escolhe.
 - Sem websocket de propósito: consulta periódica é simples e aguenta rede ruim.
 - Só a chave **publicável** no navegador. Nunca a `service_role`.
 
@@ -127,7 +128,21 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Roteiro manual: `checklist-manual.md`.
+O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
+
+**Testes da sala (banco):**
+
+```bash
+# 1. Depois de aplicar supabase/001_sala.sql no Supabase: confere tudo contra o banco real
+#    (cria uma sala aleatória, percorre o fluxo, testa as recusas de segurança e apaga a sala)
+node karaoke/tests/sala-real.js
+
+# 2. Antes de aplicar (ou ao mexer no SQL): testa as funções num Postgres comum.
+#    Instruções no topo de supabase/teste_sala.sql (cria os papéis anon/authenticated).
+psql -q -f karaoke/supabase/teste_sala.sql
+```
+
+`sala-real.js` aceita `KARAOKE_SUPABASE_URL` para apontar para outro servidor com a mesma API (por exemplo um PostgREST local).
 
 ### Ideias para evoluir
 

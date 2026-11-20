@@ -241,3 +241,21 @@ body.controle main{max-width:560px}
 .fila .info .cantorSelo{margin-bottom:.2em}
 #btnSala.ativa{border-color:var(--ouro);color:var(--ouro)}
 body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
+
+/* Celular em pé: sobra altura, falta largura — letra maior e cabeçalho em duas linhas. */
+@media (max-aspect-ratio:1/1){
+  .linha.atual{font-size:calc(clamp(34px,10vw,96px)*var(--escala))}
+  .linha.proxima{font-size:calc(clamp(20px,5.6vw,60px)*var(--escala))}
+  #letraCorrida{font-size:calc(clamp(24px,7vw,64px)*var(--escala))}
+}
+@media (max-width:640px){
+  #palcoTopo{flex-wrap:wrap;row-gap:.2em}
+  #palcoTopo .cantorSelo{flex:none;white-space:nowrap;font-size:15px}
+  #palcoTitulo{order:5;flex-basis:100%;font-size:13px}
+  #palcoSala{margin-left:auto}
+  #palcoLetra,#gravarPainel{inset:96px 0 150px}
+}
+@media (max-width:640px){
+  #palcoTopo{padding-right:64px}
+  #palcoSair{position:absolute;top:max(.7em,env(safe-area-inset-top));right:.8em;width:40px;height:40px}
+}

@@ -96,6 +96,9 @@ const SalaHost=(()=>{
 
   /* ---------------------------------------------------------- comandos */
   const texto=(v,max)=>String(v??"").slice(0,max);
+  // O código da sala é o convite: quem o tem pode pedir, mas não encher a tela.
+  // Com aparelhos falsos o limite por minuto do servidor não basta (cada um tem o seu).
+  const MAX_CANTORES=40,MAX_MUSICAS=600,MAX_FILA=200;
   // Devolve true quando mudou o dado (aí o ciclo salva).
   function aplicar(c){
     const d=c.dados||{},quem=texto(c.nome,24)||"Alguém";
@@ -110,7 +113,7 @@ const SalaHost=(()=>{
       }
       case "entrar":{
         const nome=texto(d.nome,24).trim();if(!nome)return false;
-        if(K.dados.cantores.some(x=>fold(x.nome)===fold(nome)))return false;
+        if(K.dados.cantores.some(x=>fold(x.nome)===fold(nome))||K.dados.cantores.length>=MAX_CANTORES)return false;
         const novo=criarCantor({nome,emoji:EMOJIS_CANTOR.includes(d.emoji)?d.emoji:"🎤",cor:CORES_CANTOR.includes(d.cor)?d.cor:undefined});
         notify(`${novo.emoji} ${novo.nome} entrou na festa!`,true);
         return true;
@@ -124,6 +127,7 @@ const SalaHost=(()=>{
         if(!texto(d.title,160).trim())return false;
         if(pb&&pb.tipo==="arquivo")return false;
         let m=musicaParecida(d.title,d.artist);
+        if(!m&&K.dados.musicas.length>=MAX_MUSICAS)return false;
         if(!m)m=criarMusica({title:d.title,artist:d.artist,duration:d.duration,synced:texto(d.synced,30000),lyrics:texto(d.lyrics,30000),playback:pb});
         else if(!m.playback&&pb)m=editarMusica(m.id,{playback:pb});
         return enfileirar(m,d,quem);
@@ -153,6 +157,7 @@ const SalaHost=(()=>{
   }
   function enfileirar(m,d,quem){
     const p=playlistAlvo()||garantirPlaylist();
+    if(p.itens.length>=MAX_FILA)return false;
     const a=acharCantor(d.cantorId)?d.cantorId:"";
     const b=acharCantor(d.cantorB)?d.cantorB:"";
     adicionarItem(p,m.id,a,b);

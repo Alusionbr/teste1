@@ -37,6 +37,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 ## Celular (sala)
 
+- [ ] `node karaoke/tests/sala-real.js` passa contra o Supabase real (confirma que `001_sala.sql` foi aplicado).
 - [ ] Abrir sala: QR code lido pela câmera do celular abre o controle certo.
 - [ ] Nome no celular vira cantor na Família da tela.
 - [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
