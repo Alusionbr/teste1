@@ -93,7 +93,7 @@ function renderAjustes(){
   $("prefTamanho").value=pr.tamanho;$("tamanhoOut").textContent=pr.tamanho+"%";
   $("prefFundo").value=pr.fundo;
   $("prefContagem").value=String(pr.contagem);
-  $("prefAplausometro").checked=pr.aplausometro;$("prefTrava").checked=pr.trava;
+  $("prefAplausometro").checked=pr.aplausometro;$("prefPularFila").checked=pr.pularFila;
   $("atrasoOut").textContent=pr.audioDelay+" ms";
   if(document.activeElement!==$("prefKeyYT"))$("prefKeyYT").value=pr.keyYT;
   $("versaoApp").textContent="v"+APP_VERSION;

@@ -23,7 +23,7 @@ Karaokê da família em JavaScript puro (sem bibliotecas, sem build), PWA que fu
 | `verificar-youtube.js` | `YouTubeBase`: confere se um vídeo toca fora do YouTube |
 | `fontes.js`, `fonte-youtube.js`, `fonte-spotify.js` | interface comum de playback (protocolo `postMessage` falado à mão) |
 | `palco.js` | fases vez → cantando → nota → fim; `fundoEfetivo` (letra do vídeo ou do app); comandos de teclado |
-| `sala.js` / `sala-host.js` | cliente RPC; tela da festa (publica estado, aplica comandos, **trava do cantor**) |
+| `sala.js` / `sala-host.js` | cliente RPC; tela da festa (publica estado, aplica comandos, **permissão para mudar a fila**) |
 | `controle.html` / `controle.js` | página do celular |
 | `telas.js` / `ui.js` | desenho / eventos da tela principal |
 | `sw.js` | cache do casco (lista `SHELL`) |
@@ -37,6 +37,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 
 | Versão | O que entrou |
 |---|---|
+| 1.0.14 | O palco dá até 12 s para o playback do YouTube avançar e oferece nova tentativa. Todos podem usar os controles da música. Sugestões entram no fim e a tela decide se os celulares podem pular ou reordenar. |
 | 1.0.13 | Troca da tela principal pelo código da sala: o aparelho atual aprova, a fila/letras são transferidas de forma criptografada e a nova tela retoma a música do ponto salvo. Migração adicional `003_transferencia_tela.sql`. |
 | 1.0.2 | Base: playlists, letra sincronizada, sala e controle pelo celular (a que estava na `main` antes do PR #64) |
 | 1.0.3 | **Cantar sozinho**: `P.solo`, placar pessoal (`placar.js`), recorde, sem precisar de cantores |
@@ -59,7 +60,7 @@ Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1
 3. **Trocar a camada da letra nunca recria o iframe** (o vídeo soluçaria). Só CSS (`#palco[data-fundo=…]`). O player do YouTube não é clicável (a TV não pode sair da sala).
 4. **Resultado de busca Piped não garante que o vídeo toca embutido.** Quem escolhe confere com `YouTubeBase.verificar` (player invisível, ~1,5 s). Com a chave oficial a busca já filtra (`videoEmbeddable=true`).
 5. **Escolha automática nunca esconde a dúvida**: toda música adicionada pelo nome volta com "Trocar vídeo" e "Tirar"; pontuação baixa vira "confira se é este mesmo".
-6. **Trava do cantor** (`sala-host.js`): vale só na fase "cantando", só para comandos que mexem na música; a fila é sempre livre; item sem cantor não tem dono; a tela/teclado nunca é travada. Identidade = nome digitado no celular (festa de família, não segurança).
+6. **Ordem da fila**: a tela aplica a preferência `pularFila`, desligada por padrão. Sugestões sempre entram no fim. A permissão governa os atalhos que mudam a ordem, e a reprodução fica disponível a todos.
 7. **Letra por música** (`letraDe`): a preferência do aparelho (`prefs.fundo`) é só a base e nunca muda por causa de uma música (`fundoEfetivo()`).
 8. **Acervo da família mora no aparelho** (backup/link compartilhado). **Não commitar letras no repositório**: o site é público e letra é obra protegida.
 9. **Sem dado de exemplo** na biblioteca.
@@ -86,7 +87,7 @@ node karaoke/tests/sala-real.js                  # sala e transferência contra 
 - TV/projetor de verdade e navegador de TV.
 - iPhone: o primeiro vídeo da sessão pode pedir um toque no player.
 - Spotify logado (sem login toca só 30 s de prévia).
-- Dois ou mais celulares reais com a trava (o teste simula os comandos, não os aparelhos).
+- Dois ou mais celulares reais com a ordem protegida e liberada (o teste simula os comandos, não os aparelhos).
 - Busca com a internet real depois de semanas: os serviços Piped públicos mudam e caem.
 
 ## 7. Pendências e ideias de melhoria (por onde começar a varredura)

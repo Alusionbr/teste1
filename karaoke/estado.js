@@ -10,7 +10,7 @@
  *               offset, criadaEm}],
  *     playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
  *     placar:[{musicaId, nota, em}],   // notas do "Cantar sozinho" (placar.js)
- *     prefs:{audioDelay, tamanho, fundo, contagem, aplausometro, trava, keyYT} }
+ *     prefs:{audioDelay, tamanho, fundo, contagem, aplausometro, pularFila, keyYT} }
  *
  * A música mora na biblioteca e a playlist só aponta para ela: a sincronia
  * gravada e o ajuste da letra valem em todas as playlists.
@@ -19,7 +19,7 @@
  * da caixa Bluetooth, tamanho da letra, chave do YouTube) fica em prefs.
  * Um nunca escreve no outro.
  */
-const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",contagem:5,aplausometro:true,trava:true,keyYT:""};
+const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",contagem:5,aplausometro:true,pularFila:false,keyYT:""};
 const FUNDOS=["opaco","escuro","video","tela"];   // "tela": só o vídeo do YouTube, com a letra do próprio vídeo
 const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
@@ -66,7 +66,7 @@ function normalizarDados(d){
   out.placar=(typeof normalizarPlacar==="function"?normalizarPlacar:require("./placar.js").normalizarPlacar)(d.placar,mIds);
   const pr=d.prefs||{};
   out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo:FUNDOS.includes(pr.fundo)?pr.fundo:PREFS_PADRAO.fundo,
-    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,trava:pr.trava!==false,keyYT:txt(pr.keyYT,80).trim()};
+    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,pularFila:pr.pularFila===true,keyYT:txt(pr.keyYT,80).trim()};
   return out;
 }
 

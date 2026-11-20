@@ -285,13 +285,20 @@ function salaFalsa(){
   await page.waitForTimeout(3500);
   assert.equal(await page.evaluate(id=>acharMusica(id).playback.tipo,arquivoId),"arquivo","celular trocou o arquivo da tela");
 
-  // Tocar a seguir e Tocar agora
+  // Pedidos vão ao fim. A tela pode liberar atalhos para itens já enfileirados.
   await abrirNoCelular("Sem Som");
-  await cel.click("#ctPnSeguir");
-  await page.waitForFunction(id=>P.itens[P.indice+1]&&P.itens[P.indice+1].musicaId===id,semSom,{timeout:8000});
-  await abrirNoCelular("Sem Som");
-  await cel.click("#ctPnAgora");
-  await page.waitForFunction(id=>P.aberto&&P.musica&&P.musica.id===id,semSom,{timeout:8000});
+  await cel.click("#ctPnFila");
+  await page.waitForFunction(id=>P.itens.at(-1)?.musicaId===id,semSom,{timeout:8000});
+  await cel.click('[data-ct-aba="fila"]');
+  assert.equal(await cel.locator('[data-fila="tocar_item"]').count(),0);
+  await page.click("#palcoSala");
+  await page.check("#salaPularFila");
+  await page.evaluate(()=>document.querySelector("#dlgSala").close());
+  const item=cel.locator("#ctFila li").filter({hasText:"Sem Som"}).last();
+  await item.locator('[data-fila="subir_item"]').click();
+  await page.waitForFunction(id=>P.itens[P.indice+1]?.musicaId===id,semSom,{timeout:8000});
+  await item.locator('[data-fila="tocar_item"]').click();
+  await page.waitForFunction(id=>P.aberto&&P.musica?.id===id,semSom,{timeout:8000});
 
   // Playback que falha: o celular vê o aviso e troca; a tela recarrega sozinha
   await page.evaluate(()=>mostrarErro("O vídeo falhou no teste."));

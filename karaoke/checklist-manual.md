@@ -43,7 +43,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] 📋 Adicionar várias de uma vez: colar 5 músicas (uma com erro de digitação): aparece “n de 5”, o resumo diz quantas entraram; trocar um vídeo; Parar no meio funciona.
 - [ ] Celular: ✨ Música nova → digitar o nome → aparece o vídeo escolhido → Pedir na fila (ou Outros vídeos).
 - [ ] Ajustes → Exportar backup e importar em outro aparelho: as músicas vêm com letra e vídeo.
-- [ ] Trava: com 2 celulares (Ana e Beto) e uma música marcada para a Ana, durante o canto o celular do Beto mostra 🔒 e os botões ficam desligados; a Ana pausa/pula normalmente; o Beto ainda põe música na fila. Na contagem ("vez") o Beto consegue Começar. Desligar a trava em Ajustes libera todos.
+- [ ] Com dois celulares, quem não canta pode pausar, retomar e mexer no volume. Só a tela muda a ordem até liberar os atalhos pelo código da sala.
 - [ ] Aba Fila → "Só as minhas músicas" com Ana e Ana Paula, no celular de Ana aparece o dueto das duas e fica de fora o solo de Ana Paula; no celular de quem é a vez aparece "É a sua vez!".
 - [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
 - [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
@@ -80,7 +80,8 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Pedir música da lista entra na fila para o cantor escolhido; ⏫ põe para tocar a seguir.
 - [ ] Música nova pelo celular (com link do YouTube) entra na biblioteca e na fila.
 - [ ] Tocar numa música da lista abre o painel: colar link do YouTube põe/troca o playback; clipe bloqueado é recusado no celular.
-- [ ] ▶ Tocar agora interrompe (com confirmação), ⏫ Tocar a seguir e ＋ Fim da fila funcionam; música com arquivo na tela não tem troca de playback.
+- [ ] Pedir música sempre acrescenta no fim. Com os atalhos liberados pela tela, o celular consegue tocar ou adiantar um item já na fila. Áudio local continua sendo escolhido na tela.
+- [ ] Simular internet lenta no YouTube. Após 12 segundos sem avanço, tentar o mesmo vídeo e verificar se as opções de trocar e seguir sem áudio continuam disponíveis.
 - [ ] Playback que falha na tela: o celular mostra o aviso e 🎧 Trocar playback recarrega a música.
 - [ ] Recarregar a tela da festa: a mesma sala continua.
 - [ ] Desligar a internet da tela: celular mostra “tela não está respondendo”; ao voltar, tudo segue.

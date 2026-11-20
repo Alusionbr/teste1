@@ -493,37 +493,38 @@ async function novaManual(titulo,letra,dur){
     await page.evaluate(()=>document.querySelector("#dlgNovaMusica").close());
   });
 
-  await cenario("trava: durante a música só quem canta mexe; na vez, qualquer um pula; fila é livre",async()=>{
+  await cenario("qualquer pessoa pausa e retoma, pedidos vão ao fim e a tela decide se permite pular",async()=>{
     await page.evaluate(()=>{
-      const ana=criarCantor({nome:"Ana",emoji:"🎤"}),beto=criarCantor({nome:"Beto",emoji:"🎸"});
-      const m=criarMusica({title:"Música da Trava",lyrics:"linha um\nlinha dois",duration:90});
-      const p=criarPlaylist("Trava");adicionarItem(p,m.id,ana.id,"");adicionarItem(p,m.id,beto.id,"");
-      prefs().contagem=30;prefs().trava=true;
+      const ana=criarCantor({nome:"Ana",emoji:"🎤"});
+      const m=criarMusica({title:"Música da vez",lyrics:"linha um",duration:90});
+      const outra=criarMusica({title:"Outra música",lyrics:"linha dois",duration:90});
+      const p=criarPlaylist("Fila da família");
+      adicionarItem(p,m.id,ana.id,"");adicionarItem(p,outra.id,"","");
+      prefs().contagem=30;prefs().pularFila=false;
       abrirPalco({playlistId:p.id,indice:0});
     });
-    await page.waitForFunction(()=>P.fase==="vez");
-    ok(await page.evaluate(()=>!SalaHost.bloqueadoPara("Beto")),"na vez ninguém deveria estar travado");
-    // Beto (não é o dono) começa a música da Ana: é livre na vez
-    await page.evaluate(()=>SalaHost.aplicar({tipo:"comecar",nome:"Beto",dados:{}}));
-    await page.waitForFunction(()=>P.fase==="cantando");
-    const est=await page.evaluate(()=>{const e=SalaHost.montarEstado();return{donos:e.agora.donos,trava:e.trava}});
-    ok(est.donos.join()==="Ana"&&est.trava===true,"estado da sala não diz quem canta: "+JSON.stringify(est));
-    ok(await page.evaluate(()=>SalaHost.bloqueadoPara("Beto")&&!SalaHost.bloqueadoPara("Ana")&&!SalaHost.bloqueadoPara("  ana ")),"a trava não separou dono e visitante");
-    // Beto tenta pular e pausar: nada muda
-    await page.evaluate(()=>{["proxima","alternar","anterior"].forEach(t=>SalaHost.aplicar({tipo:t,nome:"Beto",dados:{}}))});
-    ok(await page.evaluate(()=>P.fase==="cantando"&&P.indice===0),"o visitante conseguiu mexer na música");
-    // Beto mexe na fila: livre (pôr a seguir e tirar)
-    await page.evaluate(()=>{const p=acharPlaylist(P.playlistId),it=p.itens[1];SalaHost.aplicar({tipo:"subir_item",nome:"Beto",dados:{itemId:it.id}})});
-    // Beto manda "tocar agora": interrompe, por isso também é travado
-    await page.evaluate(()=>{const it=acharPlaylist(P.playlistId).itens[1];SalaHost.aplicar({tipo:"tocar_item",nome:"Beto",dados:{itemId:it.id}})});
-    ok(await page.evaluate(()=>P.indice===0),"o visitante trocou a música tocando");
-    // Ana (dona) pula
-    await page.evaluate(()=>SalaHost.aplicar({tipo:"proxima",nome:"Ana",dados:{}}));
-    await page.waitForFunction(()=>P.fase!=="cantando"||P.indice===1,null,{timeout:8000});
-    // trava desligada em Ajustes: qualquer um
-    await page.evaluate(()=>{prefs().trava=false});
-    ok(await page.evaluate(()=>!SalaHost.bloqueadoPara("Beto")),"com a trava desligada ninguém deveria ser travado");
-    await page.evaluate(()=>{prefs().trava=true;prefs().contagem=5;fecharPalco()});
+    await page.evaluate(()=>SalaHost.aplicar({tipo:"comecar",nome:"Beto"}));
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte.tocando());
+    await page.evaluate(()=>SalaHost.aplicar({tipo:"alternar",nome:"Beto"}));
+    ok(await page.evaluate(()=>!P.fonte.tocando()),"quem não canta deve conseguir pausar");
+    await page.evaluate(()=>SalaHost.aplicar({tipo:"alternar",nome:"Beto"}));
+    ok(await page.evaluate(()=>{
+      const outro=P.itens[1];
+      for(const tipo of ["proxima","anterior","tocar_item","subir_item","tirar_item"]){
+        SalaHost.aplicar({tipo,nome:"Beto",dados:{itemId:outro.id}});
+      }
+      for(const modo of ["agora","seguir"]){
+        SalaHost.aplicar({tipo:"pedir",nome:"Beto",dados:{musicaId:P.musica.id,modo}});
+      }
+      return P.indice===0&&P.fonte.tocando()&&P.itens[1]===outro&&P.itens.length===4&&
+        P.itens.slice(2).every(i=>i.musicaId===P.musica.id)&&!SalaHost.montarEstado().pularFila;
+    }),"com ordem protegida, pedidos antigos também entram no fim");
+    await page.evaluate(()=>{
+      prefs().pularFila=true;
+      SalaHost.aplicar({tipo:"tocar_item",nome:"Beto",dados:{itemId:P.itens[1].id}});
+    });
+    ok(await page.evaluate(()=>P.indice===1&&SalaHost.montarEstado().pularFila),"a tela deve poder liberar a troca de música");
+    await page.evaluate(()=>{prefs().pularFila=false;prefs().contagem=5;fecharPalco()});
   });
 
   await cenario("letra por música: vídeo é o padrão, alternar grava na música, reabrir mantém e o iframe não recarrega",async()=>{

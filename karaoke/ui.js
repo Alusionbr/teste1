@@ -465,7 +465,13 @@ $("prefTamanho").addEventListener("input",e=>{K.dados.prefs.tamanho=Number(e.tar
 $("prefFundo").addEventListener("change",e=>{K.dados.prefs.fundo=e.target.value;aplicarPrefsPalco();salvarLogo()});
 $("prefContagem").addEventListener("change",e=>{K.dados.prefs.contagem=Number(e.target.value);salvarLogo()});
 $("prefAplausometro").addEventListener("change",e=>{K.dados.prefs.aplausometro=e.target.checked;salvarLogo()});
-$("prefTrava").addEventListener("change",e=>{K.dados.prefs.trava=e.target.checked;salvarLogo();SalaHost.mudou()});
+for(const id of ["prefPularFila","salaPularFila"]){
+  $(id).addEventListener("change",e=>{
+    K.dados.prefs.pularFila=e.target.checked;
+    $("prefPularFila").checked=$("salaPularFila").checked=e.target.checked;
+    salvarLogo();SalaHost.mudou();
+  });
+}
 function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay+d,0,800);$("atrasoOut").textContent=pr.audioDelay+" ms";salvarLogo()}
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));
@@ -543,6 +549,7 @@ $("fimSair").addEventListener("click",fecharPalco);
 $("fimRecomecar").addEventListener("click",()=>carregarIndice(0));
 $("liberarTocar").addEventListener("click",()=>{$("palcoLiberar").hidden=true;P.fonte&&P.fonte.tocar()});
 $("erroPular").addEventListener("click",proxima);
+$("erroTentar").addEventListener("click",tentarPlayback);
 $("erroRelogio").addEventListener("click",seguirSemPlayback);
 $("erroOutro").addEventListener("click",()=>{const id=P.musica&&P.musica.id;fecharPalco();if(id)abrirEditor(id)});
 $("gravarMarcar").addEventListener("click",Sincronia.marcar);
@@ -553,7 +560,9 @@ $("gravarSalvar").addEventListener("click",Sincronia.salvar);
 $("gravarCancelar").addEventListener("click",Sincronia.cancelar);
 
 /* ----------------------------------------------------------- tela da festa */
-$("btnSala").addEventListener("click",()=>{SalaHost.renderDialogo();$("dlgSala").showModal()});
+for(const id of ["btnSala","palcoSala"]){
+  $(id).addEventListener("click",()=>{SalaHost.renderDialogo();$("dlgSala").showModal()});
+}
 $("salaAbrir").addEventListener("click",e=>ocupado(e.currentTarget,SalaHost.abrir()));
 $("salaFechar").addEventListener("click",()=>{if(confirm("Fechar a sala? Os celulares deixam de controlar."))SalaHost.fechar()});
 $("salaAssumirForm").addEventListener("submit",e=>{

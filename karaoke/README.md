@@ -38,10 +38,10 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 - **Acervo da família**: cada música guarda a letra e o id do vídeo no aparelho. Para levar a outro aparelho: **Ajustes → Exportar backup** (ou o link compartilhado da playlist) e importe lá. **Não coloque o acervo (letras) dentro do repositório**: o site é público e letra de música é obra protegida.
 - Código: `busca-youtube.js` (`pontuarVideo`, `ordenarCandidatos`, `resolverPlayback`, `lerListaDeMusicas`, puros e testados em `tests/busca.test.js`) e `auto-adicionar.js` (`adicionarPeloNome`, trocar e tirar; a tela liga os botões em `ui.js`).
 
-### Vários celulares: trava, fila e repertório de cada um
+### Vários celulares: reprodução, fila e repertório de cada um
 
-- **Trava (Ajustes → "Trava", ligada por padrão).** Enquanto a música toca, só **quem está cantando** pausa, pula, volta, ajusta a letra, mexe no volume, liga/desliga a letra ou manda "tocar agora". Os outros celulares veem "🔒 Ana está cantando e controla esta música" e continuam livres para **mexer na fila** (pedir música, pôr a seguir, tirar, trocar playback). Na **vez** (contagem), nos **aplausos** e no **fim** a trava não vale: qualquer um começa, pula a vez do ausente ou segue. Música sem cantor marcado ("Quem quiser") não tem dono: todos mexem. A tela/teclado nunca é travada.
-- **Limite:** a trava reconhece o celular pelo **nome** que ele escolheu ao entrar; é para festa de família, não segurança (quem usar o nome de outro passa por ela). Para liberar geral, desligue a trava em Ajustes.
+- **Controles da música:** todos os celulares na sala podem tocar, pausar, ajustar o volume e mexer na letra.
+- **Ordem da fila:** toda sugestão entra no fim. Na tela principal, toque no código da sala e marque **Permitir que os celulares pulem ou mudem a ordem da fila** para liberar os atalhos da fila. A opção começa desligada. Depois dos aplausos, qualquer pessoa pode seguir para a próxima música da fila.
 - **Cada um com o seu repertório:** ao pedir música, o seletor "Quem vai cantar?" já vem com o seu nome; na aba Fila, **"Só as minhas músicas"** inclui seus solos e duetos, mesmo quando outro cantor tem nome parecido. No celular de quem é a vez aparece "🎤 É a sua vez! Toque em Começar".
 - **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
 - **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
@@ -110,8 +110,8 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 2. Nos celulares: leia o QR code (ou abra `…/karaoke/controle.html` e digite o código). Cada pessoa diz o nome e entra na família.
 3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
 
-4. **Tocar uma música da lista**: tocar nela abre um painel com o playback atual, o campo para **pôr ou trocar o link** (YouTube, YouTube Music ou Spotify; no YouTube o celular já confere se o vídeo toca fora do YouTube) e os botões **▶ Tocar agora** (pede confirmação, interrompe a música atual), **⏫ Tocar a seguir** e **＋ Pôr no fim da fila**.
-5. **Playback que falhou**: quando o vídeo da música tocando não funciona, o celular mostra “⚠️ O playback desta música falhou” com **🎧 Trocar playback**; a tela recarrega a música sozinha com o link novo.
+4. **Pedir uma música da lista**: o painel permite pôr ou trocar o playback e pedir a música no fim da fila.
+5. **Playback que falhou**: se o vídeo não avançar por 12 segundos, a tela oferece tentar o mesmo vídeo novamente, trocar o playback ou seguir sem áudio. Quem está no celular também pode usar **Trocar playback**.
 
 Regras: qualquer celular da sala pode fazer isso e a tela avisa quem fez. Playback do tipo **arquivo** (áudio guardado na tela) não é trocado pelo celular. Tudo viaja como comando `pedir` com campos opcionais (`modo`: fila, seguir, agora, playback; `playback`), então **não existe SQL novo**: `supabase/001_sala.sql` continua igual.
 

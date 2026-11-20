@@ -147,7 +147,7 @@ const SalaHost=(()=>{
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
       fundo:fundoEfetivo(),
-      trava:travaLigada(),
+      pularFila:prefs().pularFila===true,
       erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
       nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null,
       ...(transferenciaStatus?{transferenciaStatus}: {})
@@ -183,24 +183,12 @@ const SalaHost=(()=>{
     }finally{ocupado=false}
   }
 
-  /* ------------------------------------------------------------- trava */
-  // Quem canta agora (o dono da vez). Sem cantor marcado na música, ninguém é dono
-  // e qualquer celular pode mexer. O nome vem do celular: serve para uma festa de
-  // família, não é segurança (quem usar o nome de outro passa pela trava).
   function donosDaMusica(){
     if(!P.aberto||P.modo!=="festa"||P.solo||!P.item)return[];
     return[P.item.cantorA,P.item.cantorB].filter(Boolean).map(acharCantor).filter(Boolean);
   }
-  const travaLigada=()=>prefs().trava!==false;
-  // Travada só enquanto a música toca (fase "cantando"): na vez, nos aplausos e no fim
-  // qualquer um pode começar, pular a vez ou seguir. A tela/teclado nunca é travada.
-  function bloqueadoPara(nome){
-    if(!travaLigada()||!P.aberto||P.fase!=="cantando")return false;
-    const donos=donosDaMusica();
-    return donos.length>0&&!donos.some(c=>fold(c.nome)===fold(nome));
-  }
-  const MEXE_NA_MUSICA=new Set(["alternar","proxima","anterior","adiantar","atrasar","volume","tocar_item"]);
-  const mexeNaMusica=(tipo,d)=>MEXE_NA_MUSICA.has(tipo)||(tipo==="pedir"&&(d.modo==="letra"||d.modo==="agora"));
+
+  const ALTERA_FILA=new Set(["proxima","anterior","tocar_item","tirar_item","subir_item"]);
 
   /* ---------------------------------------------------------- comandos */
   const texto=(v,max)=>String(v??"").slice(0,max);
@@ -210,10 +198,8 @@ const SalaHost=(()=>{
   // Devolve true quando mudou o dado (aí o ciclo salva).
   function aplicar(c){
     const d=c.dados||{},quem=texto(c.nome,24)||"Alguém";
-    if(mexeNaMusica(c.tipo,d)&&bloqueadoPara(quem)){
-      notify(`🔒 ${quem} tentou mexer na música, mas ${donosDaMusica().map(x=>x.nome).join(" e ")} está cantando.`);
-      return false;
-    }
+    const proximaDepoisDosAplausos=c.tipo==="proxima"&&P.fase==="nota";
+    if(!prefs().pularFila&&ALTERA_FILA.has(c.tipo)&&!proximaDepoisDosAplausos)return false;
     switch(c.tipo){
       case "alternar":case "proxima":case "anterior":case "adiantar":case "atrasar":case "volume":case "aplausos":
         comandoPalco(c.tipo,d);return false;
@@ -239,33 +225,17 @@ const SalaHost=(()=>{
         return true;
       }
       case "pedir":{
-        // dados.modo: "fila" (padrão, celular antigo), "seguir", "agora" ou "playback"
-        // (só troca o playback, sem pedir). dados.playback opcional: youtube/spotify.
-        // Liga/desliga a letra do app por cima do vídeo (não é pedido de música).
         if(d.modo==="letra"){alternarLetra();return true}
         const m=acharMusica(d.musicaId);if(!m)return false;
-        const modo=["fila","seguir","agora","playback"].includes(d.modo)?d.modo:"fila";
-        let mudou=false;
-        if(d.playback!=null){
-          const r=trocarPlayback(m,d.playback,quem);
-          if(modo==="playback")return r==="mudou";
-          mudou=r==="mudou";
+        if(d.modo==="playback")return trocarPlayback(m,d.playback,quem)==="mudou";
+        // Pedidos de versões antigas também entram no fim, inclusive os modos "agora" e "seguir".
+        const pb=normalizarPlayback(d.playback);
+        let musica=m;
+        if(pb&&pb.tipo!=="arquivo"){
+          if(!m.playback)musica=editarMusica(m.id,{playback:pb});
+          else compartilharPlayback({...m,playback:pb});
         }
-        if(modo==="playback")return false;
-        const item=enfileirar(m,d,quem);
-        if(!item)return mudou;
-        if(modo==="fila")return true;
-        const p=playlistAlvo();
-        // "Tocar agora" só interrompe a tela nas listas ou no palco da festa: gravando
-        // sincronia, ensaiando ou cantando uma música avulsa, entra no fim da fila.
-        if(modo==="agora"&&P.aberto&&P.modo!=="festa"){notify(`🎤 ${quem} pediu “${m.title}”, mas a tela está ocupada: entrou no fim da fila.`,true);return true}
-        const alvo=paraSeguir(p,item.id);
-        if(alvo<0)return true;
-        if(modo==="agora"){
-          if(P.aberto)carregarIndice(alvo);else abrirPalco({playlistId:p.id,indice:alvo});
-          notify(`🎤 ${quem} mandou tocar “${m.title}” agora.`,true);
-        }else notify(`🎤 ${quem} pôs “${m.title}” para tocar a seguir.`,true);
-        return true;
+        return !!enfileirar(musica,d,quem)||musica!==m;
       }
       case "pedir_nova":{
         const pb=d.playback&&normalizarPlayback(d.playback);
@@ -340,10 +310,12 @@ const SalaHost=(()=>{
     if(!pb||pb.tipo==="arquivo")return "recusado";
     if(m.playback&&m.playback.tipo==="arquivo"){notify(`🎧 ${quem} tentou trocar o playback de “${m.title}”, mas ele é um arquivo guardado nesta tela.`);return "recusado"}
     if(m.playback&&m.playback.tipo===pb.tipo&&m.playback.id===pb.id)return "igual";
+    const estavaSemPlayback=!m.playback;
     editarMusica(m.id,{playback:pb});
     notify(`🎧 ${quem} trocou o playback de “${m.title}” para ${pb.tipo==="spotify"?"Spotify":"YouTube"}.`,true);
     // A música que travou (erro) ou que ainda está na contagem recomeça com o playback novo.
-    if(P.aberto&&P.musica&&P.musica.id===m.id&&P.modo!=="gravar"&&(!$("palcoErro").hidden||P.fase==="vez")){
+    if(P.aberto&&P.musica&&P.musica.id===m.id&&(P.fase==="vez"||
+      (P.fase==="cantando"&&(estavaSemPlayback||!$("palcoErro").hidden)))){
       carregarIndice(P.indice,{comecarJa:P.fase!=="vez"});
     }
     return "mudou";
@@ -360,6 +332,7 @@ const SalaHost=(()=>{
       $("salaLink").textContent=link();
       try{QR.desenhar($("salaQR"),link())}catch(e){console.error(e)}
     }
+    $("salaPularFila").checked=prefs().pularFila;
     $("salaTransferenciaPendente").hidden=!transferenciaPendente;
     if(transferenciaPendente){$("salaTransferenciaPedido").textContent=`${transferenciaPendente.nome} quer usar outro aparelho como tela principal.`;$("salaTransferenciaStatus").textContent="A fila e a música atual serão transferidas; a tela nova pedirá um toque para continuar."}
     $("salaAssumirArea").hidden=!!sala;
@@ -372,5 +345,5 @@ const SalaHost=(()=>{
     if(sala)selo.textContent=`📱 ${sala.codigo}${aparelhos?` · ${aparelhos} celular${aparelhos>1?"es":""}`:""}${falhas>=3?" · sem internet":""}`;
     if(sala&&$("dlgSala").open)$("salaStatus").textContent=falhas>=3?"⚠️ Sem conexão com a sala.":aparelhos?`✅ ${aparelhos} celular${aparelhos>1?"es":""} conectado${aparelhos>1?"s":""}.`:"Esperando os celulares…";
   }
-  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,bloqueadoPara,solicitarTransferencia,aceitarTransferencia,recusarTransferencia,get sala(){return sala}};
+  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,solicitarTransferencia,aceitarTransferencia,recusarTransferencia,get sala(){return sala}};
 })();

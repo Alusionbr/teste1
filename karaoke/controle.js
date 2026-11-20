@@ -133,17 +133,16 @@ function render(){
   $("ctOffset").textContent=a?`${a.offset>0?"+":""}${(a.offset||0).toFixed(2).replace(".",",")} s`:"";
   if(e.nota!=null&&e.fase==="nota")$("ctFase").textContent=`👏 Nota: ${e.nota} pontos!`;
   $("ctLetra").textContent=e.fundo==="tela"?"🔤 Ligar a letra do app":"🎞 Só o vídeo (desligar a letra)";
-  // Trava: enquanto uma música toca, só quem canta mexe nela. O celular só avisa e desliga
-  // os botões; quem decide é a tela (sala-host.js, bloqueadoPara).
   const eu=CT.eu?fold(CT.eu.nome):"",donos=(a&&a.donos)||[];
-  const euDono=donos.some(n=>fold(n)===eu);
-  CT.travado=!!(e.trava&&e.fase==="cantando"&&donos.length&&!euDono);
-  $("ctTrava").hidden=!CT.travado;
-  if(CT.travado)$("ctTrava").textContent=`🔒 ${donos.join(" e ")} está cantando e controla esta música. Você pode mexer na fila.`;
-  if(euDono&&e.fase==="vez")$("ctFase").textContent="🎤 É a sua vez! Toque em Começar.";
-  document.querySelectorAll('[data-cmd="alternar"],[data-cmd="proxima"],[data-cmd="anterior"],[data-cmd="adiantar"],[data-cmd="atrasar"],#ctLetra,#ctVolume').forEach(b=>{b.disabled=CT.travado});
-  $("ctErroPlayback").hidden=!e.erro;
-  if(e.erro)$("ctErroTexto").textContent="⚠️ O playback desta música falhou. "+e.erro;
+  if(donos.some(n=>fold(n)===eu)&&e.fase==="vez")$("ctFase").textContent="🎤 É a sua vez! Toque em Começar.";
+  const podePular=e.pularFila===true;
+  $("ctOrdemFila").hidden=podePular;
+  $("ctOrdemFila").textContent="A tela principal controla a ordem da fila.";
+  document.querySelector('[data-cmd="anterior"]').disabled=!podePular;
+  document.querySelector('[data-cmd="proxima"]').disabled=!podePular&&e.fase!=="nota";
+  const semPlayback=a&&a.fonte==="relogio"&&["vez","cantando"].includes(e.fase);
+  $("ctErroPlayback").hidden=!(e.erro||semPlayback);
+  $("ctErroTexto").textContent=e.erro?e.erro:"Esta música está sem playback. Adicione o link do vídeo para ouvir.";
   renderFila();renderCantores();renderMusicas();renderMinhaLista();
   if($("ctMusicaPainel").open)atualizarPainel();
 }
@@ -159,7 +158,7 @@ function renderFila(){
     return `<li class="${atual?"atual":""}${passou?" passou":""}" data-item="${esc(i.id)}">
       <span class="num">${atual?"🎤":n+1}</span>
       <div class="info"><span class="cantorSelo" style="--cor:${esc(i.cor||"#b9aee0")}">${esc(i.quem)}</span><b>${esc(i.title)}</b><small>${esc(i.artist)}</small></div>
-      <div class="acoesItem">${atual?"":`<button type="button" data-fila="tocar_item" aria-label="Tocar agora"${CT.travado?" disabled":""}>▶</button><button type="button" data-fila="subir_item" aria-label="Tocar a seguir">⏫</button><button type="button" data-fila="tirar_item" aria-label="Tirar">✕</button>`}</div></li>`;
+      <div class="acoesItem">${atual||e.pularFila!==true?"":`<button type="button" data-fila="tocar_item" aria-label="Tocar agora">▶</button><button type="button" data-fila="subir_item" aria-label="Tocar a seguir">⏫</button><button type="button" data-fila="tirar_item" aria-label="Tirar">✕</button>`}</div></li>`;
   }).join("")||`<li class="vazio">${soMinhas?"Você ainda não tem música na fila. Vá em <b>Pedir música</b>.":"Fila vazia. Vá em <b>Pedir música</b>."}</li>`;
 }
 function opcoesCantores(){
@@ -205,7 +204,7 @@ $("ctBusca").addEventListener("input",renderMusicas);
 $("ctSoMinhas").addEventListener("change",()=>{if(CT.estado)renderFila()});
 
 /* ---------------------------------------------- painel da música (playback + tocar) */
-// Escolher uma música abre o painel: pôr/trocar o playback e decidir quando toca.
+// Escolher uma música abre o painel para trocar o playback ou pedir no fim da fila.
 // Tudo vai como comando "pedir" (campos opcionais modo e playback): a tela decide.
 const NOME_PB={youtube:"YouTube",spotify:"Spotify",arquivo:"Arquivo"};
 function abrirPainelMusica(m,soPlayback){
@@ -217,7 +216,6 @@ function abrirPainelMusica(m,soPlayback){
   $("ctPnProcurar").href=linkBuscaYouTube(m);
   $("ctPnPedido").hidden=CT.painel.soPlayback;
   atualizarPainel();
-  $("ctPnAgora").disabled=!!CT.travado;
   if(!$("ctMusicaPainel").open)$("ctMusicaPainel").showModal();
 }
 function playbackDaMusica(id){
@@ -252,8 +250,6 @@ async function enviarPainel(modo){
   const botoes=[...document.querySelectorAll("#ctMusicaPainel button")];
   botoes.forEach(b=>{b.disabled=true});
   try{
-    const e=CT.estado;
-    if(modo==="agora"&&e&&e.palco&&["vez","cantando","nota"].includes(e.fase)&&!confirm("Isso interrompe a música que está tocando. Tocar agora?"))return;
     const r=await lerPlaybackDoCampo();
     if(r.erro){$("ctPnStatus").textContent=r.erro;return}
     if(modo==="playback"&&!r.playback){$("ctPnStatus").textContent="Cole o link do playback primeiro.";return}
@@ -262,7 +258,7 @@ async function enviarPainel(modo){
     $("ctPnStatus").textContent="Enviando…";
     if(!await comando("pedir",dados)){$("ctPnStatus").textContent="Não consegui enviar. Tente de novo.";return}
     $("ctMusicaPainel").close();
-    notify({fila:"Pedido enviado! 🎤",seguir:"Vai tocar a seguir. ⏫",agora:"Pedido enviado: toca agora! ▶",playback:"Playback enviado. A tela atualiza em instantes. 🎧"}[modo],true);
+    notify(modo==="fila"?"Pedido enviado para o fim da fila. 🎤":"Playback enviado. A tela atualiza em instantes. 🎧",true);
   }finally{botoes.forEach(b=>{b.disabled=false})}
 }
 $("ctMusicas").addEventListener("click",e=>{
@@ -270,8 +266,6 @@ $("ctMusicas").addEventListener("click",e=>{
   const m=CT.estado.musicas.find(x=>x.id===b.dataset.pedir);if(m)abrirPainelMusica(m,false);
 });
 $("ctPnUsar").addEventListener("click",()=>enviarPainel("playback"));
-$("ctPnAgora").addEventListener("click",()=>enviarPainel("agora"));
-$("ctPnSeguir").addEventListener("click",()=>enviarPainel("seguir"));
 $("ctPnFila").addEventListener("click",()=>enviarPainel("fila"));
 $("ctPnFechar").addEventListener("click",()=>$("ctMusicaPainel").close());
 // Playback da música que está tocando falhou: abre o painel só para trocar o playback.

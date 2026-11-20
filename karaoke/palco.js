@@ -172,6 +172,7 @@ function tocarAgora(){
 }
 function alternar(){
   if(!P.aberto||!P.fonte)return;
+  if(!$("palcoErro").hidden&&!$("erroTentar").hidden){tentarPlayback();return}
   if(P.fase==="vez"){comecar();return}
   if(P.fase!=="cantando"&&P.fase!=="gravando")return;
   if(P.fonte.tocando())P.fonte.pausar();else tocarAgora();
@@ -190,7 +191,7 @@ function aoEventoFonte(tipo,d){
     if(P.modo==="ensaio"){mostrarFim("🎤 Fim do ensaio");return}
     mostrarNota();
   }else if(tipo==="erro"){
-    mostrarErro(d.msg);
+    mostrarErro(d.msg,d.tentarNovamente);
   }else if(tipo==="bloqueado"){
     mostrarLiberar(d.tipo);
   }else if(tipo==="previa"){
@@ -216,13 +217,22 @@ function mostrarLiberar(tipo){
     botao.hidden=false;
   }
 }
-function mostrarErro(msg){
+function mostrarErro(msg,tentarNovamente=false){
   if(!P.aberto)return;
   try{P.fonte&&P.fonte.pausar()}catch{}
   $("erroTexto").textContent=msg;
   $("erroOutro").hidden=!(P.musica&&P.musica.playback);
+  $("erroTentar").hidden=!tentarNovamente||P.fonte!==FonteYouTube;
   $("palcoErro").hidden=false;
   $("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");
+  avisarSala();
+}
+function tentarPlayback(){
+  if(!P.aberto||P.fonte!==FonteYouTube||$("erroTentar").hidden)return;
+  $("palcoErro").hidden=true;
+  FonteYouTube.recarregar();
+  atualizarBotaoTocar();
+  avisarSala();
 }
 // Playback falhou: a letra segue pelo relógio do aparelho, sem travar a festa.
 // A letra continua de onde estava (ex.: a prévia do Spotify acabou aos 30 s),
@@ -399,6 +409,7 @@ function atualizarSinal(anuncio){
   const f=P.fonte,el=$("palcoSinal");
   let txt="",cls="";
   if(f===FonteYouTube&&FonteYouTube.emAnuncio){txt="📺 Anúncio — a letra espera";cls="alerta"}
+  else if(f===FonteYouTube&&FonteYouTube.carregando){txt="Carregando YouTube…";cls="alerta"}
   else if(f===FonteRelogio){txt="⏱ relógio";cls=""}
   else if((f===FonteYouTube||f===FonteSpotify)&&f.tocando()&&!f.sinal()){txt="⚠️ sem sinal do player";cls="alerta"}
   else if(f===FonteYouTube||f===FonteSpotify){txt=f.tocando()?"● sincronizado":"";cls="ok"}
@@ -509,7 +520,7 @@ function comandoPalco(tipo,dados={}){
 function avisarSala(extra){if(typeof SalaHost!=="undefined")SalaHost.mudou(extra)}
 
 document.addEventListener("keydown",e=>{
-  if(!P.aberto)return;
+  if(!P.aberto||$("dlgSala").open)return;
   if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)&&e.target.type!=="range")return;
   if(P.fase==="gravando"&&Sincronia.tecla(e))return;
   const k=e.key;

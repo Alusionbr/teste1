@@ -14,7 +14,8 @@ const root=path.resolve(__dirname,"..");
 const fonteYT=()=>fs.readFileSync(path.join(root,"verificar-youtube.js"),"utf8")+"\n"+fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8");
 
 function contexto(){
-  let ouvinte=null,agora=1000;
+  let ouvinte=null,agora=1000,seq=0;
+  const timers=new Map();
   const eventos=[],enviados=[];
   const aoCarregar=[];
   const frame={src:"",contentWindow:{postMessage:(m,o)=>enviados.push({m,o})},setAttribute(){},addEventListener:(t,f)=>{if(t==="load")aoCarregar.push(f)}};
@@ -24,14 +25,23 @@ function contexto(){
     $:()=>({appendChild(){}}),
     location:{origin:"https://exemplo.github.io"},
     performance:{now:()=>agora},
-    setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},
+    setTimeout:(fn,ms)=>{timers.set(++seq,{fn,em:agora+ms});return seq},
+    clearTimeout:id=>timers.delete(id),setInterval:()=>0,clearInterval(){},
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
     emitir:(t,d)=>eventos.push([t,d||{}]),
     URLSearchParams,JSON,Math,Number,String
   };
   vm.createContext(ctx);
   // Simula o iframe terminando de carregar (antes disso, o app não deve enviar nada).
-  return{ctx,frame,eventos,enviados,receber:e=>ouvinte(e),avancar:ms=>{agora+=ms},carregou:()=>aoCarregar.forEach(f=>f())};
+  return{ctx,frame,eventos,enviados,receber:e=>ouvinte(e),avancar:ms=>{
+    const fim=agora+ms;
+    while(true){
+      const [id,t]=[...timers].sort((a,b)=>a[1].em-b[1].em)[0]||[];
+      if(!t||t.em>fim)break;
+      agora=t.em;timers.delete(id);t.fn();
+    }
+    agora=fim;
+  },carregou:()=>aoCarregar.forEach(f=>f())};
 }
 
 test("YouTube: aceita só mensagem da origem certa vinda do próprio iframe",async()=>{
@@ -82,6 +92,35 @@ test("YouTube: pedido de tocar antes de o player carregar é cumprido quando ele
   const cmds=c.enviados.map(e=>JSON.parse(e.m));
   assert.ok(cmds.some(x=>x.func==="playVideo"));
   assert.ok(c.enviados.every(e=>e.o==="https://www.youtube-nocookie.com"),"targetOrigin explícito, nunca *");
+});
+
+test("YouTube: carregamento mudo tem prazo, e nova tentativa conserva o vídeo e espera o player",async()=>{
+  const c=contexto();
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const F=c.ctx.F;
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  const msg=x=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify(x)});
+  F.tocar();
+  c.avancar(2000);
+  assert.equal(c.eventos.some(([tipo])=>tipo==="bloqueado"),false,"player mudo ainda não pode pedir um toque");
+  c.avancar(10000);
+  assert.ok(c.eventos.some(([tipo,d])=>tipo==="erro"&&d.tentarNovamente));
+  F.recarregar();
+  assert.match(c.frame.src,/dQw4w9WgXcQ.*&start=0$/);
+  c.carregou();
+  msg({event:"onReady"});
+  assert.ok(c.enviados.some(({m})=>JSON.parse(m).func==="playVideo"));
+  msg({event:"infoDelivery",info:{playerState:1,currentTime:22}});
+  c.avancar(9000);
+  msg({event:"infoDelivery",info:{playerState:1,currentTime:25}});
+  c.avancar(4000);
+  assert.equal(c.eventos.filter(([tipo])=>tipo==="erro").length,1,"o avanço do vídeo renova o prazo");
+  c.avancar(8000);
+  assert.equal(c.eventos.filter(([tipo])=>tipo==="erro").length,2,"o vídeo congelado também vence o prazo");
+  F.recarregar();
+  assert.match(c.frame.src,/dQw4w9WgXcQ.*&start=25$/);
+  F.pausar();c.avancar(15000);
+  assert.equal(c.eventos.filter(([tipo])=>tipo==="erro").length,2,"uma pausa cancela a espera");
 });
 
 test("Spotify: ready → ack, playback_update dá tempo, prévia de 30 s é avisada",async()=>{
