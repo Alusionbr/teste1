@@ -62,21 +62,46 @@ test("YouTube: aceita só mensagem da origem certa vinda do próprio iframe",asy
   assert.equal(F.tempo(),11,"teto de 1 s: player mudo congela a letra");
 });
 
-test("YouTube: anúncio congela o relógio, erro 150 avisa e fim dispara 'fim'",async()=>{
+test("YouTube: outra mídia identificada congela o relógio, erro 150 avisa e fim dispara 'fim'",async()=>{
   const c=contexto();
   vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
   const msg=x=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify(x)});
   msg({event:"infoDelivery",info:{playerState:1,currentTime:3,duration:180}});
-  msg({event:"infoDelivery",info:{currentTime:2,duration:15}});
+  msg({event:"infoDelivery",info:{currentTime:2,duration:15,videoData:{video_id:"OUTRAVIDEO1"}}});
   assert.equal(F.emAnuncio,true);
   assert.equal(F.tocando(),false);
+  assert.equal(F.tempo(),3,"o relógio continua no tempo da música");
+  msg({event:"infoDelivery",info:{currentTime:4,duration:181,videoData:{video_id:"dQw4w9WgXcQ"}}});
+  assert.ok(F.tocando(),"o vídeo escolhido volta a contar mesmo com duração diferente");
   msg({event:"onError",info:150});
   const erro=c.eventos.find(e=>e[0]==="erro");
   assert.ok(erro&&erro[1].bloqueadoEmbutir);
   msg({event:"infoDelivery",info:{playerState:0}});
   assert.ok(c.eventos.some(e=>e[0]==="fim"));
+});
+
+test("YouTube: duração inicial curta não impede a música de tocar",async()=>{
+  const c=contexto();
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const F=c.ctx.F;
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  const msg=(event,info)=>c.receber({
+    origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event,info})
+  });
+  msg("infoDelivery",{duration:15,currentTime:0});
+  F.tocar();
+  msg("onStateChange",1);
+  msg("infoDelivery",{duration:240,currentTime:1});
+  assert.equal(F.emAnuncio,false);
+  assert.equal(F.duracao(),240);
+  assert.ok(F.tocando());
+  c.avancar(12000);
+  assert.ok(c.eventos.some(([tipo,d])=>tipo==="erro"&&d.tentarNovamente));
+  msg("infoDelivery",{duration:240,currentTime:2});
+  assert.ok(c.eventos.some(([tipo])=>tipo==="retomou"));
+  assert.ok(!c.enviados.some(({m})=>JSON.parse(m).func==="pauseVideo"));
 });
 
 test("YouTube: pedido de tocar antes de o player carregar é cumprido quando ele responde",async()=>{

@@ -196,8 +196,20 @@ function aoEventoFonte(tipo,d){
     mostrarLiberar(d.tipo,d.controles);
   }else if(tipo==="previa"){
     notify("O Spotify está tocando só a prévia de 30 s. Entre na sua conta do Spotify neste navegador para ouvir a música inteira.");
-  }else if(tipo==="anuncio"){
-    atualizarSinal(true);
+  }else if(tipo==="retomou"&&P.fonte===FonteYouTube&&!$("erroTentar").hidden){
+    $("palcoErro").hidden=true;
+    $("palcoLiberar").hidden=true;
+    document.body.classList.remove("liberandoYT");
+    atualizarBotaoTocar();
+    avisarSala();
+  }else if(tipo==="anuncio"&&P.fonte===FonteYouTube){
+    if(d.ativo)mostrarLiberar("youtube",true);
+    else if(P.fonte.tocando()){
+      $("palcoLiberar").hidden=true;
+      document.body.classList.remove("liberandoYT");
+    }
+    atualizarSinal();
+    avisarSala();
   }
 }
 function mostrarLiberar(tipo,controles=false){
@@ -221,10 +233,11 @@ function mostrarLiberar(tipo,controles=false){
 }
 function mostrarErro(msg,tentarNovamente=false){
   if(!P.aberto)return;
-  try{P.fonte&&P.fonte.pausar()}catch{}
+  if(!tentarNovamente)try{P.fonte&&P.fonte.pausar()}catch{}
   $("erroTexto").textContent=msg;
   $("erroOutro").hidden=!(P.musica&&P.musica.playback);
   $("erroTentar").hidden=!tentarNovamente||P.fonte!==FonteYouTube;
+  $("erroControlesYT").hidden=!(tentarNovamente&&P.fonte===FonteYouTube&&FonteYouTube.pronto);
   const video=P.musica?.playback?.tipo==="youtube"&&lerLinkYouTube(P.musica.playback.id);
   $("erroYouTube").hidden=!video;
   if(video)$("erroYouTube").href=`https://www.youtube.com/watch?v=${video}`;
@@ -411,10 +424,10 @@ function atualizarBarra(t){
   $("palcoDuracao").textContent=fmt(dur);
   if(!P.arrastando){const r=$("palcoProgresso");r.max=String(Math.max(1,dur));r.value=String(Math.min(t,dur||t))}
 }
-function atualizarSinal(anuncio){
+function atualizarSinal(){
   const f=P.fonte,el=$("palcoSinal");
   let txt="",cls="";
-  if(f===FonteYouTube&&FonteYouTube.emAnuncio){txt="📺 Anúncio — a letra espera";cls="alerta"}
+  if(f===FonteYouTube&&FonteYouTube.emAnuncio){txt="📺 Outra mídia no YouTube — a letra espera";cls="alerta"}
   else if(f===FonteYouTube&&FonteYouTube.carregando){txt="Carregando YouTube…";cls="alerta"}
   else if(f===FonteRelogio){txt="⏱ relógio";cls=""}
   else if((f===FonteYouTube||f===FonteSpotify)&&f.tocando()&&!f.sinal()){txt="⚠️ sem sinal do player";cls="alerta"}

@@ -111,7 +111,7 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
 
 4. **Pedir uma música da lista**: o painel permite pôr ou trocar o playback e pedir a música no fim da fila.
-5. **Playback que falhou**: se o player não responder em seis segundos, o palco tenta a outra URL de incorporação e libera os controles do YouTube. Se o vídeo continuar travado, a tela oferece tentar novamente, abrir o vídeo no YouTube, trocar o playback ou seguir sem áudio. Quem está no celular também pode usar **Trocar playback**.
+5. **Playback que falhou**: se o player não responder em seis segundos, o palco tenta a outra URL de incorporação e libera os controles do YouTube. Quando o player responde, mas demora a tocar, a tela mostra os controles do YouTube. Se aparecer o aviso de demora, o vídeo pode voltar sozinho. O aviso também oferece tentar novamente, abrir no YouTube, trocar o playback ou seguir sem áudio. Quem está no celular também pode usar **Trocar playback**.
 
 Regras: qualquer celular da sala pode fazer isso e a tela avisa quem fez. Playback do tipo **arquivo** (áudio guardado na tela) não é trocado pelo celular. Tudo viaja como comando `pedir` com campos opcionais (`modo`: fila, seguir, agora, playback; `playback`), então **não existe SQL novo**: `supabase/001_sala.sql` continua igual.
 

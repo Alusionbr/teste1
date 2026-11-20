@@ -550,6 +550,11 @@ $("fimRecomecar").addEventListener("click",()=>carregarIndice(0));
 $("liberarTocar").addEventListener("click",()=>{$("palcoLiberar").hidden=true;P.fonte&&P.fonte.tocar()});
 $("erroPular").addEventListener("click",proxima);
 $("erroTentar").addEventListener("click",tentarPlayback);
+$("erroControlesYT").addEventListener("click",()=>{
+  $("palcoErro").hidden=true;
+  mostrarLiberar("youtube",true);
+  avisarSala();
+});
 $("erroRelogio").addEventListener("click",seguirSemPlayback);
 $("erroOutro").addEventListener("click",()=>{const id=P.musica&&P.musica.id;fecharPalco();if(id)abrirEditor(id)});
 $("gravarMarcar").addEventListener("click",Sincronia.marcar);

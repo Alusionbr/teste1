@@ -22,20 +22,20 @@
  * extrapolado com teto de 1 s (o mesmo do getCurrentTime do Google). Se as
  * mensagens pararem, a letra congela em vez de disparar sozinha.
  *
- * Anúncio: durante o comercial o player informa a duração DO ANÚNCIO. Duração
- * muito diferente da do vídeo = anúncio, e o relógio da letra congela.
+ * A duração pode mudar quando a mídia fica pronta. Só separamos o relógio
+ * quando o player identifica explicitamente outra mídia.
  */
 const FonteYouTube=(()=>{
   // Origens, mensagens de erro, endereço do player e a conferência de vídeo moram em
   // verificar-youtube.js, que o celular (controle.html) também usa.
   const{ORIGEM,ORIGEM_PADRAO,ERROS,endereco}=YouTubeBase;
-  const TETO_EXTRAPOLA=1,SEM_NOTICIA_MS=2500,TOLERANCIA_DURACAO=2,LIMITE_PLAY_MS=12000,TENTATIVA_MS=6000;
-  const ENCERRADO=0,TOCANDO=1,PAUSADO=2,CARREGANDO=3;
+  const TETO_EXTRAPOLA=1,SEM_NOTICIA_MS=2500,LIMITE_PLAY_MS=12000,TENTATIVA_MS=6000;
+  const ENCERRADO=0,TOCANDO=1,PAUSADO=2;
 
   let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
   let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
-  let prazoPlay=null,esperandoPlay=false,origem=ORIGEM,alternativaUsada=false;
+  let prazoPlay=null,esperandoPlay=false,origem=ORIGEM,alternativaUsada=false,tempoExcedido=false;
 
   function enviar(msg){
     // Antes de o iframe carregar, a janela ainda é a nossa: o navegador recusa o envio.
@@ -68,10 +68,12 @@ const FonteYouTube=(()=>{
       emitir("erro",{msg:ERROS[cod]||"O YouTube não conseguiu tocar este vídeo.",codigo:cod,bloqueadoEmbutir:cod===101||cod===150,tentarNovamente:cod===5||cod===153});
       return;
     }
-    if(!msg.info&&msg.event!=="onReady")return;
+    const info=msg.event==="onStateChange"&&typeof msg.info==="number"
+      ?{playerState:msg.info}:msg.info;
+    if(msg.event!=="onReady"&&(!info||typeof info!=="object"))return;
     const acabouDeFicarPronto=!pronto;
     pronto=true;ultimaNoticia=performance.now();
-    aplicar(msg.info||{});
+    aplicar(info||{});
     if(acabouDeFicarPronto&&alternativaUsada&&esperandoPlay&&estado!==TOCANDO)emitir("bloqueado",{tipo:"youtube",controles:true});
     // Pedido de tocar feito antes de o player carregar: cumpre agora.
     if(acabouDeFicarPronto&&tocarQuandoPronto){
@@ -80,24 +82,39 @@ const FonteYouTube=(()=>{
   }
 
   function aplicar(info){
+    const id=info.videoData?.video_id;
+    if(id&&id!==videoAtual){
+      if(!emAnuncio){
+        emAnuncio=true;
+        emitir("anuncio",{ativo:true});
+      }
+      return;
+    }
+    // Sem identificação nova, espera pelo próximo evento do vídeo selecionado.
+    if(emAnuncio&&!id)return;
+    const voltou=emAnuncio;
+    emAnuncio=false;
+    if(typeof info.duration==="number"&&info.duration>0)duracaoVideo=info.duration;
+    if(typeof info.playbackRate==="number")taxa=info.playbackRate||1;
+    const progresso=typeof info.currentTime==="number"&&info.currentTime!==ancora;
+    if(typeof info.currentTime==="number"){ancora=info.currentTime;ancoraEm=performance.now()}
     if(typeof info.playerState==="number"&&info.playerState!==estado){
+      const anterior=estado;
       estado=info.playerState;
       if(estado===TOCANDO){autoplayComprovado=true;clearTimeout(vigia)}
+      if(estado===PAUSADO&&anterior===TOCANDO)cancelarVigia();
       emitir("estado");
-      // rel=0 não tira mais a grade de sugestões do fim: encerrar na hora deixa o palco limpo.
       if(estado===ENCERRADO){cancelarVigia();comando("stopVideo");emitir("fim")}
     }
-    if(typeof info.playbackRate==="number")taxa=info.playbackRate||1;
-    if(typeof info.currentTime==="number"){
-      if(esperandoPlay&&estado===TOCANDO&&info.currentTime!==ancora)vigiarProgresso();
-      ancora=info.currentTime;ancoraEm=performance.now();
+    if(voltou)emitir("anuncio",{ativo:false});
+    if(progresso&&estado===TOCANDO){
+      if(tempoExcedido){
+        tempoExcedido=false;
+        esperandoPlay=true;
+        emitir("retomou");
+      }
+      if(esperandoPlay)vigiarProgresso();
     }
-    if(typeof info.duration==="number"&&info.duration>0)avaliarAnuncio(info.duration);
-  }
-  function avaliarAnuncio(dur){
-    if(!duracaoVideo){duracaoVideo=dur;return}
-    const agora=Math.abs(dur-duracaoVideo)>TOLERANCIA_DURACAO;
-    if(agora!==emAnuncio){emAnuncio=agora;emitir("anuncio",{ativo:emAnuncio})}
   }
 
   function criarFrame(url){
@@ -113,24 +130,25 @@ const FonteYouTube=(()=>{
     $("ytBox").appendChild(f);
     return f;
   }
-  function zerar(){ancora=0;ancoraEm=performance.now();estado=-1;duracaoVideo=0;emAnuncio=false}
+  function zerar(){ancora=0;ancoraEm=performance.now();estado=-1;duracaoVideo=0;emAnuncio=false;tempoExcedido=false;taxa=1}
 
   // Se o play não pegou em 1,6 s, quase sempre é política de autoplay.
   function vigiarGesto(){
     clearTimeout(vigia);
-    vigia=setTimeout(()=>{if(pronto&&estado!==TOCANDO&&estado!==CARREGANDO&&esperandoPlay)emitir("bloqueado",{tipo:"youtube",controles:alternativaUsada})},1600);
+    vigia=setTimeout(()=>{if(pronto&&estado!==TOCANDO&&esperandoPlay)emitir("bloqueado",{tipo:"youtube",controles:true})},1600);
   }
   function vigiarProgresso(limite=LIMITE_PLAY_MS){
     clearTimeout(prazoPlay);
     prazoPlay=setTimeout(()=>{
       cancelarVigia();
+      tempoExcedido=true;
       emitir("erro",{msg:"O YouTube demorou para responder. Tente novamente ou abra o vídeo no YouTube.",tentarNovamente:true});
     },limite);
   }
-  function navegar(inicio=null,controles=false){
+  function navegar(inicio=null){
     clearInterval(handshake);
     vivo=false;pronto=false;
-    const url=endereco(videoAtual,{origem,inicio,controles});
+    const url=endereco(videoAtual,{origem,inicio,controles:true});
     if(frame)frame.src=url;else criarFrame(url);
   }
   function carregarAlternativa(limite=LIMITE_PLAY_MS){
@@ -138,7 +156,7 @@ const FonteYouTube=(()=>{
     cancelarVigia();zerar();ancora=inicio;
     alternativaUsada=true;
     origem=origem===ORIGEM?ORIGEM_PADRAO:ORIGEM;
-    navegar(inicio,true);
+    navegar(inicio);
     tocar(limite);
   }
   function tocar(limite=LIMITE_PLAY_MS){
@@ -148,7 +166,7 @@ const FonteYouTube=(()=>{
     if(alternativaUsada)return;
     clearTimeout(prazoPlay);
     prazoPlay=setTimeout(()=>{
-      if(!pronto||estado===CARREGANDO||estado===-1){carregarAlternativa(LIMITE_PLAY_MS-TENTATIVA_MS);return}
+      if(!pronto){carregarAlternativa(LIMITE_PLAY_MS-TENTATIVA_MS);return}
       vigiarProgresso(LIMITE_PLAY_MS-TENTATIVA_MS);
     },TENTATIVA_MS);
   }
@@ -171,7 +189,7 @@ const FonteYouTube=(()=>{
     },
     recarregar(){if(frame&&videoAtual)carregarAlternativa()},
     tocar,
-    pausar(){cancelarVigia();comando("pauseVideo")},
+    pausar(){cancelarVigia();tempoExcedido=false;comando("pauseVideo")},
     alternar(){estado===TOCANDO?this.pausar():this.tocar()},
     buscar(seg){const alvo=Math.max(0,seg);ancora=alvo;ancoraEm=performance.now();comando("seekTo",[alvo,true])},
     parar(){this.pausar()},
@@ -183,6 +201,7 @@ const FonteYouTube=(()=>{
     tocando:()=>estado===TOCANDO&&!emAnuncio,
     sinal:()=>estado!==TOCANDO||performance.now()-ultimaNoticia<SEM_NOTICIA_MS,
     volume(v){comando("setVolume",[clamp(Math.round(v),0,100)])},
+    get pronto(){return pronto},
     get carregando(){return esperandoPlay&&estado!==TOCANDO},
     get autoplayComprovado(){return autoplayComprovado},
     get emAnuncio(){return emAnuncio},
