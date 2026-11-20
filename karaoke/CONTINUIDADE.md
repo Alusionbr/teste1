@@ -59,7 +59,7 @@ Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1
 
 1. **Sem script de terceiro.** YouTube e Spotify por `<iframe>` criado por JS depois de um gesto; protocolo falado à mão, `targetOrigin` explícito, confere `origin` **e** `source`. Nunca carregar `iframe_api`.
 2. **O celular só pede, a tela decide.** Lista fechada de comandos (`karaoke_comando`). Tudo novo desde a 1.0.4 foi feito com campos opcionais em `pedir`/`pedir_nova`, sem mexer no SQL.
-3. **Trocar a camada da letra nunca recria o iframe** (o vídeo soluçaria). Só CSS (`#palco[data-fundo=…]`). O player do YouTube não é clicável (a TV não pode sair da sala).
+3. **Trocar a camada da letra nunca recria o iframe** (o vídeo soluçaria). Só CSS (`#palco[data-fundo=…]`). Durante a reprodução normal, o player do YouTube fica sem interação por toque. Na recuperação, os controles nativos ficam acessíveis.
 4. **Resultado de busca Piped não garante que o vídeo toca embutido.** Quem escolhe confere com `YouTubeBase.verificar` (player invisível, ~1,5 s). Com a chave oficial a busca já filtra (`videoEmbeddable=true`).
 5. **Escolha automática nunca esconde a dúvida**: toda música adicionada pelo nome volta com "Trocar vídeo" e "Tirar"; pontuação baixa vira "confira se é este mesmo".
 6. **Ordem da fila**: a tela aplica a preferência `pularFila`, desligada por padrão. Sugestões sempre entram no fim. A permissão governa os atalhos que mudam a ordem, e a reprodução fica disponível a todos.

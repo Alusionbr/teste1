@@ -384,7 +384,7 @@ async function novaManual(titulo,letra,dur){
     await page.locator("#bibliotecaLista li").filter({hasText:"Vídeo de teste"}).first().locator('[data-acao="ensaiar"]').click();
     await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando(),null,{timeout:15000});
     const antes=await page.evaluate(()=>{window.__yt=document.querySelector("#ytBox iframe");return{src:window.__yt.src,t:P.fonte.tempo()}});
-    ok(/controls=0/.test(antes.src)&&/disablekb=1/.test(antes.src),"o player ainda mostra os controles do YouTube");
+    ok(/controls=1/.test(antes.src)&&/disablekb=0/.test(antes.src),"o player precisa oferecer controles nativos durante a recuperação");
     ok((await page.evaluate(()=>getComputedStyle(window.__yt).pointerEvents))==="none","o player do YouTube é clicável (a TV poderia sair da sala)");
     // só o player: depois de 4 s parado somem as barras
     await page.mouse.move(5,5);await page.waitForTimeout(4600);
