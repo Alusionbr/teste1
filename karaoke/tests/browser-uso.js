@@ -278,6 +278,7 @@ async function novaManual(titulo,letra,dur){
     await page.evaluate(b=>{editarMusica(ED.id,{playback:{tipo:"youtube",id:b,titulo:""}});atualizarEditor()},BLOQUEADO);
     await page.click("#mEnsaiar");await page.waitForSelector("#palcoErro:not([hidden])",{timeout:10000});
     ok(/bloqueou/.test(await page.locator("#erroTexto").innerText()),"texto do erro");
+    ok(await page.locator("#erroYouTube").isVisible()&&await page.locator("#erroYouTube").getAttribute("href")==="https://www.youtube.com/watch?v="+BLOQUEADO,"o atalho deve abrir o mesmo vídeo no YouTube");
     await page.click("#palcoSair",{timeout:3000});
   });
 

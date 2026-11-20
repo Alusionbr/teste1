@@ -10,15 +10,19 @@
  */
 const YouTubeBase=(()=>{
   const ORIGEM="https://www.youtube-nocookie.com";
-  const ORIGENS=[ORIGEM,"https://www.youtube.com"];
+  const ORIGEM_PADRAO="https://www.youtube.com";
+  const ORIGENS=[ORIGEM,ORIGEM_PADRAO];
   const GRACA_ERRO_MS=1500;
   const ERROS={2:"Link de vídeo inválido.",5:"Este vídeo não toca neste navegador.",100:"Vídeo removido ou particular.",
-    101:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou).",150:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou)."};
+    101:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou).",150:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou).",
+    153:"O YouTube recusou a identificação deste navegador. Tente novamente ou abra o vídeo no YouTube."};
 
-  function endereco(id){
+  function endereco(id,{origem=ORIGEM,inicio=null,controles=false}={}){
     const p=new URLSearchParams({enablejsapi:"1",playsinline:"1",rel:"0",modestbranding:"1",controls:"0",disablekb:"1",fs:"0",iv_load_policy:"3"});
     if(location.origin&&location.origin!=="null")p.set("origin",location.origin);
-    return `${ORIGEM}/embed/${encodeURIComponent(id)}?${p}`;
+    if(controles){p.set("controls","1");p.set("disablekb","0")}
+    if(inicio!==null)p.set("start",String(inicio));
+    return `${origem}/embed/${encodeURIComponent(id)}?${p}`;
   }
   /*
    * Confere se o vídeo pode tocar fora do YouTube, ANTES de a família escolhê-lo.
@@ -65,5 +69,5 @@ const YouTubeBase=(()=>{
     });
   }
 
-  return{ORIGEM,ORIGENS,ERROS,GRACA_ERRO_MS,endereco,verificar};
+  return{ORIGEM,ORIGEM_PADRAO,ORIGENS,ERROS,GRACA_ERRO_MS,endereco,verificar};
 })();

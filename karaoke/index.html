@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.14">
+  <script data-version="1.0.15">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.14">
+  <link rel="stylesheet" href="./styles.css?v=1.0.15">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -245,6 +245,7 @@
       <p id="erroTexto" class="vezMusica"></p>
       <div class="acoes centro">
         <button type="button" id="erroTentar" hidden>Tentar YouTube novamente</button>
+        <a id="erroYouTube" class="botao" target="_blank" rel="noopener" hidden>Abrir no YouTube</a>
         <button type="button" id="erroOutro">🔧 Trocar playback</button>
         <button type="button" id="erroRelogio">⏱ Seguir sem playback</button>
         <button type="button" id="erroPular" class="primario">Pular música</button>
@@ -449,30 +450,30 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.14"></script>
-  <script src="./storage.js?v=1.0.14"></script>
-  <script src="./lrc.js?v=1.0.14"></script>
-  <script src="./links.js?v=1.0.14"></script>
-  <script src="./placar.js?v=1.0.14"></script>
-  <script src="./estado.js?v=1.0.14"></script>
-  <script src="./familia.js?v=1.0.14"></script>
-  <script src="./biblioteca.js?v=1.0.14"></script>
-  <script src="./playlists.js?v=1.0.14"></script>
-  <script src="./letras.js?v=1.0.14"></script>
-  <script src="./busca-youtube.js?v=1.0.14"></script>
-  <script src="./fontes.js?v=1.0.14"></script>
-  <script src="./verificar-youtube.js?v=1.0.14"></script>
-  <script src="./auto-adicionar.js?v=1.0.14"></script>
-  <script src="./fonte-youtube.js?v=1.0.14"></script>
-  <script src="./fonte-spotify.js?v=1.0.14"></script>
-  <script src="./aplausometro.js?v=1.0.14"></script>
-  <script src="./palco.js?v=1.0.14"></script>
-  <script src="./sincronia.js?v=1.0.14"></script>
-  <script src="./qr.js?v=1.0.14"></script>
-  <script src="./sala.js?v=1.0.14"></script>
-  <script src="./sala-host.js?v=1.0.14"></script>
-  <script src="./telas.js?v=1.0.14"></script>
-  <script src="./ui.js?v=1.0.14"></script>
-  <script src="./offline.js?v=1.0.14"></script>
+  <script src="./core.js?v=1.0.15"></script>
+  <script src="./storage.js?v=1.0.15"></script>
+  <script src="./lrc.js?v=1.0.15"></script>
+  <script src="./links.js?v=1.0.15"></script>
+  <script src="./placar.js?v=1.0.15"></script>
+  <script src="./estado.js?v=1.0.15"></script>
+  <script src="./familia.js?v=1.0.15"></script>
+  <script src="./biblioteca.js?v=1.0.15"></script>
+  <script src="./playlists.js?v=1.0.15"></script>
+  <script src="./letras.js?v=1.0.15"></script>
+  <script src="./busca-youtube.js?v=1.0.15"></script>
+  <script src="./fontes.js?v=1.0.15"></script>
+  <script src="./verificar-youtube.js?v=1.0.15"></script>
+  <script src="./auto-adicionar.js?v=1.0.15"></script>
+  <script src="./fonte-youtube.js?v=1.0.15"></script>
+  <script src="./fonte-spotify.js?v=1.0.15"></script>
+  <script src="./aplausometro.js?v=1.0.15"></script>
+  <script src="./palco.js?v=1.0.15"></script>
+  <script src="./sincronia.js?v=1.0.15"></script>
+  <script src="./qr.js?v=1.0.15"></script>
+  <script src="./sala.js?v=1.0.15"></script>
+  <script src="./sala-host.js?v=1.0.15"></script>
+  <script src="./telas.js?v=1.0.15"></script>
+  <script src="./ui.js?v=1.0.15"></script>
+  <script src="./offline.js?v=1.0.15"></script>
 </body>
 </html>

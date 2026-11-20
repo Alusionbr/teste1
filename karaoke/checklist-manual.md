@@ -81,7 +81,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Música nova pelo celular (com link do YouTube) entra na biblioteca e na fila.
 - [ ] Tocar numa música da lista abre o painel: colar link do YouTube põe/troca o playback; clipe bloqueado é recusado no celular.
 - [ ] Pedir música sempre acrescenta no fim. Com os atalhos liberados pela tela, o celular consegue tocar ou adiantar um item já na fila. Áudio local continua sendo escolhido na tela.
-- [ ] Simular internet lenta no YouTube. Após 12 segundos sem avanço, tentar o mesmo vídeo e verificar se as opções de trocar e seguir sem áudio continuam disponíveis.
+- [ ] Simular internet lenta no YouTube. Bloquear só o player sem cookies e conferir o carregamento pelo endereço padrão com controles nativos. Se os dois falharem, conferir que Abrir no YouTube leva ao mesmo vídeo.
 - [ ] Playback que falha na tela: o celular mostra o aviso e 🎧 Trocar playback recarrega a música.
 - [ ] Recarregar a tela da festa: a mesma sala continua.
 - [ ] Desligar a internet da tela: celular mostra “tela não está respondendo”; ao voltar, tudo segue.

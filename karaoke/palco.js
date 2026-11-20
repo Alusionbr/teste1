@@ -193,20 +193,22 @@ function aoEventoFonte(tipo,d){
   }else if(tipo==="erro"){
     mostrarErro(d.msg,d.tentarNovamente);
   }else if(tipo==="bloqueado"){
-    mostrarLiberar(d.tipo);
+    mostrarLiberar(d.tipo,d.controles);
   }else if(tipo==="previa"){
     notify("O Spotify está tocando só a prévia de 30 s. Entre na sua conta do Spotify neste navegador para ouvir a música inteira.");
   }else if(tipo==="anuncio"){
     atualizarSinal(true);
   }
 }
-function mostrarLiberar(tipo){
+function mostrarLiberar(tipo,controles=false){
   if(P.fase!=="cantando"&&P.fase!=="gravando")return;
   const box=$("palcoLiberar");box.hidden=false;
   const botao=$("liberarTocar");
   if(tipo==="youtube"){
     document.body.classList.add("liberandoYT");
-    $("liberarTexto").textContent="O navegador pediu um toque: toque no ▶ do vídeo para liberar o som. Depois ele volta para trás da letra.";
+    $("liberarTexto").textContent=controles
+      ?"Use o ▶ do próprio YouTube. Se aparecer um anúncio, você pode interagir com ele aqui."
+      :"Toque no ▶ do vídeo para liberar o som. Depois ele volta para trás da letra.";
     botao.hidden=true;
   }else if(tipo==="spotify"){
     document.body.classList.add("liberandoSP");
@@ -223,6 +225,10 @@ function mostrarErro(msg,tentarNovamente=false){
   $("erroTexto").textContent=msg;
   $("erroOutro").hidden=!(P.musica&&P.musica.playback);
   $("erroTentar").hidden=!tentarNovamente||P.fonte!==FonteYouTube;
+  const video=P.musica?.playback?.tipo==="youtube"&&lerLinkYouTube(P.musica.playback.id);
+  $("erroYouTube").hidden=!video;
+  if(video)$("erroYouTube").href=`https://www.youtube.com/watch?v=${video}`;
+  else $("erroYouTube").removeAttribute("href");
   $("palcoErro").hidden=false;
   $("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");
   avisarSala();

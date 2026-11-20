@@ -37,6 +37,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 
 | Versão | O que entrou |
 |---|---|
+| 1.0.15 | Se o player do YouTube não responder, o palco tenta a URL alternativa com os controles nativos. O aviso também dá acesso ao vídeo direto no YouTube. |
 | 1.0.14 | O palco dá até 12 s para o playback do YouTube avançar e oferece nova tentativa. Todos podem usar os controles da música. Sugestões entram no fim e a tela decide se os celulares podem pular ou reordenar. |
 | 1.0.13 | Troca da tela principal pelo código da sala: o aparelho atual aprova, a fila/letras são transferidas de forma criptografada e a nova tela retoma a música do ponto salvo. Migração adicional `003_transferencia_tela.sql`. |
 | 1.0.2 | Base: playlists, letra sincronizada, sala e controle pelo celular (a que estava na `main` antes do PR #64) |
