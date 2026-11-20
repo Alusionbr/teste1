@@ -21,6 +21,12 @@ test("versão única: núcleo, service worker e as duas páginas",()=>{
   }
 });
 
+test("as páginas e a cobertura de atualização usam a cor do manifesto",()=>{
+  const cor=JSON.parse(read("manifest.webmanifest")).theme_color;
+  for(const p of PAGINAS)assert.ok(read(p).includes('name="theme-color" content="'+cor+'"'),p);
+  assert.ok(read("index.html").includes("background:"+cor+";color:white"));
+});
+
 test("service worker guarda todo arquivo usado pelas páginas",()=>{
   const sw=read("sw.js");
   for(const p of PAGINAS){

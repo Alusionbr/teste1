@@ -6,6 +6,8 @@ Karaokê para a família, direto no navegador. Monte playlists, escolha o **play
 
 Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 
+O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela, inclusive quando a música já tem uma escolha de letra salva.
+
 ## Como usar
 
 1. **Família** — cadastre quem vai cantar: nome, emoji e cor. A cor pinta a letra da pessoa no palco.
@@ -40,7 +42,7 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 
 - **Trava (Ajustes → "Trava", ligada por padrão).** Enquanto a música toca, só **quem está cantando** pausa, pula, volta, ajusta a letra, mexe no volume, liga/desliga a letra ou manda "tocar agora". Os outros celulares veem "🔒 Ana está cantando e controla esta música" e continuam livres para **mexer na fila** (pedir música, pôr a seguir, tirar, trocar playback). Na **vez** (contagem), nos **aplausos** e no **fim** a trava não vale: qualquer um começa, pula a vez do ausente ou segue. Música sem cantor marcado ("Quem quiser") não tem dono: todos mexem. A tela/teclado nunca é travada.
 - **Limite:** a trava reconhece o celular pelo **nome** que ele escolheu ao entrar; é para festa de família, não segurança (quem usar o nome de outro passa por ela). Para liberar geral, desligue a trava em Ajustes.
-- **Cada um com o seu repertório:** ao pedir música, o seletor "Quem vai cantar?" já vem com o seu nome; na aba Fila, **"Só as minhas músicas"** mostra só o que é seu. No celular de quem é a vez aparece "🎤 É a sua vez! Toque em Começar".
+- **Cada um com o seu repertório:** ao pedir música, o seletor "Quem vai cantar?" já vem com o seu nome; na aba Fila, **"Só as minhas músicas"** inclui seus solos e duetos, mesmo quando outro cantor tem nome parecido. No celular de quem é a vez aparece "🎤 É a sua vez! Toque em Começar".
 - **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
 - **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
 

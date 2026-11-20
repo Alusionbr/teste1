@@ -474,8 +474,13 @@ function alternarLetra(){
 function trocarFundo(){
   const ordem=FUNDOS;
   const pr=prefs();
-  if(pr.fundo!=="tela")P.fundoComLetra=pr.fundo;
-  pr.fundo=ordem[(ordem.indexOf(pr.fundo)+1)%ordem.length];
+  const atual=fundoEfetivo();
+  if(atual!=="tela")P.fundoComLetra=atual;
+  pr.fundo=ordem[(ordem.indexOf(atual)+1)%ordem.length];
+  const m=P.musica;
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)&&m.letraDe){
+    P.musica=editarMusica(m.id,{letraDe:pr.fundo==="tela"?"video":"app"});
+  }
   aplicarPrefsPalco();salvarLogo();avisarSala();
   notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo do YouTube: a letra é a do próprio vídeo."}[pr.fundo],true);
 }

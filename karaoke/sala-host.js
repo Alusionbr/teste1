@@ -59,7 +59,7 @@ const SalaHost=(()=>{
       duracao:P.aberto&&P.fonte?Math.round(P.fonte.duracao()||(P.musica&&P.musica.duration)||0):0,
       agora:P.aberto&&P.musica?{musicaId:P.musica.id,title:P.musica.title,artist:P.musica.artist,quem:P.modo==="festa"||P.modo==="solo"?rotuloPalco(P.item):"",donos:donosDaMusica().map(c=>c.nome),cor:a?a.cor:"",offset:Number(P.musica.offset)||0,fonte:P.musica.playback?P.musica.playback.tipo:"relogio"}:null,
       indice:P.aberto&&P.modo==="festa"?P.indice:-1,
-      fila:(p?p.itens:[]).map(i=>{const m=acharMusica(i.musicaId),c=acharCantor(i.cantorA);return m?{id:i.id,title:m.title,artist:m.artist,quem:rotuloCantores(i),cor:c?c.cor:""}:null}).filter(Boolean),
+      fila:(p?p.itens:[]).map(i=>{const m=acharMusica(i.musicaId),c=acharCantor(i.cantorA);return m?{id:i.id,title:m.title,artist:m.artist,quem:rotuloCantores(i),cantores:[i.cantorA,i.cantorB].filter(Boolean),cor:c?c.cor:""}:null}).filter(Boolean),
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
       fundo:fundoEfetivo(),

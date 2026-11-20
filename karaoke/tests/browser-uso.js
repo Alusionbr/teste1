@@ -539,6 +539,11 @@ async function novaManual(titulo,letra,dur){
     ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo!=="tela"),"reabrir a música perdeu a escolha");
     await page.evaluate(()=>alternarLetra());
     ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo==="tela"&&P.musica.letraDe==="video"),"voltar ao vídeo não guardou");
+    await page.evaluate(()=>{window.__f=document.querySelector("#ytBox iframe")});
+    for(const fundo of ["opaco","escuro","video","tela"]){
+      await page.locator("#palcoFundoBtn").evaluate(b=>b.click());
+      ok(await page.evaluate(f=>fundoEfetivo()===f&&SalaHost.montarEstado().fundo===f&&document.querySelector("#ytBox iframe")===window.__f,fundo),"fundo ou iframe incorreto: "+fundo);
+    }
     await page.evaluate(()=>{prefs().contagem=5;fecharPalco()});
   });
 
@@ -549,6 +554,25 @@ async function novaManual(titulo,letra,dur){
     ok(await page.evaluate(()=>window.__v===true&&K.dados.musicas.length>0),"o pedido não entrou na fila");
     await page.waitForFunction(()=>{const m=K.dados.musicas.find(x=>x.title==="Cogulândia");return m&&temSincronia(m)},null,{timeout:10000});
     ok(await page.evaluate(()=>K.dados.musicas.filter(x=>x.title==="Cogulândia").length)===1,"criou a música duas vezes");
+  });
+
+  await cenario("controle filtra nomes parecidos e inclui o segundo cantor do dueto",async()=>{
+    const controle=await ctx.newPage();
+    try{
+      await controle.goto(BASE+"controle.html");
+      const ids=await controle.evaluate(()=>{
+        CT.eu={nome:"Ana"};
+        CT.estado={indice:-1,cantores:[{id:"a",nome:"Ana",emoji:"🎤"},{id:"p",nome:"Ana Paula",emoji:"🎤"}],fila:[
+          {id:"outra",quem:"🎤 Ana Paula",cantores:["p"]},
+          {id:"dueto",quem:"🎤 Ana Paula & 🎤 Ana",cantores:["p","a"]},
+          {id:"antiga",quem:"🎤 Ana Paula"},
+          {id:"minha",quem:"🎤 Ana"}
+        ]};
+        $("ctSoMinhas").click();
+        return [...$("ctFila").querySelectorAll("[data-item]")].map(i=>i.dataset.item);
+      });
+      assert.deepEqual(ids,["dueto","minha"]);
+    }finally{await controle.close()}
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{

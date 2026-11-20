@@ -35,7 +35,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 - [ ] Padrão: vídeo do YouTube em tela cheia; parado 4 s, somem as barras e só o player fica; qualquer toque/tecla traz de volta.
 - [ ] Nada do player é clicável (a TV nunca vai para a página do YouTube); a sala (celulares, fila) segue funcionando.
-- [ ] 🎞/🔤 (ou tecla L, ou botão no celular) liga e desliga a letra do app sem o vídeo parar nem recarregar; 🎬 alterna os quatro fundos.
+- [ ] 🎞/🔤 (ou tecla L, ou botão no celular) liga e desliga a letra do app sem o vídeo parar nem recarregar; 🎬 alterna os quatro fundos. Reabra uma música com “só vídeo” salvo e percorra o ciclo completo, conferindo o som e a continuidade do relógio.
 - [ ] Editor de música sem playback: os vídeos já aparecem sozinhos (campo preenchido com “título artista playback karaokê”); duração parecida vem primeiro com selo; tocar num troca o playback; “Já tenho o link” fica recolhido.
 - [ ] Celular → Música nova → escolher a letra: os vídeos aparecem sozinhos; tocar num e Pedir esta música.
 - [ ] Buscar “evidências” em Nova música (tela) e em ✨ Música nova (celular): aparecem resultados com miniatura; vídeo bloqueado é recusado; escolher entra na playlist/fila.
@@ -44,7 +44,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Celular: ✨ Música nova → digitar o nome → aparece o vídeo escolhido → Pedir na fila (ou Outros vídeos).
 - [ ] Ajustes → Exportar backup e importar em outro aparelho: as músicas vêm com letra e vídeo.
 - [ ] Trava: com 2 celulares (Ana e Beto) e uma música marcada para a Ana, durante o canto o celular do Beto mostra 🔒 e os botões ficam desligados; a Ana pausa/pula normalmente; o Beto ainda põe música na fila. Na contagem ("vez") o Beto consegue Começar. Desligar a trava em Ajustes libera todos.
-- [ ] Aba Fila → "Só as minhas músicas" mostra só as do seu nome; no celular de quem é a vez aparece "É a sua vez!".
+- [ ] Aba Fila → "Só as minhas músicas" com Ana e Ana Paula, no celular de Ana aparece o dueto das duas e fica de fora o solo de Ana Paula; no celular de quem é a vez aparece "É a sua vez!".
 - [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
 - [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.

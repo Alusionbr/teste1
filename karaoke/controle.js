@@ -73,8 +73,11 @@ function render(){
 function renderFila(){
   const e=CT.estado;
   const soMinhas=$("ctSoMinhas").checked&&CT.eu,eu=CT.eu?fold(CT.eu.nome):"";
+  const meusCantores=soMinhas?e.cantores.filter(c=>fold(c.nome)===eu):[];
   $("ctFila").innerHTML=e.fila.map((i,n)=>{
-    if(soMinhas&&!fold(i.quem).includes(eu))return"";
+    if(soMinhas&&!meusCantores.some(c=>Array.isArray(i.cantores)
+      ?i.cantores.includes(c.id)
+      :i.quem.split(" & ").includes(c.emoji+" "+c.nome)))return"";
     const atual=n===e.indice,passou=e.indice>=0&&n<e.indice;
     return `<li class="${atual?"atual":""}${passou?" passou":""}" data-item="${esc(i.id)}">
       <span class="num">${atual?"🎤":n+1}</span>

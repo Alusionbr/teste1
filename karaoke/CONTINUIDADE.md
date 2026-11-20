@@ -45,8 +45,9 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 | 1.0.7 | Editor e celular já abrem listando os vídeos do playback (duração parecida primeiro, `diferencaDuracao`) |
 | 1.0.8 | **Adicionar pelo nome**: o app escolhe o melhor vídeo sozinho, confere se toca, busca a letra; **adicionar várias de uma vez** (lote até 30); celular mostra o vídeo escolhido e pede na fila |
 | 1.0.9 | **Trava do cantor**; "Só as minhas músicas"; **letra por música** (`musica.letraDe`); tela busca a letra de músicas pedidas pelo celular |
+| 1.0.10 | O ciclo de fundos parte do fundo visível. A fila envia os identificadores dos cantores para filtrar solos e duetos. As páginas usam a cor do manifesto durante a atualização. |
 
-Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1.0.9.
+Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1.0.10.
 
 ## 4. Decisões importantes e por quê
 
@@ -68,12 +69,12 @@ Servidor local (porta 8765) e, a partir da raiz do repositório:
 ```bash
 python3 -m http.server 8765 -d karaoke &        # em segundo plano
 node --test karaoke/tests/*.test.js              # unidade/contrato (≈70 testes, sem rede)
-node karaoke/tests/browser-uso.js                # 27 cenários de uso real (Playwright, rede simulada)
+node karaoke/tests/browser-uso.js                # 28 cenários de uso real (Playwright, rede simulada)
 node karaoke/tests/browser-smoke.js              # caminho feliz em 3 tamanhos de tela + Supabase real
 node karaoke/tests/sala-real.js                  # sala contra o Supabase real (só se mexer no SQL)
 ```
 
-- Os testes de navegador simulam YouTube, Spotify, Piped e LRCLIB por rotas do Playwright; nada depende da internet para passar (o smoke fala com o Supabase real).
+- Os testes de navegador simulam YouTube, Spotify, Piped e LRCLIB por rotas do Playwright; nada depende da internet para passar (o smoke usa uma sala em memória por padrão).
 - Não rode dois testes de navegador escrevendo na mesma pasta de saída ao mesmo tempo.
 - O teste de uso leva cerca de 1,5 a 2 minutos.
 
@@ -91,8 +92,6 @@ Fragilidades conhecidas:
 - **Serviços Piped públicos** (`INSTANCIAS_BUSCA`): podem cair ou sair do ar; hoje a reserva é link colado ou a chave grátis do YouTube. Vale reavaliar a lista e a ordem periodicamente (`curl -D- "<base>/search?q=teste&filter=videos"` precisa devolver `access-control-allow-origin`).
 - **Pontuação dos vídeos** (`pontuarVideo`): pesos e listas de palavras são heurística; ajustar com exemplos reais de erro (o teste `busca.test.js` é o lugar para fixar cada caso).
 - **Trava por nome**: dois celulares com o mesmo nome se confundem; nome sem cantor correspondente na tela não tem dono. Ideia: identificar por `idDoAparelho()` e associar ao cantor.
-- **"Só as minhas músicas"** compara pelo texto do cantor na fila (`includes`); nomes parecidos ("Ana" / "Ana Paula") se misturam. Ideia: mandar o id do cantor no estado da fila.
-- `trocarFundo` (ciclo global de fundos) não considera `letraDe`.
 - Letra buscada automaticamente (celular e lote) pode ser de outra gravação; a sincronia só é confiável com duração parecida.
 - O lote só existe na tela; no celular é um nome por vez.
 
@@ -106,7 +105,7 @@ Ideias sem dono:
 ## 8. Como publicar
 
 1. Branch de trabalho → commit → push.
-2. Abrir PR para a `main` (o PR #64 reúne as versões 1.0.3 a 1.0.9; enquanto estiver aberto, novos commits na mesma branch entram nele).
+2. Abrir PR para a `main` (o PR #64 reúne as versões 1.0.3 a 1.0.10; enquanto estiver aberto, novos commits na mesma branch entram nele).
 3. **Dar merge**; o site (GitHub Pages) atualiza em 1–2 minutos; nos aparelhos aparece o aviso "Atualizar".
 4. Conferir a versão em Ajustes.
 
