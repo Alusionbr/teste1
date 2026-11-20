@@ -215,7 +215,7 @@ let browser;
     assert.match(await page.locator("#paper").textContent(),/Ele É o Leão da Tribo de Judá/);
     assert.match(await page.locator("#credits").textContent(),/Versão de ensaio montada de duas gravações/);
   }
-  assert.deepEqual(await page.locator(".tab").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
+  assert.deepEqual(await page.locator(".tab[data-tab]").allTextContents().then(x=>x.map(v=>v.trim())),["Início","Biblioteca 1","Repertórios 1","Ensaio"]);
 
   await page.click('[data-tab="setlist"]');
   assert.equal(await page.locator("#setlistBar").isVisible(),true);

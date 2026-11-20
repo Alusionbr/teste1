@@ -3,6 +3,10 @@
   const API_URL = "https://pxqhpntifbtjaoqtirao.supabase.co/functions/v1/estante-bug-report";
   const PUBLIC_KEY = "sb_publishable_BQovHTX0tTRpLtVfOnTVAQ_QxiV1o42";
   const button = document.getElementById("reportBugBtn");
+  const feedbackTab = document.getElementById("feedbackTab");
+  const kind = document.getElementById("feedbackKind");
+  const categoryLabel = document.getElementById("bugCategoryLabel");
+  const title = document.getElementById("bugReportTitle");
   const dialog = document.getElementById("bugReportDialog");
   const form = document.getElementById("bugReportForm");
   if (!button || !dialog || !form) return;
@@ -15,8 +19,16 @@
   let lastSentAt = 0;
   let isSending = false;
 
-  function openForm() {
+  function syncKind() {
+    const bug = kind.value === "bug";
+    categoryLabel.hidden = !bug;
+    title.textContent = bug ? "Informar um problema" : "Dúvidas, sugestões e melhorias";
+  }
+
+  function openForm(initialKind = "doubt") {
     form.reset();
+    kind.value = initialKind;
+    syncKind();
     status.textContent = "";
     status.dataset.state = "";
     submit.disabled = false;
@@ -24,7 +36,9 @@
     description.focus();
   }
 
-  button.addEventListener("click", openForm);
+  button.addEventListener("click", () => openForm("bug"));
+  feedbackTab?.addEventListener("click", () => openForm("doubt"));
+  kind.addEventListener("change", syncKind);
   document.getElementById("bugReportClose").addEventListener("click", () => dialog.close());
   document.getElementById("bugReportCancel").addEventListener("click", () => dialog.close());
 
@@ -49,10 +63,13 @@
     status.textContent = "Enviando…";
     status.dataset.state = "";
     const pagePath = location.pathname.slice(0, 200);
+    const labels = {doubt:"Dúvida",suggestion:"Sugestão",improvement:"Melhoria",bug:"Problema técnico"};
+    const isBug = kind.value === "bug";
+    const descriptionText = isBug ? text : "[" + (labels[kind.value] || "Mensagem") + "] " + text;
     const payload = {
-      category: category.value,
-      description: text,
-      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.1.2",
+      category: isBug ? category.value : "other",
+      description: descriptionText.slice(0,1500),
+      app_version: typeof APP_VERSION === "string" ? APP_VERSION : "4.2.2",
       page_path: pagePath.startsWith("/") ? pagePath : "/",
       website: website.value.trim(),
     };
@@ -69,7 +86,7 @@
       lastSentAt = Date.now();
       isSending = false;
       form.reset();
-      status.textContent = "Relato enviado. Obrigado por ajudar a melhorar o Estante.";
+      status.textContent = "Mensagem enviada. Obrigado por ajudar a melhorar o Estante.";
       status.dataset.state = "success";
       setTimeout(() => { if (dialog.open) dialog.close(); }, 1300);
     } catch {

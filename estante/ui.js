@@ -1,7 +1,7 @@
 "use strict";
 // A busca e os chips de fonte são ligados em search-ui.js, que é carregado
 // depois deste arquivo. Aqui ficam apenas os controles de palco e repertório.
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderList()});
+document.querySelectorAll(".tab[data-tab]").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderList()});
 function closeSidebar(){$("sidebar").classList.remove("open");$("menuBtn").setAttribute("aria-expanded","false")}
 function toggleSidebar(){const open=$("sidebar").classList.toggle("open");$("menuBtn").setAttribute("aria-expanded",String(open))}
 $("menuBtn").onclick=toggleSidebar;
@@ -291,6 +291,7 @@ document.addEventListener("keydown",e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.ta
 // Encostar na letra pausa — vale para a rolagem e também para a sincronia, que
 // antes seguia correndo enquanto o toque reposicionava a música sem avisar.
 $("paperViewport").addEventListener("pointerdown",()=>{
+  if(document.body.classList.contains("selectingLyrics"))return;
   if(state.scrolling){toggleScroll();pausouNoToque=true}
   else if(state.syncing){toggleSync();pausouNoToque=true}
   // Sem .lrc, a letra rola sozinha pela posição do vídeo (karaokeScrollPosition,
@@ -299,6 +300,55 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   // seguinte, e dá para rolar na tela do vídeo em vez de por cima da letra.
   else if(state.karaoke&&!state.lrc.length)manualAte=performance.now()+4000;
 });
+
+// Seleção de trechos no celular: separada do toque para pausar/avançar.
+(() => {
+  const toggle=$("selectLyricsBtn"),copy=$("copyLyricsSelectionBtn"),hint=$("selectionHint"),paper=$("paper");
+  if(!toggle||!copy||!hint||!paper)return;
+  let selected="";
+  const isPaperNode=node=>!!node&&paper.contains(node.nodeType===1?node:node.parentNode);
+  function updateSelection(){
+    if(!document.body.classList.contains("selectingLyrics"))return;
+    const sel=window.getSelection();
+    if(!sel||sel.isCollapsed||!isPaperNode(sel.anchorNode)||!isPaperNode(sel.focusNode))return;
+    selected=sel.toString().trim().slice(0,5000);
+    copy.disabled=!selected;
+  }
+  document.addEventListener("selectionchange",updateSelection);
+  window.setLyricsSelectionMode = active => {
+    if(active&&state.karaoke){notify("Saia do karaokê para selecionar um trecho.");return}
+    if(active){
+      if(state.scrolling)toggleScroll();
+      if(state.syncing)toggleSync();
+    }
+    document.body.classList.toggle("selectingLyrics",active);
+    toggle.setAttribute("aria-pressed",String(active));
+    toggle.textContent=active?"Concluir":"Selecionar trecho";
+    hint.textContent=active?"Segure e arraste sobre a letra":"Toque em selecionar para copiar um trecho";
+    copy.hidden=!active;copy.disabled=true;selected="";
+    if(!active)window.getSelection()?.removeAllRanges();
+  };
+  toggle.addEventListener("click",()=>{
+    if(!state.current){notify("Abra uma música para selecionar um trecho.");return}
+    window.setLyricsSelectionMode(!document.body.classList.contains("selectingLyrics"));
+  });
+  copy.addEventListener("click",async()=>{
+    updateSelection();
+    if(!selected){notify("Primeiro selecione o trecho na letra.");return}
+    let copied=false;
+    try{
+      await navigator.clipboard.writeText(selected);
+      copied=true;
+    }catch{
+      const input=document.createElement("textarea");
+      input.value=selected;input.style.cssText="position:fixed;left:-9999px;top:0";
+      document.body.appendChild(input);input.select();
+      try{copied=document.execCommand("copy")}catch{}
+      input.remove();
+    }
+    notify(copied?"Trecho copiado.":"Use a opção Copiar do celular sobre o texto selecionado.",copied);
+  });
+})();
 
 (async function init(){
   const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};
