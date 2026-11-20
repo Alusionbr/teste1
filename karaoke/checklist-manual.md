@@ -1,0 +1,53 @@
+# Karaokê em Casa — roteiro de teste manual
+
+Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaoke`); service worker não roda em `file://`.
+
+## Básico
+
+- [ ] Abrir pela primeira vez: tudo vazio, sem dado de exemplo, passos de início na Playlist.
+- [ ] Família: adicionar 3 pessoas com emoji e cor; editar uma; remover outra.
+- [ ] Nova música pela busca: resultado “✓ sincronizada” cria a música com a letra.
+- [ ] Cadastrar sem buscar: colar uma letra simples; “Buscar letra” encontra pelo título e artista.
+
+## Playback
+
+- [ ] Arquivo MP3 do aparelho: escolhe, toca, letra sincroniza; funciona em **modo avião**.
+- [ ] YouTube (link comum, `youtu.be` e `music.youtube.com/watch?v=`): toca escondido atrás da letra (“só som”).
+- [ ] 🎬 alterna: só som → vídeo escurecido → vídeo aparecendo.
+- [ ] iPhone/iPad: na primeira música aparece “toque no ▶ do vídeo”; depois as próximas encadeiam sozinhas.
+- [ ] Vídeo de clipe oficial bloqueado: aviso claro + Trocar playback / Seguir sem playback.
+- [ ] Spotify sem login: aviso de prévia de 30 s. Com login: música inteira, letra acompanha.
+- [ ] Anúncio no YouTube: selo “Anúncio — a letra espera” e a letra não corre durante o comercial.
+- [ ] Letra −/+ ajusta e fica salvo na música; atraso Bluetooth em Ajustes vale para todas.
+
+## Palco
+
+- [ ] “Agora é a vez de…” com contagem; Começar e Pular funcionam.
+- [ ] Linha enche na cor do cantor; próxima linha aparece embaixo; contagem ● ● ● antes do primeiro verso.
+- [ ] Dueto: cada parte na cor do seu cantor, com o nome em cima; “Todos” em dourado.
+- [ ] Letra sem tempo: rola sozinha pela fração da música, com aviso para gravar a sincronia.
+- [ ] Fim: aplausômetro pede microfone, mede 5 s e dá a nota; microfone desliga depois.
+- [ ] Controles somem depois de 4 s tocando e voltam ao mexer.
+- [ ] Teclado: espaço, ←, →, [, ], F, Esc.
+
+## Gravar sincronia
+
+- [ ] Marcar todos os versos tocando; Desfazer; Pausa ♪; Salvar toca do começo para conferir.
+- [ ] Dueto marcado antes continua depois de gravar.
+
+## Celular (sala)
+
+- [ ] Abrir sala: QR code lido pela câmera do celular abre o controle certo.
+- [ ] Nome no celular vira cantor na Família da tela.
+- [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
+- [ ] Pedir música da lista entra na fila para o cantor escolhido; ⏫ põe para tocar a seguir.
+- [ ] Música nova pelo celular (com link do YouTube) entra na biblioteca e na fila.
+- [ ] Recarregar a tela da festa: a mesma sala continua.
+- [ ] Desligar a internet da tela: celular mostra “tela não está respondendo”; ao voltar, tudo segue.
+- [ ] Fechar sala: o celular avisa que a sala não existe mais.
+
+## Dados
+
+- [ ] Compartilhar com e sem letras; abrir o link em outro navegador cria a playlist.
+- [ ] Exportar backup; importar em navegador limpo com Adicionar e com Substituir.
+- [ ] Atualização: subir a versão e conferir que o aparelho recebe a nova (aviso “Atualizar”).

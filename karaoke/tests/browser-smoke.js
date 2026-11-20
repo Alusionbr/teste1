@@ -1,0 +1,222 @@
+"use strict";
+/*
+ * Teste de ponta a ponta no Chromium (Playwright), sem internet de verdade:
+ * LRCLIB, o player do YouTube e a sala do Supabase são simulados por
+ * context.route(). O player falso do YouTube é servido na origem verdadeira
+ * (www.youtube-nocookie.com), então a conferência de origem do app vale.
+ *
+ * Uso:
+ *   python3 -m http.server 8765 -d karaoke     (em outro terminal)
+ *   node karaoke/tests/browser-smoke.js [pasta-para-screenshots]
+ */
+const fs=require("node:fs");
+const os=require("node:os");
+const path=require("node:path");
+const assert=require("node:assert/strict");
+const {chromium}=require("playwright");
+
+const BASE=process.env.KARAOKE_URL||"http://127.0.0.1:8765/";
+const SAIDA=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),"karaoke-"));
+
+const LRC="[00:00.50]Primeira linha da canção\n[00:02.50]A: Segunda linha cantada\n[00:04.00]B: Terceira linha do dueto\n[00:05.20]";
+const LRCLIB=[{trackName:"Canção de Teste",artistName:"Família Silva",albumName:"Ao Vivo",duration:8,instrumental:false,plainLyrics:"Primeira linha da canção\nSegunda linha cantada\nTerceira linha do dueto",syncedLyrics:LRC}];
+
+// WAV de 6 s em silêncio, gerado aqui (sem arquivo de áudio no repositório).
+function wav(segundos){
+  const taxa=8000,n=taxa*segundos,buf=Buffer.alloc(44+n*2);
+  buf.write("RIFF",0);buf.writeUInt32LE(36+n*2,4);buf.write("WAVE",8);buf.write("fmt ",12);
+  buf.writeUInt32LE(16,16);buf.writeUInt16LE(1,20);buf.writeUInt16LE(1,22);buf.writeUInt32LE(taxa,24);
+  buf.writeUInt32LE(taxa*2,28);buf.writeUInt16LE(2,32);buf.writeUInt16LE(16,34);buf.write("data",36);buf.writeUInt32LE(n*2,40);
+  return buf;
+}
+
+const PLAYER_FALSO=`<!doctype html><body style="margin:0;background:#300;color:#fff;font:20px sans-serif">player falso<script>
+let estado=-1,t=0,timer=null,dur=7;
+const send=o=>parent.postMessage(JSON.stringify(o),"*");
+const info=()=>send({event:"infoDelivery",info:{playerState:estado,currentTime:t,duration:dur,playbackRate:1}});
+addEventListener("message",e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+  if(m.event==="listening"){send({event:"onReady"});info();return}
+  if(m.event!=="command")return;
+  if(m.func==="playVideo"){estado=1;clearInterval(timer);timer=setInterval(()=>{t=Math.min(dur,t+0.25);if(t>=dur){estado=0;clearInterval(timer)}info()},250);info()}
+  if(m.func==="pauseVideo"||m.func==="stopVideo"){if(estado!==0)estado=2;clearInterval(timer);info()}
+  if(m.func==="seekTo"){t=m.args[0];info()}
+  if(m.func==="cueVideoById"||m.func==="loadVideoById"){clearInterval(timer);t=0;estado=5;info()}
+});</script></body>`;
+
+// Sala do Supabase em memória: mesmas regras das funções de 001_sala.sql.
+function salaFalsa(){
+  const salas=new Map();let seq=0;
+  return(fn,b)=>{
+    const s=salas.get(b.p_codigo);
+    switch(fn){
+      case "karaoke_sala_abrir":
+        if(s&&s.token!==b.p_token)return[400,{message:"codigo em uso"}];
+        if(!s)salas.set(b.p_codigo,{token:b.p_token,estado:{},versao:0,comandos:[],aparelhos:new Map()});
+        return[200,{ok:true}];
+      case "karaoke_host_sync":
+        if(!s)return[400,{message:"sala nao encontrada"}];
+        if(s.token!==b.p_token)return[400,{message:"token incorreto"}];
+        if(b.p_estado){s.estado=b.p_estado;s.versao++}
+        return[200,{comandos:s.comandos.filter(c=>c.id>(b.p_depois||0)).slice(0,50),aparelhos:s.aparelhos.size}];
+      case "karaoke_sala_ver":
+        if(!s)return[200,{existe:false}];
+        s.aparelhos.set(b.p_device,b.p_nome);
+        return[200,{existe:true,versao:s.versao,tela_viva:true,estado:s.versao>b.p_versao?s.estado:null}];
+      case "karaoke_comando":
+        if(!s)return[400,{message:"sala fechada"}];
+        s.comandos.push({id:++seq,device:b.p_device,nome:b.p_nome,tipo:b.p_tipo,dados:b.p_dados||{}});
+        return[200,{ok:true}];
+      case "karaoke_sala_fechar":salas.delete(b.p_codigo);return[200,null];
+    }
+    return[404,{message:"Could not find the function"}];
+  };
+}
+
+(async()=>{
+  const wavPath=path.join(SAIDA,"playback.wav");fs.writeFileSync(wavPath,wav(6));
+  const browser=await chromium.launch({args:["--autoplay-policy=no-user-gesture-required"]});
+  const context=await browser.newContext({viewport:{width:1280,height:720}});
+  const sala=salaFalsa();
+  await context.route("https://lrclib.net/**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(r.request().url().includes("/api/get")?{...LRCLIB[0]}:LRCLIB)}));
+  await context.route("https://www.youtube.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Canção de Teste (playback)"})}));
+  await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
+  await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",r=>{
+    const fn=r.request().url().split("/").pop();
+    if(r.request().method()==="OPTIONS")return r.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"POST"}});
+    const[status,body]=sala(fn,JSON.parse(r.request().postData()||"{}"));
+    return r.fulfill({status,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(body)});
+  });
+  const erros=[];
+  const page=await context.newPage();
+  page.on("pageerror",e=>erros.push("página: "+e.message));
+  page.on("dialog",d=>d.accept(d.type()==="prompt"?"Festa de teste":undefined));
+  await page.goto(BASE);
+
+  // 1. Família
+  await page.click('[data-aba="familia"]');
+  for(const [nome,emoji] of [["Vovó","👵"],["Pedro","👦"]]){
+    await page.fill("#cantorNome",nome);
+    await page.click(`#cantorEmojis [data-emoji="${emoji}"]`);
+    await page.click("#cantorSalvar");
+  }
+  await page.waitForFunction(()=>document.querySelectorAll("#familiaLista li").length===2);
+
+  // 2. Música com arquivo do aparelho
+  await page.click('[data-aba="musicas"]');
+  await page.click("#btnNovaMusica");
+  await page.fill("#buscaLetra","canção de teste");
+  await page.click('#formBuscaLetra button[type="submit"]');
+  await page.click('[data-resultado="0"]');
+  await page.waitForSelector("#dlgMusica[open]");
+  await page.click('[data-pb="arquivo"]');
+  await page.setInputFiles("#mArquivo",wavPath);
+  await page.waitForFunction(()=>document.querySelector("#mPlaybackAtual").textContent.includes("Arquivo"));
+  await page.click("#mParaFila");
+  await page.waitForSelector("#dlgAddFila[open]");
+  assert.match(await page.locator('#addCantores [aria-pressed="true"]').innerText(),/Vovó/,"rodízio começa pela Vovó");
+  await page.click("#addDueto");
+  await page.click("#addConfirmar");
+
+  // 3. Segunda música com YouTube (mesma letra, outro playback)
+  await page.click('[data-aba="musicas"]');
+  await page.click("#btnNovaMusica");
+  await page.fill("#buscaLetra","canção de teste");
+  await page.click('#formBuscaLetra button[type="submit"]');
+  await page.click('[data-resultado="0"]');
+  await page.waitForSelector("#dlgMusica[open]");
+  await page.fill("#mLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RD");
+  await page.click("#mUsarYT");
+  await page.waitForFunction(()=>document.querySelector("#mPlaybackAtual").textContent.includes("YouTube"));
+  await page.click("#mParaFila");
+  await page.waitForSelector("#dlgAddFila[open]");
+  assert.match(await page.locator('#addCantores [aria-pressed="true"]').innerText(),/Pedro/,"rodízio: agora é o Pedro");
+  await page.click("#addConfirmar");
+  await page.waitForFunction(()=>document.querySelectorAll("#filaLista li").length===2);
+  await page.screenshot({path:path.join(SAIDA,"playlist.png")});
+
+  // 4. Sala + celular
+  await page.click("#btnSala");
+  await page.click("#salaAbrir");
+  await page.waitForFunction(()=>/^[A-Z0-9]{6}$/.test(document.querySelector("#salaCodigo").textContent));
+  const codigo=await page.locator("#salaCodigo").innerText();
+  await page.screenshot({path:path.join(SAIDA,"sala.png")});
+  await page.keyboard.press("Escape");
+  const cel=await context.newPage();
+  await cel.setViewportSize({width:390,height:800});
+  cel.on("pageerror",e=>erros.push("celular: "+e.message));
+  await cel.goto(BASE+"controle.html?sala="+codigo);
+  await cel.fill("#ctNome","Tia Carla");
+  await cel.click('#ctFormQuem button[type="submit"]');
+  await page.waitForFunction(()=>[...document.querySelectorAll("#familiaLista b")].some(b=>b.textContent==="Tia Carla"),null,{timeout:8000});
+  await cel.waitForFunction(()=>document.querySelectorAll("#ctFila li[data-item]").length===2,null,{timeout:8000});
+
+  // 5. Palco: arquivo local
+  await page.click('[data-aba="playlist"]');
+  await page.click("#btnComecar");
+  await page.waitForSelector("#palcoVez:not([hidden])");
+  assert.match(await page.locator("#vezCantor").innerText(),/Vovó & .*Pedro/);
+  await cel.waitForFunction(()=>document.querySelector("#ctFase").textContent.includes("Preparando"),null,{timeout:8000});
+  await cel.click("#ctComecar"); // o celular manda começar
+  await page.waitForFunction(()=>document.querySelector("#linhaAtual").textContent.includes("Primeira linha"),null,{timeout:8000});
+  await page.waitForFunction(()=>document.querySelector("#linhaAtual").textContent.includes("Segunda linha"),null,{timeout:8000});
+  assert.match(await page.locator("#linhaParte").innerText(),/Vovó/,"parte A é da Vovó");
+  // a linha "enche" palavra por palavra
+  await page.waitForFunction(()=>[...document.querySelectorAll("#linhaAtual .w")].some(s=>parseFloat(s.style.getPropertyValue("--p"))>0),null,{timeout:3000});
+  await page.waitForFunction(()=>document.querySelector("#linhaParte").textContent.includes("Pedro"),null,{timeout:8000});
+  await page.waitForTimeout(450); // deixa a animação de entrada da linha terminar
+  await page.screenshot({path:path.join(SAIDA,"palco-dueto.png")});
+  await page.waitForSelector("#palcoNota:not([hidden])",{timeout:10000});
+  assert.match(await page.locator("#notaTitulo").innerText(),/Aplausos para/);
+  await page.screenshot({path:path.join(SAIDA,"palco-nota.png")});
+
+  // 6. Celular pula para a próxima (YouTube falso, modo só som)
+  await cel.waitForFunction(()=>!document.querySelector("#ctComecar").hidden,null,{timeout:8000});
+  await cel.click("#ctComecar");
+  await page.waitForSelector("#palcoVez:not([hidden])",{timeout:8000});
+  await page.click("#vezComecar");
+  await page.waitForFunction(()=>document.querySelector("#palcoSinal").textContent.includes("sincronizado"),null,{timeout:10000});
+  await page.waitForFunction(()=>document.querySelector("#linhaAtual").textContent.includes("Segunda linha"),null,{timeout:8000});
+  const camadas=await page.evaluate(()=>({fundo:getComputedStyle(document.querySelector("#palcoFundo")).zIndex,cobertura:getComputedStyle(document.querySelector("#palcoCobertura")).zIndex,fundoCob:getComputedStyle(document.querySelector("#palcoCobertura")).backgroundImage}));
+  assert.ok(Number(camadas.fundo)<Number(camadas.cobertura),"player do YouTube fica atrás da letra");
+  assert.ok(await page.locator("#ytBox iframe").count()===1,"um iframe só");
+  await page.screenshot({path:path.join(SAIDA,"palco-youtube-so-som.png")});
+
+  // 7. Celular pausa; letra congela
+  await cel.click("#ctTocar");
+  await page.waitForFunction(()=>document.querySelector("#palcoTocar").textContent==="▶",null,{timeout:8000});
+  await cel.screenshot({path:path.join(SAIDA,"celular.png")});
+
+  // 8. Celular pede música da lista para a Tia Carla
+  await cel.click('[data-ct-aba="pedir"]');
+  await cel.click("[data-pedir]");
+  await page.waitForFunction(()=>document.querySelector("#palcoTitulo").textContent.includes("/3"),null,{timeout:8000});
+
+  // 9. Gravar sincronia tocando (música do arquivo local)
+  await page.click("#palcoSair");
+  await page.waitForSelector("#palco",{state:"hidden"});
+  await page.click('[data-aba="musicas"]');
+  await page.locator("#bibliotecaLista li").filter({hasText:"Arquivo"}).first().locator('[data-acao="editar"]').click();
+  await page.waitForSelector("#dlgMusica[open]");
+  await page.click("#mGravar");
+  await page.waitForSelector("#gravarPainel:not([hidden])");
+  await page.click("#gravarMarcar"); // primeiro toque: começa o playback
+  await page.waitForFunction(()=>P.fonte.tocando());
+  for(let i=0;i<3;i++){await page.waitForTimeout(700);await page.keyboard.press(" ")}
+  await page.waitForFunction(()=>!document.querySelector("#gravarSalvar").disabled);
+  await page.click("#gravarSalvar");
+  await page.waitForFunction(()=>P.modo==="ensaio"&&/\[00:0\d\.\d\d\]/.test(P.musica.synced));
+  const gravada=await page.evaluate(()=>lerLetra(P.musica.synced).linhas.map(l=>[l.texto,l.parte]));
+  assert.deepEqual(gravada.map(x=>x[0]),["Primeira linha da canção","Segunda linha cantada","Terceira linha do dueto"]);
+  assert.deepEqual(gravada.map(x=>x[1]),["","A","B"],"dueto preservado na sincronia gravada");
+  await page.screenshot({path:path.join(SAIDA,"ensaio-depois-de-gravar.png")});
+  await page.click("#palcoSair");
+
+  // 10. Sem erros de página e versão em mobile
+  const mob=await context.newPage();
+  await mob.setViewportSize({width:390,height:844});
+  await mob.goto(BASE);
+  await mob.screenshot({path:path.join(SAIDA,"celular-tela-principal.png")});
+  assert.deepEqual(erros,[]);
+  await browser.close();
+  console.log("OK — teste de navegador passou. Screenshots em",SAIDA);
+})().catch(async e=>{console.error("FALHOU:",e);process.exit(1)});

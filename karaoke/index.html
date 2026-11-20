@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#140b2b">
+  <meta name="description" content="Karaokê em Casa: playlists de karaokê para a família com playback do YouTube, Spotify ou do aparelho, letra sincronizada e controle pelo celular.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Karaokê em Casa</title>
+  <script data-version="1.0.0">
+  // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
+  // antigos: troca de versão antes de o app começar.
+  (()=>{
+    const version=document.currentScript.dataset.version;
+    const controller=navigator.serviceWorker&&navigator.serviceWorker.controller;
+    if(!controller||!navigator.onLine||new URL(controller.scriptURL).searchParams.get("v")===version)return;
+    const attempt="karaoke:update:"+version;
+    try{if(sessionStorage.getItem(attempt))return}catch{}
+    let active=true,cover;
+    const stop=()=>{active=false;clearTimeout(timer);cover&&cover.remove();navigator.serviceWorker.removeEventListener("controllerchange",changed)};
+    const changed=()=>{if(!active||new URL(navigator.serviceWorker.controller.scriptURL).searchParams.get("v")!==version)return;stop();location.reload()};
+    document.addEventListener("DOMContentLoaded",()=>{
+      if(!active)return;
+      cover=document.createElement("div");cover.setAttribute("role","status");cover.textContent="Atualizando o Karaokê em Casa…";
+      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#140b2b;color:white;font:18px system-ui";
+      document.body.appendChild(cover);
+    },{once:true});
+    navigator.serviceWorker.addEventListener("controllerchange",changed);
+    const timer=setTimeout(stop,20000);
+    const activate=worker=>{
+      if(!active||!worker||new URL(worker.scriptURL).searchParams.get("v")!==version)return;
+      if(worker.state==="installed"){try{sessionStorage.setItem(attempt,"1")}catch{}worker.postMessage("skipWaiting")}
+      else if(worker.state==="redundant")stop();
+    };
+    navigator.serviceWorker.register("./sw.js?v="+version,{scope:"./",updateViaCache:"none"}).then(reg=>{
+      if(!active)return;
+      if(reg.waiting)activate(reg.waiting);
+      const watch=()=>{const w=reg.installing;if(w){w.addEventListener("statechange",()=>activate(w));activate(w)}};
+      reg.addEventListener("updatefound",watch);watch();
+    }).catch(stop);
+  })();
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=1.0.0">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca"><img src="./icon.svg" alt="" width="34" height="34"><span><b>Karaokê</b> em Casa</span></div>
+    <button type="button" id="btnSala" class="chip">📱 Controle pelo celular</button>
+  </header>
+
+  <nav class="abas" role="tablist" aria-label="Seções">
+    <button type="button" role="tab" data-aba="playlist" class="ativa">🎤<span>Playlist</span></button>
+    <button type="button" role="tab" data-aba="musicas">🎵<span>Músicas</span></button>
+    <button type="button" role="tab" data-aba="familia">👨‍👩‍👧<span>Família</span></button>
+    <button type="button" role="tab" data-aba="ajustes">⚙️<span>Ajustes</span></button>
+  </nav>
+
+  <main>
+    <!-- ============================== PLAYLIST -->
+    <section id="abaPlaylist" class="aba" role="tabpanel">
+      <div class="barraPlaylist">
+        <label class="sr" for="playlistSel">Playlist</label>
+        <select id="playlistSel"></select>
+        <button type="button" id="btnNovaPlaylist" class="chip">+ Nova</button>
+        <button type="button" id="btnRenomearPlaylist" class="chip" title="Renomear">✏️</button>
+        <button type="button" id="btnCompartilhar" class="chip" title="Compartilhar">🔗</button>
+        <button type="button" id="btnApagarPlaylist" class="chip perigo" title="Apagar playlist">🗑️</button>
+      </div>
+      <p id="playlistResumo" class="dica"></p>
+      <button type="button" id="btnComecar" class="botaoGrande">▶ Começar karaokê</button>
+      <ol id="filaLista" class="lista fila"></ol>
+      <div id="filaVazia" class="vazio" hidden>
+        <p class="vazioTitulo">A playlist está vazia</p>
+        <ol class="passos">
+          <li>Em <b>Família</b>, cadastre quem vai cantar.</li>
+          <li>Em <b>Músicas</b>, busque a letra e escolha o playback (YouTube, Spotify ou arquivo).</li>
+          <li>Aqui, adicione as músicas e aperte <b>Começar</b>.</li>
+        </ol>
+      </div>
+      <button type="button" id="btnAddFila" class="botaoLinha">+ Adicionar música à playlist</button>
+    </section>
+
+    <!-- ============================== MÚSICAS -->
+    <section id="abaMusicas" class="aba" role="tabpanel" hidden>
+      <div class="barraBusca">
+        <label class="sr" for="buscaBiblioteca">Procurar nas músicas salvas</label>
+        <input id="buscaBiblioteca" type="search" placeholder="Procurar nas músicas salvas (título, artista ou trecho)" autocomplete="off">
+        <button type="button" id="btnNovaMusica" class="primario">+ Nova música</button>
+      </div>
+      <ul id="bibliotecaLista" class="lista"></ul>
+      <div id="bibliotecaVazia" class="vazio" hidden>
+        <p class="vazioTitulo">Nenhuma música ainda</p>
+        <p>Toque em <b>+ Nova música</b>, busque pelo nome e escolha o playback.</p>
+      </div>
+    </section>
+
+    <!-- ============================== FAMÍLIA -->
+    <section id="abaFamilia" class="aba" role="tabpanel" hidden>
+      <ul id="familiaLista" class="familia"></ul>
+      <form id="formCantor" class="cartao" autocomplete="off">
+        <h2 id="formCantorTitulo">Quem vai cantar?</h2>
+        <label>Nome <input id="cantorNome" maxlength="24" required placeholder="Ex.: Vovó"></label>
+        <div class="rotulo">Emoji</div>
+        <div id="cantorEmojis" class="grade emojis"></div>
+        <div class="rotulo">Cor da letra</div>
+        <div id="cantorCores" class="grade cores"></div>
+        <div class="acoes">
+          <button type="submit" id="cantorSalvar" class="primario">Adicionar à família</button>
+          <button type="button" id="cantorCancelar" hidden>Cancelar</button>
+          <button type="button" id="cantorRemover" class="perigo" hidden>Remover</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============================== AJUSTES -->
+    <section id="abaAjustes" class="aba" role="tabpanel" hidden>
+      <div class="cartao">
+        <h2>Palco</h2>
+        <label>Tamanho da letra <output id="tamanhoOut"></output>
+          <input id="prefTamanho" type="range" min="60" max="180" step="10"></label>
+        <label>Fundo da letra (YouTube)
+          <select id="prefFundo">
+            <option value="opaco">Só som — esconde o vídeo</option>
+            <option value="escuro">Vídeo escurecido atrás da letra</option>
+            <option value="video">Vídeo aparecendo</option>
+          </select></label>
+        <label>Contagem antes de cada música
+          <select id="prefContagem"><option value="0">Sem contagem</option><option value="3">3 segundos</option><option value="5">5 segundos</option><option value="10">10 segundos</option></select></label>
+        <label class="check"><input id="prefAplausometro" type="checkbox"> Aplausômetro no fim de cada música (usa o microfone)</label>
+        <div class="rotulo">Atraso da caixa Bluetooth <output id="atrasoOut"></output></div>
+        <div class="acoes"><button type="button" id="atrasoMenos">− 50 ms</button><button type="button" id="atrasoMais">+ 50 ms</button></div>
+        <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
+      </div>
+      <div class="cartao">
+        <h2>Busca de playback no YouTube (opcional)</h2>
+        <p class="dica">Com uma chave gratuita da API do YouTube, a busca acontece dentro do app e mostra só vídeos que podem tocar aqui. Sem chave, o app abre a busca do YouTube e você cola o link. A chave fica só neste aparelho.</p>
+        <label>Chave da API do YouTube <input id="prefKeyYT" type="password" autocomplete="off" placeholder="AIza…"></label>
+      </div>
+      <div class="cartao">
+        <h2>Backup</h2>
+        <p class="dica">Tudo fica guardado neste aparelho. Exporte de vez em quando. Os áudios escolhidos do aparelho não vão no backup.</p>
+        <div class="acoes">
+          <button type="button" id="btnExportar">⬇ Exportar backup</button>
+          <label class="botao">⬆ Importar backup<input id="arquivoImportar" type="file" accept="application/json,.json" hidden></label>
+        </div>
+        <p id="armazenamentoInfo" class="dica"></p>
+      </div>
+      <p class="dica rodape">Karaokê em Casa <span id="versaoApp"></span> · funciona sem internet com músicas de arquivo e letras salvas.</p>
+    </section>
+  </main>
+
+  <div id="aviso" aria-live="polite"></div>
+
+  <!-- ============================== PALCO -->
+  <section id="palco" hidden aria-label="Palco do karaokê">
+    <div id="palcoFundo"><div id="ytBox"></div></div>
+    <div id="palcoCobertura"></div>
+    <div id="palcoTopo">
+      <div id="palcoCantor" class="cantorSelo"></div>
+      <div id="palcoTitulo"></div>
+      <div id="palcoSinal" title="Sincronia com o player"></div>
+      <div id="palcoSala" hidden></div>
+      <button type="button" id="palcoSair" class="redondo" aria-label="Sair do palco">✕</button>
+    </div>
+
+    <div id="palcoLetra">
+      <div id="linhaAnterior" class="linha anterior"></div>
+      <div id="palcoContagem" aria-hidden="true"></div>
+      <div id="linhaParte" class="parteRotulo"></div>
+      <div id="linhaAtual" class="linha atual"></div>
+      <div id="linhaProxima" class="linha proxima"></div>
+      <div id="letraCorrida" hidden></div>
+      <div id="semSincronia" hidden>Letra sem sincronia: ela rola sozinha. Para o efeito de karaokê, use <b>Gravar sincronia</b> na música.</div>
+    </div>
+
+    <div id="spBox" aria-label="Player do Spotify"></div>
+
+    <div id="palcoRodape">
+      <div id="palcoBarra">
+        <span id="palcoTempo">0:00</span>
+        <input id="palcoProgresso" type="range" min="0" max="100" step="0.1" value="0" aria-label="Posição da música">
+        <span id="palcoDuracao">0:00</span>
+      </div>
+      <div id="palcoControles">
+        <button type="button" id="palcoAnterior" class="redondo" aria-label="Música anterior">⏮</button>
+        <button type="button" id="palcoTocar" class="redondo grande" aria-label="Tocar ou pausar">▶</button>
+        <button type="button" id="palcoProxima" class="redondo" aria-label="Próxima música">⏭</button>
+        <span class="separador"></span>
+        <button type="button" id="palcoAdiantar" title="Letra chegando tarde: adiantar">Letra −</button>
+        <span id="palcoOffset" class="offset"></span>
+        <button type="button" id="palcoAtrasar" title="Letra chegando cedo: atrasar">Letra +</button>
+        <span class="separador"></span>
+        <button type="button" id="palcoFundoBtn" title="Fundo da letra">🎬</button>
+        <button type="button" id="palcoTelaCheia" title="Tela cheia">⛶</button>
+      </div>
+    </div>
+
+    <div id="palcoVez" class="sobre" hidden>
+      <div class="vezRotulo">Agora é a vez de</div>
+      <div id="vezCantor" class="vezCantor"></div>
+      <div id="vezMusica" class="vezMusica"></div>
+      <div id="vezContagem" class="vezContagem"></div>
+      <div class="acoes centro">
+        <button type="button" id="vezComecar" class="botaoGrande">🎤 Começar</button>
+        <button type="button" id="vezPular">Pular esta</button>
+      </div>
+    </div>
+
+    <div id="palcoNota" class="sobre" hidden>
+      <div id="notaTitulo" class="vezRotulo"></div>
+      <div id="notaMedidor" class="medidor"><div id="notaBarra"></div></div>
+      <div id="notaResultado" class="notaResultado"></div>
+      <div class="acoes centro">
+        <button type="button" id="notaMedir" class="botaoGrande">👏 Medir os aplausos</button>
+        <button type="button" id="notaProxima">Próxima ▶</button>
+      </div>
+      <p id="notaProximoInfo" class="dica"></p>
+    </div>
+
+    <div id="palcoFim" class="sobre" hidden>
+      <div class="vezCantor">🎉 Fim da playlist!</div>
+      <p class="dica">Que festa! Adicione mais músicas ou comece de novo.</p>
+      <div class="acoes centro"><button type="button" id="fimRecomecar">↺ Recomeçar</button><button type="button" id="fimSair" class="primario">Voltar</button></div>
+    </div>
+
+    <div id="palcoLiberar" hidden>
+      <p id="liberarTexto">Toque no player para liberar o som</p>
+      <button type="button" id="liberarTocar" class="botaoGrande">▶ Tocar</button>
+    </div>
+
+    <div id="palcoErro" class="sobre" hidden>
+      <p id="erroTexto" class="vezMusica"></p>
+      <div class="acoes centro">
+        <button type="button" id="erroOutro">🔧 Trocar playback</button>
+        <button type="button" id="erroRelogio">⏱ Seguir sem playback</button>
+        <button type="button" id="erroPular" class="primario">Pular música</button>
+      </div>
+    </div>
+
+    <div id="gravarPainel" hidden>
+      <div class="gravarTopo"><b>Gravar sincronia</b> <span id="gravarConta"></span></div>
+      <p class="dica">Toque <b>Marcar</b> (ou espaço) no instante em que cada verso começa a ser cantado.</p>
+      <div id="gravarVerso" class="linha atual"></div>
+      <div id="gravarProximo" class="linha proxima"></div>
+      <div class="acoes centro">
+        <button type="button" id="gravarMarcar" class="botaoGrande">⤵ Marcar</button>
+        <button type="button" id="gravarPausa" title="Marca uma parte instrumental (a letra para de encher)">♪ Pausa</button>
+        <button type="button" id="gravarDesfazer">↶ Desfazer</button>
+      </div>
+      <div class="acoes centro">
+        <button type="button" id="gravarRecomecar">↺ Do começo</button>
+        <button type="button" id="gravarSalvar" class="primario" disabled>💾 Salvar sincronia</button>
+        <button type="button" id="gravarCancelar">Cancelar</button>
+      </div>
+    </div>
+  </section>
+
+  <audio id="audioPlayer" preload="auto"></audio>
+
+  <!-- ============================== DIÁLOGOS -->
+  <dialog id="dlgNovaMusica" class="dialogo">
+    <form method="dialog" class="dlgCabeca"><h2>Nova música</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <form id="formBuscaLetra" class="barraBusca">
+      <label class="sr" for="buscaLetra">Nome da música</label>
+      <input id="buscaLetra" type="search" placeholder="Nome da música e do artista" autocomplete="off" required>
+      <button type="submit" class="primario">Buscar</button>
+    </form>
+    <p id="buscaStatus" class="dica"></p>
+    <ul id="buscaResultados" class="lista resultados"></ul>
+    <button type="button" id="btnMusicaManual" class="botaoLinha">✍️ Cadastrar sem buscar (colar a letra)</button>
+  </dialog>
+
+  <dialog id="dlgMusica" class="dialogo largo">
+    <form method="dialog" class="dlgCabeca"><h2>Música</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <div class="grade2">
+      <label>Título <input id="mTitulo" maxlength="160"></label>
+      <label>Artista <input id="mArtista" maxlength="160"></label>
+      <label>Duração <input id="mDuracao" placeholder="3:45" inputmode="numeric"></label>
+    </div>
+
+    <h3>Playback</h3>
+    <p id="mPlaybackAtual" class="playbackAtual"></p>
+    <div class="abasMini" role="tablist">
+      <button type="button" data-pb="youtube" class="ativa">YouTube / YT Music</button>
+      <button type="button" data-pb="spotify">Spotify</button>
+      <button type="button" data-pb="arquivo">Arquivo do aparelho</button>
+    </div>
+    <div id="pbYoutube" class="pbPainel">
+      <div class="barraBusca">
+        <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
+        <button type="button" id="mUsarYT" class="primario">Usar</button>
+      </div>
+      <div class="acoes">
+        <a id="mProcurarYT" class="botao" target="_blank" rel="noopener">🔎 Procurar no YouTube ↗</a>
+        <button type="button" id="mBuscarYTApp" hidden>🔎 Buscar aqui</button>
+      </div>
+      <ul id="mVideos" class="lista videos"></ul>
+      <p class="dica">Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
+    </div>
+    <div id="pbSpotify" class="pbPainel" hidden>
+      <div class="barraBusca">
+        <input id="mLinkSP" placeholder="Cole o link da faixa (open.spotify.com/track/…)" autocomplete="off">
+        <button type="button" id="mUsarSP" class="primario">Usar</button>
+      </div>
+      <a id="mProcurarSP" class="botao" target="_blank" rel="noopener">🔎 Procurar no Spotify ↗</a>
+      <p class="aviso fixo">⚠️ Sem login no Spotify neste navegador, toca só 30 s de prévia. O primeiro play é um toque no ▶ do próprio Spotify, que aparece no canto do palco.</p>
+    </div>
+    <div id="pbArquivo" class="pbPainel" hidden>
+      <label class="botao">🎵 Escolher arquivo de áudio<input id="mArquivo" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac" hidden></label>
+      <p class="dica">O arquivo fica guardado só neste aparelho e toca sem internet. É a forma mais precisa de sincronizar.</p>
+    </div>
+    <button type="button" id="mSemPlayback" class="botaoLinha">Remover playback (a letra anda pelo relógio)</button>
+
+    <h3>Letra</h3>
+    <div class="acoes">
+      <button type="button" id="mBuscarLetra">🔎 Buscar letra</button>
+      <button type="button" id="mGravar">⏺ Gravar sincronia</button>
+      <button type="button" id="mDueto">👥 Marcar dueto</button>
+      <button type="button" id="mEnsaiar">▶ Ensaiar</button>
+    </div>
+    <p id="mLetraInfo" class="dica"></p>
+    <label class="sr" for="mLetra">Letra</label>
+    <textarea id="mLetra" rows="10" spellcheck="false" placeholder="Cole a letra aqui. Letra com tempos [00:12.34] fica sincronizada."></textarea>
+    <div class="rotulo">Início da letra no playback <output id="mOffsetOut"></output></div>
+    <div class="acoes">
+      <button type="button" id="mOffsetMenos">Letra −0,5 s</button>
+      <button type="button" id="mOffsetMais">Letra +0,5 s</button>
+    </div>
+    <p class="dica">Use quando o playback tem uma introdução diferente da gravação original. Vale só para esta música.</p>
+
+    <div class="acoes rodapeDlg">
+      <button type="button" id="mSalvar" class="primario">Salvar</button>
+      <button type="button" id="mParaFila">+ Playlist</button>
+      <button type="button" id="mApagar" class="perigo">Apagar música</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgAddFila" class="dialogo">
+    <form method="dialog" class="dlgCabeca"><h2>Adicionar à playlist</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <div id="addMusicaEscolha">
+      <input id="addBusca" type="search" placeholder="Procurar música salva" autocomplete="off" aria-label="Procurar música salva">
+      <ul id="addMusicas" class="lista compacta"></ul>
+    </div>
+    <p id="addMusicaEscolhida" class="playbackAtual" hidden></p>
+    <div class="rotulo">Quem canta?</div>
+    <div id="addCantores" class="grade cantores"></div>
+    <label class="check"><input id="addDueto" type="checkbox"> Dueto</label>
+    <div id="addCantoresB" class="grade cantores" hidden></div>
+    <div class="acoes rodapeDlg"><button type="button" id="addConfirmar" class="primario" disabled>Adicionar</button></div>
+  </dialog>
+
+  <dialog id="dlgDueto" class="dialogo largo">
+    <form method="dialog" class="dlgCabeca"><h2>Marcar dueto</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <p class="dica">Escolha quem canta cada verso: <b>A</b> (primeiro cantor), <b>B</b> (segundo) ou <b>Todos</b>. Cada parte aparece na cor do cantor.</p>
+    <div class="acoes"><button type="button" id="duetoAlternar">Alternar A/B a cada verso</button><button type="button" id="duetoLimpar">Limpar dueto</button></div>
+    <ol id="duetoLinhas" class="dueto"></ol>
+    <div class="acoes rodapeDlg"><button type="button" id="duetoSalvar" class="primario">Aplicar</button></div>
+  </dialog>
+
+  <dialog id="dlgImportar" class="dialogo">
+    <form method="dialog" class="dlgCabeca"><h2 id="importarTitulo">Importar</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <p id="importarResumo"></p>
+    <div class="acoes rodapeDlg">
+      <button type="button" id="importarAdicionar" class="primario">Adicionar ao que já tenho</button>
+      <button type="button" id="importarSubstituir" class="perigo">Substituir tudo</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgCompartilhar" class="dialogo">
+    <form method="dialog" class="dlgCabeca"><h2>Compartilhar playlist</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <p class="dica">Quem abrir o link recebe a playlist, os cantores e os playbacks do YouTube e do Spotify. Áudios de arquivo não vão.</p>
+    <label class="check"><input id="compLetras" type="checkbox" checked> Levar as letras (abre sem precisar buscar de novo)</label>
+    <textarea id="compLink" rows="3" readonly aria-label="Link da playlist"></textarea>
+    <p id="compAviso" class="dica"></p>
+    <div class="acoes rodapeDlg"><button type="button" id="compCopiar" class="primario">Copiar link</button><button type="button" id="compEnviar">Enviar…</button></div>
+  </dialog>
+
+  <dialog id="dlgSala" class="dialogo">
+    <form method="dialog" class="dlgCabeca"><h2>Controle pelo celular</h2><button class="redondo" aria-label="Fechar">✕</button></form>
+    <div id="salaFechada">
+      <p>Deixe este aparelho (TV, projetor ou computador) como <b>tela da festa</b> e controle tudo pelos celulares: pedir música, tocar, pausar, pular e ajustar a letra.</p>
+      <p class="dica">Precisa de internet nos dois lados. Os celulares não precisam instalar nada: é só ler o QR code.</p>
+      <div class="acoes rodapeDlg"><button type="button" id="salaAbrir" class="primario">Abrir sala</button></div>
+    </div>
+    <div id="salaAberta" hidden>
+      <div class="salaQR"><canvas id="salaQR" width="264" height="264" aria-label="QR code da sala"></canvas></div>
+      <p class="centro">Código da sala: <b id="salaCodigo" class="codigo"></b></p>
+      <p class="centro dica"><span id="salaLink"></span></p>
+      <p id="salaStatus" class="centro"></p>
+      <div class="acoes rodapeDlg"><button type="button" id="salaCopiar">Copiar link</button><button type="button" id="salaFechar" class="perigo">Fechar sala</button></div>
+    </div>
+  </dialog>
+
+  <script src="./core.js?v=1.0.0"></script>
+  <script src="./storage.js?v=1.0.0"></script>
+  <script src="./lrc.js?v=1.0.0"></script>
+  <script src="./links.js?v=1.0.0"></script>
+  <script src="./estado.js?v=1.0.0"></script>
+  <script src="./familia.js?v=1.0.0"></script>
+  <script src="./biblioteca.js?v=1.0.0"></script>
+  <script src="./playlists.js?v=1.0.0"></script>
+  <script src="./letras.js?v=1.0.0"></script>
+  <script src="./fontes.js?v=1.0.0"></script>
+  <script src="./fonte-youtube.js?v=1.0.0"></script>
+  <script src="./fonte-spotify.js?v=1.0.0"></script>
+  <script src="./aplausometro.js?v=1.0.0"></script>
+  <script src="./palco.js?v=1.0.0"></script>
+  <script src="./sincronia.js?v=1.0.0"></script>
+  <script src="./qr.js?v=1.0.0"></script>
+  <script src="./sala.js?v=1.0.0"></script>
+  <script src="./sala-host.js?v=1.0.0"></script>
+  <script src="./telas.js?v=1.0.0"></script>
+  <script src="./ui.js?v=1.0.0"></script>
+  <script src="./offline.js?v=1.0.0"></script>
+</body>
+</html>

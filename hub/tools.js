@@ -31,6 +31,13 @@ const HUB_TOOLS = [
     status: "ativo"
   },
   {
+    name: "Karaokê em Casa",
+    tagline: "Playlists de karaokê para a família com playback do YouTube, Spotify ou do aparelho, letra no estilo karaokê e controle pelo celular.",
+    href: "./karaoke/",
+    tags: ["música", "karaokê", "família", "instalável"],
+    status: "ativo"
+  },
+  {
     name: "Mapa do Parque",
     tagline: "Beto Carrero World com GPS em tempo real, rota a pé, filas, roteiro do dia e grupo sincronizado para não se perder.",
     href: "./parque/",

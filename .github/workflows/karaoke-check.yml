@@ -1,0 +1,25 @@
+name: Karaokê em Casa checks
+on:
+  push:
+    paths:
+      - 'karaoke/**'
+      - '.github/workflows/karaoke-check.yml'
+  pull_request:
+    paths:
+      - 'karaoke/**'
+      - '.github/workflows/karaoke-check.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check script syntax
+        run: |
+          for f in karaoke/*.js karaoke/tests/*.js; do node --check "$f"; done
+      - name: Unit and contract tests
+        run: node --test karaoke/tests/*.test.js
