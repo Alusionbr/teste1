@@ -63,3 +63,12 @@ test("fmtLRC arredonda centésimos",()=>{
   assert.equal(L.fmtLRC(61.234),"01:01.23");
   assert.equal(L.fmtLRC(0),"00:00.00");
 });
+
+test("diferencaDuracao só avisa quando o playback destoa da letra",()=>{
+  assert.equal(L.diferencaDuracao(200,203),0);        // fade/silêncio no fim é normal
+  assert.equal(L.diferencaDuracao(200,222),22);       // playback mais longo
+  assert.equal(L.diferencaDuracao(200,185),-15);      // playback mais curto
+  assert.equal(L.diferencaDuracao(0,222),0);          // letra sem duração: nada a comparar
+  assert.equal(L.diferencaDuracao(200,0),0);          // player ainda sem duração
+  assert.equal(L.diferencaDuracao(200,210,15),0);     // limite configurável
+});
