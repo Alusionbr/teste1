@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.1">
+  <script data-version="1.0.2">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.1">
+  <link rel="stylesheet" href="./styles.css?v=1.0.2">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -295,8 +295,9 @@
         <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
         <button type="button" id="mUsarYT" class="primario">Usar</button>
       </div>
+      <p id="mSugestaoYT" class="playbackAtual"></p>
       <div class="acoes">
-        <a id="mProcurarYT" class="botao" target="_blank" rel="noopener">🔎 Procurar no YouTube ↗</a>
+        <a id="mProcurarYT" class="botao primario" target="_blank" rel="noopener">🔎 Procurar o playback no YouTube ↗</a>
         <button type="button" id="mBuscarYTApp" hidden>🔎 Buscar aqui</button>
       </div>
       <ul id="mVideos" class="lista videos"></ul>
@@ -396,26 +397,26 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.1"></script>
-  <script src="./storage.js?v=1.0.1"></script>
-  <script src="./lrc.js?v=1.0.1"></script>
-  <script src="./links.js?v=1.0.1"></script>
-  <script src="./estado.js?v=1.0.1"></script>
-  <script src="./familia.js?v=1.0.1"></script>
-  <script src="./biblioteca.js?v=1.0.1"></script>
-  <script src="./playlists.js?v=1.0.1"></script>
-  <script src="./letras.js?v=1.0.1"></script>
-  <script src="./fontes.js?v=1.0.1"></script>
-  <script src="./fonte-youtube.js?v=1.0.1"></script>
-  <script src="./fonte-spotify.js?v=1.0.1"></script>
-  <script src="./aplausometro.js?v=1.0.1"></script>
-  <script src="./palco.js?v=1.0.1"></script>
-  <script src="./sincronia.js?v=1.0.1"></script>
-  <script src="./qr.js?v=1.0.1"></script>
-  <script src="./sala.js?v=1.0.1"></script>
-  <script src="./sala-host.js?v=1.0.1"></script>
-  <script src="./telas.js?v=1.0.1"></script>
-  <script src="./ui.js?v=1.0.1"></script>
-  <script src="./offline.js?v=1.0.1"></script>
+  <script src="./core.js?v=1.0.2"></script>
+  <script src="./storage.js?v=1.0.2"></script>
+  <script src="./lrc.js?v=1.0.2"></script>
+  <script src="./links.js?v=1.0.2"></script>
+  <script src="./estado.js?v=1.0.2"></script>
+  <script src="./familia.js?v=1.0.2"></script>
+  <script src="./biblioteca.js?v=1.0.2"></script>
+  <script src="./playlists.js?v=1.0.2"></script>
+  <script src="./letras.js?v=1.0.2"></script>
+  <script src="./fontes.js?v=1.0.2"></script>
+  <script src="./fonte-youtube.js?v=1.0.2"></script>
+  <script src="./fonte-spotify.js?v=1.0.2"></script>
+  <script src="./aplausometro.js?v=1.0.2"></script>
+  <script src="./palco.js?v=1.0.2"></script>
+  <script src="./sincronia.js?v=1.0.2"></script>
+  <script src="./qr.js?v=1.0.2"></script>
+  <script src="./sala.js?v=1.0.2"></script>
+  <script src="./sala-host.js?v=1.0.2"></script>
+  <script src="./telas.js?v=1.0.2"></script>
+  <script src="./ui.js?v=1.0.2"></script>
+  <script src="./offline.js?v=1.0.2"></script>
 </body>
 </html>

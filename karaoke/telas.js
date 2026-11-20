@@ -117,6 +117,9 @@ function atualizarEditor(){
   $("mSemPlayback").hidden=!pb;
   const q={title:$("mTitulo").value,artist:$("mArtista").value};
   $("mProcurarYT").href=linkBuscaYouTube(q);
+  const termo=`${q.title} ${q.artist} playback karaokê`.replace(/\s+/g," ").trim();
+  $("mSugestaoYT").hidden=!!(pb&&pb.tipo==="youtube")||!q.title.trim();
+  $("mSugestaoYT").innerHTML=`💡 Sugestão: procure por <b>${esc(termo)}</b>, abra um vídeo só com a música${m.duration?` (de uns <b>${fmt(m.duration)}</b>)`:""} e cole o link aqui embaixo.`;
   $("mProcurarSP").href=linkBuscaSpotify(q);
   $("mBuscarYTApp").hidden=!K.dados.prefs.keyYT;
   const texto=$("mLetra").value,info=lerLetra(texto);
