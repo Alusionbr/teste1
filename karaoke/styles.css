@@ -136,6 +136,10 @@ p.aviso.fixo{position:static;animation:none;padding:.7em;background:#3a2a10;bord
 .salaQR{display:grid;place-items:center;margin:.5em 0}
 .salaQR canvas{background:#fff;border-radius:12px;padding:10px;width:min(264px,70vw);height:auto;image-rendering:pixelated}
 .codigo{font-size:1.8em;letter-spacing:.15em;color:var(--ouro);font-family:ui-monospace,monospace}
+.transferirSala{border:1px solid var(--borda);border-radius:14px;padding:.8em;margin:.8em 0;background:rgba(255,255,255,.04)}
+.transferirSala h3{margin:.1em 0 .4em;font-size:1.05em}
+.transferirSala input{text-transform:uppercase;letter-spacing:.1em;font-weight:800}
+.transferirSala [role="status"]:empty{display:none}
 .rodape{text-align:center;margin-top:2em}
 
 /* ================================================================ PALCO */

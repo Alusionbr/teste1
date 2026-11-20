@@ -34,7 +34,7 @@ function traduzirErroSala(msg){
   if(/sala fechada|sala nao encontrada/.test(msg))return"A sala está fechada. Peça para abrirem de novo na tela da festa.";
   if(/token/.test(msg))return"Esta tela perdeu a chave da sala. Abra uma sala nova.";
   if(/muitos comandos/.test(msg))return"Calma! Muitos comandos seguidos — espere um pouquinho.";
-  if(/Could not find the function|PGRST202/.test(msg))return"O servidor da sala ainda não foi preparado (migração 001_sala.sql).";
+  if(/Could not find the function|PGRST202/.test(msg))return"O servidor da sala ainda não foi preparado (migrações 001_sala.sql e 003_transferencia_tela.sql).";
   return"Falha na sala: "+msg;
 }
 function novoCodigoSala(){

@@ -12,10 +12,94 @@
  */
 const SalaHost=(()=>{
   const CHAVE="karaoke:sala",INTERVALO=1500,BATIMENTO=10000;
-  let sala=null,timer=0,ocupado=false,ultimoTxt="",ultimoEnvio=0,aparelhos=0,falhas=0,notaRecente=null;
+  let sala=null,timer=0,ocupado=false,ultimoTxt="",ultimoEnvio=0,aparelhos=0,falhas=0,notaRecente=null,transferenciaPendente=null,transferenciaStatus=null,transferindo=false;
+
+  const pausa=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const b64url={
+    codificar(bytes){let s="";bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")},
+    decodificar(s){const b=atob(s.replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0))}
+  };
+  async function transformar(bytes,Stream){return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new Stream("deflate-raw"))).arrayBuffer())}
+  async function cifrarPacote(pacote,chaveTexto){
+    let bytes=new TextEncoder().encode(JSON.stringify(pacote)),formato="json";
+    if(typeof CompressionStream==="function")try{bytes=await transformar(bytes,CompressionStream);formato="deflate-raw"}catch{}
+    const iv=crypto.getRandomValues(new Uint8Array(12)),chave=await crypto.subtle.importKey("raw",b64url.decodificar(chaveTexto),"AES-GCM",false,["encrypt"]);
+    const cifrado=await crypto.subtle.encrypt({name:"AES-GCM",iv},chave,bytes);
+    return{v:1,formato,iv:b64url.codificar(iv),dados:b64url.codificar(new Uint8Array(cifrado))};
+  }
+  async function decifrarPacote(envelope,chaveTexto){
+    if(!envelope||envelope.v!==1)throw Error("A transferência da sala está inválida.");
+    const chave=await crypto.subtle.importKey("raw",b64url.decodificar(chaveTexto),"AES-GCM",false,["decrypt"]);
+    let bytes=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64url.decodificar(envelope.iv)},chave,b64url.decodificar(envelope.dados)));
+    if(envelope.formato==="deflate-raw")bytes=await transformar(bytes,DecompressionStream);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
 
   function ler(){try{const s=JSON.parse(localStorage.getItem(CHAVE)||"null");return s&&/^[A-Z0-9]{6,12}$/.test(s.codigo)&&/^[a-f0-9]{32,64}$/.test(s.token)?s:null}catch{return null}}
   function gravar(){try{sala?localStorage.setItem(CHAVE,JSON.stringify(sala)):localStorage.removeItem(CHAVE)}catch{}}
+
+  async function solicitarTransferencia(codigo){
+    codigo=String(codigo||"").trim().toUpperCase();
+    if(!/^[A-Z0-9]{6,12}$/.test(codigo))throw Error("Digite o código da sala (6 a 12 letras ou números).");
+    if(sala&&sala.codigo===codigo)throw Error("Este aparelho já é a tela principal desta sala.");
+    const id=novoTokenSala().slice(0,20),token=novoTokenSala(),chave=b64url.codificar(crypto.getRandomValues(new Uint8Array(32)));
+    const device=idDoAparelho();
+    await salaRpc("karaoke_comando",{p_codigo:codigo,p_device:device,p_nome:"Projetor",p_tipo:"entrar",p_dados:{transferir:{id,token,chave,device}}});
+    $("salaAssumirStatus").textContent="Pedido enviado. Aprove a troca na tela principal atual.";
+    $("salaAssumir").disabled=true;
+    const limite=Date.now()+120000;
+    try{
+      while(Date.now()<limite){
+        await pausa(1200);
+        const r=await salaRpc("karaoke_sala_ver",{p_codigo:codigo,p_device:device,p_nome:"Projetor",p_versao:-1});
+        if(!r.existe)throw Error("A sala foi fechada antes da transferência.");
+        const estado=r.estado||{};
+        if(estado.transferenciaStatus?.id===id&&estado.transferenciaStatus.status==="recusada")throw Error("A tela principal recusou a transferência.");
+        const h=estado.transferencia;
+        if(!h||h.id!==id)continue;
+        const pacote=await decifrarPacote(h.envelope,chave);
+        if(pacote?.v!==1||!pacote.playlist)throw Error("Não consegui abrir os dados da sala.");
+        const nova=importarPacote(pacote.playlist);
+        if(!nova||!nova.itens.length)throw Error("A sala não tem músicas na fila para transferir.");
+        if(pacote.prefs)K.dados.prefs={...K.dados.prefs,...pacote.prefs,keyYT:K.dados.prefs.keyYT||""};
+        K.dados.activePlaylistId=nova.id;
+        await salvarEstado();
+        await salaRpc("karaoke_sala_abrir",{p_codigo:codigo,p_token:token});
+        sala={codigo,token,depois:Number(h.depois)||0};gravar();transferenciaStatus=null;iniciar();renderDialogo();if($("dlgSala").open)$("dlgSala").close();
+        $("salaAssumirStatus").textContent="Sala transferida para este aparelho.";
+        if(pacote.palco?.aberto&&pacote.palco.modo==="festa"){
+          abrirPalco({playlistId:nova.id,indice:clamp(Number(pacote.palco.indice)||0,0,nova.itens.length-1)});
+          clearInterval(P.contagemTimer);P.contagemTimer=0;
+          P.carregando.then(()=>{if(P.aberto&&P.musica&&P.fonte){if(pacote.palco.tempo>0)P.fonte.buscar(pacote.palco.tempo);P.fase="vez";$("vezContagem").textContent="▶";}});
+        }
+        notify("Sala transferida. Toque na tela para continuar a música.",true);
+        return true;
+      }
+      throw Error("A tela atual não respondeu. A sala continua no aparelho anterior.");
+    }finally{$("salaAssumir").disabled=false}
+  }
+
+  async function aceitarTransferencia(){
+    const pedido=transferenciaPendente,s=sala;
+    if(!pedido||!s||transferindo)return;
+    if(Date.now()>pedido.expira){transferenciaPendente=null;renderDialogo();return notify("O pedido de transferência expirou. Peça novamente.")}
+    transferindo=true;$("salaTransferirAceitar").disabled=true;$("salaTransferenciaStatus").textContent="Preparando a sala…";
+    try{
+      const p=playlistAlvo()||playlistAtiva();
+      if(!p||!p.itens.length)throw Error("Adicione uma música à fila antes de transferir a sala.");
+      const pacote={v:1,playlist:pacotePlaylist(p,true),prefs:{...K.dados.prefs,keyYT:""},palco:P.aberto&&P.modo==="festa"?{aberto:true,modo:"festa",indice:P.indice,tempo:Math.max(0,Math.floor(P.fonte?.tempo?.()||0))}:null};
+      const envelope=await cifrarPacote(pacote,pedido.chave);
+      const estado={...montarEstado(),transferencia:{id:pedido.id,depois:Number(s.depois)||0,envelope}};
+      if(new TextEncoder().encode(JSON.stringify(estado)).length>195000)throw Error("A fila tem letras demais para transferir de uma vez. Reduza a fila e tente de novo.");
+      await salaRpc("karaoke_sala_transferir",{p_codigo:s.codigo,p_token_atual:s.token,p_token_novo:pedido.token,p_estado:estado});
+      parar();sala=null;gravar();transferenciaPendente=null;transferenciaStatus=null;transferindo=false;
+      fecharPalco();renderDialogo();if($("dlgSala").open)$("dlgSala").close();notify("A sala agora está no novo projetor.",true);
+    }catch(e){transferindo=false;$("salaTransferirAceitar").disabled=false;$("salaTransferenciaStatus").textContent=e.message;notify(e.message)}
+  }
+  function recusarTransferencia(){
+    if(!transferenciaPendente)return;
+    transferenciaStatus={id:transferenciaPendente.id,status:"recusada"};transferenciaPendente=null;ultimoTxt="";renderDialogo();notify("Pedido de transferência recusado.",true);
+  }
 
   async function abrir(){
     let ultimoErro;
@@ -65,12 +149,14 @@ const SalaHost=(()=>{
       fundo:fundoEfetivo(),
       trava:travaLigada(),
       erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
-      nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null
+      nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null,
+      ...(transferenciaStatus?{transferenciaStatus}: {})
     };
   }
 
   async function ciclo(){
     if(!sala||ocupado)return;
+    if(transferenciaPendente&&Date.now()>transferenciaPendente.expira){transferenciaStatus={id:transferenciaPendente.id,status:"recusada"};transferenciaPendente=null;ultimoTxt="";renderDialogo()}
     ocupado=true;
     try{
       const estado=montarEstado();
@@ -138,6 +224,14 @@ const SalaHost=(()=>{
         return false;
       }
       case "entrar":{
+        if(d.transferir&&typeof d.transferir==="object"){
+          const t=d.transferir;
+          if(transferenciaPendente||!/^[a-f0-9]{20}$/.test(t.id||"")||!/^[a-f0-9]{32,64}$/.test(t.token||"")||!/^[A-Za-z0-9_-]{43}$/.test(t.chave||"")||!sala)return false;
+          transferenciaPendente={id:t.id,token:t.token,chave:t.chave,device:t.device,nome:quem,expira:Date.now()+90000};
+          transferenciaStatus={id:t.id,status:"solicitada"};ultimoTxt="";renderDialogo();
+          notify(`${quem} pediu para tornar este aparelho a tela principal. Abra Controle remoto para aprovar.`,true);
+          return false;
+        }
         const nome=texto(d.nome,24).trim();if(!nome)return false;
         if(K.dados.cantores.some(x=>fold(x.nome)===fold(nome))||K.dados.cantores.length>=MAX_CANTORES)return false;
         const novo=criarCantor({nome,emoji:EMOJIS_CANTOR.includes(d.emoji)?d.emoji:"🎤",cor:CORES_CANTOR.includes(d.cor)?d.cor:undefined});
@@ -259,13 +353,17 @@ const SalaHost=(()=>{
   function link(){return sala?linkControle(sala.codigo):""}
   function renderDialogo(){
     $("salaFechada").hidden=!!sala;$("salaAberta").hidden=!sala;
-    $("btnSala").textContent=sala?`📱 Sala ${sala.codigo}`:"📱 Controle remoto";
+    $("btnSala").textContent=sala?(transferenciaPendente?"📱 Aprovar troca de tela":`📱 Sala ${sala.codigo}`):"📱 Controle remoto";
     $("btnSala").classList.toggle("ativa",!!sala);
     if(sala){
       $("salaCodigo").textContent=sala.codigo;
       $("salaLink").textContent=link();
       try{QR.desenhar($("salaQR"),link())}catch(e){console.error(e)}
     }
+    $("salaTransferenciaPendente").hidden=!transferenciaPendente;
+    if(transferenciaPendente){$("salaTransferenciaPedido").textContent=`${transferenciaPendente.nome} quer usar outro aparelho como tela principal.`;$("salaTransferenciaStatus").textContent="A fila e a música atual serão transferidas; a tela nova pedirá um toque para continuar."}
+    $("salaAssumirArea").hidden=!!sala;
+    if(sala)$("salaAssumirStatus").textContent="";
     atualizarSelo();
   }
   function atualizarSelo(){
@@ -274,5 +372,5 @@ const SalaHost=(()=>{
     if(sala)selo.textContent=`📱 ${sala.codigo}${aparelhos?` · ${aparelhos} celular${aparelhos>1?"es":""}`:""}${falhas>=3?" · sem internet":""}`;
     if(sala&&$("dlgSala").open)$("salaStatus").textContent=falhas>=3?"⚠️ Sem conexão com a sala.":aparelhos?`✅ ${aparelhos} celular${aparelhos>1?"es":""} conectado${aparelhos>1?"s":""}.`:"Esperando os celulares…";
   }
-  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,bloqueadoPara,get sala(){return sala}};
+  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,bloqueadoPara,solicitarTransferencia,aceitarTransferencia,recusarTransferencia,get sala(){return sala}};
 })();

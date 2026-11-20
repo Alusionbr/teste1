@@ -68,8 +68,13 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 ## Celular (sala)
 
-- [ ] `node karaoke/tests/sala-real.js` passa contra o Supabase real (confirma que `001_sala.sql` foi aplicado).
+- [ ] `node karaoke/tests/sala-real.js` passa contra o Supabase real (confirma que `001_sala.sql` e `003_transferencia_tela.sql` foram aplicados).
 - [ ] Abrir sala: QR code lido pela câmera do celular abre o controle certo.
+- [ ] Abrir a sala na tela atual; no projetor, abrir Controle remoto, digitar o código e pedir para assumir. Confirmar que a tela atual mostra quem pediu.
+- [ ] Aprovar na tela atual: fila inteira, ordem, cantores e letras aparecem no projetor. A música atual fica no ponto salvo e aguarda um toque em Começar.
+- [ ] Conferir que a tela antiga parou o playback e perdeu o controle da sala; os celulares continuam conectados ao mesmo código.
+- [ ] Repetir usando um playback de arquivo local: conferir o aviso de que o arquivo precisa ser escolhido novamente no projetor.
+- [ ] Recusar um pedido de transferência: a tela atual continua no ar e o projetor informa que o pedido foi recusado.
 - [ ] Nome no celular vira cantor na Família da tela.
 - [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
 - [ ] Pedir música da lista entra na fila para o cantor escolhido; ⏫ põe para tocar a seguir.

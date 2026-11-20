@@ -8,7 +8,7 @@ Karaokê da família em JavaScript puro (sem bibliotecas, sem build), PWA que fu
 
 - Pasta: `karaoke/` · Site: GitHub Pages publica a `main` (mudança só aparece depois do merge).
 - Dados: IndexedDB no aparelho da tela (cópia no localStorage) + backup em arquivo. A sala no Supabase guarda só dados passageiros (comandos 1 dia, salas 2 dias).
-- Não existe SQL pendente: tudo que veio depois da versão 1.0.2 usa a mesma função `karaoke_comando`.
+- A migração `003_transferencia_tela.sql` adiciona a troca segura do token da tela; ela já foi aplicada ao projeto Supabase usado pelo app. Ao configurar outro projeto, aplique `001_sala.sql`, `002_catalogo.sql` e `003_transferencia_tela.sql`.
 
 ## 2. Mapa rápido do código
 
@@ -37,6 +37,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 
 | Versão | O que entrou |
 |---|---|
+| 1.0.13 | Troca da tela principal pelo código da sala: o aparelho atual aprova, a fila/letras são transferidas de forma criptografada e a nova tela retoma a música do ponto salvo. Migração adicional `003_transferencia_tela.sql`. |
 | 1.0.2 | Base: playlists, letra sincronizada, sala e controle pelo celular (a que estava na `main` antes do PR #64) |
 | 1.0.3 | **Cantar sozinho**: `P.solo`, placar pessoal (`placar.js`), recorde, sem precisar de cantores |
 | 1.0.4 | **Celular põe/troca playback e toca** (tocar agora / a seguir / fila) via comando `pedir` com `dados.modo` e `dados.playback`; `verificar-youtube.js` extraído |
@@ -71,9 +72,9 @@ Servidor local (porta 8765) e, a partir da raiz do repositório:
 ```bash
 python3 -m http.server 8765 -d karaoke &        # em segundo plano
 node --test karaoke/tests/*.test.js              # unidade/contrato (≈70 testes, sem rede)
-node karaoke/tests/browser-uso.js                # 29 cenários de uso real (Playwright, rede simulada)
+node karaoke/tests/browser-uso.js                # 33 cenários de uso real (Playwright, rede simulada)
 node karaoke/tests/browser-smoke.js              # caminho feliz em 3 tamanhos de tela + Supabase real
-node karaoke/tests/sala-real.js                  # sala contra o Supabase real (só se mexer no SQL)
+node karaoke/tests/sala-real.js                  # sala e transferência contra o Supabase real (se mexer no SQL)
 ```
 
 - Os testes de navegador simulam YouTube, Spotify, Piped e LRCLIB por rotas do Playwright; nada depende da internet para passar (o smoke usa uma sala em memória por padrão).

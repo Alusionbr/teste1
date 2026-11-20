@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.12">
+  <script data-version="1.0.13">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.12">
+  <link rel="stylesheet" href="./styles.css?v=1.0.13">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -422,40 +422,55 @@
       <p>Deixe este aparelho (TV, projetor ou computador) como <b>tela da festa</b> e controle tudo pelos celulares: pedir música, tocar, pausar, pular e ajustar a letra.</p>
       <p class="dica">Precisa de internet nos dois lados. Os celulares não precisam instalar nada: é só ler o QR code.</p>
       <div class="acoes rodapeDlg"><button type="button" id="salaAbrir" class="primario">Abrir sala</button></div>
+      <section id="salaAssumirArea" class="transferirSala">
+        <h3>Usar este aparelho como projetor</h3>
+        <p class="dica">Digite o código da sala. A tela atual precisa aprovar a transferência.</p>
+        <form id="salaAssumirForm" class="barraBusca">
+          <input id="salaAssumirCodigo" type="text" inputmode="text" autocomplete="off" maxlength="12" placeholder="Código da sala" aria-label="Código da sala">
+          <button type="submit" id="salaAssumir" class="primario">Pedir para assumir</button>
+        </form>
+        <p id="salaAssumirStatus" class="dica" role="status"></p>
+      </section>
     </div>
     <div id="salaAberta" hidden>
       <div class="salaQR"><canvas id="salaQR" width="264" height="264" aria-label="QR code da sala"></canvas></div>
       <p class="centro">Código da sala: <b id="salaCodigo" class="codigo"></b></p>
       <p class="centro dica"><span id="salaLink"></span></p>
       <p id="salaStatus" class="centro"></p>
+      <section id="salaTransferenciaPendente" class="transferirSala" hidden>
+        <h3>Pedido para mudar a tela principal</h3>
+        <p id="salaTransferenciaPedido"></p>
+        <p id="salaTransferenciaStatus" class="dica"></p>
+        <div class="acoes"><button type="button" id="salaTransferirAceitar" class="primario">Aprovar transferência</button><button type="button" id="salaTransferirRecusar">Recusar</button></div>
+      </section>
       <div class="acoes rodapeDlg"><button type="button" id="salaCopiar">Copiar link</button><button type="button" id="salaFechar" class="perigo">Fechar sala</button></div>
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.12"></script>
-  <script src="./storage.js?v=1.0.12"></script>
-  <script src="./lrc.js?v=1.0.12"></script>
-  <script src="./links.js?v=1.0.12"></script>
-  <script src="./placar.js?v=1.0.12"></script>
-  <script src="./estado.js?v=1.0.12"></script>
-  <script src="./familia.js?v=1.0.12"></script>
-  <script src="./biblioteca.js?v=1.0.12"></script>
-  <script src="./playlists.js?v=1.0.12"></script>
-  <script src="./letras.js?v=1.0.12"></script>
-  <script src="./busca-youtube.js?v=1.0.12"></script>
-  <script src="./fontes.js?v=1.0.12"></script>
-  <script src="./verificar-youtube.js?v=1.0.12"></script>
-  <script src="./auto-adicionar.js?v=1.0.12"></script>
-  <script src="./fonte-youtube.js?v=1.0.12"></script>
-  <script src="./fonte-spotify.js?v=1.0.12"></script>
-  <script src="./aplausometro.js?v=1.0.12"></script>
-  <script src="./palco.js?v=1.0.12"></script>
-  <script src="./sincronia.js?v=1.0.12"></script>
-  <script src="./qr.js?v=1.0.12"></script>
-  <script src="./sala.js?v=1.0.12"></script>
-  <script src="./sala-host.js?v=1.0.12"></script>
-  <script src="./telas.js?v=1.0.12"></script>
-  <script src="./ui.js?v=1.0.12"></script>
-  <script src="./offline.js?v=1.0.12"></script>
+  <script src="./core.js?v=1.0.13"></script>
+  <script src="./storage.js?v=1.0.13"></script>
+  <script src="./lrc.js?v=1.0.13"></script>
+  <script src="./links.js?v=1.0.13"></script>
+  <script src="./placar.js?v=1.0.13"></script>
+  <script src="./estado.js?v=1.0.13"></script>
+  <script src="./familia.js?v=1.0.13"></script>
+  <script src="./biblioteca.js?v=1.0.13"></script>
+  <script src="./playlists.js?v=1.0.13"></script>
+  <script src="./letras.js?v=1.0.13"></script>
+  <script src="./busca-youtube.js?v=1.0.13"></script>
+  <script src="./fontes.js?v=1.0.13"></script>
+  <script src="./verificar-youtube.js?v=1.0.13"></script>
+  <script src="./auto-adicionar.js?v=1.0.13"></script>
+  <script src="./fonte-youtube.js?v=1.0.13"></script>
+  <script src="./fonte-spotify.js?v=1.0.13"></script>
+  <script src="./aplausometro.js?v=1.0.13"></script>
+  <script src="./palco.js?v=1.0.13"></script>
+  <script src="./sincronia.js?v=1.0.13"></script>
+  <script src="./qr.js?v=1.0.13"></script>
+  <script src="./sala.js?v=1.0.13"></script>
+  <script src="./sala-host.js?v=1.0.13"></script>
+  <script src="./telas.js?v=1.0.13"></script>
+  <script src="./ui.js?v=1.0.13"></script>
+  <script src="./offline.js?v=1.0.13"></script>
 </body>
 </html>

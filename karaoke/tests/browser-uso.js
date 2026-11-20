@@ -664,6 +664,63 @@ async function novaManual(titulo,letra,dur){
     }finally{await celular.close()}
   });
 
+  await cenario("projetor assume pelo código e recebe a fila inteira sem expor letras no estado da sala",async()=>{
+    const original=await page.evaluate(async()=>{
+      window.__roomCommands=[];window.__roomState=null;window.__roomToken="";window.__transferState=null;
+      window.salaRpc=async(fn,d)=>{
+        if(fn==="karaoke_sala_abrir"){if(window.__roomToken&&window.__roomToken!==d.p_token)throw Error("token incorreto");window.__roomToken=d.p_token;return{ok:true}}
+        if(fn==="karaoke_host_sync"){
+          if(d.p_estado)window.__roomState=d.p_estado;
+          return{comandos:window.__roomCommands.filter(c=>c.id>(d.p_depois||0)),aparelhos:1};
+        }
+        if(fn==="karaoke_sala_transferir"){
+          if(d.p_token_atual!==window.__roomToken)throw Error("token incorreto");
+          window.__roomToken=d.p_token_novo;window.__transferState=d.p_estado;return{ok:true};
+        }
+        return{ok:true};
+      };
+      const p=criarPlaylist("Fila da transferência");
+      for(let i=1;i<=3;i++){const m=criarMusica({title:`Faixa da fila ${i}`,artist:"Família",synced:`[00:01.00]Letra protegida ${i}`},{compartilhar:false});adicionarItem(p,m.id)}
+      await SalaHost.abrir();
+      return{codigo:SalaHost.sala.codigo,playlist:p.nome,itens:p.itens.length};
+    });
+    const destino=await browser.newContext({viewport:{width:1280,height:720}}),projetor=await destino.newPage();
+    try{
+      await projetor.goto(BASE);
+      await projetor.evaluate(()=>{
+        window.__pedido=null;window.__transferState=null;window.__tokenProjetor="";
+        window.salaRpc=async(fn,d)=>{
+          if(fn==="karaoke_comando"){window.__pedido=d;return{ok:true}}
+          if(fn==="karaoke_sala_ver")return{existe:true,versao:1,estado:window.__transferState};
+          if(fn==="karaoke_sala_abrir"){window.__tokenProjetor=d.p_token;return{ok:true}}
+          return{ok:true};
+        };
+      });
+      await projetor.click("#btnSala");
+      await projetor.fill("#salaAssumirCodigo",original.codigo);
+      await projetor.click("#salaAssumir");
+      await projetor.waitForFunction(()=>window.__pedido!==null,null,{timeout:5000});
+      const pedido=await projetor.evaluate(()=>window.__pedido.p_dados.transferir);
+      await page.evaluate((p)=>window.__roomCommands.push({id:1,device:p.device,nome:"Projetor",tipo:"entrar",dados:{transferir:p}}),pedido);
+      await page.click("#btnSala");
+      await page.waitForSelector("#salaTransferenciaPendente:not([hidden])",{timeout:5000});
+      await page.click("#salaTransferirAceitar");
+      await page.waitForFunction(()=>window.__transferState!==null,{timeout:10000});
+      const pacoteCriptografado=await page.evaluate(()=>window.__transferState);
+      ok(!JSON.stringify(pacoteCriptografado).includes("Letra protegida"),"as letras apareceram sem criptografia no estado do Supabase");
+      await projetor.evaluate(s=>window.__transferState=s,pacoteCriptografado);
+      await projetor.waitForFunction(()=>!!SalaHost.sala,null,{timeout:15000});
+      const recebido=await projetor.evaluate(()=>({itens:playlistAtiva().itens.length,titulo:acharMusica(playlistAtiva().itens[0].musicaId).title,letra:acharMusica(playlistAtiva().itens[0].musicaId).synced,token:window.__tokenProjetor,codigo:SalaHost.sala.codigo}));
+      assert.equal(recebido.itens,original.itens,"a fila foi cortada na transferência");
+      assert.equal(recebido.titulo,"Faixa da fila 1");
+      assert.match(recebido.letra,/Letra protegida/);
+      assert.equal(recebido.codigo,original.codigo);
+      assert.equal(recebido.token,pedido.token);
+      const anterior=await page.evaluate(()=>({semSala:!SalaHost.sala,itens:playlistAtiva().itens.length}));
+      ok(anterior.semSala&&anterior.itens===original.itens,"a tela antiga não entregou o controle ou perdeu a lista");
+    }finally{await destino.close()}
+  });
+
   ok(erros.length===0,"erros de console/página: "+erros.slice(0,3).join(" | "));
   await browser.close();
   const falhas=resultados.filter(r=>!r).length;

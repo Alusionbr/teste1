@@ -1,7 +1,7 @@
 "use strict";
 /*
  * Teste da sala contra o Supabase REAL (fetch puro, mesma chave publicável que o
- * navegador usa). Rode depois de aplicar karaoke/supabase/001_sala.sql:
+ * navegador usa). Rode depois de aplicar as migrações da sala:
  *
  *   node karaoke/tests/sala-real.js
  *
@@ -27,8 +27,10 @@ async function rpc(fn,corpo){
 }
 const ALFA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const codigo=[...crypto.randomBytes(6)].map(b=>ALFA[b%ALFA.length]).join("");
-const token=crypto.randomBytes(20).toString("hex");
+let token=crypto.randomBytes(20).toString("hex");
+const tokenAntigo=token;
 const outroToken=crypto.randomBytes(20).toString("hex");
+const tokenProjetor=crypto.randomBytes(20).toString("hex");
 const cel="ap-teste-"+crypto.randomBytes(4).toString("hex");
 
 (async()=>{
@@ -71,6 +73,16 @@ const cel="ap-teste-"+crypto.randomBytes(4).toString("hex");
 
     r=await rpc("karaoke_host_sync",{p_codigo:codigo,p_token:token,p_estado:null,p_depois:ultimo});
     assert.equal(r.dados.aparelhos,1);ok("a tela vê 1 celular conectado");
+
+    r=await rpc("karaoke_sala_transferir",{p_codigo:codigo,p_token_atual:outroToken,p_token_novo:tokenProjetor,p_estado:{transferencia:{id:"teste",envelope:{v:1}}}});
+    assert.equal(r.status,400);assert.match(r.msg,/token/);ok("transferência com token antigo incorreto é recusada");
+    r=await rpc("karaoke_sala_transferir",{p_codigo:codigo,p_token_atual:token,p_token_novo:tokenProjetor,p_estado:{transferencia:{id:"teste",envelope:{v:1}}}});
+    assert.equal(r.status,200,r.msg);assert.equal(r.dados.ok,true);ok("a tela atual transfere a sala e publica o pacote de retomada");
+    r=await rpc("karaoke_host_sync",{p_codigo:codigo,p_token:tokenAntigo,p_estado:null,p_depois:ultimo});
+    assert.equal(r.status,400);assert.match(r.msg,/token/);ok("a tela anterior perde a autorização de anfitriã");
+    token=tokenProjetor;
+    r=await rpc("karaoke_sala_abrir",{p_codigo:codigo,p_token:token});
+    assert.equal(r.status,200,r.msg);ok("o projetor assume a tela principal com o novo token");
 
     for(const t of ["salas","comandos","aparelhos"]){
       const g=await fetch(`${URL_BASE}/rest/v1/${t}?select=*`,{headers:{apikey:CHAVE,Authorization:"Bearer "+CHAVE}});

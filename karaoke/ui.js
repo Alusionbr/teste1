@@ -556,6 +556,12 @@ $("gravarCancelar").addEventListener("click",Sincronia.cancelar);
 $("btnSala").addEventListener("click",()=>{SalaHost.renderDialogo();$("dlgSala").showModal()});
 $("salaAbrir").addEventListener("click",e=>ocupado(e.currentTarget,SalaHost.abrir()));
 $("salaFechar").addEventListener("click",()=>{if(confirm("Fechar a sala? Os celulares deixam de controlar."))SalaHost.fechar()});
+$("salaAssumirForm").addEventListener("submit",e=>{
+  e.preventDefault();const btn=$("salaAssumir");btn.disabled=true;$("salaAssumirStatus").textContent="Enviando pedido…";
+  SalaHost.solicitarTransferencia($("salaAssumirCodigo").value).catch(err=>{$("salaAssumirStatus").textContent=err.message}).finally(()=>{btn.disabled=false});
+});
+$("salaTransferirAceitar").addEventListener("click",()=>SalaHost.aceitarTransferencia());
+$("salaTransferirRecusar").addEventListener("click",()=>SalaHost.recusarTransferencia());
 $("salaCopiar").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(SalaHost.link());notify("Link copiado.",true)}catch{notify(SalaHost.link())}});
 
 /* --------------------------------------------------------------- início */

@@ -1,4 +1,4 @@
--- Teste das funções da sala (001_sala.sql) em um Postgres comum.
+-- Teste das funções da sala (001_sala.sql + 003_transferencia_tela.sql) em um Postgres comum.
 --
 -- Serve para conferir o SQL antes de aplicar no Supabase, ou depois de mexer nele.
 -- O Supabase cria os papéis "anon" e "authenticated" sozinho; num Postgres local
@@ -6,6 +6,7 @@
 --
 --   psql -c "create role anon nologin; create role authenticated nologin;"
 --   psql -f karaoke/supabase/001_sala.sql
+--   psql -f karaoke/supabase/003_transferencia_tela.sql
 --   psql -q -f karaoke/supabase/teste_sala.sql
 --
 -- Cada bloco imprime o que testa. Os erros (ERROR: ...) são ESPERADOS nos casos
@@ -48,11 +49,16 @@ select public.karaoke_comando('ABC234','ap-celular2','x','pedir', jsonb_build_ob
 \echo '--- 15. acesso direto as tabelas'
 select * from karaoke.salas;
 select * from public.salas;
-\echo '--- 16. fechar com token errado nao fecha; com token certo fecha'
+\echo '--- 16. só a tela atual pode transferir o token da sala'
+select public.karaoke_sala_transferir('ABC234','cccccccccccccccccccccccccccccccc','dddddddddddddddddddddddddddddddd','{"transferencia":{"id":"teste"}}'::jsonb);
+select public.karaoke_sala_transferir('ABC234','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','dddddddddddddddddddddddddddddddd','{"transferencia":{"id":"teste"}}'::jsonb);
+select public.karaoke_host_sync('ABC234','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',null,2);
+select public.karaoke_host_sync('ABC234','dddddddddddddddddddddddddddddddd',null,2);
+\echo '--- 17. fechar com token errado nao fecha; com o token transferido fecha'
 select public.karaoke_sala_fechar('ABC234','cccccccccccccccccccccccccccccccc');
 select public.karaoke_sala_ver('ABC234','ap-celular1','x',-1);
-select public.karaoke_sala_fechar('ABC234','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+select public.karaoke_sala_fechar('ABC234','dddddddddddddddddddddddddddddddd');
 select public.karaoke_sala_ver('ABC234','ap-celular1','x',-1);
 reset role;
-\echo '--- 17. faxina: comandos e aparelhos sumiram junto com a sala'
+\echo '--- 18. faxina: comandos e aparelhos sumiram junto com a sala'
 select (select count(*) from karaoke.comandos) as comandos, (select count(*) from karaoke.aparelhos) as aparelhos;

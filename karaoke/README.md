@@ -50,6 +50,10 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 
 Na página de controle, cada pessoa pode buscar e guardar músicas no próprio celular mesmo sem sala aberta. Ao entrar numa sala, marca uma ou mais músicas e envia para o fim da fila. O envio não interrompe quem está cantando. Quando uma música com playback chega à sala, seu link também é salvo no catálogo compartilhado. Se a tela já tiver um playback cadastrado para essa música, o pedido contribui com o novo link sem substituir a fonte que a tela já usa.
 
+### Mudar a tela principal para o projetor
+
+No projetor, abra **Controle remoto**, digite o código da sala e toque em **Pedir para assumir**. A tela atual mostra o pedido; alguém nela precisa aprovar. A fila inteira, letras, cantores e música atual são transferidos criptografados pelo Supabase. A tela antiga entrega o controle e para o playback; no projetor novo, a música abre no ponto em que estava e aguarda um toque em **Começar**. O conteúdo transferido não inclui a chave do YouTube nem arquivos de áudio guardados no aparelho antigo. Se o playback atual era um arquivo local, será preciso escolhê-lo novamente no projetor.
+
 ### Playback compartilhado entre salas
 
 Ao salvar uma música com playback do YouTube, a tela compartilha título, artista, ID e título do vídeo. Na próxima busca pelo nome ou pelo nome e artista, o primeiro link salvo tem preferência. Outros links ficam como alternativas. Se o catálogo falhar, a busca externa continua disponível.
@@ -186,8 +190,8 @@ tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay/1000
 ### Sala (Supabase)
 
 - Projeto `iowuejrpzoibyidiuvpt` (o mesmo do Mapa do Parque e do Financeiro360). Tudo no schema `karaoke`, que a API não expõe; RLS ligado, sem política, sem GRANT para `anon`. A única porta são as funções `public.karaoke_*` (SECURITY DEFINER).
-- `karaoke_sala_abrir` (tela), `karaoke_host_sync` (tela, a cada 1,5 s: publica estado e recebe comandos; exige o token), `karaoke_sala_ver` (celular, a cada 2 s), `karaoke_comando` (celular; lista fechada de tipos, até 40 KB, 60 por minuto), `karaoke_sala_fechar`.
-- O celular **pede**; a tela **decide**. A playlist e as letras continuam morando só na tela.
+- `karaoke_sala_abrir` (tela), `karaoke_host_sync` (tela, a cada 1,5 s: publica estado e recebe comandos; exige o token), `karaoke_sala_ver` (celular, a cada 2 s), `karaoke_comando` (celular; lista fechada de tipos, até 40 KB, 60 por minuto), `karaoke_sala_transferir` (troca o token da tela atual pelo token do projetor aprovado), `karaoke_sala_fechar`.
+- O celular **pede**; a tela **decide**. A playlist e as letras ficam na tela. Só numa transferência aprovada, a fila ativa é enviada temporariamente e criptografada para o novo projetor.
 - A tela limita o que os celulares podem acrescentar (`MAX_CANTORES`, `MAX_MUSICAS`, `MAX_FILA` em `sala-host.js`): o código da sala é o convite, e o limite por minuto do servidor vale por aparelho, que o cliente escolhe.
 - Sem websocket de propósito: consulta periódica é simples e aguenta rede ruim.
 - Só a chave **publicável** no navegador. Nunca a `service_role`.
@@ -200,18 +204,18 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 27 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 33 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 
 **Testes da sala (banco):**
 
 ```bash
-# 1. Depois de aplicar supabase/001_sala.sql no Supabase: confere tudo contra o banco real
+# 1. Depois de aplicar supabase/001_sala.sql e 003_transferencia_tela.sql no Supabase: confere sala e troca de tela contra o banco real
 #    (cria uma sala aleatória, percorre o fluxo, testa as recusas de segurança e apaga a sala)
 node karaoke/tests/sala-real.js
 
-# 2. Antes de aplicar (ou ao mexer no SQL): testa as funções num Postgres comum.
+# 2. Antes de aplicar (ou ao mexer no SQL): aplica 001_sala.sql e 003_transferencia_tela.sql e testa as funções num Postgres comum.
 #    Instruções no topo de supabase/teste_sala.sql (cria os papéis anon/authenticated).
 psql -q -f karaoke/supabase/teste_sala.sql
 ```
