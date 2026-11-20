@@ -12,13 +12,14 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.3.0";
+const VERSION = "4.3.1";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./backing.css",
+  "./beat-grooves.js",
   "./beats.js",
   "./backing-audio.js",
   "./backing-ui.js",
@@ -27,6 +28,18 @@ const SHELL = [
   "./assets/acompanhamento/chimbal.mp3",
   "./assets/acompanhamento/pandeiro.mp3",
   "./assets/acompanhamento/triangulo.mp3",
+  "./assets/acompanhamento/xote-grave.mp3",
+  "./assets/acompanhamento/baqueta.mp3",
+  "./assets/acompanhamento/surdo.mp3",
+  "./assets/acompanhamento/tamborim.mp3",
+  "./assets/acompanhamento/ganza.mp3",
+  "./assets/acompanhamento/aro.mp3",
+  "./assets/acompanhamento/chimbal-aberto.mp3",
+  "./assets/acompanhamento/prato.mp3",
+  "./assets/acompanhamento/tom.mp3",
+  "./assets/acompanhamento/bumbo-808.mp3",
+  "./assets/acompanhamento/caixa-808.mp3",
+  "./assets/acompanhamento/chimbal-808.mp3",
   "./themes-v2.css",
   "./domain.js",
   "./storage.js",
