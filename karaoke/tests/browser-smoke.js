@@ -222,6 +222,12 @@ function salaFalsa(){
   await cel.waitForSelector("#ctMusicaPainel",{state:"hidden"});
   assert.equal(await page.evaluate(id=>acharMusica(id)&&P.itens.some(i=>i.musicaId===id),semSom),false,"só trocar o playback não pode pôr na fila");
 
+  // Só o link do YouTube: o celular pede e a tela cria a música com o título do vídeo
+  await cel.click('[data-ct-aba="nova"]');
+  await cel.fill("#ctLinkRapido","https://youtu.be/dQw4w9WgXcQ");await cel.click('#ctFormLink button[type="submit"]');
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Canção de Teste (playback)"&&m.playback&&m.playback.id==="dQw4w9WgXcQ"),null,{timeout:12000});
+  await cel.click('[data-ct-aba="pedir"]');
+
   // Arquivo guardado na tela não é trocado pelo celular (nem forçando o comando)
   const arquivoId=await page.evaluate(()=>K.dados.musicas.find(m=>m.playback&&m.playback.tipo==="arquivo").id);
   await abrirNoCelular("Canção de Teste");

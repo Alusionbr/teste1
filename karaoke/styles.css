@@ -274,3 +274,12 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
 .botaoSolo:hover:not(:disabled){background:#2a1a4f}
 .selo.recorde{color:#ffe29a;border-color:#7a5b16}
 .notaRecorde{margin:.4em 0 .8em;font-size:1.25em;font-weight:800;color:#ffd23f;text-align:center}
+
+/* ------------------------------------- "Só o vídeo do YouTube" (a letra vem no vídeo) */
+/* O vídeo ocupa o palco entre as barras de cima e de baixo, sem a letra do app. */
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoCobertura,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoLetra,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAdiantar,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAtrasar,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoOffset{display:none}
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoFundo{inset:56px 0 118px;background:#000}

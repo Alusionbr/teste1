@@ -20,7 +20,7 @@
  * Um nunca escreve no outro.
  */
 const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"opaco",contagem:5,aplausometro:true,keyYT:""};
-const FUNDOS=["opaco","escuro","video"];
+const FUNDOS=["opaco","escuro","video","tela"];   // "tela": só o vídeo do YouTube, com a letra do próprio vídeo
 const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
 const K={dados:vazio(),pronto:false};

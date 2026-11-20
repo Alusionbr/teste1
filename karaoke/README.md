@@ -14,6 +14,16 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
 
+### Usar como lista compartilhada de faixas (vídeo do YouTube com a letra)
+
+Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app vira a lista compartilhada de faixas e a fila, e a tela mostra o vídeo.
+
+1. **Ajustes → Palco → Fundo da letra → “Só o vídeo do YouTube — a letra vem no próprio vídeo”** (ou o botão 🎬 do palco, que alterna entre os quatro fundos). O vídeo ocupa o palco entre as barras, sem a letra do app por cima; os botões Letra −/+ somem.
+2. **Adicionar só com o link**: Músicas → + Nova música → campo “Ou cole só o link do vídeo de karaokê do YouTube”. O título vem do próprio vídeo e a música já entra na playlist. No celular da sala: **✨ Música nova → colar só o link**, e a música entra na fila da tela.
+3. A família escolhe, troca o playback e manda tocar pelo celular (painel da música). A vez, o rodízio e o aplausômetro continuam valendo.
+
+Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra do app mesmo nesse modo. Vídeo que o dono bloqueou fora do YouTube é recusado na hora, antes de entrar na lista.
+
 ### Cantar sozinho
 
 Para treinar, cantar sem festa ou testar o app sem ninguém por perto — não precisa cadastrar a Família.
@@ -147,7 +157,7 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 18 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 19 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 

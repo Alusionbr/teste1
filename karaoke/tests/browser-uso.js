@@ -306,6 +306,25 @@ async function novaManual(titulo,letra,dur){
     ok(await page.locator("#bibliotecaLista .selo.recorde").count()===0,"selo 🏆 continua depois de apagar");
   });
 
+  await cenario("só o link do YouTube entra na playlist; o modo 'só o vídeo' esconde a letra do app",async()=>{
+    await aba("musicas");await page.click("#btnNovaMusica");
+    await page.fill("#novaLinkYT","isso não é link");await page.click("#formNovaLink button");
+    await page.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#buscaStatus").textContent));
+    await page.fill("#novaLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ");await page.click("#formNovaLink button");
+    await page.waitForSelector("#dlgNovaMusica",{state:"hidden",timeout:12000});
+    const li=page.locator("#filaLista li").filter({hasText:"Vídeo de teste"});
+    ok(await li.count()===1,"a música do link não entrou na playlist com o título do vídeo");
+    await aba("ajustes");await page.selectOption("#prefFundo","tela");
+    await aba("playlist");
+    await li.locator('[data-acao="tocarItem"]').click();
+    await page.waitForSelector("#palcoVez:not([hidden])");await page.click("#vezComecar");
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube);
+    const v=await page.evaluate(()=>{const d=id=>getComputedStyle(document.getElementById(id)).display,r=document.getElementById("palcoFundo").getBoundingClientRect();return{letra:d("palcoLetra"),cob:d("palcoCobertura"),alto:r.height,topo:r.top}});
+    ok(v.letra==="none"&&v.cob==="none","a letra do app ou a cobertura continuam na frente do vídeo");
+    ok(v.alto>400&&v.topo>=50,"o vídeo não ocupa o palco entre as barras: "+JSON.stringify(v));
+    await page.click("#palcoSair");await aba("ajustes");await page.selectOption("#prefFundo","opaco");
+  });
+
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{
     await limpar();
     const c2=await browser.newContext({viewport:{width:390,height:844}});

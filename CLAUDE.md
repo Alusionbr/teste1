@@ -800,7 +800,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (18 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (19 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -825,6 +825,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 16. **O ✕ do palco tem de ser alcançável em toda tela**: `#palcoTopo` (z-index 18) fica acima das camadas `.sobre` (15). `browser-uso.js` testa isso.
 17. **Cantar sozinho é um sinalizador do palco (`P.solo`), não outro fluxo**: playlist em solo = `modo:"festa"` + `solo:true`; música avulsa = `modo:"solo"`. Sozinho não existe cantor: `cantoresDoItem` devolve vazio e `rotuloPalco` mostra “🎤 Você”. O placar (`K.dados.placar`, `placar.js`) só recebe nota medida de verdade e é dado do aparelho: vai no backup, nunca na sala nem no link de compartilhar. Nada de nota inventada nem faixa de exemplo.
 18. **O celular põe/troca playback e toca, sem tipo novo de comando**: tudo é `pedir` com `dados.modo` (fila/seguir/agora/playback) e `dados.playback` opcional (youtube/spotify). A tela valida com `normalizarPlayback` e decide. **Playback `arquivo` nunca é trocado pelo celular** (o áudio mora só na tela). “Tocar agora” só interrompe nas listas ou no palco da festa. O celular confere o vídeo com `YouTubeBase.verificar` antes de enviar. Como não muda o SQL, não há migração a aplicar.
+19. **Modo “só o vídeo do YouTube”** (`prefs.fundo === "tela"`, só CSS: `#palco[data-fonte="youtube"][data-fundo="tela"]`): o vídeo aparece entre as barras e a letra/cobertura do app somem, para vídeo de karaokê que já traz a letra. Só vale para playback de YouTube; Spotify e arquivo seguem com a letra do app. Música pode entrar só com o link (título pelo oEmbed + `YouTubeBase.verificar`), na tela (`#formNovaLink`) e no celular (`#ctFormLink`, comando `pedir_nova` sem letra).
 
 ## Modelo de dados
 
@@ -836,7 +837,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
             playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, offset, criadaEm}],
   playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
   placar:[{musicaId, nota, em}],   // Cantar sozinho: no máximo 300; o melhor de cada música nunca sai
-  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video", contagem, aplausometro, keyYT} }
+  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video"|"tela", contagem, aplausometro, keyYT} }
 // gaveta "audio": Blob do playback, chave "a-<musicaId>"
 // localStorage "karaoke:sala" (tela): {codigo, token, depois}; "karaoke:controle:eu" (celular): {nome, emoji}
 ```

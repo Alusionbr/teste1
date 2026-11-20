@@ -31,6 +31,13 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Controles somem depois de 4 s tocando e voltam ao mexer.
 - [ ] Teclado: espaço, ←, →, [, ], F, Esc.
 
+## Lista compartilhada com vídeo do YouTube
+
+- [ ] Ajustes → Fundo → “Só o vídeo do YouTube”: o palco mostra o vídeo entre as barras, sem a letra do app; 🎬 alterna os quatro fundos.
+- [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
+- [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.
+- [ ] Música de Spotify ou arquivo continua com a letra do app nesse modo.
+
 ## Cantar sozinho
 
 - [ ] Sem nenhum cantor cadastrado: 🎤 numa música (aba Músicas) abre o palco com “Prepare-se!” e “🎤 Você”.

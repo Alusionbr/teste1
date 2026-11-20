@@ -418,10 +418,10 @@ function ajustarOffset(delta){
   notify(v===0?"Letra desta música no ponto zero.":`Letra ${v>0?"atrasada":"adiantada"} ${Math.abs(v).toFixed(2).replace(".",",")} s nesta música.`,true);
 }
 function trocarFundo(){
-  const ordem=["opaco","escuro","video"];
+  const ordem=FUNDOS;
   const pr=prefs();pr.fundo=ordem[(ordem.indexOf(pr.fundo)+1)%ordem.length];
   aplicarPrefsPalco();salvarLogo();
-  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra."}[pr.fundo],true);
+  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo do YouTube: a letra é a do próprio vídeo."}[pr.fundo],true);
 }
 function telaCheia(){
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});

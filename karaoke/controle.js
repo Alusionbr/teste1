@@ -185,6 +185,24 @@ $("ctErroTrocar").addEventListener("click",()=>{
   abrirPainelMusica({id:a.musicaId,title:a.title,artist:a.artist},true);
 });
 
+// Só o link do YouTube: o título vem do vídeo; a tela cria a música e põe na fila.
+$("ctFormLink").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const texto=$("ctLinkRapido").value.trim();if(!texto)return;
+  const id=lerLinkYouTube(texto),st=$("ctLinkStatus"),btn=e.submitter;
+  if(!id){st.textContent=ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).":"Não reconheci o link. Use um link do YouTube ou do YouTube Music.";return}
+  btn.disabled=true;st.textContent="Conferindo o vídeo…";
+  try{
+    let titulo="";
+    try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo)){st.textContent=err.message;return}}
+    const v=await YouTubeBase.verificar(id);
+    if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`;return}
+    if(await comando("pedir_nova",{title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo},cantorId:$("ctCantorNova").value})){
+      st.textContent="";$("ctLinkRapido").value="";notify("Pedido enviado! O vídeo entra na fila da tela.",true);
+    }
+  }finally{btn.disabled=false}
+});
+
 // Música nova: a letra é buscada AQUI no celular (LRCLIB) e vai junto no pedido.
 $("ctFormNova").addEventListener("submit",async e=>{
   e.preventDefault();

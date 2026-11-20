@@ -130,6 +130,30 @@ $("buscaResultados").addEventListener("click",async e=>{
   abrirEditor(m.id,"youtube");
   notify("Música salva. Agora escolha o playback.",true);
 });
+// Só o link do YouTube: o título vem do próprio vídeo, a música entra na playlist e a
+// letra pode ser a do vídeo (Ajustes → Fundo → “Só o vídeo do YouTube”).
+$("formNovaLink").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const texto=$("novaLinkYT").value.trim();if(!texto)return;
+  const id=lerLinkYouTube(texto);
+  const status=$("buscaStatus");
+  if(!id){status.textContent=ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).":"Não reconheci esse link do YouTube.";return}
+  status.textContent="Conferindo o vídeo…";
+  try{
+    await ocupado(e.submitter,(async()=>{
+      let titulo="";
+      try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo))throw err}
+      const v=await YouTubeBase.verificar(id);
+      if(!v.ok)throw Error(`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`);
+      const m=criarMusica({title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo}});
+      adicionarItem(garantirPlaylist(),m.id,"","");
+      await salvarEstado();
+      $("novaLinkYT").value="";status.textContent="";
+      $("dlgNovaMusica").close();trocarAba("playlist");renderTudo();
+      notify(`“${m.title}” entrou na playlist.${K.dados.prefs.fundo==="tela"?"":" Dica: em Ajustes, escolha “Só o vídeo do YouTube” para ver a letra do próprio vídeo."}`,true);
+    })());
+  }catch(err){status.textContent=err.message}
+});
 $("btnMusicaManual").addEventListener("click",async()=>{
   const q=$("buscaLetra").value.trim();
   const [title,artist]=q.split(/\s+[-–—]\s+/);
