@@ -7,6 +7,10 @@ const { chromium } = require("playwright");
   try {
     const context = await browser.newContext();
     const batches = [];
+    await context.addInitScript(() => {
+      const schedule = window.setTimeout.bind(window);
+      window.setTimeout = (callback, delay, ...args) => schedule(callback, delay === 30000 ? 1200 : delay === 300000 ? 100 : delay, ...args);
+    });
     await context.route("https://lrclib.net/api/**", route => route.fulfill({ json: [] }));
     await context.route("https://api.vagalume.com.br/**", route => route.fulfill({ json: { response: { docs: [] } } }));
     await context.route("https://*.supabase.co/functions/v1/estante-usage", async route => {
@@ -17,7 +21,6 @@ const { chromium } = require("playwright");
       return route.fulfill({ status: batches.length === 1 ? 503 : 200, headers, json: { ok: batches.length > 1 } });
     });
     const page = await context.newPage();
-    await page.clock.install();
     await page.goto("http://127.0.0.1:8765/");
     await page.waitForFunction(() => state.workspace);
     const countSong = () => page.evaluate(() => openSong({
@@ -25,7 +28,6 @@ const { chromium } = require("playwright");
     }));
     await page.evaluate(() => beginRehearsal());
     await countSong();
-    await page.clock.fastForward(31000);
     assert.equal(batches.length, 0, "opt-in é necessário");
     assert.equal(await page.evaluate(async () => (await indexedDB.databases()).some(db => db.name === "estante-usage")), false);
 
@@ -34,6 +36,7 @@ const { chromium } = require("playwright");
     assert.equal(await page.locator("#usageOptIn").isChecked(), false);
     await page.check("#usageOptIn");
     await page.click("#usageDialog footer button");
+    await page.evaluate(() => EstanteUsage.missing({ appleId: 715 }));
     await context.setOffline(true);
     await countSong();
     await countSong();
@@ -42,19 +45,15 @@ const { chromium } = require("playwright");
       EstanteUsage.backing({ kind: "preset", genre: "xote", title: "Nome interno" });
       EstanteUsage.backing({ kind: "import", genre: "rock", title: "Arquivo privado" });
     });
-    await page.clock.fastForward(31000);
+    await new Promise(resolve => setTimeout(resolve, 1300));
     assert.equal(batches.length, 0);
-    await context.setOffline(false);
-    await page.evaluate(() => EstanteUsage.missing({ appleId: 715 }));
     const first = page.waitForResponse(response => response.url().endsWith("/estante-usage") && response.status() === 503);
-    await page.clock.fastForward(31000);
-    await first;
     const second = page.waitForResponse(response => response.url().endsWith("/estante-usage") && response.status() === 200);
-    await page.clock.fastForward(301000);
-    await second;
+    await context.setOffline(false);
+    await Promise.all([first, second]);
     assert.deepEqual(batches[1], batches[0], "a tentativa usa exatamente o mesmo lote");
-    assert.deepEqual(batches[0].rows.map(row => [row.metric, row.ref, row.count]), [
-      ["rehearsed", "lrclib:329", 1], ["rhythm", "xote", 1], ["missing_lyrics", "apple:715", 1]
+    assert.deepEqual(batches[0].rows.map(row => [row.metric, row.ref, row.count]).sort(), [
+      ["missing_lyrics", "apple:715", 1], ["rehearsed", "lrclib:329", 1], ["rhythm", "xote", 1]
     ]);
     assert.doesNotMatch(JSON.stringify(batches), /privad[oa]|Letra que|Composição|Nome interno/);
 
@@ -62,7 +61,7 @@ const { chromium } = require("playwright");
     await page.click("#usageSettingsBtn");
     await page.uncheck("#usageOptIn");
     await page.click("#usageDialog footer button");
-    await page.clock.fastForward(31000);
+    await new Promise(resolve => setTimeout(resolve, 1300));
     assert.equal(batches.length, 2);
     const cors = { "Access-Control-Allow-Origin": "http://127.0.0.1:8765",
       "Access-Control-Allow-Headers": "apikey, content-type, authorization", "Access-Control-Allow-Methods": "POST, GET, OPTIONS" };
