@@ -188,6 +188,8 @@ function salaFalsa(){
   await page.screenshot({path:path.join(SAIDA,"palco-nota.png")});
 
   // 6. Celular pula para a próxima (YouTube falso, modo só som)
+  // O padrão é "só o vídeo" (sem letra do app); aqui o teste confere a letra por cima do player.
+  await page.evaluate(()=>{prefs().fundo="opaco";aplicarPrefsPalco()});
   await cel.waitForFunction(()=>!document.querySelector("#ctComecar").hidden,null,{timeout:8000});
   await cel.click("#ctComecar");
   await page.waitForSelector("#palcoVez:not([hidden])",{timeout:8000});
