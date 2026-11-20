@@ -53,6 +53,9 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
 - [ ] Pedir música da lista entra na fila para o cantor escolhido; ⏫ põe para tocar a seguir.
 - [ ] Música nova pelo celular (com link do YouTube) entra na biblioteca e na fila.
+- [ ] Tocar numa música da lista abre o painel: colar link do YouTube põe/troca o playback; clipe bloqueado é recusado no celular.
+- [ ] ▶ Tocar agora interrompe (com confirmação), ⏫ Tocar a seguir e ＋ Fim da fila funcionam; música com arquivo na tela não tem troca de playback.
+- [ ] Playback que falha na tela: o celular mostra o aviso e 🎧 Trocar playback recarrega a música.
 - [ ] Recarregar a tela da festa: a mesma sala continua.
 - [ ] Desligar a internet da tela: celular mostra “tela não está respondendo”; ao voltar, tudo segue.
 - [ ] Fechar sala: o celular avisa que a sala não existe mais.

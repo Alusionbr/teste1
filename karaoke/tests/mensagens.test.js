@@ -10,6 +10,9 @@ const path=require("node:path");
 const vm=require("node:vm");
 const root=path.resolve(__dirname,"..");
 
+// fonte-youtube.js usa o YouTubeBase de verificar-youtube.js (a página carrega os dois, nesta ordem).
+const fonteYT=()=>fs.readFileSync(path.join(root,"verificar-youtube.js"),"utf8")+"\n"+fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8");
+
 function contexto(){
   let ouvinte=null,agora=1000;
   const eventos=[],enviados=[];
@@ -33,7 +36,7 @@ function contexto(){
 
 test("YouTube: aceita só mensagem da origem certa vinda do próprio iframe",async()=>{
   const c=contexto();
-  vm.runInContext(fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8")+";this.F=FonteYouTube;",c.ctx);
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"},duration:200});
   assert.match(c.frame.src,/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?.*enablejsapi=1/);
@@ -51,7 +54,7 @@ test("YouTube: aceita só mensagem da origem certa vinda do próprio iframe",asy
 
 test("YouTube: anúncio congela o relógio, erro 150 avisa e fim dispara 'fim'",async()=>{
   const c=contexto();
-  vm.runInContext(fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8")+";this.F=FonteYouTube;",c.ctx);
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
   const msg=x=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify(x)});
@@ -68,7 +71,7 @@ test("YouTube: anúncio congela o relógio, erro 150 avisa e fim dispara 'fim'",
 
 test("YouTube: pedido de tocar antes de o player carregar é cumprido quando ele responde",async()=>{
   const c=contexto();
-  vm.runInContext(fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8")+";this.F=FonteYouTube;",c.ctx);
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
   F.tocar();
@@ -144,7 +147,7 @@ function contextoVerificar(){
     setInterval:()=>0,clearInterval(){},clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),emitir(){},URLSearchParams,JSON,Math,Number,String
   };
   vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8")+";this.F=FonteYouTube;",ctx);
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",ctx);
   const msg=(o,origin="https://www.youtube-nocookie.com",source=frame.contentWindow)=>ouvintes.slice().forEach(f=>f({origin,source,data:JSON.stringify(o)}));
   const disparar=ms=>{const t=timers.find(x=>x.vivo&&x.ms===ms);if(t){t.vivo=false;t.f()}};
   return{F:ctx.F,frame,msg,disparar};
@@ -216,7 +219,7 @@ test("Spotify: 'ready' que chega ANTES do evento load não perde o pedido de toc
 
 test("YouTube: mensagem do player antes do evento load também libera o envio",async()=>{
   const c=contexto();
-  vm.runInContext(fs.readFileSync(path.join(root,"fonte-youtube.js"),"utf8")+";this.F=FonteYouTube;",c.ctx);
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
   F.tocar();

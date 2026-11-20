@@ -55,6 +55,11 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 2. Nos celulares: leia o QR code (ou abra `…/karaoke/controle.html` e digite o código). Cada pessoa diz o nome e entra na família.
 3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
 
+4. **Tocar uma música da lista**: tocar nela abre um painel com o playback atual, o campo para **pôr ou trocar o link** (YouTube, YouTube Music ou Spotify; no YouTube o celular já confere se o vídeo toca fora do YouTube) e os botões **▶ Tocar agora** (pede confirmação, interrompe a música atual), **⏫ Tocar a seguir** e **＋ Pôr no fim da fila**.
+5. **Playback que falhou**: quando o vídeo da música tocando não funciona, o celular mostra “⚠️ O playback desta música falhou” com **🎧 Trocar playback**; a tela recarrega a música sozinha com o link novo.
+
+Regras: qualquer celular da sala pode fazer isso e a tela avisa quem fez. Playback do tipo **arquivo** (áudio guardado na tela) não é trocado pelo celular. Tudo viaja como comando `pedir` com campos opcionais (`modo`: fila, seguir, agora, playback; `playback`), então **não existe SQL novo**: `supabase/001_sala.sql` continua igual.
+
 A tela da festa funciona em qualquer navegador moderno, inclusive o de projetores e TVs com Android. Precisa de internet nos dois lados.
 
 ### Compartilhar e backup
@@ -94,6 +99,7 @@ biblioteca.js    músicas, áudio do aparelho
 playlists.js     playlists, link de compartilhamento (CompressionStream), backup
 letras.js        LRCLIB → lyrics.ovh; título por oEmbed; busca do YouTube com chave opcional
 fontes.js        interface comum de playback + relógio manual + arquivo (<audio>)
+verificar-youtube.js PEÇAS do YouTube usadas pela tela e pelo celular: origens, erros, endereço do player e a conferência “toca fora do YouTube?”
 fonte-youtube.js protocolo postMessage do YouTube falado à mão (sem iframe_api)
 fonte-spotify.js protocolo postMessage do Spotify falado à mão (sem o script deles)
 palco.js         fases (vez → cantando → nota → fim), desenho da letra, um requestAnimationFrame só; modo solo (`P.solo`)

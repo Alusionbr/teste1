@@ -62,6 +62,7 @@ const SalaHost=(()=>{
       fila:(p?p.itens:[]).map(i=>{const m=acharMusica(i.musicaId),c=acharCantor(i.cantorA);return m?{id:i.id,title:m.title,artist:m.artist,quem:rotuloCantores(i),cor:c?c.cor:""}:null}).filter(Boolean),
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
+      erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
       nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null
     };
   }
@@ -119,8 +120,31 @@ const SalaHost=(()=>{
         return true;
       }
       case "pedir":{
+        // dados.modo: "fila" (padrão, celular antigo), "seguir", "agora" ou "playback"
+        // (só troca o playback, sem pedir). dados.playback opcional: youtube/spotify.
         const m=acharMusica(d.musicaId);if(!m)return false;
-        return enfileirar(m,d,quem);
+        const modo=["fila","seguir","agora","playback"].includes(d.modo)?d.modo:"fila";
+        let mudou=false;
+        if(d.playback!=null){
+          const r=trocarPlayback(m,d.playback,quem);
+          if(modo==="playback")return r==="mudou";
+          mudou=r==="mudou";
+        }
+        if(modo==="playback")return false;
+        const item=enfileirar(m,d,quem);
+        if(!item)return mudou;
+        if(modo==="fila")return true;
+        const p=playlistAlvo();
+        // "Tocar agora" só interrompe a tela nas listas ou no palco da festa: gravando
+        // sincronia, ensaiando ou cantando uma música avulsa, entra no fim da fila.
+        if(modo==="agora"&&P.aberto&&P.modo!=="festa"){notify(`🎤 ${quem} pediu “${m.title}”, mas a tela está ocupada: entrou no fim da fila.`,true);return true}
+        const alvo=paraSeguir(p,item.id);
+        if(alvo<0)return true;
+        if(modo==="agora"){
+          if(P.aberto)carregarIndice(alvo);else abrirPalco({playlistId:p.id,indice:alvo});
+          notify(`🎤 ${quem} mandou tocar “${m.title}” agora.`,true);
+        }else notify(`🎤 ${quem} pôs “${m.title}” para tocar a seguir.`,true);
+        return true;
       }
       case "pedir_nova":{
         const pb=d.playback&&normalizarPlayback(d.playback);
@@ -130,7 +154,7 @@ const SalaHost=(()=>{
         if(!m&&K.dados.musicas.length>=MAX_MUSICAS)return false;
         if(!m)m=criarMusica({title:d.title,artist:d.artist,duration:d.duration,synced:texto(d.synced,30000),lyrics:texto(d.lyrics,30000),playback:pb});
         else if(!m.playback&&pb)m=editarMusica(m.id,{playback:pb});
-        return enfileirar(m,d,quem);
+        return !!enfileirar(m,d,quem);
       }
       case "tocar_item":{
         const p=playlistAlvo();if(!p)return false;
@@ -146,23 +170,46 @@ const SalaHost=(()=>{
       }
       case "subir_item":{ // "tocar a seguir"
         const p=playlistAlvo();if(!p)return false;
-        const i=p.itens.findIndex(x=>x.id===d.itemId);
-        const alvo=P.aberto&&P.modo==="festa"?P.indice+1:0;
-        if(i<0||i<alvo)return false;
-        const[x]=p.itens.splice(i,1);p.itens.splice(alvo,0,x);p.atualizadaEm=Date.now();
-        return true;
+        return paraSeguir(p,d.itemId)>=0;
       }
     }
     return false;
   }
+  // Põe o item logo depois da música atual (ou no começo, com a tela nas listas).
+  // Devolve a posição nova, ou -1 se o item não existe ou já passou. A mesma
+  // lista é mexida no lugar (splice): o palco aponta para o mesmo array.
+  function paraSeguir(p,itemId){
+    const i=p.itens.findIndex(x=>x.id===itemId);
+    const alvo=P.aberto&&P.modo==="festa"?P.indice+1:0;
+    if(i<0||i<alvo)return -1;
+    const[x]=p.itens.splice(i,1);p.itens.splice(alvo,0,x);p.atualizadaEm=Date.now();
+    return alvo;
+  }
+  // Devolve o item criado (ou null quando a fila está cheia).
   function enfileirar(m,d,quem){
     const p=playlistAlvo()||garantirPlaylist();
-    if(p.itens.length>=MAX_FILA)return false;
+    if(p.itens.length>=MAX_FILA)return null;
     const a=acharCantor(d.cantorId)?d.cantorId:"";
     const b=acharCantor(d.cantorB)?d.cantorB:"";
-    adicionarItem(p,m.id,a,b);
+    const item=adicionarItem(p,m.id,a,b);
     notify(`🎤 ${quem} pediu “${m.title}”${a?` para ${nomeCantor(a)}`:""}.`,true);
-    return true;
+    return item;
+  }
+  // Celular põe ou troca o playback (YouTube/Spotify). Arquivo é só da tela: o áudio
+  // mora neste aparelho e um toque no celular o desligaria da música.
+  // Devolve "mudou", "igual" ou "recusado".
+  function trocarPlayback(m,bruto,quem){
+    const pb=normalizarPlayback(bruto);
+    if(!pb||pb.tipo==="arquivo")return "recusado";
+    if(m.playback&&m.playback.tipo==="arquivo"){notify(`🎧 ${quem} tentou trocar o playback de “${m.title}”, mas ele é um arquivo guardado nesta tela.`);return "recusado"}
+    if(m.playback&&m.playback.tipo===pb.tipo&&m.playback.id===pb.id)return "igual";
+    editarMusica(m.id,{playback:pb});
+    notify(`🎧 ${quem} trocou o playback de “${m.title}” para ${pb.tipo==="spotify"?"Spotify":"YouTube"}.`,true);
+    // A música que travou (erro) ou que ainda está na contagem recomeça com o playback novo.
+    if(P.aberto&&P.musica&&P.musica.id===m.id&&P.modo!=="gravar"&&(!$("palcoErro").hidden||P.fase==="vez")){
+      carregarIndice(P.indice,{comecarJa:P.fase!=="vez"});
+    }
+    return "mudou";
   }
 
   /* --------------------------------------------------------------- tela */

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1.0.3b">
+  <meta name="theme-color" content="#1.0.4b">
   <meta name="description" content="Controle do Karaokê em Casa: peça músicas e comande a tela da festa pelo celular.">
   <title>Controle — Karaokê em Casa</title>
-  <script data-version="1.0.3">
+  <script data-version="1.0.4">
   // Mesma trava de versão da página principal (ver index.html).
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -25,7 +25,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.3">
+  <link rel="stylesheet" href="./styles.css?v=1.0.4">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
 </head>
@@ -58,6 +58,10 @@
     <section id="ctPainel" hidden>
       <div id="ctTelaAviso" class="aviso fixo" hidden>A tela da festa não está respondendo. Confira se ela está ligada e com internet.</div>
       <div class="cartao agora">
+        <div id="ctErroPlayback" class="aviso fixo" hidden role="alert">
+          <span id="ctErroTexto"></span>
+          <button type="button" id="ctErroTrocar">🎧 Trocar playback</button>
+        </div>
         <div id="ctFase" class="dica"></div>
         <div id="ctQuemCanta" class="cantorSelo"></div>
         <div id="ctMusica" class="ctMusica">Nada tocando</div>
@@ -91,7 +95,7 @@
       </section>
 
       <section id="ctAbaPedir" hidden>
-        <label>Quem vai cantar? <select id="ctCantor"></select></label>
+        <p class="dica">Toque numa música para pôr ou trocar o playback e escolher: tocar agora, a seguir ou no fim da fila.</p>
         <input id="ctBusca" type="search" placeholder="Procurar nas músicas da festa" autocomplete="off" aria-label="Procurar música">
         <ul id="ctMusicas" class="lista compacta"></ul>
       </section>
@@ -114,14 +118,37 @@
       </section>
     </section>
   </main>
+  <dialog id="ctMusicaPainel" class="dialogo" aria-labelledby="ctPnTitulo">
+    <h2 id="ctPnTitulo"></h2>
+    <p id="ctPnArtista" class="dica"></p>
+    <p id="ctPnPlayback" class="playbackAtual"></p>
+    <div id="ctPnTroca">
+      <label>Link do playback <input id="ctPnLink" placeholder="youtube.com/… ou open.spotify.com/track/…" autocomplete="off"></label>
+      <div class="acoes">
+        <button type="button" id="ctPnUsar" class="primario">🎧 Usar este playback</button>
+        <a id="ctPnProcurar" class="botao" target="_blank" rel="noopener">🔎 Procurar no YouTube ↗</a>
+      </div>
+    </div>
+    <div id="ctPnPedido">
+      <label>Quem vai cantar? <select id="ctPnCantor"></select></label>
+      <div class="acoes">
+        <button type="button" id="ctPnAgora" class="primario">▶ Tocar agora</button>
+        <button type="button" id="ctPnSeguir">⏫ Tocar a seguir</button>
+        <button type="button" id="ctPnFila">＋ Pôr no fim da fila</button>
+      </div>
+    </div>
+    <p id="ctPnStatus" class="dica" role="status"></p>
+    <div class="acoes"><button type="button" id="ctPnFechar">Fechar</button></div>
+  </dialog>
   <div id="aviso" aria-live="polite"></div>
 
-  <script src="./core.js?v=1.0.3"></script>
-  <script src="./links.js?v=1.0.3"></script>
-  <script src="./familia.js?v=1.0.3"></script>
-  <script src="./letras.js?v=1.0.3"></script>
-  <script src="./sala.js?v=1.0.3"></script>
-  <script src="./controle.js?v=1.0.3"></script>
-  <script src="./offline.js?v=1.0.3"></script>
+  <script src="./core.js?v=1.0.4"></script>
+  <script src="./links.js?v=1.0.4"></script>
+  <script src="./familia.js?v=1.0.4"></script>
+  <script src="./letras.js?v=1.0.4"></script>
+  <script src="./verificar-youtube.js?v=1.0.4"></script>
+  <script src="./sala.js?v=1.0.4"></script>
+  <script src="./controle.js?v=1.0.4"></script>
+  <script src="./offline.js?v=1.0.4"></script>
 </body>
 </html>

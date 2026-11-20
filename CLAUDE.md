@@ -787,6 +787,7 @@ karaoke/
 ├── playlists.js     playlists, link compartilhado, backup
 ├── letras.js        LRCLIB → lyrics.ovh; oEmbed; busca do YouTube com chave opcional
 ├── fontes.js        interface comum de playback, relógio manual e <audio>
+├── verificar-youtube.js  YouTubeBase: origens, erros, endereço e conferência de vídeo (tela e celular)
 ├── fonte-youtube.js / fonte-spotify.js  protocolos postMessage falados à mão
 ├── palco.js         fases vez → cantando → nota → fim; um requestAnimationFrame só
 ├── sincronia.js     gravar sincronia tocando
@@ -823,6 +824,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 15. **Fim da prévia de 30 s do Spotify não é fim da música**: vira aviso (`erro` com `previa:true`), nunca `fim`. "Seguir sem playback" continua de onde estava.
 16. **O ✕ do palco tem de ser alcançável em toda tela**: `#palcoTopo` (z-index 18) fica acima das camadas `.sobre` (15). `browser-uso.js` testa isso.
 17. **Cantar sozinho é um sinalizador do palco (`P.solo`), não outro fluxo**: playlist em solo = `modo:"festa"` + `solo:true`; música avulsa = `modo:"solo"`. Sozinho não existe cantor: `cantoresDoItem` devolve vazio e `rotuloPalco` mostra “🎤 Você”. O placar (`K.dados.placar`, `placar.js`) só recebe nota medida de verdade e é dado do aparelho: vai no backup, nunca na sala nem no link de compartilhar. Nada de nota inventada nem faixa de exemplo.
+18. **O celular põe/troca playback e toca, sem tipo novo de comando**: tudo é `pedir` com `dados.modo` (fila/seguir/agora/playback) e `dados.playback` opcional (youtube/spotify). A tela valida com `normalizarPlayback` e decide. **Playback `arquivo` nunca é trocado pelo celular** (o áudio mora só na tela). “Tocar agora” só interrompe nas listas ou no palco da festa. O celular confere o vídeo com `YouTubeBase.verificar` antes de enviar. Como não muda o SQL, não há migração a aplicar.
 
 ## Modelo de dados
 

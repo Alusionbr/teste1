@@ -199,7 +199,55 @@ function salaFalsa(){
   // 8. Celular pede música da lista para a Tia Carla
   await cel.click('[data-ct-aba="pedir"]');
   await cel.click("[data-pedir]");
+  await cel.waitForSelector("#ctMusicaPainel[open]");
+  await cel.click("#ctPnFila");
   await page.waitForFunction(()=>document.querySelector("#palcoTitulo").textContent.includes("/3"),null,{timeout:8000});
+
+  // 8b. Celular: pôr/trocar playback e tocar (painel da música)
+  cel.on("dialog",d=>d.accept());
+  await page.evaluate(()=>{const m=criarMusica({title:"Sem Som",artist:"Teste",lyrics:"uma\nduas",duration:6});salvarEstado();window.__semSom=m.id});
+  const semSom=await page.evaluate(()=>window.__semSom);
+  const abrirNoCelular=async nome=>{
+    await cel.fill("#ctBusca",nome);
+    await cel.waitForFunction(n=>[...document.querySelectorAll("#ctMusicas b")].some(b=>b.textContent===n),nome,{timeout:8000});
+    await cel.locator("#ctMusicas li").filter({hasText:nome}).first().locator("button").click();
+    await cel.waitForSelector("#ctMusicaPainel[open]");
+  };
+  await abrirNoCelular("Sem Som");
+  assert.match(await cel.locator("#ctPnPlayback").innerText(),/Sem playback/);
+  await cel.fill("#ctPnLink","isso não é link");await cel.click("#ctPnUsar");
+  await cel.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#ctPnStatus").textContent),null,{timeout:5000});
+  await cel.fill("#ctPnLink","https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x");await cel.click("#ctPnUsar");
+  await page.waitForFunction(id=>{const m=acharMusica(id);return m&&m.playback&&m.playback.tipo==="youtube"&&m.playback.id==="dQw4w9WgXcQ"},semSom,{timeout:10000});
+  await cel.waitForSelector("#ctMusicaPainel",{state:"hidden"});
+  assert.equal(await page.evaluate(id=>acharMusica(id)&&P.itens.some(i=>i.musicaId===id),semSom),false,"só trocar o playback não pode pôr na fila");
+
+  // Arquivo guardado na tela não é trocado pelo celular (nem forçando o comando)
+  const arquivoId=await page.evaluate(()=>K.dados.musicas.find(m=>m.playback&&m.playback.tipo==="arquivo").id);
+  await abrirNoCelular("Canção de Teste");
+  assert.match(await cel.locator("#ctPnPlayback").innerText(),/arquivo guardado na tela|Playback atual/);
+  await cel.click("#ctPnFechar");
+  await cel.evaluate(id=>comando("pedir",{musicaId:id,modo:"playback",playback:{tipo:"youtube",id:"dQw4w9WgXcQ"}}),arquivoId);
+  await page.waitForTimeout(3500);
+  assert.equal(await page.evaluate(id=>acharMusica(id).playback.tipo,arquivoId),"arquivo","celular trocou o arquivo da tela");
+
+  // Tocar a seguir e Tocar agora
+  await abrirNoCelular("Sem Som");
+  await cel.click("#ctPnSeguir");
+  await page.waitForFunction(id=>P.itens[P.indice+1]&&P.itens[P.indice+1].musicaId===id,semSom,{timeout:8000});
+  await abrirNoCelular("Sem Som");
+  await cel.click("#ctPnAgora");
+  await page.waitForFunction(id=>P.aberto&&P.musica&&P.musica.id===id,semSom,{timeout:8000});
+
+  // Playback que falha: o celular vê o aviso e troca; a tela recarrega sozinha
+  await page.evaluate(()=>mostrarErro("O vídeo falhou no teste."));
+  await cel.waitForSelector("#ctErroPlayback:not([hidden])",{timeout:8000});
+  await cel.click("#ctErroTrocar");
+  await cel.waitForSelector("#ctMusicaPainel[open]");
+  assert.ok(await cel.locator("#ctPnPedido").isHidden(),"ao trocar o playback da música atual não deve oferecer pedir de novo");
+  await cel.fill("#ctPnLink","https://youtu.be/9bZkp7q19f0");await cel.click("#ctPnUsar");
+  await page.waitForFunction(()=>P.musica.playback.id==="9bZkp7q19f0"&&document.querySelector("#palcoErro").hidden,null,{timeout:10000});
+  await cel.screenshot({path:path.join(SAIDA,"celular-painel.png")});
 
   // 9. Gravar sincronia tocando (música do arquivo local)
   await page.click("#palcoSair");
