@@ -107,8 +107,12 @@ async function buscarVideos(q,{chave=""}={}){
 
 // Lista de resultados para as telas (tela e celular). Título e canal vêm de terceiro:
 // sempre escapados.
-function htmlResultadosVideos(lista){
-  return lista.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}"><img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer"><span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}${v.duracao?" · "+fmt(v.duracao):""}</small></span></button></li>`).join("");
+// duracaoEsperada (s, da letra): os vídeos de duração parecida (diferencaDuracao, lrc.js) vêm
+// primeiro e ganham o selo "duração parecida"; os outros mostram a duração para comparar.
+function htmlResultadosVideos(lista,{duracaoEsperada=0}={}){
+  const parecido=v=>duracaoEsperada>0&&v.duracao>0&&!diferencaDuracao(duracaoEsperada,v.duracao);
+  const ordem=duracaoEsperada>0?[...lista.filter(parecido),...lista.filter(v=>!parecido(v))]:lista;
+  return ordem.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}"><img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer"><span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}${v.duracao?" · "+fmt(v.duracao):""}${parecido(v)?` <span class="selo ok">✓ duração parecida</span>`:""}</small></span></button></li>`).join("");
 }
 const textoDaFonteBusca=r=>r.fonte==="oficial"?"Resultados do YouTube (só vídeos que tocam aqui).":"Resultados de um serviço público de busca. O app confere se o vídeo toca aqui ao escolher.";
 

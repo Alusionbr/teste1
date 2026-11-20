@@ -149,4 +149,16 @@ function dividirPalavras(linha){
 }
 function clamp01(v){return v<0?0:v>1?1:v}
 
-if(typeof module!=="undefined")module.exports={lerLetra,paraTexto,versosDaLetra,indiceNoTempo,preenchimento,dividirPalavras,temLRC,fmtLRC};
+/*
+ * Diferença entre a duração da música (da letra) e a do playback escolhido.
+ * Devolve os segundos de diferença (playback − música) só quando passa de
+ * `limite`: abaixo disso é normal (fade, silêncio no fim). 0 = sem aviso.
+ */
+function diferencaDuracao(musicaSeg,playbackSeg,limite=8){
+  const a=Number(musicaSeg),b=Number(playbackSeg);
+  if(!(a>0)||!(b>0))return 0;
+  const d=b-a;
+  return Math.abs(d)>limite?d:0;
+}
+
+if(typeof module!=="undefined")module.exports={lerLetra,paraTexto,versosDaLetra,indiceNoTempo,preenchimento,dividirPalavras,temLRC,fmtLRC,diferencaDuracao};

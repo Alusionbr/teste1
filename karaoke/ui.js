@@ -208,14 +208,26 @@ $("mUsarYT").addEventListener("click",e=>{
   if(!id)return notify(ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra a música e copie o link dela (com watch?v=).":"Não reconheci esse link do YouTube.");
   usarVideoNoEditor(id,"",e.currentTarget);
 });
-$("mBuscarYTApp").addEventListener("click",async e=>{
-  const q=`${$("mTitulo").value} ${$("mArtista").value}`.trim()||"karaokê";
+// Busca os playbacks no próprio editor (abre sozinha para música sem playback do YouTube).
+async function buscarPlaybackNoEditor(){
+  const q=$("mBuscaYT").value.trim();if(!q)return;
+  const id=ED.id,m=acharMusica(id);
+  const esperada=(m&&m.duration)||parseClock($("mDuracao").value);
+  ED.buscou=true;
   $("mVideos").innerHTML=`<li class="vazio">Procurando…</li>`;
   try{
-    const r=await ocupado(e.currentTarget,buscarVideos(q,{chave:K.dados.prefs.keyYT}));
-    $("mVideos").innerHTML=(r.lista.length?htmlResultadosVideos(r.lista)+`<li class="vazio">${esc(textoDaFonteBusca(r))}</li>`:"")||`<li class="vazio">Nenhum vídeo encontrado. Tente outras palavras.</li>`;
-  }catch(err){$("mVideos").innerHTML=`<li class="vazio">${esc(err.message)}</li>`}
-});
+    const r=await ocupado($("mBuscarYTApp"),buscarVideos(q,{chave:K.dados.prefs.keyYT}));
+    if(ED.id!==id)return;   // o editor já foi para outra música
+    $("mVideos").innerHTML=(r.lista.length?htmlResultadosVideos(r.lista,{duracaoEsperada:esperada})+`<li class="vazio">${esc(textoDaFonteBusca(r))}</li>`:"")||`<li class="vazio">Nenhum vídeo encontrado. Tente outras palavras.</li>`;
+  }catch(err){
+    if(ED.id!==id)return;
+    // Plano B à vista: o link e o atalho para o site do YouTube.
+    $("mVideos").innerHTML=`<li class="vazio">${esc(err.message)}</li>`;
+    $("mLinkDetalhes").open=true;$("mProcurarYT").classList.add("primario");
+  }
+}
+$("mFormBuscaYT").addEventListener("submit",e=>{e.preventDefault();buscarPlaybackNoEditor()});
+$("mBuscaYT").addEventListener("input",()=>{ED.buscaEditada=true});
 $("mVideos").addEventListener("click",e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
   usarVideoNoEditor(b.dataset.video,b.dataset.titulo,b);

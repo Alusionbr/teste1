@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1.0.6b">
+  <meta name="theme-color" content="#1.0.7b">
   <meta name="description" content="Controle do Karaokê em Casa: peça músicas e comande a tela da festa pelo celular.">
   <title>Controle — Karaokê em Casa</title>
-  <script data-version="1.0.6">
+  <script data-version="1.0.7">
   // Mesma trava de versão da página principal (ver index.html).
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -25,7 +25,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.6">
+  <link rel="stylesheet" href="./styles.css?v=1.0.7">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
 </head>
@@ -120,8 +120,14 @@
         <ul id="ctNovaResultados" class="lista resultados"></ul>
         <div id="ctNovaEscolhida" class="cartao" hidden>
           <p id="ctNovaInfo"></p>
-          <label>Link do playback (opcional) <input id="ctNovaLink" placeholder="youtube.com/… ou open.spotify.com/track/…"></label>
-          <div class="acoes"><a id="ctNovaProcurar" class="botao" target="_blank" rel="noopener">🔎 Procurar playback no YouTube ↗</a></div>
+          <p id="ctNovaPb" class="playbackAtual">Escolha o playback abaixo (ou peça sem playback).</p>
+          <ul id="ctNovaVideos" class="lista videos"></ul>
+          <p id="ctNovaVideosStatus" class="dica" role="status"></p>
+          <details id="ctNovaLinkDet" class="linkDetalhes">
+            <summary>Já tenho o link do vídeo</summary>
+            <label>Link do playback (YouTube ou Spotify) <input id="ctNovaLink" placeholder="youtube.com/… ou open.spotify.com/track/…"></label>
+            <div class="acoes"><a id="ctNovaProcurar" class="botao" target="_blank" rel="noopener">Abrir a busca do YouTube em outra aba ↗</a></div>
+          </details>
           <label>Quem vai cantar? <select id="ctCantorNova"></select></label>
           <div class="acoes"><button type="button" id="ctNovaEnviar" class="primario">Pedir esta música</button></div>
         </div>
@@ -152,14 +158,15 @@
   </dialog>
   <div id="aviso" aria-live="polite"></div>
 
-  <script src="./core.js?v=1.0.6"></script>
-  <script src="./links.js?v=1.0.6"></script>
-  <script src="./familia.js?v=1.0.6"></script>
-  <script src="./letras.js?v=1.0.6"></script>
-  <script src="./busca-youtube.js?v=1.0.6"></script>
-  <script src="./verificar-youtube.js?v=1.0.6"></script>
-  <script src="./sala.js?v=1.0.6"></script>
-  <script src="./controle.js?v=1.0.6"></script>
-  <script src="./offline.js?v=1.0.6"></script>
+  <script src="./core.js?v=1.0.7"></script>
+  <script src="./links.js?v=1.0.7"></script>
+  <script src="./familia.js?v=1.0.7"></script>
+  <script src="./lrc.js?v=1.0.7"></script>
+  <script src="./letras.js?v=1.0.7"></script>
+  <script src="./busca-youtube.js?v=1.0.7"></script>
+  <script src="./verificar-youtube.js?v=1.0.7"></script>
+  <script src="./sala.js?v=1.0.7"></script>
+  <script src="./controle.js?v=1.0.7"></script>
+  <script src="./offline.js?v=1.0.7"></script>
 </body>
 </html>

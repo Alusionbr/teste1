@@ -232,6 +232,7 @@ async function novaManual(titulo,letra,dur){
     await limpar();await aba("musicas");
     await page.locator("#bibliotecaLista li").filter({hasText:"Música A"}).locator('[data-acao="editar"]').click();
     await page.waitForSelector("#dlgMusica[open]");
+    await page.click("#mLinkDetalhes summary");   // o link fica recolhido: a busca é o caminho principal
     await page.fill("#mLinkYT","https://youtu.be/"+BLOQUEADO);await page.click("#mUsarYT");
     await page.waitForFunction(()=>/Escolha outro v/.test(document.querySelector("#aviso").textContent),null,{timeout:12000});
     ok(/Sem playback/.test(await page.locator("#mPlaybackAtual").innerText()),"gravou o vídeo bloqueado");
@@ -384,15 +385,36 @@ async function novaManual(titulo,letra,dur){
     await page.click('#novaVideos [data-video="BUSCAAAAAA1"]');
     await page.waitForSelector("#dlgNovaMusica",{state:"hidden",timeout:12000});
     ok(await page.evaluate(()=>K.dados.musicas.some(m=>m.playback&&m.playback.id==="BUSCAAAAAA1"&&m.title==="Evidências (Playback Karaokê)")),"a música do resultado não foi criada");
-    // editor: o botão Buscar aqui existe mesmo sem chave
+    // editor: música sem playback já abre com os vídeos listados, sem pedir link nem buscar
     await aba("musicas");
     await page.locator("#bibliotecaLista li").filter({hasText:"Solo Dois"}).locator('[data-acao="editar"]').click();
     await page.waitForSelector("#dlgMusica[open]");
-    ok(await page.locator("#mBuscarYTApp").isVisible(),"Buscar aqui some sem chave");
-    await page.click("#mBuscarYTApp");
     await page.waitForSelector("#mVideos [data-video]",{timeout:10000});
+    ok(/playback karaokê/.test(await page.inputValue("#mBuscaYT")),"o campo de busca não veio preenchido");
+    ok(!(await page.evaluate(()=>document.querySelector("#mLinkDetalhes").open)),"o campo de link deveria vir recolhido");
+    await page.click('#mVideos [data-video="BLOQUEADO01"]');
+    await page.waitForFunction(()=>/Escolha outro v/.test(document.querySelector("#aviso").textContent),null,{timeout:12000});
     await page.click('#mVideos [data-video="BUSCAAAAAA2"]');
     await page.waitForFunction(()=>{const m=K.dados.musicas.find(x=>x.title==="Solo Dois");return m&&m.playback&&m.playback.id==="BUSCAAAAAA2"},null,{timeout:12000});
+  });
+
+  await cenario("editor: duração parecida vem primeiro; se a busca cair, o link e o atalho externo aparecem",async()=>{
+    // duração da letra 3:35 (215 s): o vídeo de 215 s ganha o selo e vai para o topo
+    await page.evaluate(()=>{const m=K.dados.musicas.find(x=>x.title==="Solo Um");editarMusica(m.id,{duration:230,playback:null});salvarEstado()});
+    await aba("musicas");
+    await page.locator("#bibliotecaLista li").filter({hasText:"Solo Um"}).locator('[data-acao="editar"]').click();
+    await page.waitForSelector("#mVideos [data-video]",{timeout:10000});
+    ok(await page.locator("#mVideos .selo.ok").count()>=1,"nenhum vídeo ganhou o selo de duração parecida");
+    ok((await page.locator("#mVideos [data-video]").first().getAttribute("data-video"))==="BUSCAAAAAA2","o vídeo de duração parecida deveria vir primeiro");
+    await page.evaluate(()=>document.querySelector("#dlgMusica").close());
+    // busca fora do ar: nenhuma instância responde
+    const bases=["https://api.piped.private.coffee","https://pipedapi.kavin.rocks","https://pipedapi.leptons.xyz","https://pipedapi.adminforge.de"];
+    for(const b of bases)await page.route(b+"/search**",r=>r.abort());
+    await page.locator("#bibliotecaLista li").filter({hasText:"Solo Um"}).locator('[data-acao="editar"]').click();
+    await page.waitForFunction(()=>/não respondeu agora/.test(document.querySelector("#mVideos").textContent),null,{timeout:15000});
+    ok(await page.evaluate(()=>document.querySelector("#mLinkDetalhes").open),"o campo de link deveria abrir quando a busca cai");
+    ok(await page.locator("#mProcurarYT").isVisible(),"falta o atalho para o YouTube");
+    for(const b of bases)await page.unroute(b+"/search**");
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{

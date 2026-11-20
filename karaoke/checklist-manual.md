@@ -36,6 +36,8 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Padrão: vídeo do YouTube em tela cheia; parado 4 s, somem as barras e só o player fica; qualquer toque/tecla traz de volta.
 - [ ] Nada do player é clicável (a TV nunca vai para a página do YouTube); a sala (celulares, fila) segue funcionando.
 - [ ] 🎞/🔤 (ou tecla L, ou botão no celular) liga e desliga a letra do app sem o vídeo parar nem recarregar; 🎬 alterna os quatro fundos.
+- [ ] Editor de música sem playback: os vídeos já aparecem sozinhos (campo preenchido com “título artista playback karaokê”); duração parecida vem primeiro com selo; tocar num troca o playback; “Já tenho o link” fica recolhido.
+- [ ] Celular → Música nova → escolher a letra: os vídeos aparecem sozinhos; tocar num e Pedir esta música.
 - [ ] Buscar “evidências” em Nova música (tela) e em ✨ Música nova (celular): aparecem resultados com miniatura; vídeo bloqueado é recusado; escolher entra na playlist/fila.
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
 - [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.

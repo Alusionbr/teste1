@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1.0.6b">
+  <meta name="theme-color" content="#1.0.7b">
   <meta name="description" content="Karaokê em Casa: playlists de karaokê para a família com playback do YouTube, Spotify ou do aparelho, letra sincronizada e controle pelo celular.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.6">
+  <script data-version="1.0.7">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -24,7 +24,7 @@
     document.addEventListener("DOMContentLoaded",()=>{
       if(!active)return;
       cover=document.createElement("div");cover.setAttribute("role","status");cover.textContent="Atualizando o Karaokê em Casa…";
-      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#1.0.6b;color:white;font:18px system-ui";
+      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#1.0.7b;color:white;font:18px system-ui";
       document.body.appendChild(cover);
     },{once:true});
     navigator.serviceWorker.addEventListener("controllerchange",changed);
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.6">
+  <link rel="stylesheet" href="./styles.css?v=1.0.7">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -304,15 +304,21 @@
       <button type="button" data-pb="arquivo">Arquivo do aparelho</button>
     </div>
     <div id="pbYoutube" class="pbPainel">
-      <div class="barraBusca">
-        <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
-        <button type="button" id="mUsarYT" class="primario">Usar</button>
-      </div>
-      <div class="acoes">
-        <a id="mProcurarYT" class="botao" target="_blank" rel="noopener">🔎 Procurar no YouTube ↗</a>
-        <button type="button" id="mBuscarYTApp">🔎 Buscar aqui</button>
-      </div>
+      <form id="mFormBuscaYT" class="barraBusca" autocomplete="off">
+        <label class="sr" for="mBuscaYT">Buscar o playback no YouTube</label>
+        <input id="mBuscaYT" type="search" placeholder="Buscar o playback no YouTube" autocomplete="off">
+        <button type="submit" id="mBuscarYTApp" class="primario">🔎 Buscar</button>
+      </form>
+      <p id="mSugestaoYT" class="dica"></p>
       <ul id="mVideos" class="lista videos"></ul>
+      <details id="mLinkDetalhes" class="linkDetalhes">
+        <summary>Já tenho o link do vídeo</summary>
+        <div class="barraBusca">
+          <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
+          <button type="button" id="mUsarYT" class="primario">Usar</button>
+        </div>
+        <div class="acoes"><a id="mProcurarYT" class="botao" target="_blank" rel="noopener">Abrir a busca do YouTube em outra aba ↗</a></div>
+      </details>
       <p class="dica">Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
     </div>
     <div id="pbSpotify" class="pbPainel" hidden>
@@ -409,29 +415,29 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.6"></script>
-  <script src="./storage.js?v=1.0.6"></script>
-  <script src="./lrc.js?v=1.0.6"></script>
-  <script src="./links.js?v=1.0.6"></script>
-  <script src="./placar.js?v=1.0.6"></script>
-  <script src="./estado.js?v=1.0.6"></script>
-  <script src="./familia.js?v=1.0.6"></script>
-  <script src="./biblioteca.js?v=1.0.6"></script>
-  <script src="./playlists.js?v=1.0.6"></script>
-  <script src="./letras.js?v=1.0.6"></script>
-  <script src="./busca-youtube.js?v=1.0.6"></script>
-  <script src="./fontes.js?v=1.0.6"></script>
-  <script src="./verificar-youtube.js?v=1.0.6"></script>
-  <script src="./fonte-youtube.js?v=1.0.6"></script>
-  <script src="./fonte-spotify.js?v=1.0.6"></script>
-  <script src="./aplausometro.js?v=1.0.6"></script>
-  <script src="./palco.js?v=1.0.6"></script>
-  <script src="./sincronia.js?v=1.0.6"></script>
-  <script src="./qr.js?v=1.0.6"></script>
-  <script src="./sala.js?v=1.0.6"></script>
-  <script src="./sala-host.js?v=1.0.6"></script>
-  <script src="./telas.js?v=1.0.6"></script>
-  <script src="./ui.js?v=1.0.6"></script>
-  <script src="./offline.js?v=1.0.6"></script>
+  <script src="./core.js?v=1.0.7"></script>
+  <script src="./storage.js?v=1.0.7"></script>
+  <script src="./lrc.js?v=1.0.7"></script>
+  <script src="./links.js?v=1.0.7"></script>
+  <script src="./placar.js?v=1.0.7"></script>
+  <script src="./estado.js?v=1.0.7"></script>
+  <script src="./familia.js?v=1.0.7"></script>
+  <script src="./biblioteca.js?v=1.0.7"></script>
+  <script src="./playlists.js?v=1.0.7"></script>
+  <script src="./letras.js?v=1.0.7"></script>
+  <script src="./busca-youtube.js?v=1.0.7"></script>
+  <script src="./fontes.js?v=1.0.7"></script>
+  <script src="./verificar-youtube.js?v=1.0.7"></script>
+  <script src="./fonte-youtube.js?v=1.0.7"></script>
+  <script src="./fonte-spotify.js?v=1.0.7"></script>
+  <script src="./aplausometro.js?v=1.0.7"></script>
+  <script src="./palco.js?v=1.0.7"></script>
+  <script src="./sincronia.js?v=1.0.7"></script>
+  <script src="./qr.js?v=1.0.7"></script>
+  <script src="./sala.js?v=1.0.7"></script>
+  <script src="./sala-host.js?v=1.0.7"></script>
+  <script src="./telas.js?v=1.0.7"></script>
+  <script src="./ui.js?v=1.0.7"></script>
+  <script src="./offline.js?v=1.0.7"></script>
 </body>
 </html>

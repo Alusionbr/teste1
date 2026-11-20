@@ -100,15 +100,19 @@ function renderAjustes(){
 }
 
 /* ------------------------------------------------------- editor de música */
-const ED={id:"",aba:"youtube"};
+const ED={id:"",aba:"youtube",buscou:false,buscaEditada:false};
+// Termo de busca do playback: o padrão traz vídeo só com a música, não o clipe oficial.
+const termoBuscaPlayback=(titulo,artista)=>`${titulo} ${artista} playback karaokê`.replace(/\s+/g," ").trim();
 function abrirEditor(id,aba){
   const m=acharMusica(id);if(!m)return;
-  ED.id=id;
+  ED.id=id;ED.buscou=false;ED.buscaEditada=false;
   $("mTitulo").value=m.title;$("mArtista").value=m.artist;$("mDuracao").value=m.duration?fmt(m.duration):"";
   $("mLetra").value=letraDaMusica(m);
   $("mLinkYT").value=m.playback&&m.playback.tipo==="youtube"?"https://youtu.be/"+m.playback.id:"";
   $("mLinkSP").value=m.playback&&m.playback.tipo==="spotify"?"https://open.spotify.com/track/"+m.playback.id:"";
   $("mVideos").innerHTML="";
+  $("mBuscaYT").value=termoBuscaPlayback(m.title,m.artist);
+  $("mLinkDetalhes").open=false;
   trocarAbaPlayback(aba||(m.playback?m.playback.tipo:"youtube"));
   atualizarEditor();
   if(!$("dlgMusica").open)$("dlgMusica").showModal();
@@ -120,6 +124,10 @@ function atualizarEditor(){
   $("mSemPlayback").hidden=!pb;
   const q={title:$("mTitulo").value,artist:$("mArtista").value};
   $("mProcurarYT").href=linkBuscaYouTube(q);
+  const termo=termoBuscaPlayback(q.title,q.artist);
+  if(!ED.buscaEditada)$("mBuscaYT").value=termo;
+  $("mSugestaoYT").hidden=!!(pb&&pb.tipo==="youtube")||!q.title.trim();
+  $("mSugestaoYT").innerHTML=`Escolha um vídeo só com a música (sem a voz)${m.duration?`; a letra tem <b>${fmt(m.duration)}</b>`:""}. Os de duração parecida vêm primeiro.`;
   $("mProcurarSP").href=linkBuscaSpotify(q);
   const texto=$("mLetra").value,info=lerLetra(texto);
   $("mLetraInfo").textContent=!info.linhas.length?"Sem letra ainda.":info.sincronizada?`✓ Letra sincronizada (${info.linhas.filter(l=>l.texto).length} versos).`:`Letra sem tempo (${info.linhas.length} versos). Grave a sincronia para o efeito de karaokê.`;
@@ -130,6 +138,9 @@ function trocarAbaPlayback(aba){
   ED.aba=aba;
   document.querySelectorAll("#dlgMusica [data-pb]").forEach(b=>b.classList.toggle("ativa",b.dataset.pb===aba));
   $("pbYoutube").hidden=aba!=="youtube";$("pbSpotify").hidden=aba!=="spotify";$("pbArquivo").hidden=aba!=="arquivo";
+  // Música sem playback do YouTube: já mostra os vídeos, sem ninguém pedir link nem buscar.
+  const m=acharMusica(ED.id);
+  if(aba==="youtube"&&m&&!ED.buscou&&!(m.playback&&m.playback.tipo==="youtube")&&m.title.trim())buscarPlaybackNoEditor();
 }
 // Grava título, artista, duração e letra do formulário. Devolve a música.
 function salvarEditor(){

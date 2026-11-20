@@ -240,12 +240,36 @@ $("ctNovaResultados").addEventListener("click",e=>{
   $("ctNovaInfo").innerHTML=`🎵 <b>${esc(CT.escolhida.title)}</b> — ${esc(CT.escolhida.artist)}`;
   $("ctNovaProcurar").href=linkBuscaYouTube(CT.escolhida);
   $("ctNovaEscolhida").hidden=false;
+  CT.playbackEscolhido=null;$("ctNovaLinkDet").open=false;$("ctNovaLink").value="";
+  $("ctNovaPb").textContent="Escolha o playback abaixo (ou peça sem playback).";
+  buscarPlaybackDaMusica(CT.escolhida);
   $("ctNovaEscolhida").scrollIntoView({behavior:"smooth",block:"start"});
+});
+// Depois de escolher a letra, já lista os vídeos de playback daquela música.
+async function buscarPlaybackDaMusica(r){
+  const st=$("ctNovaVideosStatus"),ul=$("ctNovaVideos");
+  ul.innerHTML="";st.textContent="Procurando playbacks…";
+  try{
+    const res=await buscarVideos(`${r.title} ${r.artist} playback karaokê`);
+    if(CT.escolhida!==r)return;
+    ul.innerHTML=htmlResultadosVideos(res.lista,{duracaoEsperada:r.duration});
+    st.textContent=res.lista.length?`${textoDaFonteBusca(res)} Toque num vídeo para usar como playback.`:"Nenhum vídeo encontrado. Cole um link abaixo ou peça sem playback.";
+  }catch(err){if(CT.escolhida===r){st.textContent=err.message;$("ctNovaLinkDet").open=true}}
+}
+$("ctNovaVideos").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-video]");if(!b)return;
+  const st=$("ctNovaVideosStatus");
+  st.textContent="Conferindo o vídeo…";
+  const v=await YouTubeBase.verificar(b.dataset.video);
+  if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo.`;return}
+  CT.playbackEscolhido={tipo:"youtube",id:b.dataset.video,titulo:b.dataset.titulo||""};
+  $("ctNovaPb").textContent=`▶ Playback escolhido: ${b.dataset.titulo||b.dataset.video}`;
+  st.textContent="Pronto. Toque em Pedir esta música.";
 });
 $("ctNovaEnviar").addEventListener("click",async()=>{
   const r=CT.escolhida;if(!r)return;
   const link=$("ctNovaLink").value.trim();
-  let playback=null;
+  let playback=CT.playbackEscolhido||null;
   if(link){
     const yt=lerLinkYouTube(link),sp=lerLinkSpotify(link);
     if(yt)playback={tipo:"youtube",id:yt,titulo:""};
@@ -253,7 +277,7 @@ $("ctNovaEnviar").addEventListener("click",async()=>{
     else return notify("Não reconheci o link. Use um link do YouTube, YouTube Music ou de uma faixa do Spotify.");
   }
   const ok=await comando("pedir_nova",{title:r.title,artist:r.artist,duration:r.duration,synced:(r.synced||"").slice(0,30000),lyrics:r.synced?"":(r.lyrics||"").slice(0,30000),playback,cantorId:$("ctCantorNova").value});
-  if(ok){notify("Pedido enviado! A música entra na fila da tela.",true);$("ctNovaEscolhida").hidden=true;$("ctNovaLink").value="";$("ctNovaResultados").innerHTML="";$("ctNovaStatus").textContent=""}
+  if(ok){notify("Pedido enviado! A música entra na fila da tela.",true);$("ctNovaEscolhida").hidden=true;$("ctNovaLink").value="";$("ctNovaResultados").innerHTML="";$("ctNovaVideos").innerHTML="";$("ctNovaStatus").textContent="";CT.playbackEscolhido=null}
 });
 
 /* ------------------------------------------------------------ entrar */

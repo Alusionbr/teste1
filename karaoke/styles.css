@@ -268,6 +268,12 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
   .barraPlaylist select{flex:1 1 100%}
 }
 
+/* Link do vídeo recolhido: a busca é o caminho principal do editor e do celular. */
+.linkDetalhes{margin-top:.8em;border:1px solid var(--borda);border-radius:12px;padding:.5em .8em}
+.linkDetalhes summary{cursor:pointer;color:var(--suave);font-weight:600}
+.linkDetalhes[open] summary{margin-bottom:.5em}
+.lista.videos .selo{margin-left:.4em}
+
 /* ---------------------------------------------------------- cantar sozinho */
 .botaoSolo{width:100%;margin:0 0 1em;padding:.7em 1em;border-radius:16px;font-weight:700;font-size:1.05em;background:#1b1233;border:2px solid var(--rosa);color:#fff;min-height:52px}
 .botaoSolo small{font-weight:400;color:var(--suave);font-size:.8em}

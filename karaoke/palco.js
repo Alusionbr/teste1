@@ -14,7 +14,7 @@
  */
 const P={aberto:false,modo:"festa",solo:false,fundoComLetra:"escuro",itens:[],playlistId:"",indice:0,item:null,musica:null,
   letra:{sincronizada:false,linhas:[]},fonte:null,fase:"",raf:0,idx:-2,carregado:false,carregando:null,
-  contagemTimer:0,ultimaBarra:-1,arrastando:false,spans:[],notaTimer:0};
+  contagemTimer:0,ultimaBarra:-1,arrastando:false,spans:[],notaTimer:0,duracaoAvisada:""};
 
 const prefs=()=>K.dados.prefs;
 const temPalco=()=>P.aberto;
@@ -91,7 +91,7 @@ function carregarIndice(i,{comecarJa=false}={}){
   P.indice=i;P.item=P.itens[i];P.musica=acharMusica(P.item.musicaId);
   if(!P.musica){carregarIndice(i+1,{comecarJa});return}
   P.letra=lerLetra(letraDaMusica(P.musica));
-  P.idx=-2;P.ultimaBarra=-1;
+  P.idx=-2;P.ultimaBarra=-1;P.duracaoAvisada="";
   P.fonte=fonteDaMusica(P.musica);
   P.carregado=false;
   const fonte=P.fonte;
@@ -402,6 +402,19 @@ function atualizarOffset(){
   $("palcoOffset").textContent=v?`${v>0?"+":""}${v.toFixed(2).replace(".",",")} s`:"0 s";
 }
 
+// Playback com duração bem diferente da letra costuma ter outra introdução:
+// avisa uma vez por música e diz o que fazer (Letra −/+).
+function avisarDuracao(f){
+  const m=P.musica;
+  if(P.duracaoAvisada||!m||!m.playback||m.playback.tipo==="arquivo"||P.fase!=="cantando"||!P.letra.sincronizada||soVideoAgora())return;
+  const dur=f.duracao&&f.duracao();
+  if(!(dur>0)||!f.tocando())return;
+  P.duracaoAvisada=m.id+"|"+m.playback.id;
+  const d=diferencaDuracao(m.duration,dur);
+  if(!d)return;
+  notify(`Este playback dura ${fmt(dur)} e a letra foi medida numa gravação de ${fmt(m.duration)}. Se a letra sair fora do tempo, ajuste com Letra − / Letra + (teclas [ e ]) ou escolha outro playback.`);
+}
+
 function tick(){
   if(!P.aberto)return;
   P.raf=requestAnimationFrame(tick);
@@ -409,6 +422,7 @@ function tick(){
   const t=f.tempo();
   atualizarBarra(t);
   atualizarSinal();
+  avisarDuracao(f);
   if(P.fase==="gravando"){Sincronia.tick(t);return}
   if(P.fase!=="cantando"&&P.fase!=="vez")return;
   if(soVideoAgora())return;   // letra escondida: nem desenha (poupa a TV fraca)
