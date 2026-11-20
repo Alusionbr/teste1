@@ -88,3 +88,5 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Atualização: subir a versão e conferir que o aparelho recebe a nova (aviso “Atualizar”).
 
 - [ ] Salvar um playback sem tocar. Em outra sala, procurar pelo mesmo título e artista, pedir o vídeo salvo e repetir a música.
+
+- [ ] Durante uma música, conferir se o botão “Esconder letra” na tela e “Esconder letra da tela” no celular deixam claro como mostrar e ocultar a letra do app.

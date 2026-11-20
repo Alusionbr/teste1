@@ -91,7 +91,7 @@ function salaFalsa(){
   await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
   await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",async r=>{
     const fn=r.request().url().split("/").pop();
-    if(fn.startsWith("karaoke_catalogo_"))return r.fulfill({json:[],headers:{"access-control-allow-origin":"*"}});
+    if(process.env.KARAOKE_SALA_REAL)return r.continue();
     if(r.request().method()==="OPTIONS")return r.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"POST"}});
     // KARAOKE_SALA_REAL=1: deixa passar para o Supabase de verdade (a sala de teste é fechada no fim).
     if(process.env.KARAOKE_SALA_REAL)return r.continue();

@@ -72,9 +72,9 @@ function aplicarPrefsPalco(){
   el.style.setProperty("--escala",String(pr.tamanho/100));
   const soVideo=fundo==="tela";
   const b=$("palcoLetraBtn");
-  b.textContent=soVideo?"🔤 Letra":"🎞 Só vídeo";
+  b.textContent=soVideo?"🔤 Mostrar letra":"🎞 Esconder letra";
   b.setAttribute("aria-pressed",String(!soVideo));
-  b.title=soVideo?"Ligar a letra sincronizada do app (L)":"Desligar a letra do app e mostrar só o vídeo (L)";
+  b.title=soVideo?"Mostrar a letra sincronizada do app. O vídeo continua tocando. (L)":"Esconder a letra do app e deixar o vídeo continuar tocando. (L)";
   P.idx=-2;   // a letra se redesenha na hora quando volta
 }
 // Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é

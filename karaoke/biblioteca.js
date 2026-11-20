@@ -2,24 +2,16 @@
 /*
  * Biblioteca: as músicas do aparelho, cada uma com letra e playback.
  */
-function compartilharPlayback(m){
-  if(m.playback?.tipo!=="youtube")return;
-  salaRpc("karaoke_catalogo_salvar",{p_musica:m.title,p_artista:m.artist,p_video:m.playback.id,p_titulo:m.playback.titulo||m.title})
-    .catch(()=>notify("Música salva neste aparelho. O catálogo compartilhado está indisponível."));
-}
-function criarMusica(campos,{compartilhar=true}={}){
+function criarMusica(campos){
   const m=normalizarMusica({id:uid("m"),criadaEm:Date.now(),...campos});
   K.dados.musicas.push(m);
-  if(compartilhar)compartilharPlayback(m);
   return m;
 }
 function editarMusica(id,campos){
   const i=K.dados.musicas.findIndex(m=>m.id===id);
   if(i<0)return null;
   const nova=normalizarMusica({...K.dados.musicas[i],...campos,id});
-  const anterior=K.dados.musicas[i];
   K.dados.musicas[i]=nova;
-  if(campos.playback||nova.title!==anterior.title||nova.artist!==anterior.artist)compartilharPlayback(nova);
   return nova;
 }
 // Apagar música tira ela das playlists e apaga o áudio guardado (se houver).

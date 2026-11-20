@@ -15,12 +15,12 @@ const SALA_SUPABASE_URL="https://iowuejrpzoibyidiuvpt.supabase.co";
 const SALA_SUPABASE_KEY="sb_publishable_RJisxh4p6IAXX_nPVtkMeQ__-QcfB8p";
 const SALA_ALFABETO="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem 0/O e 1/I: fácil de ditar
 
-async function salaRpc(fn,corpo,tempoLimite=10000){
+async function salaRpc(fn,corpo){
   const r=await fetchSafe(`${SALA_SUPABASE_URL}/rest/v1/rpc/${fn}`,{
     method:"POST",
     headers:{apikey:SALA_SUPABASE_KEY,Authorization:"Bearer "+SALA_SUPABASE_KEY,"Content-Type":"application/json"},
     body:JSON.stringify(corpo)
-  },tempoLimite);
+  },10000);
   const texto=await r.text();
   let dados=null;try{dados=texto?JSON.parse(texto):null}catch{}
   if(!r.ok){

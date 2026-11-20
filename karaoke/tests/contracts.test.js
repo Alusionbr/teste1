@@ -21,6 +21,13 @@ test("versão única: núcleo, service worker e as duas páginas",()=>{
   }
 });
 
+test("o palco e o celular identificam claramente o controle da letra",()=>{
+  assert.match(read("index.html"),/Esconder letra/);
+  assert.match(read("controle.html"),/Esconder letra da tela/);
+  assert.match(read("palco.js"),/Mostrar letra/);
+  assert.match(read("controle.js"),/Mostrar letra na tela/);
+});
+
 test("as páginas e a cobertura de atualização usam a cor do manifesto",()=>{
   const cor=JSON.parse(read("manifest.webmanifest")).theme_color;
   for(const p of PAGINAS)assert.ok(read(p).includes('name="theme-color" content="'+cor+'"'),p);

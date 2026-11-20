@@ -55,7 +55,7 @@ function render(){
   $("ctAplausos").hidden=e.fase!=="nota";
   $("ctOffset").textContent=a?`${a.offset>0?"+":""}${(a.offset||0).toFixed(2).replace(".",",")} s`:"";
   if(e.nota!=null&&e.fase==="nota")$("ctFase").textContent=`👏 Nota: ${e.nota} pontos!`;
-  $("ctLetra").textContent=e.fundo==="tela"?"🔤 Ligar a letra do app":"🎞 Só o vídeo (desligar a letra)";
+  $("ctLetra").textContent=e.fundo==="tela"?"🔤 Mostrar letra na tela":"🎞 Esconder letra da tela";
   // Trava: enquanto uma música toca, só quem canta mexe nela. O celular só avisa e desliga
   // os botões; quem decide é a tela (sala-host.js, bloqueadoPara).
   const eu=CT.eu?fold(CT.eu.nome):"",donos=(a&&a.donos)||[];

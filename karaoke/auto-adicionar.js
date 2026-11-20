@@ -53,7 +53,7 @@ function htmlEntradaAuto(e){
   const letra=temSincronia(m)?`<span class="selo ok">✓ letra sincronizada</span>`:temLetra(m)?`<span class="selo meio">letra sem tempo</span>`:`<span class="selo falta">sem letra</span>`;
   const dif=v&&e.letra&&e.letra.duration?diferencaDuracao(e.letra.duration,v.duracao):0;
   const linhaVideo=v
-    ?`▶ ${esc(v.titulo)}${v.compartilhado?" · salvo pela comunidade":v.duracao?" · "+fmt(v.duracao):""}${v.duvida?` · <b>confira se é este mesmo</b>`:""}${dif?` · vídeo ${dif>0?"mais longo":"mais curto"} que a letra (${Math.abs(dif)} s)`:""}`
+    ?`▶ ${esc(v.titulo)} · ${fmt(v.duracao)}${v.duvida?` · <b>confira se é este mesmo</b>`:""}${dif?` · vídeo ${dif>0?"mais longo":"mais curto"} que a letra (${Math.abs(dif)} s)`:""}`
     :(m.playback?`▶ ${esc(m.playback.titulo||"playback já salvo")}`:"⚠ nenhum vídeo que toque aqui: use “Escolher vídeo”");
   return `<li class="autoItem" data-musica="${esc(m.id)}"><div class="autoTexto"><b>${esc(m.title)}</b><small>${esc(m.artist)}${e.jaExistia?" · já estava nas músicas":""}</small><small>${linhaVideo}</small><span class="selos">${letra}</span></div>
     <div class="autoAcoes"><button type="button" data-auto="trocar">${v||m.playback?"Trocar vídeo":"Escolher vídeo"}</button><button type="button" data-auto="tirar">Tirar</button></div>
