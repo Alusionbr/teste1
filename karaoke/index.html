@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1.0.5b">
+  <meta name="theme-color" content="#1.0.6b">
   <meta name="description" content="Karaokê em Casa: playlists de karaokê para a família com playback do YouTube, Spotify ou do aparelho, letra sincronizada e controle pelo celular.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.5">
+  <script data-version="1.0.6">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -24,7 +24,7 @@
     document.addEventListener("DOMContentLoaded",()=>{
       if(!active)return;
       cover=document.createElement("div");cover.setAttribute("role","status");cover.textContent="Atualizando o Karaokê em Casa…";
-      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#1.0.5b;color:white;font:18px system-ui";
+      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#1.0.6b;color:white;font:18px system-ui";
       document.body.appendChild(cover);
     },{once:true});
     navigator.serviceWorker.addEventListener("controllerchange",changed);
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.5">
+  <link rel="stylesheet" href="./styles.css?v=1.0.6">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -140,8 +140,8 @@
         <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
       </div>
       <div class="cartao">
-        <h2>Busca de playback no YouTube (opcional)</h2>
-        <p class="dica">Com uma chave gratuita da API do YouTube, a busca acontece dentro do app e mostra só vídeos que podem tocar aqui. Sem chave, o app abre a busca do YouTube e você cola o link. A chave fica só neste aparelho.</p>
+        <h2>Busca de vídeos no YouTube</h2>
+        <p class="dica">A busca funciona sem chave, por serviços públicos de busca (o texto que você digita vai para eles). Com uma chave gratuita da API do YouTube (cerca de 100 buscas por dia) a busca usa o próprio YouTube e mostra só vídeos que podem tocar aqui. A chave fica só neste aparelho. Se a busca não responder, use “Procurar no YouTube” e cole o link.</p>
         <label>Chave da API do YouTube <input id="prefKeyYT" type="password" autocomplete="off" placeholder="AIza…"></label>
       </div>
       <div class="cartao">
@@ -199,6 +199,7 @@
         <span id="palcoOffset" class="offset"></span>
         <button type="button" id="palcoAtrasar" title="Letra chegando cedo: atrasar">Letra +</button>
         <span class="separador"></span>
+        <button type="button" id="palcoLetraBtn" title="Letra do app (L)">🎞 Só vídeo</button>
         <button type="button" id="palcoFundoBtn" title="Fundo da letra">🎬</button>
         <button type="button" id="palcoTelaCheia" title="Tela cheia">⛶</button>
       </div>
@@ -277,10 +278,11 @@
       <button type="submit" class="primario">Buscar</button>
     </form>
     <form id="formNovaLink" class="barraBusca" autocomplete="off">
-      <label class="sr" for="novaLinkYT">Link do vídeo do YouTube</label>
-      <input id="novaLinkYT" placeholder="Ou cole só o link do vídeo de karaokê do YouTube" autocomplete="off">
-      <button type="submit">▶ Adicionar</button>
+      <label class="sr" for="novaLinkYT">Buscar vídeo no YouTube ou colar o link</label>
+      <input id="novaLinkYT" placeholder="Buscar vídeo de karaokê no YouTube ou colar o link" autocomplete="off">
+      <button type="submit">🔎 Buscar</button>
     </form>
+    <ul id="novaVideos" class="lista videos"></ul>
     <p id="buscaStatus" class="dica"></p>
     <ul id="buscaResultados" class="lista resultados"></ul>
     <button type="button" id="btnMusicaManual" class="botaoLinha">✍️ Cadastrar sem buscar (colar a letra)</button>
@@ -308,7 +310,7 @@
       </div>
       <div class="acoes">
         <a id="mProcurarYT" class="botao" target="_blank" rel="noopener">🔎 Procurar no YouTube ↗</a>
-        <button type="button" id="mBuscarYTApp" hidden>🔎 Buscar aqui</button>
+        <button type="button" id="mBuscarYTApp">🔎 Buscar aqui</button>
       </div>
       <ul id="mVideos" class="lista videos"></ul>
       <p class="dica">Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
@@ -407,28 +409,29 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.5"></script>
-  <script src="./storage.js?v=1.0.5"></script>
-  <script src="./lrc.js?v=1.0.5"></script>
-  <script src="./links.js?v=1.0.5"></script>
-  <script src="./placar.js?v=1.0.5"></script>
-  <script src="./estado.js?v=1.0.5"></script>
-  <script src="./familia.js?v=1.0.5"></script>
-  <script src="./biblioteca.js?v=1.0.5"></script>
-  <script src="./playlists.js?v=1.0.5"></script>
-  <script src="./letras.js?v=1.0.5"></script>
-  <script src="./fontes.js?v=1.0.5"></script>
-  <script src="./verificar-youtube.js?v=1.0.5"></script>
-  <script src="./fonte-youtube.js?v=1.0.5"></script>
-  <script src="./fonte-spotify.js?v=1.0.5"></script>
-  <script src="./aplausometro.js?v=1.0.5"></script>
-  <script src="./palco.js?v=1.0.5"></script>
-  <script src="./sincronia.js?v=1.0.5"></script>
-  <script src="./qr.js?v=1.0.5"></script>
-  <script src="./sala.js?v=1.0.5"></script>
-  <script src="./sala-host.js?v=1.0.5"></script>
-  <script src="./telas.js?v=1.0.5"></script>
-  <script src="./ui.js?v=1.0.5"></script>
-  <script src="./offline.js?v=1.0.5"></script>
+  <script src="./core.js?v=1.0.6"></script>
+  <script src="./storage.js?v=1.0.6"></script>
+  <script src="./lrc.js?v=1.0.6"></script>
+  <script src="./links.js?v=1.0.6"></script>
+  <script src="./placar.js?v=1.0.6"></script>
+  <script src="./estado.js?v=1.0.6"></script>
+  <script src="./familia.js?v=1.0.6"></script>
+  <script src="./biblioteca.js?v=1.0.6"></script>
+  <script src="./playlists.js?v=1.0.6"></script>
+  <script src="./letras.js?v=1.0.6"></script>
+  <script src="./busca-youtube.js?v=1.0.6"></script>
+  <script src="./fontes.js?v=1.0.6"></script>
+  <script src="./verificar-youtube.js?v=1.0.6"></script>
+  <script src="./fonte-youtube.js?v=1.0.6"></script>
+  <script src="./fonte-spotify.js?v=1.0.6"></script>
+  <script src="./aplausometro.js?v=1.0.6"></script>
+  <script src="./palco.js?v=1.0.6"></script>
+  <script src="./sincronia.js?v=1.0.6"></script>
+  <script src="./qr.js?v=1.0.6"></script>
+  <script src="./sala.js?v=1.0.6"></script>
+  <script src="./sala-host.js?v=1.0.6"></script>
+  <script src="./telas.js?v=1.0.6"></script>
+  <script src="./ui.js?v=1.0.6"></script>
+  <script src="./offline.js?v=1.0.6"></script>
 </body>
 </html>

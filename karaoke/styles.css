@@ -276,10 +276,19 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
 .notaRecorde{margin:.4em 0 .8em;font-size:1.25em;font-weight:800;color:#ffd23f;text-align:center}
 
 /* ------------------------------------- "Só o vídeo do YouTube" (a letra vem no vídeo) */
-/* O vídeo ocupa o palco entre as barras de cima e de baixo, sem a letra do app. */
+/* O vídeo ocupa o palco inteiro, sem a letra do app. Parado por 4 s tocando, somem também
+   as barras de cima e de baixo: só o player fica na tela. A sala segue funcionando por trás. */
 #palco[data-fonte="youtube"][data-fundo="tela"] #palcoCobertura,
 #palco[data-fonte="youtube"][data-fundo="tela"] #palcoLetra,
 #palco[data-fonte="youtube"][data-fundo="tela"] #palcoAdiantar,
 #palco[data-fonte="youtube"][data-fundo="tela"] #palcoAtrasar,
 #palco[data-fonte="youtube"][data-fundo="tela"] #palcoOffset{display:none}
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoFundo{inset:56px 0 118px;background:#000}
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoFundo{background:#000}
+#palco.ocioso[data-fonte="youtube"][data-fundo="tela"] #palcoTopo{opacity:0}
+#palcoTopo{transition:opacity .4s}
+
+/* Nada do player do YouTube é clicável: título, logo e "Assistir no YouTube" levariam a TV
+   para fora da sala. Quem comanda é o app (botões, teclado e celulares). A exceção é o
+   primeiro toque que o iPhone/iPad exige (body.liberandoYT). */
+#palco #ytBox iframe{pointer-events:none}
+body.liberandoYT #palco #ytBox iframe{pointer-events:auto}

@@ -18,11 +18,22 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 
 Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app vira a lista compartilhada de faixas e a fila, e a tela mostra o vídeo.
 
-1. **Ajustes → Palco → Fundo da letra → “Só o vídeo do YouTube — a letra vem no próprio vídeo”** (ou o botão 🎬 do palco, que alterna entre os quatro fundos). O vídeo ocupa o palco entre as barras, sem a letra do app por cima; os botões Letra −/+ somem.
-2. **Adicionar só com o link**: Músicas → + Nova música → campo “Ou cole só o link do vídeo de karaokê do YouTube”. O título vem do próprio vídeo e a música já entra na playlist. No celular da sala: **✨ Música nova → colar só o link**, e a música entra na fila da tela.
-3. A família escolhe, troca o playback e manda tocar pelo celular (painel da música). A vez, o rodízio e o aplausômetro continuam valendo.
+1. **É o padrão**: o fundo “Só o vídeo do YouTube — a letra vem no próprio vídeo” já vem ligado (Ajustes → Palco → Fundo da letra). O vídeo ocupa a tela inteira; depois de 4 s sem mexer somem as barras e **só o player fica na tela**, com a sala funcionando por trás (celulares, fila, vez e aplausos continuam valendo).
+2. **Ligar e desligar a letra sincronizada sem atrapalhar o vídeo**: botão **🎞 Só vídeo / 🔤 Letra** no palco, tecla **L** e botão no **celular da sala**. É só troca de camada: o player do YouTube não é recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço. Ligada, a letra volta com o vídeo escurecido atrás (ou o último fundo que você usava). O botão 🎬 alterna entre os quatro fundos.
+3. **Nada leva a TV para a página do YouTube**: o player não mostra controles, título nem logo e não aceita cliques (só o primeiro toque que o iPhone/iPad exige). Quem comanda é o app, o teclado e os celulares.
+4. **Achar e adicionar o vídeo sem sair do app**: Músicas → + Nova música → campo “Buscar vídeo de karaokê ou colar o link” (veja “Buscar vídeos no YouTube” abaixo). No celular da sala: **✨ Música nova**, mesmo campo; o resultado tocado entra na fila da tela.
+5. A família escolhe, troca o playback e manda tocar pelo celular (painel da música). A vez, o rodízio e o aplausômetro continuam valendo.
 
 Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra do app mesmo nesse modo. Vídeo que o dono bloqueou fora do YouTube é recusado na hora, antes de entrar na lista.
+
+### Buscar vídeos no YouTube
+
+A busca funciona dentro do app, na tela e no celular, **sem chave**: o navegador não consegue consultar `youtube.com/results` (sem CORS), então a busca passa por serviços públicos Piped. O app consulta até 4 ao mesmo tempo e usa a primeira resposta válida; instância que falha fica poupada por 20 s. Com uma chave da API do YouTube em Ajustes, a busca usa a oficial (só vídeos que tocam embutidos, cerca de 100 buscas por dia) e, se a chave for recusada ou a cota acabar, cai para os serviços públicos.
+
+- A busca ganha “karaokê playback” quando você não escreve karaokê/playback/instrumental (sem isso vêm os clipes oficiais, quase sempre bloqueados fora do YouTube).
+- Resultado de serviço público **não garante** que o vídeo toca embutido: ao escolher, o app confere (`YouTubeBase.verificar`) e recusa vídeo bloqueado.
+- **Se a busca parar de responder** (instância pública caiu): edite a lista `INSTANCIAS_BUSCA` em `busca-youtube.js` (a instância precisa devolver JSON com `access-control-allow-origin`; confira com `curl -D- "<base>/search?q=teste&filter=videos"`), ou use uma chave. O atalho “Procurar no YouTube” abre o site em outra aba e você cola o link.
+- Privacidade: o texto buscado vai para o serviço público (ou para o Google, com chave). Nada mais é enviado.
 
 ### Cantar sozinho
 
@@ -109,6 +120,7 @@ biblioteca.js    músicas, áudio do aparelho
 playlists.js     playlists, link de compartilhamento (CompressionStream), backup
 letras.js        LRCLIB → lyrics.ovh; título por oEmbed; busca do YouTube com chave opcional
 fontes.js        interface comum de playback + relógio manual + arquivo (<audio>)
+busca-youtube.js   busca de vídeos: chave oficial → serviços Piped (INSTANCIAS_BUSCA), mapeamento e cooldown
 verificar-youtube.js PEÇAS do YouTube usadas pela tela e pelo celular: origens, erros, endereço do player e a conferência “toca fora do YouTube?”
 fonte-youtube.js protocolo postMessage do YouTube falado à mão (sem iframe_api)
 fonte-spotify.js protocolo postMessage do Spotify falado à mão (sem o script deles)
@@ -157,7 +169,7 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 19 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 21 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 

@@ -1,0 +1,69 @@
+{
+ "items": [
+  {
+   "url": "/watch?v=tfhwXKd1W_o",
+   "type": "stream",
+   "title": "Evidências - Chitãozinho e Xororó (Karaokê Version)",
+   "uploaderName": "Singer! Karaokê",
+   "duration": 298,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=TGXkdU9S0OU",
+   "type": "stream",
+   "title": "Evidências - Chitãozinho e Xororó - Karaokê",
+   "uploaderName": "Karaokê Show Oficial",
+   "duration": 303,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=9K7rZv5WT9Y",
+   "type": "stream",
+   "title": "Chitãozinho & Xororó - Evidências (Karaoke Version)",
+   "uploaderName": "Sing King and Sing King Country",
+   "duration": 308,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=YC_KkKSXbkQ",
+   "type": "stream",
+   "title": "evidencias (josé augusto) karaoke - tono bajo",
+   "uploaderName": "Alvaro Castro",
+   "duration": 310,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=QaF6qIJpKmw",
+   "type": "stream",
+   "title": "Cante Junto - Chitãozinho e Xororó - Evidências (Versão Karaokê)",
+   "uploaderName": "ANALAGA",
+   "duration": 300,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=SHORTSSHORT",
+   "type": "stream",
+   "title": "Curto",
+   "duration": 30,
+   "isShort": true
+  },
+  {
+   "url": "/watch?v=AOVIVOAOVIV",
+   "type": "stream",
+   "title": "Ao vivo",
+   "duration": -1,
+   "isShort": false
+  },
+  {
+   "url": "/watch?v=curto",
+   "type": "stream",
+   "title": "id inválido",
+   "duration": 100
+  },
+  {
+   "url": "/playlist?list=PLxxxx",
+   "type": "playlist",
+   "name": "lista"
+  }
+ ]
+}

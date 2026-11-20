@@ -102,23 +102,3 @@ async function tituloSpotify(id){
   const d=await r.json();
   return String(d.title||"").slice(0,160);
 }
-/*
- * Busca de playback dentro do app — só com a chave da API do YouTube que a
- * família colou em Ajustes (fica só neste aparelho). `videoEmbeddable=true`
- * traz apenas vídeos que tocam fora do YouTube: evita o erro 101/150 antes de
- * ele acontecer.
- */
-async function buscarVideosYouTube(q,chave){
-  const p=new URLSearchParams({part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"8",q,key:chave,relevanceLanguage:"pt"});
-  const r=await fetchSafe(`https://www.googleapis.com/youtube/v3/search?${p}`,{},10000);
-  if(r.status===400||r.status===403){
-    let motivo="";try{motivo=(await r.json()).error?.errors?.[0]?.reason||""}catch{}
-    throw Error(motivo==="quotaExceeded"?"A cota diária de buscas do YouTube acabou. Use 'Procurar no YouTube' e cole o link.":"Chave do YouTube recusada. Confira a chave em Ajustes.");
-  }
-  if(!r.ok)throw Error("A busca do YouTube não respondeu. Tente de novo.");
-  const d=await r.json();
-  return(d.items||[]).filter(x=>x.id&&x.id.videoId).map(x=>({id:x.id.videoId,titulo:semEntidades(x.snippet?.title),canal:semEntidades(x.snippet?.channelTitle),thumb:String(x.snippet?.thumbnails?.default?.url||"")}));
-}
-// A API devolve o título com entidades HTML ("Don&#39;t"). Volta ao texto puro;
-// a tela escapa de novo ao exibir.
-function semEntidades(s){return String(s||"").replace(/&(amp|quot|#39|lt|gt);/g,(_,e)=>({amp:"&",quot:'"',"#39":"'",lt:"<",gt:">"}[e]))}

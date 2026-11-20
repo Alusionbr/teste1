@@ -16,7 +16,7 @@ const YouTubeBase=(()=>{
     101:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou).",150:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou)."};
 
   function endereco(id){
-    const p=new URLSearchParams({enablejsapi:"1",playsinline:"1",rel:"0",modestbranding:"1",controls:"1",iv_load_policy:"3"});
+    const p=new URLSearchParams({enablejsapi:"1",playsinline:"1",rel:"0",modestbranding:"1",controls:"0",disablekb:"1",fs:"0",iv_load_policy:"3"});
     if(location.origin&&location.origin!=="null")p.set("origin",location.origin);
     return `${ORIGEM}/embed/${encodeURIComponent(id)}?${p}`;
   }

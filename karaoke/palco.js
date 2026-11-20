@@ -12,7 +12,7 @@
  * vem SEMPRE da fonte de playback:
  *   tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay
  */
-const P={aberto:false,modo:"festa",solo:false,itens:[],playlistId:"",indice:0,item:null,musica:null,
+const P={aberto:false,modo:"festa",solo:false,fundoComLetra:"escuro",itens:[],playlistId:"",indice:0,item:null,musica:null,
   letra:{sincronizada:false,linhas:[]},fonte:null,fase:"",raf:0,idx:-2,carregado:false,carregando:null,
   contagemTimer:0,ultimaBarra:-1,arrastando:false,spans:[],notaTimer:0};
 
@@ -59,7 +59,16 @@ function aplicarPrefsPalco(){
   const pr=prefs(),el=$("palco");
   el.dataset.fundo=pr.fundo;
   el.style.setProperty("--escala",String(pr.tamanho/100));
+  const soVideo=pr.fundo==="tela";
+  const b=$("palcoLetraBtn");
+  b.textContent=soVideo?"🔤 Letra":"🎞 Só vídeo";
+  b.setAttribute("aria-pressed",String(!soVideo));
+  b.title=soVideo?"Ligar a letra sincronizada do app (L)":"Desligar a letra do app e mostrar só o vídeo (L)";
+  P.idx=-2;   // a letra se redesenha na hora quando volta
 }
+// Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
+// recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
+const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&prefs().fundo==="tela");
 
 function pararTudo(){
   clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);
@@ -402,6 +411,7 @@ function tick(){
   atualizarSinal();
   if(P.fase==="gravando"){Sincronia.tick(t);return}
   if(P.fase!=="cantando"&&P.fase!=="vez")return;
+  if(soVideoAgora())return;   // letra escondida: nem desenha (poupa a TV fraca)
   desenharLetra(t-(Number(P.musica.offset)||0)-prefs().audioDelay/1000);
 }
 
@@ -417,10 +427,22 @@ function ajustarOffset(delta){
   P.idx=-2;
   notify(v===0?"Letra desta música no ponto zero.":`Letra ${v>0?"atrasada":"adiantada"} ${Math.abs(v).toFixed(2).replace(".",",")} s nesta música.`,true);
 }
+// Liga/desliga a letra sincronizada do app por cima do vídeo. Desligada = só o vídeo
+// do YouTube (a letra vem nele); ligada = volta ao último fundo com letra (padrão:
+// vídeo escurecido atrás da letra).
+function alternarLetra(){
+  const pr=prefs();
+  if(pr.fundo==="tela")pr.fundo=P.fundoComLetra||"escuro";
+  else{P.fundoComLetra=pr.fundo;pr.fundo="tela"}
+  aplicarPrefsPalco();salvarLogo();avisarSala();
+  notify(pr.fundo==="tela"?"Só o vídeo do YouTube: a letra é a do próprio vídeo.":"Letra sincronizada ligada junto ao playback.",true);
+}
 function trocarFundo(){
   const ordem=FUNDOS;
-  const pr=prefs();pr.fundo=ordem[(ordem.indexOf(pr.fundo)+1)%ordem.length];
-  aplicarPrefsPalco();salvarLogo();
+  const pr=prefs();
+  if(pr.fundo!=="tela")P.fundoComLetra=pr.fundo;
+  pr.fundo=ordem[(ordem.indexOf(pr.fundo)+1)%ordem.length];
+  aplicarPrefsPalco();salvarLogo();avisarSala();
   notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo do YouTube: a letra é a do próprio vídeo."}[pr.fundo],true);
 }
 function telaCheia(){
@@ -459,6 +481,7 @@ document.addEventListener("keydown",e=>{
   else if(k==="ArrowLeft"){e.preventDefault();anterior()}
   else if(k==="Escape"&&!document.fullscreenElement){fecharPalco()}
   else if(k==="f"){telaCheia()}
+  else if(k==="l"){alternarLetra()}
   else if(k==="["){ajustarOffset(-0.25)}
   else if(k==="]"){ajustarOffset(0.25)}
   else if(k==="Enter"&&(P.fase==="vez"||P.fase==="nota")){e.preventDefault();comandoPalco("comecar")}

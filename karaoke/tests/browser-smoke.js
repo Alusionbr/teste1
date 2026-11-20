@@ -79,6 +79,14 @@ function salaFalsa(){
   const context=await browser.newContext({viewport:{width:LARG,height:ALT}});
   const sala=salaFalsa();
   await context.route("https://lrclib.net/**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(r.request().url().includes("/api/get")?{...LRCLIB[0]}:LRCLIB)}));
+  // Busca de vídeos: a primeira instância responde, as outras caem (como no mundo real).
+  const BUSCA_FALSA={items:[
+    {url:"/watch?v=BUSCAAAAAA1",type:"stream",title:"Evidências (Playback Karaokê)",uploaderName:"Canal Karaokê",duration:215,isShort:false},
+    {url:"/watch?v=BUSCAAAAAA2",type:"stream",title:"Evidências — Instrumental",uploaderName:"Outro Canal",duration:230,isShort:false},
+    {url:"/watch?v=BLOQUEADO01",type:"stream",title:"Clipe oficial (bloqueado)",uploaderName:"Gravadora",duration:250,isShort:false}]};
+  ["https://api.piped.private.coffee","https://pipedapi.kavin.rocks","https://pipedapi.leptons.xyz","https://pipedapi.adminforge.de"].forEach((base,i)=>
+    context.route(base+"/search**",r=>i===0?r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(BUSCA_FALSA)}):r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"{\"erro\":\"fora do ar\"}"})));
+  await context.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
   await context.route("https://www.youtube.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Canção de Teste (playback)"})}));
   await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
   await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",async r=>{
@@ -226,6 +234,22 @@ function salaFalsa(){
   await cel.click('[data-ct-aba="nova"]');
   await cel.fill("#ctLinkRapido","https://youtu.be/dQw4w9WgXcQ");await cel.click('#ctFormLink button[type="submit"]');
   await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Canção de Teste (playback)"&&m.playback&&m.playback.id==="dQw4w9WgXcQ"),null,{timeout:12000});
+  await cel.click('[data-ct-aba="pedir"]');
+
+  // Celular liga/desliga a letra do app (mesma sala, mesmo player)
+  const fundoAntes=await page.evaluate(()=>prefs().fundo);
+  await cel.click("#ctLetra");
+  await page.waitForFunction(a=>prefs().fundo!==a,fundoAntes,{timeout:8000});
+  await cel.waitForFunction(a=>document.querySelector("#ctLetra").textContent.includes(a==="tela"?"Só o vídeo":"Ligar"),fundoAntes,{timeout:8000});
+  await cel.click("#ctLetra");
+  await page.waitForFunction(a=>prefs().fundo===a,fundoAntes,{timeout:8000});
+
+  // Busca de vídeos no celular: resultado tocado vira pedido para a tela
+  await cel.click('[data-ct-aba="nova"]');
+  await cel.fill("#ctLinkRapido","evidências");await cel.click('#ctFormLink button[type="submit"]');
+  await cel.waitForSelector('#ctLinkResultados [data-video="BUSCAAAAAA1"]',{timeout:10000});
+  await cel.click('#ctLinkResultados [data-video="BUSCAAAAAA1"]');
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Evidências (Playback Karaokê)"&&m.playback&&m.playback.id==="BUSCAAAAAA1"),null,{timeout:12000});
   await cel.click('[data-ct-aba="pedir"]');
 
   // Arquivo guardado na tela não é trocado pelo celular (nem forçando o comando)

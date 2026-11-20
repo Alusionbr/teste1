@@ -132,27 +132,41 @@ $("buscaResultados").addEventListener("click",async e=>{
 });
 // Só o link do YouTube: o título vem do próprio vídeo, a música entra na playlist e a
 // letra pode ser a do vídeo (Ajustes → Fundo → “Só o vídeo do YouTube”).
+async function adicionarPorVideo(id,tituloOpcional){
+  const status=$("buscaStatus");
+  status.textContent="Conferindo o vídeo…";
+  try{
+    let titulo=tituloOpcional||"";
+    if(!titulo)try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo))throw err}
+    const v=await YouTubeBase.verificar(id);
+    if(!v.ok)throw Error(`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`);
+    const m=criarMusica({title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo}});
+    adicionarItem(garantirPlaylist(),m.id,"","");
+    await salvarEstado();
+    $("novaLinkYT").value="";status.textContent="";$("novaVideos").innerHTML="";
+    $("dlgNovaMusica").close();trocarAba("playlist");renderTudo();
+    notify(`“${m.title}” entrou na playlist.${K.dados.prefs.fundo==="tela"?"":" Dica: em Ajustes, escolha “Só o vídeo do YouTube” para ver a letra do próprio vídeo."}`,true);
+  }catch(err){status.textContent=err.message}
+}
+// Um campo só: link do YouTube entra direto; qualquer outro texto vira busca de vídeo.
 $("formNovaLink").addEventListener("submit",async e=>{
   e.preventDefault();
   const texto=$("novaLinkYT").value.trim();if(!texto)return;
-  const id=lerLinkYouTube(texto);
-  const status=$("buscaStatus");
-  if(!id){status.textContent=ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).":"Não reconheci esse link do YouTube.";return}
-  status.textContent="Conferindo o vídeo…";
+  const id=lerLinkYouTube(texto),status=$("buscaStatus");
+  $("novaVideos").innerHTML="";
+  if(id)return ocupado(e.submitter,adicionarPorVideo(id,""));
+  if(ehPlaylistSemMusica(texto)){status.textContent="Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).";return}
+  if(/^https?:\/\/|youtu\.?be/i.test(texto)){status.textContent="Não reconheci esse link do YouTube.";return}
+  status.textContent="Procurando vídeos…";
   try{
-    await ocupado(e.submitter,(async()=>{
-      let titulo="";
-      try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo))throw err}
-      const v=await YouTubeBase.verificar(id);
-      if(!v.ok)throw Error(`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`);
-      const m=criarMusica({title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo}});
-      adicionarItem(garantirPlaylist(),m.id,"","");
-      await salvarEstado();
-      $("novaLinkYT").value="";status.textContent="";
-      $("dlgNovaMusica").close();trocarAba("playlist");renderTudo();
-      notify(`“${m.title}” entrou na playlist.${K.dados.prefs.fundo==="tela"?"":" Dica: em Ajustes, escolha “Só o vídeo do YouTube” para ver a letra do próprio vídeo."}`,true);
-    })());
+    const r=await ocupado(e.submitter,buscarVideos(texto,{chave:K.dados.prefs.keyYT}));
+    $("novaVideos").innerHTML=htmlResultadosVideos(r.lista);
+    status.textContent=r.lista.length?`${textoDaFonteBusca(r)}${r.aviso?" ("+r.aviso+")":""}`:"Nenhum vídeo encontrado. Tente outras palavras.";
   }catch(err){status.textContent=err.message}
+});
+$("novaVideos").addEventListener("click",e=>{
+  const b=e.target.closest("[data-video]");if(!b)return;
+  adicionarPorVideo(b.dataset.video,b.dataset.titulo);
 });
 $("btnMusicaManual").addEventListener("click",async()=>{
   const q=$("buscaLetra").value.trim();
@@ -173,34 +187,38 @@ async function definirPlaybackEditor(playback,msg){
   atualizarEditor();
   if(msg)notify(msg,true);
 }
-$("mUsarYT").addEventListener("click",async e=>{
-  const texto=$("mLinkYT").value.trim();
-  const id=lerLinkYouTube(texto);
-  if(!id)return notify(ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra a música e copie o link dela (com watch?v=).":"Não reconheci esse link do YouTube.");
-  let titulo="",veredito={ok:true};
+// Confere se o vídeo toca fora do YouTube e só então troca o playback da música.
+async function usarVideoNoEditor(id,tituloOpcional,botao){
+  let titulo=tituloOpcional||"",veredito={ok:true};
   notify("Conferindo se este vídeo pode tocar aqui…",true);
   try{
-    await ocupado(e.currentTarget,(async()=>{
-      try{titulo=await tituloYouTube(id)}
+    await ocupado(botao,(async()=>{
+      if(!titulo)try{titulo=await tituloYouTube(id)}
       catch(err){if(err.codigo===401||err.codigo===404||err.codigo===400)throw err}
-      veredito=await FonteYouTube.verificar(id);
+      veredito=await YouTubeBase.verificar(id);
     })());
   }catch(err){return notify(err.message)}
   if(!veredito.ok)return notify(`${veredito.msg} Escolha outro vídeo (clipes oficiais costumam bloquear; procure por “playback” ou “karaokê”).`);
+  $("mLinkYT").value="https://youtu.be/"+id;
   definirPlaybackEditor({tipo:"youtube",id,titulo},veredito.incerto?"Playback escolhido. Não consegui conferir agora se ele toca aqui (sem resposta do YouTube).":"Playback do YouTube escolhido: pode tocar aqui ✓");
+}
+$("mUsarYT").addEventListener("click",e=>{
+  const texto=$("mLinkYT").value.trim();
+  const id=lerLinkYouTube(texto);
+  if(!id)return notify(ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra a música e copie o link dela (com watch?v=).":"Não reconheci esse link do YouTube.");
+  usarVideoNoEditor(id,"",e.currentTarget);
 });
 $("mBuscarYTApp").addEventListener("click",async e=>{
-  const q=`${$("mTitulo").value} ${$("mArtista").value} playback karaoke`.trim();
+  const q=`${$("mTitulo").value} ${$("mArtista").value}`.trim()||"karaokê";
   $("mVideos").innerHTML=`<li class="vazio">Procurando…</li>`;
   try{
-    const lista=await ocupado(e.currentTarget,buscarVideosYouTube(q,K.dados.prefs.keyYT));
-    $("mVideos").innerHTML=lista.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}">${v.thumb?`<img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer">`:""}<span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}</small></span></button></li>`).join("")||`<li class="vazio">Nenhum vídeo que toque aqui.</li>`;
-  }catch(err){$("mVideos").innerHTML="";notify(err.message)}
+    const r=await ocupado(e.currentTarget,buscarVideos(q,{chave:K.dados.prefs.keyYT}));
+    $("mVideos").innerHTML=(r.lista.length?htmlResultadosVideos(r.lista)+`<li class="vazio">${esc(textoDaFonteBusca(r))}</li>`:"")||`<li class="vazio">Nenhum vídeo encontrado. Tente outras palavras.</li>`;
+  }catch(err){$("mVideos").innerHTML=`<li class="vazio">${esc(err.message)}</li>`}
 });
 $("mVideos").addEventListener("click",e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
-  $("mLinkYT").value="https://youtu.be/"+b.dataset.video;
-  definirPlaybackEditor({tipo:"youtube",id:b.dataset.video,titulo:b.dataset.titulo},"Playback do YouTube escolhido.");
+  usarVideoNoEditor(b.dataset.video,b.dataset.titulo,b);
 });
 $("mUsarSP").addEventListener("click",async e=>{
   const id=lerLinkSpotify($("mLinkSP").value);
@@ -407,6 +425,7 @@ $("palcoAnterior").addEventListener("click",anterior);
 $("palcoAdiantar").addEventListener("click",()=>ajustarOffset(-0.25));
 $("palcoAtrasar").addEventListener("click",()=>ajustarOffset(0.25));
 $("palcoFundoBtn").addEventListener("click",trocarFundo);
+$("palcoLetraBtn").addEventListener("click",alternarLetra);
 $("palcoTelaCheia").addEventListener("click",telaCheia);
 $("palcoProgresso").addEventListener("input",()=>{P.arrastando=true});
 $("palcoProgresso").addEventListener("change",e=>{P.arrastando=false;if(P.fonte)P.fonte.buscar(Number(e.target.value));P.idx=-2});

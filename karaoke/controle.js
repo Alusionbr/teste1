@@ -55,6 +55,7 @@ function render(){
   $("ctAplausos").hidden=e.fase!=="nota";
   $("ctOffset").textContent=a?`${a.offset>0?"+":""}${(a.offset||0).toFixed(2).replace(".",",")} s`:"";
   if(e.nota!=null&&e.fase==="nota")$("ctFase").textContent=`👏 Nota: ${e.nota} pontos!`;
+  $("ctLetra").textContent=e.fundo==="tela"?"🔤 Ligar a letra do app":"🎞 Só o vídeo (desligar a letra)";
   $("ctErroPlayback").hidden=!e.erro;
   if(e.erro)$("ctErroTexto").textContent="⚠️ O playback desta música falhou. "+e.erro;
   renderFila();renderCantores();renderMusicas();
@@ -94,6 +95,7 @@ function animarProgresso(){
 }
 
 /* --------------------------------------------------------------- eventos */
+$("ctLetra").addEventListener("click",()=>comando("pedir",{modo:"letra"}));
 document.querySelectorAll("[data-cmd]").forEach(b=>b.addEventListener("click",()=>comando(b.dataset.cmd)));
 let volumeTimer=0;
 $("ctVolume").addEventListener("input",e=>{clearTimeout(volumeTimer);volumeTimer=setTimeout(()=>comando("volume",{v:Number(e.target.value)}),300)});
@@ -186,21 +188,39 @@ $("ctErroTrocar").addEventListener("click",()=>{
 });
 
 // Só o link do YouTube: o título vem do vídeo; a tela cria a música e põe na fila.
+async function pedirPorVideo(id,tituloOpcional){
+  const st=$("ctLinkStatus");
+  st.textContent="Conferindo o vídeo…";
+  try{
+    let titulo=tituloOpcional||"";
+    if(!titulo)try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo)){st.textContent=err.message;return}}
+    const v=await YouTubeBase.verificar(id);
+    if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`;return}
+    if(await comando("pedir_nova",{title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo},cantorId:$("ctCantorNova").value})){
+      st.textContent="";$("ctLinkRapido").value="";$("ctLinkResultados").innerHTML="";notify("Pedido enviado! O vídeo entra na fila da tela.",true);
+    }else st.textContent="Não consegui enviar. Tente de novo.";
+  }catch(err){st.textContent=err.message}
+}
+// Um campo só: link do YouTube pede direto; qualquer outro texto vira busca de vídeo.
 $("ctFormLink").addEventListener("submit",async e=>{
   e.preventDefault();
   const texto=$("ctLinkRapido").value.trim();if(!texto)return;
   const id=lerLinkYouTube(texto),st=$("ctLinkStatus"),btn=e.submitter;
-  if(!id){st.textContent=ehPlaylistSemMusica(texto)?"Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).":"Não reconheci o link. Use um link do YouTube ou do YouTube Music.";return}
-  btn.disabled=true;st.textContent="Conferindo o vídeo…";
+  $("ctLinkResultados").innerHTML="";
+  if(id){btn.disabled=true;try{await pedirPorVideo(id,"")}finally{btn.disabled=false}return}
+  if(ehPlaylistSemMusica(texto)){st.textContent="Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).";return}
+  if(/^https?:\/\/|youtu\.?be/i.test(texto)){st.textContent="Não reconheci o link. Use um link do YouTube ou do YouTube Music.";return}
+  btn.disabled=true;st.textContent="Procurando vídeos…";
   try{
-    let titulo="";
-    try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo)){st.textContent=err.message;return}}
-    const v=await YouTubeBase.verificar(id);
-    if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`;return}
-    if(await comando("pedir_nova",{title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo},cantorId:$("ctCantorNova").value})){
-      st.textContent="";$("ctLinkRapido").value="";notify("Pedido enviado! O vídeo entra na fila da tela.",true);
-    }
-  }finally{btn.disabled=false}
+    const r=await buscarVideos(texto);
+    $("ctLinkResultados").innerHTML=htmlResultadosVideos(r.lista);
+    st.textContent=r.lista.length?textoDaFonteBusca(r):"Nenhum vídeo encontrado. Tente outras palavras.";
+  }catch(err){st.textContent=err.message}
+  finally{btn.disabled=false}
+});
+$("ctLinkResultados").addEventListener("click",e=>{
+  const b=e.target.closest("[data-video]");if(!b)return;
+  pedirPorVideo(b.dataset.video,b.dataset.titulo);
 });
 
 // Música nova: a letra é buscada AQUI no celular (LRCLIB) e vai junto no pedido.

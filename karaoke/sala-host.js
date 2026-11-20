@@ -62,6 +62,7 @@ const SalaHost=(()=>{
       fila:(p?p.itens:[]).map(i=>{const m=acharMusica(i.musicaId),c=acharCantor(i.cantorA);return m?{id:i.id,title:m.title,artist:m.artist,quem:rotuloCantores(i),cor:c?c.cor:""}:null}).filter(Boolean),
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
+      fundo:prefs().fundo,
       erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
       nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null
     };
@@ -122,6 +123,8 @@ const SalaHost=(()=>{
       case "pedir":{
         // dados.modo: "fila" (padrão, celular antigo), "seguir", "agora" ou "playback"
         // (só troca o playback, sem pedir). dados.playback opcional: youtube/spotify.
+        // Liga/desliga a letra do app por cima do vídeo (não é pedido de música).
+        if(d.modo==="letra"){alternarLetra();return true}
         const m=acharMusica(d.musicaId);if(!m)return false;
         const modo=["fila","seguir","agora","playback"].includes(d.modo)?d.modo:"fila";
         let mudou=false;

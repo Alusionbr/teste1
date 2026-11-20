@@ -56,7 +56,10 @@ async function limpar(){
 async function cenario(nome,fn,{encadeado=false}={}){
   if(!encadeado)await limpar();
   try{const r=await fn();resultados.push(true);console.log("  ✓",nome,r?"— "+r:"")}
-  catch(e){resultados.push(false);console.log("  ✗",nome,"—",String(e.message).split("\n")[0])}
+  catch(e){
+    resultados.push(false);console.log("  ✗",nome,"—",String(e.message).split("\n")[0]);
+    try{console.log("    estado do palco:",JSON.stringify(await page.evaluate(()=>({aberto:P.aberto,fase:P.fase,modo:P.modo,musica:P.musica&&P.musica.title,pb:P.musica&&P.musica.playback&&P.musica.playback.id,fonte:P.fonte&&P.fonte.constructor===Object?(P.fonte===FonteYouTube?"youtube":P.fonte===FonteRelogio?"relogio":"outra"):"",erro:document.querySelector("#palcoErro").hidden?"":document.querySelector("#erroTexto").textContent}))))}catch{}
+  }
 }
 const aba=a=>page.click(`[data-aba="${a}"]`);
 async function novaManual(titulo,letra,dur){
@@ -76,10 +79,19 @@ async function novaManual(titulo,letra,dur){
   await ctx.route("https://open.spotify.com/embed/track/**",r=>r.fulfill({status:200,contentType:"text/html",body:SPOTIFY_FALSO}));
   await ctx.route("https://open.spotify.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Faixa de teste"})}));
   await ctx.route("https://www.youtube.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Vídeo de teste"})}));
+  // Busca de vídeos: a primeira instância responde, as outras caem (como no mundo real).
+  const BUSCA_FALSA={items:[
+    {url:"/watch?v=BUSCAAAAAA1",type:"stream",title:"Evidências (Playback Karaokê)",uploaderName:"Canal Karaokê",duration:215,isShort:false},
+    {url:"/watch?v=BUSCAAAAAA2",type:"stream",title:"Evidências — Instrumental",uploaderName:"Outro Canal",duration:230,isShort:false},
+    {url:"/watch?v=BLOQUEADO01",type:"stream",title:"Clipe oficial (bloqueado)",uploaderName:"Gravadora",duration:250,isShort:false}]};
+  ["https://api.piped.private.coffee","https://pipedapi.kavin.rocks","https://pipedapi.leptons.xyz","https://pipedapi.adminforge.de"].forEach((base,i)=>
+    ctx.route(base+"/search**",r=>i===0?r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(BUSCA_FALSA)}):r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"{\"erro\":\"fora do ar\"}"})));
+  // Miniaturas dos resultados (ids falsos): sem rede de verdade.
+  await ctx.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
   page=await ctx.newPage();
   const erros=[];
   page.on("pageerror",e=>erros.push("página: "+e.message));
-  page.on("console",m=>{if(m.type()==="error")erros.push("console: "+m.text().slice(0,160))});
+  page.on("console",m=>{if(m.type()==="error")erros.push("console: "+m.text().slice(0,160)+" "+(m.location()&&m.location().url||""))});
   page.on("dialog",d=>d.accept(d.type()==="prompt"?(d.defaultValue()||"Teste"):undefined));
   await page.goto(BASE);
   console.log("Cenários de uso:");
@@ -308,7 +320,7 @@ async function novaManual(titulo,letra,dur){
 
   await cenario("só o link do YouTube entra na playlist; o modo 'só o vídeo' esconde a letra do app",async()=>{
     await aba("musicas");await page.click("#btnNovaMusica");
-    await page.fill("#novaLinkYT","isso não é link");await page.click("#formNovaLink button");
+    await page.fill("#novaLinkYT","https://exemplo.com/video");await page.click("#formNovaLink button");
     await page.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#buscaStatus").textContent));
     await page.fill("#novaLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ");await page.click("#formNovaLink button");
     await page.waitForSelector("#dlgNovaMusica",{state:"hidden",timeout:12000});
@@ -321,8 +333,56 @@ async function novaManual(titulo,letra,dur){
     await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube);
     const v=await page.evaluate(()=>{const d=id=>getComputedStyle(document.getElementById(id)).display,r=document.getElementById("palcoFundo").getBoundingClientRect();return{letra:d("palcoLetra"),cob:d("palcoCobertura"),alto:r.height,topo:r.top}});
     ok(v.letra==="none"&&v.cob==="none","a letra do app ou a cobertura continuam na frente do vídeo");
-    ok(v.alto>400&&v.topo>=50,"o vídeo não ocupa o palco entre as barras: "+JSON.stringify(v));
+    ok(v.alto>=700&&v.topo===0,"o vídeo não ocupa o palco inteiro: "+JSON.stringify(v));
     await page.click("#palcoSair");await aba("ajustes");await page.selectOption("#prefFundo","opaco");
+  });
+
+  await cenario("letra do app liga e desliga sem recarregar o vídeo; só o player fica na tela; o YouTube não é clicável",async()=>{
+    await aba("ajustes");await page.selectOption("#prefFundo","tela");
+    await aba("musicas");
+    await page.locator("#bibliotecaLista li").filter({hasText:"Solo Dois"}).locator('[data-acao="ensaiar"]').click();
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando(),null,{timeout:15000});
+    const antes=await page.evaluate(()=>{window.__yt=document.querySelector("#ytBox iframe");return{src:window.__yt.src,t:P.fonte.tempo()}});
+    ok(/controls=0/.test(antes.src)&&/disablekb=1/.test(antes.src),"o player ainda mostra os controles do YouTube");
+    ok((await page.evaluate(()=>getComputedStyle(window.__yt).pointerEvents))==="none","o player do YouTube é clicável (a TV poderia sair da sala)");
+    // só o player: depois de 4 s parado somem as barras
+    await page.mouse.move(5,5);await page.waitForTimeout(4600);
+    ok((await page.evaluate(()=>getComputedStyle(document.querySelector("#palcoTopo")).opacity))==="0","a barra do topo continua na tela");
+    // liga a letra (botão e tecla L): o vídeo não pode ser recarregado nem parar
+    await page.keyboard.press("l");
+    await page.waitForFunction(()=>prefs().fundo!=="tela");
+    ok(await page.evaluate(()=>getComputedStyle(document.querySelector("#palcoLetra")).display!=="none"),"a letra não voltou");
+    await page.waitForFunction(()=>document.querySelector("#linhaAtual").textContent.length>0||!document.querySelector("#letraCorrida").hidden,null,{timeout:5000});
+    const meio=await page.evaluate(()=>({mesmo:document.querySelector("#ytBox iframe")===window.__yt,src:window.__yt.src,tocando:P.fonte.tocando(),t:P.fonte.tempo()}));
+    ok(meio.mesmo&&meio.src===antes.src,"o iframe do vídeo foi recriado ao ligar a letra");
+    ok(meio.tocando&&meio.t>=antes.t,"o vídeo parou ou voltou ao ligar a letra");
+    await page.click("#palcoLetraBtn");
+    await page.waitForFunction(()=>prefs().fundo==="tela");
+    const fim=await page.evaluate(()=>({mesmo:document.querySelector("#ytBox iframe")===window.__yt,tocando:P.fonte.tocando()}));
+    ok(fim.mesmo&&fim.tocando,"desligar a letra atrapalhou o vídeo");
+    await page.click("#palcoSair");await aba("ajustes");await page.selectOption("#prefFundo","opaco");
+  });
+
+  await cenario("buscar vídeo no YouTube sem chave: Nova música e editor",async()=>{
+    await aba("musicas");await page.click("#btnNovaMusica");
+    await page.fill("#novaLinkYT","evidências");await page.click("#formNovaLink button");
+    await page.waitForSelector("#novaVideos [data-video]",{timeout:10000});
+    ok(await page.locator("#novaVideos [data-video]").count()===3,"deveria listar os 3 vídeos");
+    ok(/serviço público/.test(await page.locator("#buscaStatus").innerText()),"não diz de onde vieram os resultados");
+    await page.click('#novaVideos [data-video="BLOQUEADO01"]');
+    await page.waitForFunction(()=>/Escolha outro v/.test(document.querySelector("#buscaStatus").textContent),null,{timeout:12000});
+    await page.click('#novaVideos [data-video="BUSCAAAAAA1"]');
+    await page.waitForSelector("#dlgNovaMusica",{state:"hidden",timeout:12000});
+    ok(await page.evaluate(()=>K.dados.musicas.some(m=>m.playback&&m.playback.id==="BUSCAAAAAA1"&&m.title==="Evidências (Playback Karaokê)")),"a música do resultado não foi criada");
+    // editor: o botão Buscar aqui existe mesmo sem chave
+    await aba("musicas");
+    await page.locator("#bibliotecaLista li").filter({hasText:"Solo Dois"}).locator('[data-acao="editar"]').click();
+    await page.waitForSelector("#dlgMusica[open]");
+    ok(await page.locator("#mBuscarYTApp").isVisible(),"Buscar aqui some sem chave");
+    await page.click("#mBuscarYTApp");
+    await page.waitForSelector("#mVideos [data-video]",{timeout:10000});
+    await page.click('#mVideos [data-video="BUSCAAAAAA2"]');
+    await page.waitForFunction(()=>{const m=K.dados.musicas.find(x=>x.title==="Solo Dois");return m&&m.playback&&m.playback.id==="BUSCAAAAAA2"},null,{timeout:12000});
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{

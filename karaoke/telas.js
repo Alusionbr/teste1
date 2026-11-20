@@ -121,7 +121,6 @@ function atualizarEditor(){
   const q={title:$("mTitulo").value,artist:$("mArtista").value};
   $("mProcurarYT").href=linkBuscaYouTube(q);
   $("mProcurarSP").href=linkBuscaSpotify(q);
-  $("mBuscarYTApp").hidden=!K.dados.prefs.keyYT;
   const texto=$("mLetra").value,info=lerLetra(texto);
   $("mLetraInfo").textContent=!info.linhas.length?"Sem letra ainda.":info.sincronizada?`✓ Letra sincronizada (${info.linhas.filter(l=>l.texto).length} versos).`:`Letra sem tempo (${info.linhas.length} versos). Grave a sincronia para o efeito de karaokê.`;
   const off=Number(m.offset)||0;
