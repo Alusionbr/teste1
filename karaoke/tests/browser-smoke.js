@@ -240,12 +240,12 @@ function salaFalsa(){
   await cel.click('[data-ct-aba="pedir"]');
 
   // Celular liga/desliga a letra do app (mesma sala, mesmo player)
-  const fundoAntes=await page.evaluate(()=>prefs().fundo);
+  const fundoAntes=await page.evaluate(()=>fundoEfetivo());
   await cel.click("#ctLetra");
-  await page.waitForFunction(a=>prefs().fundo!==a,fundoAntes,{timeout:8000});
+  await page.waitForFunction(a=>fundoEfetivo()!==a,fundoAntes,{timeout:8000});
   await cel.waitForFunction(a=>document.querySelector("#ctLetra").textContent.includes(a==="tela"?"Só o vídeo":"Ligar"),fundoAntes,{timeout:8000});
   await cel.click("#ctLetra");
-  await page.waitForFunction(a=>prefs().fundo===a,fundoAntes,{timeout:8000});
+  await page.waitForFunction(a=>fundoEfetivo()===a,fundoAntes,{timeout:8000});
 
   // Celular: digita o nome, o app escolhe o vídeo; "Outros vídeos" lista os demais e tocar num vira pedido
   await cel.click('[data-ct-aba="nova"]');

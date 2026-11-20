@@ -55,11 +55,22 @@ function fecharPalco(){
   if(typeof renderTudo==="function")renderTudo();
 }
 
+// Fundo que vale para a música de agora. A preferência do aparelho (Ajustes) é a base;
+// uma música de YouTube com letra pode guardar a própria escolha (letraDe): "video" = só
+// o vídeo (letra do vídeo), "app" = letra sincronizada do app por cima.
+function fundoEfetivo(){
+  const base=prefs().fundo,m=P.musica;
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+    if(m.letraDe==="video")return "tela";
+    if(m.letraDe==="app")return base==="tela"?(P.fundoComLetra||"escuro"):base;
+  }
+  return base;
+}
 function aplicarPrefsPalco(){
-  const pr=prefs(),el=$("palco");
-  el.dataset.fundo=pr.fundo;
+  const pr=prefs(),el=$("palco"),fundo=fundoEfetivo();
+  el.dataset.fundo=fundo;
   el.style.setProperty("--escala",String(pr.tamanho/100));
-  const soVideo=pr.fundo==="tela";
+  const soVideo=fundo==="tela";
   const b=$("palcoLetraBtn");
   b.textContent=soVideo?"🔤 Letra":"🎞 Só vídeo";
   b.setAttribute("aria-pressed",String(!soVideo));
@@ -68,7 +79,7 @@ function aplicarPrefsPalco(){
 }
 // Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
 // recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
-const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&prefs().fundo==="tela");
+const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&fundoEfetivo()==="tela");
 
 function pararTudo(){
   clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);
@@ -90,6 +101,7 @@ function carregarIndice(i,{comecarJa=false}={}){
   if(i<0)i=0;
   P.indice=i;P.item=P.itens[i];P.musica=acharMusica(P.item.musicaId);
   if(!P.musica){carregarIndice(i+1,{comecarJa});return}
+  aplicarPrefsPalco();   // cada música pode guardar se usa a letra do vídeo ou a do app
   P.letra=lerLetra(letraDaMusica(P.musica));
   P.idx=-2;P.ultimaBarra=-1;P.duracaoAvisada="";
   P.fonte=fonteDaMusica(P.musica);
@@ -445,7 +457,15 @@ function ajustarOffset(delta){
 // do YouTube (a letra vem nele); ligada = volta ao último fundo com letra (padrão:
 // vídeo escurecido atrás da letra).
 function alternarLetra(){
-  const pr=prefs();
+  const pr=prefs(),m=P.musica;
+  // Música de YouTube com letra própria: a escolha fica guardada na música.
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+    const paraApp=fundoEfetivo()==="tela";
+    P.musica=editarMusica(m.id,{letraDe:paraApp?"app":"video"});
+    aplicarPrefsPalco();salvarLogo();avisarSala();
+    notify(paraApp?"Letra sincronizada do app ligada nesta música (fica guardada).":"Só o vídeo: a letra é a do próprio vídeo (fica guardado nesta música).",true);
+    return;
+  }
   if(pr.fundo==="tela")pr.fundo=P.fundoComLetra||"escuro";
   else{P.fundoComLetra=pr.fundo;pr.fundo="tela"}
   aplicarPrefsPalco();salvarLogo();avisarSala();

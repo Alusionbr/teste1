@@ -465,6 +465,7 @@ $("prefTamanho").addEventListener("input",e=>{K.dados.prefs.tamanho=Number(e.tar
 $("prefFundo").addEventListener("change",e=>{K.dados.prefs.fundo=e.target.value;aplicarPrefsPalco();salvarLogo()});
 $("prefContagem").addEventListener("change",e=>{K.dados.prefs.contagem=Number(e.target.value);salvarLogo()});
 $("prefAplausometro").addEventListener("change",e=>{K.dados.prefs.aplausometro=e.target.checked;salvarLogo()});
+$("prefTrava").addEventListener("change",e=>{K.dados.prefs.trava=e.target.checked;salvarLogo();SalaHost.mudou()});
 function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay+d,0,800);$("atrasoOut").textContent=pr.audioDelay+" ms";salvarLogo()}
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));

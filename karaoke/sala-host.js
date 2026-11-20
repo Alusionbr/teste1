@@ -57,12 +57,13 @@ const SalaHost=(()=>{
       tocando,
       tempo:P.aberto&&P.fonte?Math.round(P.fonte.tempo()):0,
       duracao:P.aberto&&P.fonte?Math.round(P.fonte.duracao()||(P.musica&&P.musica.duration)||0):0,
-      agora:P.aberto&&P.musica?{musicaId:P.musica.id,title:P.musica.title,artist:P.musica.artist,quem:P.modo==="festa"||P.modo==="solo"?rotuloPalco(P.item):"",cor:a?a.cor:"",offset:Number(P.musica.offset)||0,fonte:P.musica.playback?P.musica.playback.tipo:"relogio"}:null,
+      agora:P.aberto&&P.musica?{musicaId:P.musica.id,title:P.musica.title,artist:P.musica.artist,quem:P.modo==="festa"||P.modo==="solo"?rotuloPalco(P.item):"",donos:donosDaMusica().map(c=>c.nome),cor:a?a.cor:"",offset:Number(P.musica.offset)||0,fonte:P.musica.playback?P.musica.playback.tipo:"relogio"}:null,
       indice:P.aberto&&P.modo==="festa"?P.indice:-1,
       fila:(p?p.itens:[]).map(i=>{const m=acharMusica(i.musicaId),c=acharCantor(i.cantorA);return m?{id:i.id,title:m.title,artist:m.artist,quem:rotuloCantores(i),cor:c?c.cor:""}:null}).filter(Boolean),
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
-      fundo:prefs().fundo,
+      fundo:fundoEfetivo(),
+      trava:travaLigada(),
       erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
       nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null
     };
@@ -96,6 +97,25 @@ const SalaHost=(()=>{
     }finally{ocupado=false}
   }
 
+  /* ------------------------------------------------------------- trava */
+  // Quem canta agora (o dono da vez). Sem cantor marcado na música, ninguém é dono
+  // e qualquer celular pode mexer. O nome vem do celular: serve para uma festa de
+  // família, não é segurança (quem usar o nome de outro passa pela trava).
+  function donosDaMusica(){
+    if(!P.aberto||P.modo!=="festa"||P.solo||!P.item)return[];
+    return[P.item.cantorA,P.item.cantorB].filter(Boolean).map(acharCantor).filter(Boolean);
+  }
+  const travaLigada=()=>prefs().trava!==false;
+  // Travada só enquanto a música toca (fase "cantando"): na vez, nos aplausos e no fim
+  // qualquer um pode começar, pular a vez ou seguir. A tela/teclado nunca é travada.
+  function bloqueadoPara(nome){
+    if(!travaLigada()||!P.aberto||P.fase!=="cantando")return false;
+    const donos=donosDaMusica();
+    return donos.length>0&&!donos.some(c=>fold(c.nome)===fold(nome));
+  }
+  const MEXE_NA_MUSICA=new Set(["alternar","proxima","anterior","adiantar","atrasar","volume","tocar_item"]);
+  const mexeNaMusica=(tipo,d)=>MEXE_NA_MUSICA.has(tipo)||(tipo==="pedir"&&(d.modo==="letra"||d.modo==="agora"));
+
   /* ---------------------------------------------------------- comandos */
   const texto=(v,max)=>String(v??"").slice(0,max);
   // O código da sala é o convite: quem o tem pode pedir, mas não encher a tela.
@@ -104,6 +124,10 @@ const SalaHost=(()=>{
   // Devolve true quando mudou o dado (aí o ciclo salva).
   function aplicar(c){
     const d=c.dados||{},quem=texto(c.nome,24)||"Alguém";
+    if(mexeNaMusica(c.tipo,d)&&bloqueadoPara(quem)){
+      notify(`🔒 ${quem} tentou mexer na música, mas ${donosDaMusica().map(x=>x.nome).join(" e ")} está cantando.`);
+      return false;
+    }
     switch(c.tipo){
       case "alternar":case "proxima":case "anterior":case "adiantar":case "atrasar":case "volume":case "aplausos":
         comandoPalco(c.tipo,d);return false;
@@ -157,7 +181,9 @@ const SalaHost=(()=>{
         if(!m&&K.dados.musicas.length>=MAX_MUSICAS)return false;
         if(!m)m=criarMusica({title:d.title,artist:d.artist,duration:d.duration,synced:texto(d.synced,30000),lyrics:texto(d.lyrics,30000),playback:pb});
         else if(!m.playback&&pb)m=editarMusica(m.id,{playback:pb});
-        return !!enfileirar(m,d,quem);
+        const item=enfileirar(m,d,quem);
+        if(item&&!temLetra(m))completarLetra(m.id);   // a fila não espera a rede
+        return !!item;
       }
       case "tocar_item":{
         const p=playlistAlvo();if(!p)return false;
@@ -198,6 +224,19 @@ const SalaHost=(()=>{
     notify(`🎤 ${quem} pediu “${m.title}”${a?` para ${nomeCantor(a)}`:""}.`,true);
     return item;
   }
+  // Música pedida pelo celular costuma vir só com o vídeo: a tela procura a letra do app
+  // depois, uma música por vez, sem travar nada. Falha = fica só com o vídeo.
+  let buscaDeLetra=Promise.resolve();
+  function completarLetra(id){
+    buscaDeLetra=buscaDeLetra.then(async()=>{
+      const m=acharMusica(id);if(!m||temLetra(m))return;
+      const x=await procurarLetraDaLinha(m.title,m.artist);
+      const atual=acharMusica(id);if(!x||!atual||temLetra(atual))return;
+      editarMusica(id,{synced:x.synced,lyrics:x.lyrics,duration:atual.duration||x.duration,...(!atual.artist&&x.artist?{artist:x.artist}:{})});
+      await salvarEstado();
+      if(typeof renderTudo==="function")renderTudo();
+    }).catch(()=>{});
+  }
   // Celular põe ou troca o playback (YouTube/Spotify). Arquivo é só da tela: o áudio
   // mora neste aparelho e um toque no celular o desligaria da música.
   // Devolve "mudou", "igual" ou "recusado".
@@ -234,5 +273,5 @@ const SalaHost=(()=>{
     if(sala)selo.textContent=`📱 ${sala.codigo}${aparelhos?` · ${aparelhos} celular${aparelhos>1?"es":""}`:""}${falhas>=3?" · sem internet":""}`;
     if(sala&&$("dlgSala").open)$("salaStatus").textContent=falhas>=3?"⚠️ Sem conexão com a sala.":aparelhos?`✅ ${aparelhos} celular${aparelhos>1?"es":""} conectado${aparelhos>1?"s":""}.`:"Esperando os celulares…";
   }
-  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,get sala(){return sala}};
+  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,bloqueadoPara,get sala(){return sala}};
 })();

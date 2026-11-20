@@ -34,6 +34,14 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 - **Acervo da família**: cada música guarda a letra e o id do vídeo no aparelho. Para levar a outro aparelho: **Ajustes → Exportar backup** (ou o link compartilhado da playlist) e importe lá. **Não coloque o acervo (letras) dentro do repositório**: o site é público e letra de música é obra protegida.
 - Código: `busca-youtube.js` (`pontuarVideo`, `ordenarCandidatos`, `resolverPlayback`, `lerListaDeMusicas`, puros e testados em `tests/busca.test.js`) e `auto-adicionar.js` (`adicionarPeloNome`, trocar e tirar; a tela liga os botões em `ui.js`).
 
+### Vários celulares: trava, fila e repertório de cada um
+
+- **Trava (Ajustes → "Trava", ligada por padrão).** Enquanto a música toca, só **quem está cantando** pausa, pula, volta, ajusta a letra, mexe no volume, liga/desliga a letra ou manda "tocar agora". Os outros celulares veem "🔒 Ana está cantando e controla esta música" e continuam livres para **mexer na fila** (pedir música, pôr a seguir, tirar, trocar playback). Na **vez** (contagem), nos **aplausos** e no **fim** a trava não vale: qualquer um começa, pula a vez do ausente ou segue. Música sem cantor marcado ("Quem quiser") não tem dono: todos mexem. A tela/teclado nunca é travada.
+- **Limite:** a trava reconhece o celular pelo **nome** que ele escolheu ao entrar; é para festa de família, não segurança (quem usar o nome de outro passa por ela). Para liberar geral, desligue a trava em Ajustes.
+- **Cada um com o seu repertório:** ao pedir música, o seletor "Quem vai cantar?" já vem com o seu nome; na aba Fila, **"Só as minhas músicas"** mostra só o que é seu. No celular de quem é a vez aparece "🎤 É a sua vez! Toque em Começar".
+- **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
+- **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
+
 ### Buscar vídeos no YouTube
 
 **No editor da música a busca é o caminho principal**: ao abrir uma música sem playback do YouTube (por exemplo logo depois de escolher a letra em Nova música), o app já busca `título artista playback karaokê` e lista os vídeos com miniatura, canal e duração. Os de duração parecida com a da letra (±8 s) vêm primeiro com o selo “✓ duração parecida”; tocar num confere se toca embutido e troca o playback. O campo de busca é editável. “Já tenho o link do vídeo” fica recolhido (e abre sozinho, com o atalho para o site do YouTube, se a busca cair). No celular, ✨ Música nova faz o mesmo depois de escolher a letra.
@@ -180,7 +188,7 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 24 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 27 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 

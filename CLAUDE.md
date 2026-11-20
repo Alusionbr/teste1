@@ -802,7 +802,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (24 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (27 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -830,6 +830,8 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 19. **Modo “só o vídeo do YouTube”** (`prefs.fundo === "tela"`, o padrão; só CSS: `#palco[data-fonte="youtube"][data-fundo="tela"]`): o vídeo ocupa o palco e a letra/cobertura do app somem, para vídeo de karaokê que já traz a letra; parado 4 s tocando, somem também as barras e só o player fica. Ligar/desligar a letra (`alternarLetra`, botão, tecla L, comando `pedir` com `modo:"letra"` do celular) **só troca camada de CSS**: nunca recriar nem redimensionar o iframe, senão o vídeo soluça. O player não é clicável (`pointer-events:none`, `controls=0`, `disablekb=1`, `fs=0`; exceção `body.liberandoYT`): título/logo do YouTube levariam a TV para fora da sala. Só vale para playback de YouTube; Spotify e arquivo seguem com a letra do app. Música pode entrar só com o link (título pelo oEmbed + `YouTubeBase.verificar`), na tela (`#formNovaLink`) e no celular (`#ctFormLink`, comando `pedir_nova` sem letra).
 20. **Busca de vídeos** (`busca-youtube.js`): chave oficial (só no aparelho) → serviços Piped em paralelo, com cooldown de 20 s por instância (`markSource`/`sourceCoolingDown`, nunca para sempre). As instâncias vivem só em `INSTANCIAS_BUSCA`. **A busca é o caminho principal**: o editor (`buscarPlaybackNoEditor`) e o celular (`buscarPlaybackDaMusica`) já abrem listando os vídeos, com os de duração parecida (`diferencaDuracao`, `lrc.js`) primeiro; link colado e atalho para o site do YouTube ficam recolhidos num `<details>` (abre sozinho se a busca cair). **Resultado de Piped não garante embed**: quem escolhe sempre confere com `YouTubeBase.verificar`. Não raspar `youtube.com/results` (sem CORS e frágil), não criar servidor próprio de busca, e a chave nunca sai do aparelho.
 21. **Adicionar pelo nome escolhe sozinho, mas nunca esconde a dúvida** (`resolverPlayback`, `busca-youtube.js`; `adicionarPeloNome`, `auto-adicionar.js`): a pontuação (`pontuarVideo`) é heurística pura e testada; o vencedor **sempre** passa por `YouTubeBase.verificar` (exceto com chave oficial, que já filtra embutíveis), e se o melhor é bloqueado cai para o seguinte (3 tentativas). Toda música adicionada assim volta com **Trocar vídeo** e **Tirar**; pontuação baixa vira “confira se é este mesmo” (`video.duvida`). Sem vídeo e sem letra nada é criado; com letra e sem vídeo a música entra sem playback. O lote (`lerListaDeMusicas`, máx. 30) resolve **uma linha por vez** (um player invisível por vez). **O acervo da família mora no aparelho e viaja por backup/link compartilhado; nunca commitar letras no repositório** (site público, obra protegida).
+22. **Trava do cantor** (`sala-host.js`: `donosDaMusica`, `bloqueadoPara`, `mexeNaMusica`; `prefs.trava`, padrão ligada): só na fase `cantando`, os comandos que mexem **na música** (`alternar`, `proxima`, `anterior`, `adiantar`, `atrasar`, `volume`, `tocar_item`, `pedir` com `modo` `letra` ou `agora`) só valem se o nome do celular é o de `cantorA`/`cantorB` do item; comandos da **fila** (pedir, subir, tirar, playback) e as fases vez/nota/fim nunca são travados, e a tela/teclado também não. Item sem cantor não tem dono. **Quem decide é a tela**; o celular só desliga botões e avisa (`CT.travado`). A identidade é só o nome (família, não segurança). Estado publicado: `trava` e `agora.donos`.
+23. **Letra por música** (`musica.letraDe`: `"video"`|`"app"`|`""`, `fundoEfetivo()` em `palco.js`): vale só para YouTube com letra; `prefs.fundo` continua sendo a base do aparelho e **nunca** é alterado por escolha de uma música. `alternarLetra()` grava na música (`P.musica=editarMusica(...)`) e só troca camada de CSS. Música pedida pelo celular recebe a letra da tela em segundo plano (`completarLetra`, uma por vez, sem travar a fila).
 
 ## Modelo de dados
 
@@ -838,10 +840,10 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 { version:1, activePlaylistId,
   cantores:[{id, nome, emoji, cor}],
   musicas:[{id, title, artist, album, duration, synced, lyrics,
-            playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, offset, criadaEm}],
+            playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, letraDe:"app"|"video"|"", offset, criadaEm}],
   playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
   placar:[{musicaId, nota, em}],   // Cantar sozinho: no máximo 300; o melhor de cada música nunca sai
-  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video"|"tela", contagem, aplausometro, keyYT} }
+  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video"|"tela", contagem, aplausometro, trava, keyYT} }
 // gaveta "audio": Blob do playback, chave "a-<musicaId>"
 // localStorage "karaoke:sala" (tela): {codigo, token, depois}; "karaoke:controle:eu" (celular): {nome, emoji}
 ```

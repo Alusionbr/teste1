@@ -486,6 +486,71 @@ async function novaManual(titulo,letra,dur){
     await page.evaluate(()=>document.querySelector("#dlgNovaMusica").close());
   });
 
+  await cenario("trava: durante a música só quem canta mexe; na vez, qualquer um pula; fila é livre",async()=>{
+    await page.evaluate(()=>{
+      const ana=criarCantor({nome:"Ana",emoji:"🎤"}),beto=criarCantor({nome:"Beto",emoji:"🎸"});
+      const m=criarMusica({title:"Música da Trava",lyrics:"linha um\nlinha dois",duration:90});
+      const p=criarPlaylist("Trava");adicionarItem(p,m.id,ana.id,"");adicionarItem(p,m.id,beto.id,"");
+      prefs().contagem=30;prefs().trava=true;
+      abrirPalco({playlistId:p.id,indice:0});
+    });
+    await page.waitForFunction(()=>P.fase==="vez");
+    ok(await page.evaluate(()=>!SalaHost.bloqueadoPara("Beto")),"na vez ninguém deveria estar travado");
+    // Beto (não é o dono) começa a música da Ana: é livre na vez
+    await page.evaluate(()=>SalaHost.aplicar({tipo:"comecar",nome:"Beto",dados:{}}));
+    await page.waitForFunction(()=>P.fase==="cantando");
+    const est=await page.evaluate(()=>{const e=SalaHost.montarEstado();return{donos:e.agora.donos,trava:e.trava}});
+    ok(est.donos.join()==="Ana"&&est.trava===true,"estado da sala não diz quem canta: "+JSON.stringify(est));
+    ok(await page.evaluate(()=>SalaHost.bloqueadoPara("Beto")&&!SalaHost.bloqueadoPara("Ana")&&!SalaHost.bloqueadoPara("  ana ")),"a trava não separou dono e visitante");
+    // Beto tenta pular e pausar: nada muda
+    await page.evaluate(()=>{["proxima","alternar","anterior"].forEach(t=>SalaHost.aplicar({tipo:t,nome:"Beto",dados:{}}))});
+    ok(await page.evaluate(()=>P.fase==="cantando"&&P.indice===0),"o visitante conseguiu mexer na música");
+    // Beto mexe na fila: livre (pôr a seguir e tirar)
+    await page.evaluate(()=>{const p=acharPlaylist(P.playlistId),it=p.itens[1];SalaHost.aplicar({tipo:"subir_item",nome:"Beto",dados:{itemId:it.id}})});
+    // Beto manda "tocar agora": interrompe, por isso também é travado
+    await page.evaluate(()=>{const it=acharPlaylist(P.playlistId).itens[1];SalaHost.aplicar({tipo:"tocar_item",nome:"Beto",dados:{itemId:it.id}})});
+    ok(await page.evaluate(()=>P.indice===0),"o visitante trocou a música tocando");
+    // Ana (dona) pula
+    await page.evaluate(()=>SalaHost.aplicar({tipo:"proxima",nome:"Ana",dados:{}}));
+    await page.waitForFunction(()=>P.fase!=="cantando"||P.indice===1,null,{timeout:8000});
+    // trava desligada em Ajustes: qualquer um
+    await page.evaluate(()=>{prefs().trava=false});
+    ok(await page.evaluate(()=>!SalaHost.bloqueadoPara("Beto")),"com a trava desligada ninguém deveria ser travado");
+    await page.evaluate(()=>{prefs().trava=true;prefs().contagem=5;fecharPalco()});
+  });
+
+  await cenario("letra por música: vídeo é o padrão, alternar grava na música, reabrir mantém e o iframe não recarrega",async()=>{
+    await page.evaluate(()=>{
+      const m=criarMusica({title:"Letra Por Música",lyrics:"a\nb",synced:"[00:01.00]a\n[00:05.00]b",duration:100,playback:{tipo:"youtube",id:"BUSCAAAAAA1",titulo:"v"}});
+      const p=criarPlaylist("Letra");adicionarItem(p,m.id,"","");
+      prefs().fundo="tela";prefs().contagem=0;window.__pl=p.id;
+      abrirPalco({playlistId:p.id,indice:0});
+    });
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube);
+    ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo)==="tela","o padrão deveria ser só o vídeo");
+    await page.evaluate(()=>{window.__f=document.querySelector("#ytBox iframe")});
+    await page.evaluate(()=>alternarLetra());
+    ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo!=="tela"&&P.musica.letraDe==="app"&&acharMusica(P.musica.id).letraDe==="app"),"alternar não guardou a letra do app na música");
+    ok(await page.evaluate(()=>document.querySelector("#ytBox iframe")===window.__f),"o iframe do vídeo foi recriado");
+    ok(await page.evaluate(()=>prefs().fundo)==="tela","a preferência do aparelho não pode mudar por causa de uma música");
+    await page.evaluate(()=>fecharPalco());
+    await page.evaluate(()=>abrirPalco({playlistId:window.__pl,indice:0}));
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube);
+    ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo!=="tela"),"reabrir a música perdeu a escolha");
+    await page.evaluate(()=>alternarLetra());
+    ok(await page.evaluate(()=>document.getElementById("palco").dataset.fundo==="tela"&&P.musica.letraDe==="video"),"voltar ao vídeo não guardou");
+    await page.evaluate(()=>{prefs().contagem=5;fecharPalco()});
+  });
+
+  await cenario("pedido do celular com música nova: a tela procura a letra sem travar a fila",async()=>{
+    await page.evaluate(()=>{
+      window.__v=SalaHost.aplicar({tipo:"pedir_nova",nome:"Celular",dados:{title:"Cogulândia",artist:"Matuê",playback:{tipo:"youtube",id:"BUSCAAAAAA1",titulo:"v"}}});
+    });
+    ok(await page.evaluate(()=>window.__v===true&&K.dados.musicas.length>0),"o pedido não entrou na fila");
+    await page.waitForFunction(()=>{const m=K.dados.musicas.find(x=>x.title==="Cogulândia");return m&&temSincronia(m)},null,{timeout:10000});
+    ok(await page.evaluate(()=>K.dados.musicas.filter(x=>x.title==="Cogulândia").length)===1,"criou a música duas vezes");
+  });
+
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{
     await limpar();
     const c2=await browser.newContext({viewport:{width:390,height:844}});

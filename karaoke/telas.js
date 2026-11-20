@@ -93,7 +93,7 @@ function renderAjustes(){
   $("prefTamanho").value=pr.tamanho;$("tamanhoOut").textContent=pr.tamanho+"%";
   $("prefFundo").value=pr.fundo;
   $("prefContagem").value=String(pr.contagem);
-  $("prefAplausometro").checked=pr.aplausometro;
+  $("prefAplausometro").checked=pr.aplausometro;$("prefTrava").checked=pr.trava;
   $("atrasoOut").textContent=pr.audioDelay+" ms";
   if(document.activeElement!==$("prefKeyYT"))$("prefKeyYT").value=pr.keyYT;
   $("versaoApp").textContent="v"+APP_VERSION;
@@ -106,7 +106,7 @@ const termoBuscaPlayback=(titulo,artista)=>`${titulo} ${artista} playback karaok
 function abrirEditor(id,aba){
   const m=acharMusica(id);if(!m)return;
   ED.id=id;ED.buscou=false;ED.buscaEditada=false;
-  $("mTitulo").value=m.title;$("mArtista").value=m.artist;$("mDuracao").value=m.duration?fmt(m.duration):"";
+  $("mTitulo").value=m.title;$("mArtista").value=m.artist;$("mDuracao").value=m.duration?fmt(m.duration):"";$("mLetraDe").value=m.letraDe||"";
   $("mLetra").value=letraDaMusica(m);
   $("mLinkYT").value=m.playback&&m.playback.tipo==="youtube"?"https://youtu.be/"+m.playback.id:"";
   $("mLinkSP").value=m.playback&&m.playback.tipo==="spotify"?"https://open.spotify.com/track/"+m.playback.id:"";
@@ -146,7 +146,7 @@ function trocarAbaPlayback(aba){
 function salvarEditor(){
   const m=acharMusica(ED.id);if(!m)return null;
   const texto=$("mLetra").value;
-  const campos={title:$("mTitulo").value,artist:$("mArtista").value,duration:parseClock($("mDuracao").value)||m.duration};
+  const campos={title:$("mTitulo").value,artist:$("mArtista").value,duration:parseClock($("mDuracao").value)||m.duration,letraDe:$("mLetraDe").value};
   if(temLRC(texto)){
     campos.synced=texto;
     if(!m.lyrics||temSincronia(m)&&m.synced!==texto)campos.lyrics=versosDaLetra(texto).map(v=>v.texto).join("\n");

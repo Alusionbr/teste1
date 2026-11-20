@@ -43,6 +43,10 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] 📋 Adicionar várias de uma vez: colar 5 músicas (uma com erro de digitação): aparece “n de 5”, o resumo diz quantas entraram; trocar um vídeo; Parar no meio funciona.
 - [ ] Celular: ✨ Música nova → digitar o nome → aparece o vídeo escolhido → Pedir na fila (ou Outros vídeos).
 - [ ] Ajustes → Exportar backup e importar em outro aparelho: as músicas vêm com letra e vídeo.
+- [ ] Trava: com 2 celulares (Ana e Beto) e uma música marcada para a Ana, durante o canto o celular do Beto mostra 🔒 e os botões ficam desligados; a Ana pausa/pula normalmente; o Beto ainda põe música na fila. Na contagem ("vez") o Beto consegue Começar. Desligar a trava em Ajustes libera todos.
+- [ ] Aba Fila → "Só as minhas músicas" mostra só as do seu nome; no celular de quem é a vez aparece "É a sua vez!".
+- [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
+- [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
 - [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
 - [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.

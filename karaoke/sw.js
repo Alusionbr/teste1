@@ -10,7 +10,7 @@
  * (abaixo) e os ?v= / data-version de index.html e controle.html.
  */
 "use strict";
-const VERSION = "1.0.8";
+const VERSION = "1.0.9";
 const CACHE = `karaoke-${VERSION}`;
 const SHELL = [
   "./",
