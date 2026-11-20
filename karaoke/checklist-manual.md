@@ -47,6 +47,11 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Aba Fila → "Só as minhas músicas" com Ana e Ana Paula, no celular de Ana aparece o dueto das duas e fica de fora o solo de Ana Paula; no celular de quem é a vez aparece "É a sua vez!".
 - [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
 - [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
+- [ ] Sincronia: tocar 5 músicas seguidas na TV; em nenhuma pode aparecer "📺 Anúncio — a letra espera" com o vídeo andando, nem o botão ▶ com a música tocando.
+- [ ] Vídeo que já traz a letra: com "só o vídeo" não aparece a letra do app; com a letra do app ligada (🎞) as legendas do YouTube somem e a letra não fica em dobro.
+- [ ] Música que não começa em 12 s: aparece "O vídeo não começou a tocar" com Tentar de novo / Trocar playback / Seguir sem playback / Pular.
+- [ ] Adicionar músicas pelo celular **durante** uma música: o vídeo da TV não engasga; o lote espera a música acabar.
+- [ ] Ajustes → Diagnóstico → Medir agora → Copiar relatório: sala, letras, YouTube e busca com milissegundos; player do YouTube com maior intervalo perto de 250 ms.
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
 - [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
 - [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.

@@ -28,17 +28,29 @@ const SAIDA=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),"karaoke-uso-"
 const BLOQUEADO="BLOQUEADO01";   // id de 11 caracteres que o player falso recusa com erro 150
 
 const YOUTUBE_FALSO=`<!doctype html><body>player falso<script>
-let bloqueado=location.pathname.includes("${BLOQUEADO}");
+const idDe=x=>String(x||"").split("/embed/").pop().split("?")[0];
+let idAtual=idDe(location.pathname);
+let bloqueado=idAtual.includes("${BLOQUEADO}");
 const send=o=>parent.postMessage(JSON.stringify(o),"*");
-// Player que toca de verdade (relógio de 250 ms, vídeo de 5 min), para testar letra liga/desliga.
-let estado=-1,t=0,timer=null;
-const info=()=>send({event:"infoDelivery",info:{playerState:estado,currentTime:t,duration:300,playbackRate:1}});
+// Duração por vídeo: "D215xxxxxxx" dura 215 s; qualquer outro, 300 s. "ANUNCIOxxxx" começa com um
+// anúncio de 15 s; "NUNCACOMECA" fica carregando para sempre (como internet ruim).
+const durDe=id=>/^D[0-9]{3}/.test(id)?Number(id.slice(1,4)):300;
+let estado=-1,t=0,timer=null,dur=durDe(idAtual),anuncioAte=0;
+const info=(d,tt)=>send({event:"infoDelivery",info:{playerState:estado,currentTime:tt??t,duration:d??(Date.now()<anuncioAte?15:dur),playbackRate:1}});
+const iniciar=id=>{idAtual=id;dur=durDe(id);t=0;anuncioAte=id.startsWith("ANUNCIO")?Date.now()+1500:0};
 addEventListener("message",e=>{let m;try{m=JSON.parse(e.data)}catch{return}
   if(m.event==="listening"){send({event:"initialDelivery",info:{apiInterface:[]}});send({event:"onReady"});if(bloqueado)send({event:"onError",info:150});else info();return}
   if(m.event!=="command")return;
   // O app reaproveita o mesmo iframe com cue/loadVideoById: o vídeo atual muda sem recarregar a página.
-  if(m.func==="cueVideoById"||m.func==="loadVideoById"){bloqueado=String(m.args[0]).includes("${BLOQUEADO}");clearInterval(timer);t=0;estado=5;if(bloqueado)send({event:"onError",info:150});else info();return}
+  // Como no YouTube de verdade, chegam antes umas mensagens atrasadas do vídeo anterior.
+  if(m.func==="cueVideoById"||m.func==="loadVideoById"){
+    const velhaDur=dur,velhoT=t;
+    bloqueado=String(m.args[0]).includes("${BLOQUEADO}");clearInterval(timer);iniciar(m.args[0]);estado=5;
+    if(bloqueado){send({event:"onError",info:150});return}
+    for(let i=0;i<3;i++)setTimeout(()=>info(velhaDur,velhoT),i*60);
+    setTimeout(()=>info(),200);return}
   if(bloqueado)return;
+  if(idAtual.startsWith("NUNCACOMECA")){if(m.func==="playVideo"){estado=3;info()}return}
   if(m.func==="playVideo"){estado=1;clearInterval(timer);timer=setInterval(()=>{t+=0.25;info()},250);info()}
   if(m.func==="pauseVideo"||m.func==="stopVideo"){estado=2;clearInterval(timer);info()}
   if(m.func==="seekTo"){t=m.args[0];info()}
@@ -115,6 +127,8 @@ async function novaManual(titulo,letra,dur){
   // Miniaturas dos resultados (ids falsos): sem rede de verdade.
   await ctx.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
   const catalogoTeste=[];
+  // usado pelo cenário do catálogo: a página pergunta se algum envio chegou
+  await ctx.exposeFunction("catalogoEnviadoNoNode",()=>catalogoTeste.length);
   await ctx.route("**/rpc/karaoke_catalogo_*",async rota=>{
     const d=rota.request().postDataJSON()||{};
     if(d.p_musica)catalogoTeste.push(d);
@@ -563,10 +577,22 @@ async function novaManual(titulo,letra,dur){
     ok(await page.evaluate(()=>K.dados.musicas.filter(x=>x.title==="Cogulândia").length)===1,"criou a música duas vezes");
   });
 
-  await cenario("salvar sem tocar disponibiliza o playback na busca de outro aparelho",async()=>{
-    const salvo=page.waitForResponse(r=>r.url().endsWith("/karaoke_catalogo_salvar")&&r.request().postData()?.includes("Consulta compartilhada"));
+  await cenario("catálogo compartilhado: só entra o vídeo que tocou de verdade; outro aparelho o encontra",async()=>{
+    await page.evaluate(()=>{CONFIRMA_MS=300});
+    const antes=await page.evaluate(()=>window.catalogoEnviadoNoNode());
+    // salvar uma música NÃO compartilha mais (um vídeo errado viraria padrão para todas as salas)
     await page.evaluate(()=>criarMusica({title:"Consulta compartilhada",artist:"Artista do teste",playback:{tipo:"youtube",id:"BUSCAAAAAA1",titulo:"Playback escolhido"}}));
-    await salvo;
+    await page.waitForTimeout(600);
+    ok(await page.evaluate(()=>window.catalogoEnviadoNoNode())===antes,"salvar sem tocar não pode ir para o catálogo");
+    // tocando por mais de CONFIRMA_MS entra
+    await page.evaluate(()=>{
+      const m=K.dados.musicas.find(x=>x.title==="Consulta compartilhada"),p=criarPlaylist("Catálogo");
+      adicionarItem(p,m.id,"","");prefs().contagem=0;abrirPalco({playlistId:p.id,indice:0});
+    });
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando(),null,{timeout:10000});
+    for(let i=0;i<50&&(await page.evaluate(()=>window.catalogoEnviadoNoNode()))===antes;i++)await page.waitForTimeout(100);
+    ok(await page.evaluate(()=>window.catalogoEnviadoNoNode())>antes,"o vídeo que tocou não foi para o catálogo");
+    await page.evaluate(()=>{fecharPalco();CONFIRMA_MS=10000;prefs().contagem=5});
     const cel=await ctx.newPage();
     try{
       await cel.goto(BASE+"controle.html");
@@ -593,6 +619,68 @@ async function novaManual(titulo,letra,dur){
       });
       assert.deepEqual(ids,["dueto","minha"]);
     }finally{await controle.close()}
+  });
+
+  await cenario("sincronia: música 2 com duração diferente (mensagens atrasadas da 1) não vira anúncio; pre-roll não congela o vídeo",async()=>{
+    await page.evaluate(()=>{
+      const a=criarMusica({title:"Sinc Um",lyrics:"a\nb",duration:200,playback:{tipo:"youtube",id:"D200aaaaaaa",titulo:"v",duracao:200}});
+      const b=criarMusica({title:"Sinc Dois",lyrics:"a\nb",duration:312,playback:{tipo:"youtube",id:"D312aaaaaaa",titulo:"v"}});
+      const c=criarMusica({title:"Sinc Tres",lyrics:"a\nb",duration:300,playback:{tipo:"youtube",id:"ANUNCIOaaaa",titulo:"v"}});
+      const p=criarPlaylist("Sincronia");[a,b,c].forEach(m=>adicionarItem(p,m.id,"",""));
+      prefs().contagem=0;abrirPalco({playlistId:p.id,indice:0});
+    });
+    // espera o relógio sadio COM a duração do vídeo certo (não a de uma mensagem atrasada do anterior)
+    const sano=dur=>page.waitForFunction(d=>P.fase==="cantando"&&FonteYouTube.tocando()&&!FonteYouTube.emAnuncio&&FonteYouTube.duracao()===d&&FonteYouTube.tempo()>0.5,dur,{timeout:15000})
+      .catch(async()=>{throw Error("relógio não ficou sadio para "+dur+" s: "+JSON.stringify(await page.evaluate(()=>({...FonteYouTube._depurar(),tocando:FonteYouTube.tocando(),duracao:FonteYouTube.duracao(),fase:P.fase}))))});
+    await sano(200);
+    await page.evaluate(()=>proxima());   // fase "nota" ou próxima
+    await page.evaluate(()=>{if(P.fase==="nota")proxima()});
+    await page.waitForFunction(()=>P.musica&&P.musica.title==="Sinc Dois");
+    await sano(312);
+    ok(await page.evaluate(()=>document.getElementById("palcoSinal").textContent)!=="📺 Anúncio — a letra espera","o palco mostra anúncio falso");
+    await page.evaluate(()=>proxima());await page.evaluate(()=>{if(P.fase==="nota")proxima()});
+    await page.waitForFunction(()=>P.musica&&P.musica.title==="Sinc Tres");
+    await sano(300);   // começa com anúncio de 15 s (sem duração esperada) e depois o vídeo de 300 s
+    await page.evaluate(()=>{fecharPalco();prefs().contagem=5});
+  });
+
+  await cenario("vigia de início: player que fica carregando para sempre mostra o painel com Tentar de novo",async()=>{
+    await page.evaluate(()=>{
+      VIGIA_INICIO_MS=1500;
+      const m=criarMusica({title:"Nunca Começa",lyrics:"a",duration:100,playback:{tipo:"youtube",id:"NUNCACOMECA",titulo:"v"}});
+      const p=criarPlaylist("Vigia");adicionarItem(p,m.id,"","");
+      prefs().contagem=0;abrirPalco({playlistId:p.id,indice:0});
+    });
+    await page.waitForSelector("#palcoErro:not([hidden])",{timeout:10000});
+    ok(/não começou/.test(await page.locator("#erroTexto").innerText()),"texto do aviso");
+    ok(await page.locator("#erroTentar").isVisible(),"falta o botão Tentar de novo");
+    await page.click("#erroTentar");
+    ok(await page.evaluate(()=>document.getElementById("palcoErro").hidden),"o painel deveria sumir ao tentar de novo");
+    await page.evaluate(()=>{VIGIA_INICIO_MS=12000;fecharPalco();prefs().contagem=5});
+  });
+
+  await cenario("diagnóstico: Medir agora mostra serviços, player e estado da sala",async()=>{
+    await aba("ajustes");
+    await page.evaluate(()=>{document.getElementById("diagnostico").open=true});
+    await page.click("#diagMedir");
+    await page.waitForFunction(()=>/Tempo de resposta/.test(document.getElementById("diagTexto").textContent),null,{timeout:20000});
+    const t=await page.locator("#diagTexto").innerText();
+    ok(/Sala \(Supabase\)/.test(t)&&/Player do YouTube/.test(t)&&/Estado enviado aos celulares/.test(t),"faltam seções no relatório: "+t.slice(0,300));
+    ok(!/AIza/.test(t),"o relatório não pode levar a chave do YouTube");
+  });
+
+  await cenario("com a letra do app ligada, as legendas do YouTube são descarregadas; só o vídeo não mexe nelas",async()=>{
+    await page.evaluate(()=>{
+      const m=criarMusica({title:"Legendas",lyrics:"a",synced:"[00:01.00]a\n[00:05.00]b",duration:200,playback:{tipo:"youtube",id:"D200bbbbbbb",titulo:"v",duracao:200}});
+      const p=criarPlaylist("Legendas");adicionarItem(p,m.id,"","");
+      prefs().contagem=0;prefs().fundo="tela";abrirPalco({playlistId:p.id,indice:0});
+      window.__cmds=[];const o=FonteYouTube.legendas;FonteYouTube.legendas=l=>{window.__cmds.push(l);return o(l)};
+    });
+    await page.waitForFunction(()=>P.fase==="cantando"&&FonteYouTube.tocando());
+    ok(await page.evaluate(()=>window.__cmds.length)===0,"só o vídeo não deveria mexer nas legendas");
+    await page.evaluate(()=>alternarLetra());
+    await page.waitForFunction(()=>window.__cmds.includes(false),null,{timeout:5000});
+    await page.evaluate(()=>{fecharPalco();prefs().contagem=5});
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{

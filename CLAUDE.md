@@ -789,6 +789,7 @@ karaoke/
 ├── fontes.js        interface comum de playback, relógio manual e <audio>
 ├── busca-youtube.js  busca de vídeos: chave oficial → Piped (INSTANCIAS_BUSCA), mapeamento, cooldown, escolha automática
 ├── auto-adicionar.js "Adicionar pelo nome": vídeo + letra + playlist, trocar e tirar (tela)
+├── diagnostico.js   Ajustes → Diagnóstico: serviços, gravador do player, avisos (relatório copiável)
 ├── verificar-youtube.js  YouTubeBase: origens, erros, endereço e conferência de vídeo (tela e celular)
 ├── fonte-youtube.js / fonte-spotify.js  protocolos postMessage falados à mão
 ├── palco.js         fases vez → cantando → nota → fim; um requestAnimationFrame só
@@ -802,7 +803,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (27 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (33 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -832,6 +833,9 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 21. **Adicionar pelo nome escolhe sozinho, mas nunca esconde a dúvida** (`resolverPlayback`, `busca-youtube.js`; `adicionarPeloNome`, `auto-adicionar.js`): a pontuação (`pontuarVideo`) é heurística pura e testada; o vencedor **sempre** passa por `YouTubeBase.verificar` (exceto com chave oficial, que já filtra embutíveis), e se o melhor é bloqueado cai para o seguinte (3 tentativas). Toda música adicionada assim volta com **Trocar vídeo** e **Tirar**; pontuação baixa vira “confira se é este mesmo” (`video.duvida`). Sem vídeo e sem letra nada é criado; com letra e sem vídeo a música entra sem playback. O lote (`lerListaDeMusicas`, máx. 30) resolve **uma linha por vez** (um player invisível por vez). **O acervo da família mora no aparelho e viaja por backup/link compartilhado; nunca commitar letras no repositório** (site público, obra protegida).
 22. **Trava do cantor** (`sala-host.js`: `donosDaMusica`, `bloqueadoPara`, `mexeNaMusica`; `prefs.trava`, padrão ligada): só na fase `cantando`, os comandos que mexem **na música** (`alternar`, `proxima`, `anterior`, `adiantar`, `atrasar`, `volume`, `tocar_item`, `pedir` com `modo` `letra` ou `agora`) só valem se o nome do celular é o de `cantorA`/`cantorB` do item; comandos da **fila** (pedir, subir, tirar, playback) e as fases vez/nota/fim nunca são travados, e a tela/teclado também não. Item sem cantor não tem dono. **Quem decide é a tela**; o celular só desliga botões e avisa (`CT.travado`). A identidade é só o nome (família, não segurança). Estado publicado: `trava` e `agora.donos`.
 23. **Letra por música** (`musica.letraDe`: `"video"`|`"app"`|`""`, `fundoEfetivo()` em `palco.js`): vale só para YouTube com letra; `prefs.fundo` continua sendo a base do aparelho e **nunca** é alterado por escolha de uma música. `alternarLetra()` grava na música (`P.musica=editarMusica(...)`) e só troca camada de CSS. Música pedida pelo celular recebe a letra da tela em segundo plano (`completarLetra`, uma por vez, sem travar a fila).
+24. **Relógio do YouTube e anúncio** (`fonte-youtube.js`): a referência de duração é `playback.duracao` (guardada na escolha) ou a duração que se repete por 3 mensagens, **nunca a primeira mensagem** (o iframe é reaproveitado entre músicas e anúncio pode vir antes do vídeo). Anúncio = curto (≤ 60 s) e menor que a referência; sai sozinho. Teto de extrapolação de 1 a 2 s acompanha o atraso real das entregas. O player falso dos testes precisa ter duração por vídeo, anúncio inicial e mensagens atrasadas.
+25. **Conferência de vídeo não compete com a música** (`YouTubeBase.verificar`): uma por vez, cache de 15 min (só resposta firme), prazo de 5 s, espera enquanto a música toca nesta tela (`definirOcupado`); o lote espera. **Catálogo compartilhado só recebe vídeo que tocou 10 s** (`confirmarPlaybackDepoisDe`, palco.js) e `resolverPlayback` confere no máximo 2 salvos em 6 s.
+26. **Letra sincronizada só da mesma gravação** (`ajustarLetraAoVideo`, `lrc.js`, ±8 s): senão vira texto sem tempo. **Letra em dobro**: com a letra do app ligada, as legendas do YouTube são descarregadas (`FonteYouTube.legendas(false)`); `prefs.fundoV12` devolveu o padrão "só o vídeo" uma única vez.
 
 ## Modelo de dados
 

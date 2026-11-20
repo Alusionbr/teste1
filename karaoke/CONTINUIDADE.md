@@ -47,6 +47,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 | 1.0.9 | **Trava do cantor**; "Só as minhas músicas"; **letra por música** (`musica.letraDe`); tela busca a letra de músicas pedidas pelo celular |
 | 1.0.11 | Catálogo entre salas no Supabase (002_catalogo.sql). A tela contribui ao salvar e o celular consulta antes da busca externa. Conferir disponibilidade e qualidade das contribuições durante o uso. |
 | 1.0.10 | O ciclo de fundos parte do fundo visível. A fila envia os identificadores dos cantores para filtrar solos e duetos. As páginas usam a cor do manifesto durante a atualização. |
+| 1.0.12 | **Sincronia e travamentos** (ver seção 10): anúncio falso não congela mais a letra, relógio tolera entregas atrasadas, conferência de vídeo em fila com cache e sem competir com a música, letra sincronizada só da mesma gravação, vigia de início ("Tentar de novo"), catálogo só com vídeo que tocou 10 s, legendas do YouTube descarregadas quando a letra do app está ligada, **Ajustes → Diagnóstico** |
 
 Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1.0.10.
 
@@ -70,7 +71,7 @@ Servidor local (porta 8765) e, a partir da raiz do repositório:
 ```bash
 python3 -m http.server 8765 -d karaoke &        # em segundo plano
 node --test karaoke/tests/*.test.js              # unidade/contrato (≈70 testes, sem rede)
-node karaoke/tests/browser-uso.js                # 29 cenários de uso real (Playwright, rede simulada)
+node karaoke/tests/browser-uso.js                # 33 cenários de uso real (Playwright, rede simulada)
 node karaoke/tests/browser-smoke.js              # caminho feliz em 3 tamanhos de tela + Supabase real
 node karaoke/tests/sala-real.js                  # sala contra o Supabase real (só se mexer no SQL)
 ```
@@ -118,3 +119,17 @@ Ideias sem dono:
 - Em testes, `deepEqual` entre contextos do `vm` falha por referência; compare `length` ou JSON.
 - Clicar num botão que some logo depois (ex.: "Tirar") pode dar timeout; espere a contagem diminuir antes do próximo clique.
 - Esquecer de subir a versão nos quatro lugares deixa o aparelho preso na versão antiga.
+
+## 10. Investigação de travamentos e sincronia (1.0.12)
+
+**Evidência real:** foto da TV mostrando "📺 Anúncio — a letra espera" com o vídeo tocando e o botão em ▶, na música 25 de 26. Era o **falso "anúncio"**: `fonte-youtube.js` tomava a duração da **primeira mensagem** do player como referência e chamava de anúncio qualquer duração diferente (>2 s). Com o iframe reaproveitado entre músicas (`cueVideoById`), chegam mensagens atrasadas do vídeo anterior, a referência fica errada e o vídeo certo vira "anúncio" (relógio da letra congelado, `tocando()` falso). Um anúncio **antes** do vídeo faz o mesmo ao contrário. Os testes antigos usavam duração igual (300 s) em todos os vídeos e nunca pegavam isso.
+
+**Correção:** referência = `playback.duracao` (guardada na escolha do vídeo) ou a duração que se repete por 3 mensagens; anúncio = curto (≤ 60 s), menor que a referência, e sai sozinho. O player falso do `browser-uso.js` agora tem duração por vídeo (`D215xxxxxxx` = 215 s), anúncio inicial (`ANUNCIOxxxx`), vídeo que nunca começa (`NUNCACOMECA`) e mensagens atrasadas após o `cue`.
+
+Outras causas tratadas: teto de extrapolação fixo de 1 s (agora 1 a 2 s, acompanha o atraso real); conferência de vídeo abrindo player escondido durante a música (agora fila + cache + espera a música acabar nesta tela; o lote espera); letra sincronizada aceita sem conferir a duração (`ajustarLetraAoVideo`, ±8 s, senão vira "letra sem tempo"); player que nunca começa sem aviso (vigia de 12 s com **Tentar de novo**); "sem sinal" por 6 s oferece **Recarregar o vídeo** no mesmo ponto; catálogo compartilhado só recebe vídeo que **tocou 10 s** e confere no máximo 2 salvos em 6 s.
+
+**Letra em dobro:** vídeos de karaokê já trazem a letra (legendas do YouTube ou gravada na imagem); com a letra do app por cima ficava repetida. Em 1.0.12 o fundo padrão "só o vídeo" volta **uma vez** para quem veio de versão antiga (`prefs.fundoV12`), e com a letra do app ligada as legendas do YouTube são descarregadas (`unloadModule`). Letra gravada na própria imagem do vídeo não dá para remover: use "só o vídeo" naquela música (🎞, tecla L, ou o botão do celular; fica guardado em `musica.letraDe`).
+
+**Diagnóstico (Ajustes):** `diagnostico.js` mede sala, LRCLIB, miniaturas do YouTube e busca, mostra o gravador de mensagens do player (`FonteYouTube.diagnostico()`: maior intervalo, anúncios vistos, congelamentos) e os últimos avisos/erros. Peça o relatório copiado quando algo travar.
+
+**Ainda aberto:** conferir com captura real (Diagnóstico) se a duração esperada resolve 100% dos "anúncios falsos"; Fase 3 (votos no catálogo: `karaoke_catalogo_reportar`, mexe no Supabase, aguardando aprovação).

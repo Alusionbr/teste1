@@ -50,6 +50,14 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 
 Ao salvar uma música com playback do YouTube, a tela compartilha título, artista, ID e título do vídeo. Na próxima busca pelo nome ou pelo nome e artista, o primeiro link salvo tem preferência. Outros links ficam como alternativas. Se o catálogo falhar, a busca externa continua disponível.
 
+### Se a música travar (1.0.12)
+
+- **Ajustes → 🩺 Diagnóstico**: toque em *Medir agora* e depois em *Copiar relatório*. Mostra o tempo de resposta dos serviços, o que o player do YouTube mandou (para saber se é internet ou o app) e os últimos avisos. Não leva letras, nomes nem a chave.
+- Música que não começa em 12 s mostra **Tentar de novo**; vídeo que para de responder mostra **Recarregar o vídeo** (volta ao mesmo ponto).
+- O app confere um vídeo por vez e lembra o resultado por 15 min; durante a música desta tela o lote espera ela acabar.
+- A letra do app só entra como "sincronizada" se for da mesma gravação do vídeo (duração parecida); senão entra como "letra sem tempo".
+- Letra em dobro: se o vídeo já traz a letra, use "só o vídeo" (🎞, tecla L ou botão do celular; fica guardado na música). Com a letra do app ligada, as legendas do YouTube são desligadas.
+
 ### Buscar vídeos no YouTube
 
 **No editor da música a busca é o caminho principal**: ao abrir uma música sem playback do YouTube (por exemplo logo depois de escolher a letra em Nova música), o app já busca `título artista playback karaokê` e lista os vídeos com miniatura, canal e duração. Os de duração parecida com a da letra (±8 s) vêm primeiro com o selo “✓ duração parecida”; tocar num confere se toca embutido e troca o playback. O campo de busca é editável. “Já tenho o link do vídeo” fica recolhido (e abre sozinho, com o atalho para o site do YouTube, se a busca cair). No celular, ✨ Música nova faz o mesmo depois de escolher a letra.

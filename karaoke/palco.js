@@ -76,13 +76,21 @@ function aplicarPrefsPalco(){
   b.setAttribute("aria-pressed",String(!soVideo));
   b.title=soVideo?"Ligar a letra sincronizada do app (L)":"Desligar a letra do app e mostrar só o vídeo (L)";
   P.idx=-2;   // a letra se redesenha na hora quando volta
+  semLegendasDoYouTube();
+}
+// Letra do app na tela = sem as legendas do próprio YouTube por baixo (letra em dobro).
+function semLegendasDoYouTube(){
+  if(P.fonte===FonteYouTube&&P.musica&&fundoEfetivo()!=="tela")FonteYouTube.legendas(false);
 }
 // Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
 // recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
 const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&fundoEfetivo()==="tela");
 
+// A conferência de vídeo (segundo player escondido) não pode competir com a música desta tela.
+YouTubeBase.definirOcupado(()=>P.aberto&&P.fase==="cantando"&&!!P.fonte&&P.fonte!==FonteRelogio&&P.fonte.tocando());
+
 function pararTudo(){
-  clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);
+  clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);clearTimeout(P.vigiaInicio);clearTimeout(P.confirmaTimer);P.retomarEm=null;
   if(typeof Aplausometro!=="undefined")Aplausometro.parar();
   try{P.fonte&&P.fonte.parar()}catch{}
   // Fonte que não é a atual também para: YouTube e áudio podem ter ficado de outra música.
@@ -161,8 +169,49 @@ function comecar(){
   clearInterval(P.contagemTimer);
   $("palcoVez").hidden=true;
   P.fase="cantando";
+  P.pausaManual=false;
   tocarAgora();
+  armarVigiaInicio();
   avisarSala();
+}
+// Depois de Começar, player que não toca em 12 s (internet fraca, vídeo travado) não pode
+// deixar a festa olhando um círculo girando: mostra o painel de erro com saídas de um toque.
+// Não vale se o navegador pediu um toque (painel "liberar"), se já há erro ou se a pausa foi da família.
+let VIGIA_INICIO_MS=12000;
+// Vídeo do YouTube que tocou por 10 s de verdade vai para o catálogo compartilhado.
+let CONFIRMA_MS=10000;
+function confirmarPlaybackDepoisDe(m,f){
+  if(!m||!m.playback||m.playback.tipo!=="youtube"||P.confirmado===m.id+"|"+m.playback.id)return;
+  clearTimeout(P.confirmaTimer);
+  P.confirmaTimer=setTimeout(()=>{
+    if(P.aberto&&P.musica&&P.musica.id===m.id&&P.fonte===f&&f.tocando()&&!f.emAnuncio){
+      P.confirmado=m.id+"|"+m.playback.id;
+      compartilharPlayback(P.musica);
+    }
+  },CONFIRMA_MS);
+}
+function armarVigiaInicio(){
+  clearTimeout(P.vigiaInicio);
+  const f=P.fonte,musica=P.musica;
+  if(!f||f===FonteRelogio||f===FonteArquivo)return;
+  P.vigiaInicio=setTimeout(()=>{
+    if(!P.aberto||P.fase!=="cantando"||P.fonte!==f||P.musica!==musica||P.pausaManual)return;
+    if(f.tocando()||!$("palcoErro").hidden||!$("palcoLiberar").hidden)return;
+    mostrarErro("O vídeo não começou a tocar. Pode ser a internet ou o vídeo.");
+  },VIGIA_INICIO_MS);
+}
+// Recarrega o player e volta ao ponto onde estava (vídeo travado no meio, "sem sinal").
+function recarregarVideo(){
+  if(!P.aberto||!P.musica||!P.fonte)return;
+  const desde=P.fase==="cantando"?P.fonte.tempo():0,f=P.fonte;
+  $("palcoErro").hidden=true;
+  try{f.parar()}catch{}
+  P.retomarEm=desde>1?desde:null;
+  P.carregado=false;
+  const carga=f.reiniciar?(f.reiniciar(P.musica),Promise.resolve()):f.carregar(P.musica);
+  P.carregando=carga.then(()=>{if(P.fonte===f)P.carregado=true}).catch(e=>{if(P.fonte===f)mostrarErro(e.message||String(e))});
+  P.pausaManual=false;
+  tocarAgora();armarVigiaInicio();
 }
 // Sem await antes do play() quando já carregou: esperar descartaria o toque.
 function tocarAgora(){
@@ -174,7 +223,7 @@ function alternar(){
   if(!P.aberto||!P.fonte)return;
   if(P.fase==="vez"){comecar();return}
   if(P.fase!=="cantando"&&P.fase!=="gravando")return;
-  if(P.fonte.tocando())P.fonte.pausar();else tocarAgora();
+  if(P.fonte.tocando()){P.pausaManual=true;P.fonte.pausar()}else{P.pausaManual=false;tocarAgora()}
 }
 
 /* ------------------------------------------------------- eventos da fonte */
@@ -182,7 +231,12 @@ function aoEventoFonte(tipo,d){
   if(!P.aberto)return;
   if(tipo==="estado"){
     atualizarBotaoTocar();
-    if(P.fonte&&P.fonte.tocando()){$("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");keepAwake();acordarControles()}
+    if(P.fonte&&P.fonte.tocando()){
+      $("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");keepAwake();acordarControles();
+      if(P.retomarEm!=null){const t=P.retomarEm;P.retomarEm=null;P.fonte.buscar(t)}   // volta ao ponto depois de Recarregar
+      confirmarPlaybackDepoisDe(P.musica,P.fonte);
+      semLegendasDoYouTube();
+    }
     avisarSala();
   }else if(tipo==="fim"){
     if(P.fase==="gravando"){Sincronia.aoFim();return}
@@ -400,8 +454,17 @@ function atualizarSinal(anuncio){
   let txt="",cls="";
   if(f===FonteYouTube&&FonteYouTube.emAnuncio){txt="📺 Anúncio — a letra espera";cls="alerta"}
   else if(f===FonteRelogio){txt="⏱ relógio";cls=""}
-  else if((f===FonteYouTube||f===FonteSpotify)&&f.tocando()&&!f.sinal()){txt="⚠️ sem sinal do player";cls="alerta"}
+  else if((f===FonteYouTube||f===FonteSpotify)&&f.tocando()&&!f.sinal()){
+    txt="⚠️ sem sinal do player";cls="alerta";
+    // Mais de 6 s sem notícia do player: oferece recarregar o vídeo no mesmo ponto (uma vez por música).
+    if(!P.semSinalDesde)P.semSinalDesde=performance.now();
+    else if(performance.now()-P.semSinalDesde>6000&&P.semSinalAvisado!==P.musica.id){
+      P.semSinalAvisado=P.musica.id;
+      notify("O vídeo parou de responder.",false,{label:"Recarregar o vídeo",run:recarregarVideo});
+    }
+  }
   else if(f===FonteYouTube||f===FonteSpotify){txt=f.tocando()?"● sincronizado":"";cls="ok"}
+  if(!txt.includes("sem sinal"))P.semSinalDesde=0;
   if(el.textContent!==txt){el.textContent=txt;el.className=cls}
 }
 function atualizarBotaoTocar(){

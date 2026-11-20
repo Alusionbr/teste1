@@ -58,7 +58,7 @@ test("YouTube: anúncio congela o relógio, erro 150 avisa e fim dispara 'fim'",
   const F=c.ctx.F;
   await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
   const msg=x=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify(x)});
-  msg({event:"infoDelivery",info:{playerState:1,currentTime:3,duration:180}});
+  for(let i=0;i<3;i++)msg({event:"infoDelivery",info:{playerState:1,currentTime:3+i,duration:180}});   // 3 mensagens iguais fixam a referência
   msg({event:"infoDelivery",info:{currentTime:2,duration:15}});
   assert.equal(F.emAnuncio,true);
   assert.equal(F.tocando(),false);
@@ -67,6 +67,76 @@ test("YouTube: anúncio congela o relógio, erro 150 avisa e fim dispara 'fim'",
   assert.ok(erro&&erro[1].bloqueadoEmbutir);
   msg({event:"infoDelivery",info:{playerState:0}});
   assert.ok(c.eventos.some(e=>e[0]==="fim"));
+});
+
+// Mensagens do player real: o iframe é reaproveitado entre músicas e anúncios chegam antes do vídeo.
+function playerFalso(){
+  const c=contexto();
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const msg=x=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify(x)});
+  const info=(i,ms=250)=>{c.avancar(ms);msg({event:"infoDelivery",info:i})};
+  return{c,F:c.ctx.F,msg,info};
+}
+test("YouTube: música 2 com mensagens atrasadas da música 1 NÃO vira anúncio",async()=>{
+  const{c,F,info}=playerFalso();
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  for(let i=0;i<5;i++)info({playerState:1,currentTime:10+i/4,duration:200});
+  assert.equal(F.duracao(),200);
+  // troca de vídeo no mesmo iframe: chegam mais mensagens do vídeo anterior, depois as do novo
+  await F.carregar({playback:{id:"abcdefghijk"}});
+  for(let i=0;i<3;i++)info({playerState:1,currentTime:199,duration:200});
+  for(let i=0;i<6;i++)info({playerState:1,currentTime:1+i/4,duration:312});
+  assert.equal(F.emAnuncio,false,"duração nova do vídeo foi tomada por anúncio");
+  assert.equal(F.tocando(),true);
+  assert.equal(F.duracao(),312);
+  c.avancar(400);
+  assert.ok(F.tempo()>2,"o relógio da letra não pode ficar parado");
+});
+test("YouTube: anúncio antes do vídeo não faz o vídeo virar anúncio; com duração esperada o anúncio congela e libera sozinho",async()=>{
+  const a=playerFalso();
+  await a.F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  for(let i=0;i<4;i++)a.info({playerState:1,currentTime:i,duration:15});   // anúncio de 15 s primeiro, sem referência
+  for(let i=0;i<5;i++)a.info({playerState:1,currentTime:i,duration:240});
+  assert.equal(a.F.emAnuncio,false);assert.equal(a.F.duracao(),240);
+  const b=playerFalso();
+  await b.F.carregar({playback:{id:"dQw4w9WgXcQ",duracao:240}});
+  b.info({playerState:1,currentTime:0,duration:15});
+  assert.equal(b.F.emAnuncio,true,"com a duração esperada, o anúncio curto é reconhecido logo");
+  assert.equal(b.F.tocando(),false);
+  b.info({playerState:1,currentTime:0,duration:240});
+  assert.equal(b.F.emAnuncio,false,"acabou o anúncio: o relógio volta sozinho");
+  assert.equal(b.F.tocando(),true);
+});
+test("YouTube: entregas atrasadas (TV ocupada) não congelam a letra por mais tempo que o atraso",async()=>{
+  const{c,F,info}=playerFalso();
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  for(let i=0;i<4;i++)info({playerState:1,currentTime:i*0.25,duration:200},250);
+  for(let i=0;i<4;i++)info({playerState:1,currentTime:1+i*1.5,duration:200},1500);   // mensagens a cada 1,5 s
+  const t0=F.tempo();c.avancar(1400);
+  assert.ok(F.tempo()-t0>=1.39,"com entregas a cada 1,5 s a letra deve seguir andando entre elas");
+  c.avancar(10000);
+  assert.ok(F.tempo()-t0<=2.6,"e o teto máximo (2 s) continua valendo para player mudo");
+  assert.ok(F.diagnostico().maiorIntervaloMs>=1500&&F.diagnostico().congelamentos>=1);
+});
+test("YouTube: com a letra do app ligada as legendas do YouTube são descarregadas",async()=>{
+  const{c,F,info}=playerFalso();
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  c.carregou();info({playerState:1,currentTime:1,duration:100});
+  c.enviados.length=0;
+  F.legendas(true);
+  assert.equal(c.enviados.length,0,"só o vídeo: as legendas ficam como o vídeo quiser");
+  F.legendas(false);
+  const cmds=c.enviados.map(e=>JSON.parse(e.m));
+  assert.ok(cmds.some(x=>x.func==="unloadModule"&&x.args[0]==="captions"));
+  assert.ok(c.enviados.every(e=>e.o==="https://www.youtube-nocookie.com"));
+});
+test("YouTube: o gravador guarda as mensagens para o Diagnóstico",async()=>{
+  const{F,info}=playerFalso();
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  for(let i=0;i<10;i++)info({playerState:1,currentTime:i,duration:100});
+  const d=F.diagnostico();
+  assert.equal(d.mensagens,10);assert.equal(d.registro.length,10);
+  assert.equal(d.registro[9].c,9);assert.equal(d.registro[9].d,100);
 });
 
 test("YouTube: pedido de tocar antes de o player carregar é cumprido quando ele responde",async()=>{
@@ -136,12 +206,14 @@ test("Spotify: prévia também é detectada quando a duração da música é des
 });
 
 /* ---- verificação "este vídeo pode tocar aqui?" (antes de escolher o playback) ---- */
+// A conferência entra numa fila (uma por vez): o player só abre depois de um instante.
+const proximoTick=()=>new Promise(r=>setImmediate(r));
 function contextoVerificar(){
-  const timers=[],ouvintes=[];
+  const timers=[],ouvintes=[];let criados=0;
   const frame={style:{},contentWindow:{postMessage(){}},setAttribute(){},addEventListener(){},remove(){frame.removido=true}};
   const ctx={
     window:{addEventListener:(t,f)=>{if(t==="message")ouvintes.push(f)},removeEventListener:(t,f)=>{const i=ouvintes.indexOf(f);if(i>=0)ouvintes.splice(i,1)}},
-    document:{createElement:()=>frame,body:{appendChild(){}}},
+    document:{createElement:()=>{criados++;return frame},body:{appendChild(){}}},
     $:()=>({appendChild(){}}),location:{origin:"https://exemplo.github.io"},performance:{now:()=>0},
     setTimeout:(f,ms)=>{timers.push({f,ms,vivo:true});return timers.length},clearTimeout:i=>{if(timers[i-1])timers[i-1].vivo=false},
     setInterval:()=>0,clearInterval(){},clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),emitir(){},URLSearchParams,JSON,Math,Number,String
@@ -150,12 +222,13 @@ function contextoVerificar(){
   vm.runInContext(fonteYT()+";this.F=FonteYouTube;",ctx);
   const msg=(o,origin="https://www.youtube-nocookie.com",source=frame.contentWindow)=>ouvintes.slice().forEach(f=>f({origin,source,data:JSON.stringify(o)}));
   const disparar=ms=>{const t=timers.find(x=>x.vivo&&x.ms===ms);if(t){t.vivo=false;t.f()}};
-  return{F:ctx.F,frame,msg,disparar};
+  return{F:ctx.F,frame,msg,disparar,get criados(){return criados}};
 }
 
 test("verificar: clipe bloqueado manda 'pronto' e erro 150 no mesmo instante e é recusado",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("2vjPBrBU-TM");
+  await proximoTick();
   c.msg({event:"initialDelivery",info:{apiInterface:[]}});
   c.msg({event:"onReady"});
   c.msg({event:"onError",info:150});
@@ -169,6 +242,7 @@ test("verificar: vídeo liberado só é aceito depois da margem esperando um err
   const c=contextoVerificar();
   let resolvido=false;
   const r=c.F.verificar("dQw4w9WgXcQ").then(v=>{resolvido=true;return v});
+  await proximoTick();
   c.msg({event:"initialDelivery",info:{apiInterface:[]}});
   c.msg({event:"onReady"});
   await Promise.resolve();
@@ -182,7 +256,8 @@ test("verificar: vídeo liberado só é aceito depois da margem esperando um err
 test("verificar: sem resposta a tempo (ex.: sem internet) não impede a escolha, mas avisa",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("dQw4w9WgXcQ");
-  c.disparar(8000);
+  await proximoTick();
+  c.disparar(5000);
   const v=await r;
   assert.equal(v.ok,true);assert.equal(v.incerto,true);
 });
@@ -190,16 +265,46 @@ test("verificar: sem resposta a tempo (ex.: sem internet) não impede a escolha,
 test("verificar: ignora mensagem de outra origem ou de outra janela",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("dQw4w9WgXcQ");
+  await proximoTick();
   c.msg({event:"onError",info:150},"https://golpe.com");
   c.msg({event:"onError",info:150},"https://www.youtube-nocookie.com",{});
-  c.disparar(8000);
+  c.disparar(5000);
   const v=await r;
   assert.equal(v.ok,true,"erro falso não pode reprovar o vídeo");
+});
+
+test("verificar: uma conferência por vez, e o resultado firme fica em cache",async()=>{
+  const c=contextoVerificar();
+  const a=c.F.verificar("aaaaaaaaaaa"),b=c.F.verificar("bbbbbbbbbbb");
+  await proximoTick();
+  assert.equal(c.criados,1,"a segunda conferência espera a primeira");
+  c.msg({event:"onError",info:150});
+  assert.equal((await a).ok,false);
+  await proximoTick();
+  assert.equal(c.criados,2);
+  c.msg({event:"onReady"});c.disparar(1500);
+  assert.equal((await b).ok,true);
+  const antes=c.criados;
+  assert.equal((await c.F.verificar("aaaaaaaaaaa")).ok,false,"cache");
+  assert.equal(c.criados,antes,"vídeo já conferido não abre outro player");
+});
+test("verificar: resposta incerta (sem internet) não vai para o cache",async()=>{
+  const c=contextoVerificar();
+  const r=c.F.verificar("ccccccccccc");
+  await proximoTick();
+  c.disparar(5000);
+  assert.equal((await r).incerto,true);
+  const antes=c.criados;
+  const r2=c.F.verificar("ccccccccccc");
+  await proximoTick();
+  assert.equal(c.criados,antes+1,"incerto confere de novo na próxima vez");
+  c.disparar(5000);await r2;
 });
 
 test("verificar: vídeo removido (100) também é recusado, sem dizer 'bloqueado'",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("xxxxxxxxxxx");
+  await proximoTick();
   c.msg({event:"onError",info:100});
   const v=await r;
   assert.equal(v.ok,false);assert.equal(v.bloqueado,false);assert.match(v.msg,/removido/i);

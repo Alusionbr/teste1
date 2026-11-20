@@ -6,7 +6,7 @@
  * index.html e do controle.html. Alterou qualquer arquivo, suba os três — o
  * teste de contrato (tests/contracts.test.js) falha se divergirem.
  */
-const APP_VERSION="1.0.11";
+const APP_VERSION="1.0.12";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`KaraokeEmCasa/${APP_VERSION} (https://alusionbr.github.io/teste1/karaoke/)`};
 
 const $=id=>document.getElementById(id);
@@ -25,7 +25,9 @@ function uid(prefixo){const r=crypto.getRandomValues(new Uint32Array(2));return 
  * Avisos de sucesso somem sozinhos; erros ficam até o próximo aviso.
  */
 let avisoTimer=null;
+const AVISOS=[];   // últimos avisos mostrados (o Diagnóstico os lista)
 function notify(msg,ok=false,acao=null){
+  if(msg){AVISOS.push({em:Date.now(),msg:String(msg).slice(0,200),ok});if(AVISOS.length>20)AVISOS.shift()}
   const host=$("aviso");if(!host)return;
   host.textContent="";clearTimeout(avisoTimer);
   if(!msg)return;

@@ -94,6 +94,7 @@ function buscarNoPiped(q){
  * Com chave, a oficial vem primeiro; se ela recusar (chave ruim, cota), cai para o
  * serviço público e o aviso diz por quê.
  */
+const CATALOGO_MAX_CONFERIDOS=2,CATALOGO_PRAZO_MS=6000;
 async function playbacksCompartilhados(q){
   if(typeof salaRpc!=="function")return [];
   try{
@@ -125,7 +126,7 @@ async function buscarVideosExternos(q,chave){
 function htmlResultadosVideos(lista,{duracaoEsperada=0}={}){
   const parecido=v=>duracaoEsperada>0&&v.duracao>0&&!diferencaDuracao(duracaoEsperada,v.duracao);
   const ordem=duracaoEsperada>0?[...lista.filter(parecido),...lista.filter(v=>!parecido(v))]:lista;
-  return ordem.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}"><img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer"><span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}${v.duracao?" · "+fmt(v.duracao):""}${parecido(v)?` <span class="selo ok">✓ duração parecida</span>`:""}</small></span></button></li>`).join("");
+  return ordem.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}" data-duracao="${Number(v.duracao)||0}"><img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer"><span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}${v.duracao?" · "+fmt(v.duracao):""}${parecido(v)?` <span class="selo ok">✓ duração parecida</span>`:""}</small></span></button></li>`).join("");
 }
 const textoDaFonteBusca=r=>r.fonte==="catalogo"?"Playbacks da comunidade aparecem primeiro.":r.fonte==="oficial"?"Resultados do YouTube (só vídeos que tocam aqui).":"Resultados de um serviço público de busca. O app confere se o vídeo toca aqui ao escolher.";
 
@@ -185,12 +186,16 @@ function ordenarCandidatos(lista,ctx){
  * Com a chave oficial o resultado já é embutível, então não confere de novo (poupa 1,5 s).
  */
 async function resolverPlayback(consulta,{chave="",titulo="",artista="",duracaoEsperada=0,tentativas=3,verificar=id=>YouTubeBase.verificar(id)}={}){
+  // Catálogo da comunidade primeiro, mas com limite: no máximo 2 conferidos e 6 s no total
+  // (cada conferência abre um player escondido; com internet lenta, 12 seguidas travavam a festa).
   let salvos=[];
   try{
     salvos=await playbacksCompartilhados(consulta);
-    for(const v of salvos){
+    const inicio=Date.now();
+    for(const v of salvos.slice(0,CATALOGO_MAX_CONFERIDOS)){
+      if(Date.now()-inicio>CATALOGO_PRAZO_MS)break;
       const teste=await verificar(v.id);
-      if(teste.ok)return{video:{...v,compartilhado:true,incerto:!!teste.incerto},alternativas:salvos.filter(outro=>outro.id!==v.id),fonte:"catalogo",aviso:"Playback salvo pela comunidade."};
+      if(teste.ok&&!teste.incerto)return{video:{...v,compartilhado:true,incerto:false},alternativas:salvos.filter(outro=>outro.id!==v.id),fonte:"catalogo",aviso:"Playback salvo pela comunidade."};
     }
   }catch{}
   const r=await buscarVideosExternos(consulta,chave);

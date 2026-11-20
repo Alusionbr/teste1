@@ -132,7 +132,7 @@ $("buscaResultados").addEventListener("click",async e=>{
 });
 // Só o link do YouTube: o título vem do próprio vídeo, a música entra na playlist e a
 // letra pode ser a do vídeo (Ajustes → Fundo → “Só o vídeo do YouTube”).
-async function adicionarPorVideo(id,tituloOpcional){
+async function adicionarPorVideo(id,tituloOpcional,duracao=0){
   const status=$("buscaStatus");
   status.textContent="Conferindo o vídeo…";
   try{
@@ -140,7 +140,7 @@ async function adicionarPorVideo(id,tituloOpcional){
     if(!titulo)try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo))throw err}
     const v=await YouTubeBase.verificar(id);
     if(!v.ok)throw Error(`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`);
-    const m=criarMusica({title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo}});
+    const m=criarMusica({title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo,duracao:Number(duracao)||0}});
     adicionarItem(garantirPlaylist(),m.id,"","");
     await salvarEstado();
     $("novaLinkYT").value="";status.textContent="";$("novaVideos").innerHTML="";
@@ -194,7 +194,7 @@ $("novaVerOpcoes").addEventListener("click",e=>{
 });
 $("novaVideos").addEventListener("click",e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
-  adicionarPorVideo(b.dataset.video,b.dataset.titulo);
+  adicionarPorVideo(b.dataset.video,b.dataset.titulo,b.dataset.duracao);
 });
 
 /* ---------------------------------------- adicionar pelo nome: trocar / tirar */
@@ -245,6 +245,12 @@ $("formLote").addEventListener("submit",async e=>{
   let entraram=0,falharam=0;
   for(const [i,it] of itens.entries()){
     if(loteParado)break;
+    // Conferir vídeo abre um segundo player: com música tocando nesta tela, espera ela acabar.
+    if(!await YouTubeBase.aguardarLivre(0)){
+      status.textContent=`Esperando a música acabar para continuar (${i+1} de ${itens.length})… toque em Parar para cancelar.`;
+      while(!loteParado&&!await YouTubeBase.aguardarLivre(1500)){}
+      if(loteParado)break;
+    }
     status.textContent=`Procurando ${i+1} de ${itens.length}: ${it.texto}…`;
     try{
       if(lerLinkYouTube(it.texto))throw Error("Link: use o campo acima.");
@@ -280,7 +286,7 @@ async function definirPlaybackEditor(playback,msg){
   if(msg)notify(msg,true);
 }
 // Confere se o vídeo toca fora do YouTube e só então troca o playback da música.
-async function usarVideoNoEditor(id,tituloOpcional,botao){
+async function usarVideoNoEditor(id,tituloOpcional,botao,duracao=0){
   let titulo=tituloOpcional||"",veredito={ok:true};
   notify("Conferindo se este vídeo pode tocar aqui…",true);
   try{
@@ -292,7 +298,7 @@ async function usarVideoNoEditor(id,tituloOpcional,botao){
   }catch(err){return notify(err.message)}
   if(!veredito.ok)return notify(`${veredito.msg} Escolha outro vídeo (clipes oficiais costumam bloquear; procure por “playback” ou “karaokê”).`);
   $("mLinkYT").value="https://youtu.be/"+id;
-  definirPlaybackEditor({tipo:"youtube",id,titulo},veredito.incerto?"Playback escolhido. Não consegui conferir agora se ele toca aqui (sem resposta do YouTube).":"Playback do YouTube escolhido: pode tocar aqui ✓");
+  definirPlaybackEditor({tipo:"youtube",id,titulo,duracao:Number(duracao)||0},veredito.incerto?"Playback escolhido. Não consegui conferir agora se ele toca aqui (sem resposta do YouTube).":"Playback do YouTube escolhido: pode tocar aqui ✓");
 }
 $("mUsarYT").addEventListener("click",e=>{
   const texto=$("mLinkYT").value.trim();
@@ -322,7 +328,7 @@ $("mFormBuscaYT").addEventListener("submit",e=>{e.preventDefault();buscarPlaybac
 $("mBuscaYT").addEventListener("input",()=>{ED.buscaEditada=true});
 $("mVideos").addEventListener("click",e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
-  usarVideoNoEditor(b.dataset.video,b.dataset.titulo,b);
+  usarVideoNoEditor(b.dataset.video,b.dataset.titulo,b,b.dataset.duracao);
 });
 $("mUsarSP").addEventListener("click",async e=>{
   const id=lerLinkSpotify($("mLinkSP").value);
@@ -544,6 +550,7 @@ $("fimRecomecar").addEventListener("click",()=>carregarIndice(0));
 $("liberarTocar").addEventListener("click",()=>{$("palcoLiberar").hidden=true;P.fonte&&P.fonte.tocar()});
 $("erroPular").addEventListener("click",proxima);
 $("erroRelogio").addEventListener("click",seguirSemPlayback);
+$("erroTentar").addEventListener("click",recarregarVideo);
 $("erroOutro").addEventListener("click",()=>{const id=P.musica&&P.musica.id;fecharPalco();if(id)abrirEditor(id)});
 $("gravarMarcar").addEventListener("click",Sincronia.marcar);
 $("gravarPausa").addEventListener("click",Sincronia.pausa);

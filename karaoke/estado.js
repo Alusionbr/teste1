@@ -10,7 +10,7 @@
  *               offset, criadaEm}],
  *     playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
  *     placar:[{musicaId, nota, em}],   // notas do "Cantar sozinho" (placar.js)
- *     prefs:{audioDelay, tamanho, fundo, contagem, aplausometro, trava, keyYT} }
+ *     prefs:{audioDelay, tamanho, fundo, fundoV12, contagem, aplausometro, trava, keyYT} }
  *
  * A música mora na biblioteca e a playlist só aponta para ela: a sincronia
  * gravada e o ajuste da letra valem em todas as playlists.
@@ -19,7 +19,7 @@
  * da caixa Bluetooth, tamanho da letra, chave do YouTube) fica em prefs.
  * Um nunca escreve no outro.
  */
-const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",contagem:5,aplausometro:true,trava:true,keyYT:""};
+const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",fundoV12:true,contagem:5,aplausometro:true,trava:true,keyYT:""};
 const FUNDOS=["opaco","escuro","video","tela"];   // "tela": só o vídeo do YouTube, com a letra do próprio vídeo
 const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
@@ -38,7 +38,9 @@ function normalizarCantor(c){
 }
 function normalizarPlayback(p){
   if(!p||!TIPOS_PLAYBACK.includes(p.tipo)||!idOk(p.id))return null;
-  return{tipo:p.tipo,id:p.id,titulo:txt(p.titulo,160)};
+  // duracao (s): duração do vídeo conhecida na escolha. É a referência do relógio da letra
+  // para reconhecer anúncio; 0 = desconhecida (backups antigos).
+  return{tipo:p.tipo,id:p.id,titulo:txt(p.titulo,160),duracao:num(p.duracao,0,14400,0)};
 }
 function normalizarMusica(m){
   if(!m||!idOk(m.id))return null;
@@ -65,7 +67,11 @@ function normalizarDados(d){
   out.activePlaylistId=out.playlists.some(p=>p.id===d.activePlaylistId)?d.activePlaylistId:(out.playlists[0]?.id||"");
   out.placar=(typeof normalizarPlacar==="function"?normalizarPlacar:require("./placar.js").normalizarPlacar)(d.placar,mIds);
   const pr=d.prefs||{};
-  out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo:FUNDOS.includes(pr.fundo)?pr.fundo:PREFS_PADRAO.fundo,
+  // 1.0.12: quem veio de versão antiga ficou com a letra do app por cima de vídeos que já trazem
+  // a letra (em dobro). O padrão "só o vídeo" volta uma única vez; depois vale a escolha de cada um
+  // (Ajustes) e a de cada música (letraDe).
+  const fundo=pr.fundoV12?(FUNDOS.includes(pr.fundo)?pr.fundo:PREFS_PADRAO.fundo):PREFS_PADRAO.fundo;
+  out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo,fundoV12:true,
     contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,trava:pr.trava!==false,keyYT:txt(pr.keyYT,80).trim()};
   return out;
 }

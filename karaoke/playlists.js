@@ -85,7 +85,7 @@ function importarPacote(d){
   const cantores=(d.cantores||[]).map(c=>K.dados.cantores.find(x=>fold(x.nome)===fold(c.nome))||criarCantor(c));
   const musicas=(d.musicas||[]).map(m=>{
     const ja=musicaParecida(m.title,m.artist);
-    if(ja){if(!temLetra(ja)&&(m.synced||m.lyrics))editarMusica(ja.id,{synced:m.synced||"",lyrics:m.lyrics||""},{compartilhar:false});if(!ja.playback&&m.playback)editarMusica(ja.id,{playback:m.playback});return ja}
+    if(ja){if(!temLetra(ja)&&(m.synced||m.lyrics))editarMusica(ja.id,{synced:m.synced||"",lyrics:m.lyrics||""});if(!ja.playback&&m.playback)editarMusica(ja.id,{playback:m.playback});return ja}
     return criarMusica({title:m.title,artist:m.artist,album:m.album,duration:m.duration,offset:m.offset,playback:m.playback,synced:m.synced||"",lyrics:m.lyrics||""});
   });
   const p=criarPlaylist(d.nome||"Playlist recebida");

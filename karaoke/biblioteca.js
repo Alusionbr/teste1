@@ -2,24 +2,32 @@
 /*
  * Biblioteca: as músicas do aparelho, cada uma com letra e playback.
  */
+/*
+ * Catálogo compartilhado entre salas (supabase/002_catalogo.sql).
+ * Só entra o que a família CONFIRMOU tocando: o palco chama compartilharPlayback quando o
+ * vídeo toca por 10 s (palco.js, confirmarPlaybackDepoisDe). Antes isso acontecia ao salvar
+ * a música, e um vídeo errado ou bloqueado virava "padrão da comunidade" para todas as salas.
+ * Um envio por vídeo por sessão; se o catálogo estiver fora do ar, avisa uma vez só.
+ */
+const jaCompartilhados=new Set();let avisouCatalogo=false;
 function compartilharPlayback(m){
-  if(m.playback?.tipo!=="youtube")return;
+  if(!m||m.playback?.tipo!=="youtube")return;
+  const chave=m.title+"|"+m.artist+"|"+m.playback.id;
+  if(jaCompartilhados.has(chave))return;
+  jaCompartilhados.add(chave);
   salaRpc("karaoke_catalogo_salvar",{p_musica:m.title,p_artista:m.artist,p_video:m.playback.id,p_titulo:m.playback.titulo||m.title})
-    .catch(()=>notify("Música salva neste aparelho. O catálogo compartilhado está indisponível."));
+    .catch(()=>{jaCompartilhados.delete(chave);if(!avisouCatalogo){avisouCatalogo=true;notify("Música salva neste aparelho. O catálogo compartilhado está indisponível.")}});
 }
-function criarMusica(campos,{compartilhar=true}={}){
+function criarMusica(campos){
   const m=normalizarMusica({id:uid("m"),criadaEm:Date.now(),...campos});
   K.dados.musicas.push(m);
-  if(compartilhar)compartilharPlayback(m);
   return m;
 }
 function editarMusica(id,campos){
   const i=K.dados.musicas.findIndex(m=>m.id===id);
   if(i<0)return null;
   const nova=normalizarMusica({...K.dados.musicas[i],...campos,id});
-  const anterior=K.dados.musicas[i];
   K.dados.musicas[i]=nova;
-  if(campos.playback||nova.title!==anterior.title||nova.artist!==anterior.artist)compartilharPlayback(nova);
   return nova;
 }
 // Apagar música tira ela das playlists e apaga o áudio guardado (se houver).
