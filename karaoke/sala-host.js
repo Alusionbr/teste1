@@ -180,7 +180,8 @@ const SalaHost=(()=>{
         let m=musicaParecida(d.title,d.artist);
         if(!m&&K.dados.musicas.length>=MAX_MUSICAS)return false;
         if(!m)m=criarMusica({title:d.title,artist:d.artist,duration:d.duration,synced:texto(d.synced,30000),lyrics:texto(d.lyrics,30000),playback:pb});
-        else if(!m.playback&&pb)m=editarMusica(m.id,{playback:pb});
+        else if(pb&&(!m.playback||m.playback.id!==pb.id))m=editarMusica(m.id,{playback:pb});
+        else if(pb)compartilharPlayback(m);
         const item=enfileirar(m,d,quem);
         if(item&&!temLetra(m))completarLetra(m.id);   // a fila não espera a rede
         return !!item;

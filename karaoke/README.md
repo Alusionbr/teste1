@@ -46,6 +46,10 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 - **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
 - **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
 
+### Minha lista no celular
+
+Na página de controle, cada pessoa pode buscar e guardar músicas no próprio celular mesmo sem sala aberta. Ao entrar numa sala, marca uma ou mais músicas e envia para o fim da fila. O envio não interrompe quem está cantando. Quando uma música com playback chega à sala, seu link também é salvo no catálogo compartilhado.
+
 ### Playback compartilhado entre salas
 
 Ao salvar uma música com playback do YouTube, a tela compartilha título, artista, ID e título do vídeo. Na próxima busca pelo nome ou pelo nome e artista, o primeiro link salvo tem preferência. Outros links ficam como alternativas. Se o catálogo falhar, a busca externa continua disponível.

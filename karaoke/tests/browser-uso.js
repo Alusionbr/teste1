@@ -576,6 +576,17 @@ async function novaManual(titulo,letra,dur){
     }finally{await cel.close()}
   });
 
+  await cenario("pedido de música com playback grava no catálogo ao chegar à sala",async()=>{
+    catalogoTeste.length=0;
+    const r=await page.evaluate(async()=>{
+      const ok=SalaHost.aplicar({tipo:"pedir_nova",nome:"Teste",dados:{title:"Contribuição imediata teste",artist:"Artista teste",playback:{tipo:"youtube",id:"BUSCAAAAAA1",titulo:"Playback teste"}}});
+      await new Promise(resolve=>setTimeout(resolve,20));
+      return{ok};
+    });
+    ok(r.ok,"a tela não aceitou o pedido");
+    ok(catalogoTeste.length===1&&catalogoTeste[0].p_video==="BUSCAAAAAA1","o playback não foi copiado para o catálogo ao receber o pedido");
+  });
+
   await cenario("controle filtra nomes parecidos e inclui o segundo cantor do dueto",async()=>{
     const controle=await ctx.newPage();
     try{
@@ -609,6 +620,35 @@ async function novaManual(titulo,letra,dur){
     ok(l.marca<50&&l.botao<50,"título ou botão quebrando em duas linhas");
     ok(l.sel>l.larg*0.8,"seletor de playlist apertado ("+Math.round(l.sel)+"px)");
     ok(!l.rolagemH,"a página rola na horizontal");
+  });
+
+  await cenario("preparar músicas sem sala, selecionar antes e enviar à fila sem mandar tocar agora",async()=>{
+    const celular=await ctx.newPage();
+    try{
+      await celular.goto(BASE+"controle.html");
+      await celular.evaluate(()=>{
+        window.resolverPlayback=async()=>({video:{id:"BUSCAAAAAA1",titulo:"Playback teste",thumb:"",canal:"Teste",duracao:180},alternativas:[]});
+        YouTubeBase.verificar=async()=>({ok:true});
+      });
+      await celular.fill("#ctBuscaMinhaLista","Música para depois - Artista teste");
+      await celular.click('#ctFormMinhaLista button[type="submit"]');
+      await celular.waitForSelector('#ctMinhaListaResultados [data-video="BUSCAAAAAA1"]');
+      await celular.click('#ctMinhaListaResultados [data-video="BUSCAAAAAA1"]');
+      await celular.waitForFunction(()=>JSON.parse(localStorage.getItem("karaoke:controle:minha-lista:v1")||"[]").length===1);
+      await celular.check('#ctMinhaListaItens [data-minha-musica="BUSCAAAAAA1"]');
+      await celular.reload();
+      ok(await celular.locator('#ctMinhaListaItens [data-minha-musica="BUSCAAAAAA1"]').isChecked(),"a seleção não sobreviveu ao recarregamento");
+      await celular.evaluate(()=>{
+        CT.codigo="ABC234";CT.eu={nome:"Cantor"};CT.estado={cantores:[],fila:[],musicas:[],fase:"cantando",palco:"festa"};
+        window.__pedidos=[];window.salaRpc=async(fn,d)=>{window.__pedidos.push({fn,d});return{ok:true}};
+        renderMinhaLista();
+      });
+      await celular.click("#ctMinhaListaEnviar");
+      await celular.waitForFunction(()=>window.__pedidos.length===1);
+      const pedido=await celular.evaluate(()=>window.__pedidos[0]);
+      ok(pedido.fn==="karaoke_comando"&&pedido.d.p_tipo==="pedir_nova"&&pedido.d.p_dados.playback.id==="BUSCAAAAAA1","a música não foi enviada como pedido normal da fila");
+      ok(!pedido.d.p_dados.modo||pedido.d.p_dados.modo==="fila","a lista tentou interromper a pessoa que cantava");
+    }finally{await celular.close()}
   });
 
   ok(erros.length===0,"erros de console/página: "+erros.slice(0,3).join(" | "));

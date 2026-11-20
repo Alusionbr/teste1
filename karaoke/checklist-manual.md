@@ -88,3 +88,6 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Atualização: subir a versão e conferir que o aparelho recebe a nova (aviso “Atualizar”).
 
 - [ ] Salvar um playback sem tocar. Em outra sala, procurar pelo mesmo título e artista, pedir o vídeo salvo e repetir a música.
+
+- [ ] Sem sala aberta, buscar e salvar músicas no controle do celular. Selecionar algumas, entrar numa sala e enviar. Confirmar que entram no fim da fila sem interromper a música atual.
+- [ ] Enviar música nova com playback e confirmar que o ID do vídeo é salvo no catálogo compartilhado.

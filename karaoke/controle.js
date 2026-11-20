@@ -20,6 +20,83 @@ async function comando(tipo,dados={}){
   }catch(e){notify(e.message);return false}
 }
 
+/* ------------------------------------------------------ lista pessoal do celular */
+const CHAVE_MINHA_LISTA="karaoke:controle:minha-lista:v1";
+const CHAVE_MINHA_SELECIONADAS="karaoke:controle:minha-lista-selecionadas:v1";
+let MINHA_LISTA=[],BUSCA_MINHA=null;
+let SELECIONADAS=new Set((()=>{try{return JSON.parse(localStorage.getItem(CHAVE_MINHA_SELECIONADAS)||"[]")}catch{return[]}})());
+function lerMinhaLista(){try{const x=JSON.parse(localStorage.getItem(CHAVE_MINHA_LISTA)||"[]");return Array.isArray(x)?x.filter(m=>m&&typeof m.title==="string"&&m.playback&&m.playback.tipo==="youtube").slice(0,100):[]}catch{return[]}}
+function guardarMinhaLista(){try{localStorage.setItem(CHAVE_MINHA_LISTA,JSON.stringify(MINHA_LISTA))}catch{$("ctMinhaListaStatus").textContent="Não consegui salvar. Confira o espaço disponível no celular."}}
+function renderMinhaLista(){
+  const salaPronta=!!(CT.codigo&&CT.estado);
+  $("ctMinhaListaEnviar").disabled=!salaPronta||!SELECIONADAS.size;
+  $("ctMinhaListaCantor").disabled=!salaPronta;
+  if(salaPronta){
+    const select=$("ctMinhaListaCantor"),atual=select.value;
+    select.innerHTML=opcoesCantores();
+    if([...select.options].some(o=>o.value===atual))select.value=atual;
+  }
+  $("ctMinhaListaItens").innerHTML=MINHA_LISTA.map(m=>`<li class="cartao itemMinhaLista">
+    <label class="check"><input type="checkbox" data-minha-musica="${esc(m.id)}"${SELECIONADAS.has(m.id)?" checked":""}><span><b>${esc(m.title)}</b><small>${esc(m.artist)} · ▶ ${esc(m.playback.titulo||"YouTube")}</small></span></label>
+    <button type="button" data-remover-minha="${esc(m.id)}" aria-label="Remover ${esc(m.title)} da minha lista">✕</button>
+  </li>`).join("")||`<li class="vazio">Sua lista está vazia. Busque uma música para guardar neste celular.</li>`;
+}
+$("ctFormMinhaLista").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const q=$("ctBuscaMinhaLista").value.trim();if(!q)return;
+  const st=$("ctMinhaListaStatus"),btn=e.submitter;
+  st.textContent="Buscando playback…";$("ctMinhaListaResultados").innerHTML="";btn.disabled=true;
+  try{
+    const linha=lerListaDeMusicas(q).itens[0]||{titulo:q,artista:""};
+    const r=await resolverPlayback([linha.titulo,linha.artista].filter(Boolean).join(" "),{titulo:linha.titulo,artista:linha.artista});
+    BUSCA_MINHA={linha,video:r.video,alternativas:r.alternativas||[]};
+    $("ctMinhaListaResultados").innerHTML=htmlResultadosVideos([r.video,...BUSCA_MINHA.alternativas]);
+    st.textContent="Toque no vídeo que quer guardar. Ele fica salvo neste celular.";
+  }catch(err){st.textContent=err.message;if(err.alternativas?.length)$("ctMinhaListaResultados").innerHTML=htmlResultadosVideos(err.alternativas)}
+  finally{btn.disabled=false}
+});
+$("ctMinhaListaResultados").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-video]");if(!b)return;
+  const st=$("ctMinhaListaStatus");b.disabled=true;st.textContent="Conferindo o vídeo…";
+  try{
+    const v=await YouTubeBase.verificar(b.dataset.video);
+    if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo.`;return}
+    const linha=BUSCA_MINHA?.linha||{titulo:$("ctBuscaMinhaLista").value.trim(),artista:""};
+    const m={id:b.dataset.video,title:linha.titulo,artist:linha.artista,playback:{tipo:"youtube",id:b.dataset.video,titulo:b.dataset.titulo||""}};
+    const key=fold(m.title+" "+m.artist),pos=MINHA_LISTA.findIndex(x=>fold(x.title+" "+x.artist)===key);
+    if(pos>=0)MINHA_LISTA[pos]=m;else if(MINHA_LISTA.length<100)MINHA_LISTA.unshift(m);else{st.textContent="Sua lista chegou ao limite de 100 músicas.";return}
+    guardarMinhaLista();renderMinhaLista();st.textContent="Salva neste celular. Você poderá adicionar à fila quando entrar numa sala.";
+  }catch(err){st.textContent=err.message}
+  finally{b.disabled=false}
+});
+$("ctMinhaListaItens").addEventListener("change",e=>{
+  const c=e.target.closest("[data-minha-musica]");if(!c)return;
+  c.checked?SELECIONADAS.add(c.dataset.minhaMusica):SELECIONADAS.delete(c.dataset.minhaMusica);
+  try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
+  renderMinhaLista();
+});
+$("ctMinhaListaItens").addEventListener("click",e=>{
+  const b=e.target.closest("[data-remover-minha]");if(!b)return;
+  MINHA_LISTA=MINHA_LISTA.filter(m=>m.id!==b.dataset.removerMinha);SELECIONADAS.delete(b.dataset.removerMinha);
+  try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
+  guardarMinhaLista();renderMinhaLista();
+});
+$("ctMinhaListaEnviar").addEventListener("click",async()=>{
+  if(!CT.codigo||!CT.estado)return;
+  const cantorId=$("ctMinhaListaCantor").value,selecionadas=MINHA_LISTA.filter(m=>SELECIONADAS.has(m.id));
+  const btn=$("ctMinhaListaEnviar");btn.disabled=true;
+  let enviadas=0;
+  for(const m of selecionadas){
+    const ok=await comando("pedir_nova",{title:m.title,artist:m.artist,playback:m.playback,cantorId});
+    if(!ok)break;
+    enviadas++;SELECIONADAS.delete(m.id);
+  }
+  try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
+  $("ctMinhaListaStatus").textContent=enviadas?`${enviadas} música(s) adicionada(s) à fila. Quem está cantando continua normalmente.`:"Não consegui enviar as músicas. Tente novamente.";
+  renderMinhaLista();
+});
+MINHA_LISTA=lerMinhaLista();
+
 /* ------------------------------------------------------------ consultar */
 async function consultar(){
   try{
@@ -67,7 +144,7 @@ function render(){
   document.querySelectorAll('[data-cmd="alternar"],[data-cmd="proxima"],[data-cmd="anterior"],[data-cmd="adiantar"],[data-cmd="atrasar"],#ctLetra,#ctVolume').forEach(b=>{b.disabled=CT.travado});
   $("ctErroPlayback").hidden=!e.erro;
   if(e.erro)$("ctErroTexto").textContent="⚠️ O playback desta música falhou. "+e.erro;
-  renderFila();renderCantores();renderMusicas();
+  renderFila();renderCantores();renderMusicas();renderMinhaLista();
   if($("ctMusicaPainel").open)atualizarPainel();
 }
 function renderFila(){
@@ -361,5 +438,6 @@ function entrarNaSala(codigo){
 (()=>{
   const c=(new URLSearchParams(location.search).get("sala")||"").toUpperCase();
   if(/^[A-Z0-9]{6,12}$/.test(c))entrarNaSala(c);else mostrar("ctEntrar");
+  renderMinhaLista();
   requestAnimationFrame(animarProgresso);
 })();

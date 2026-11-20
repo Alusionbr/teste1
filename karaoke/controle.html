@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#140b2b">
   <meta name="description" content="Controle do Karaokê em Casa: peça músicas e comande a tela da festa pelo celular.">
   <title>Controle — Karaokê em Casa</title>
-  <script data-version="1.0.11">
+  <script data-version="1.0.12">
   // Mesma trava de versão da página principal (ver index.html).
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -25,7 +25,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.11">
+  <link rel="stylesheet" href="./styles.css?v=1.0.12">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
 </head>
@@ -43,6 +43,23 @@
         <button type="submit" class="primario">Entrar</button>
       </form>
       <p class="dica">O código aparece na tela da festa, em “Controle remoto”.</p>
+      <p class="dica">Você também pode preparar sua lista de músicas antes de entrar numa sala, no mesmo celular.</p>
+    </section>
+
+    <section id="ctMinhaLista" class="cartao">
+      <h2>🎶 Minha lista</h2>
+      <p class="dica">Salve músicas neste celular antes da festa. Quando entrar numa sala, selecione as que quer mandar para a fila.</p>
+      <form id="ctFormMinhaLista" class="barraBusca" autocomplete="off">
+        <input id="ctBuscaMinhaLista" type="search" placeholder="Nome da música e do artista" aria-label="Nome da música e do artista">
+        <button type="submit" class="primario">Buscar playback</button>
+      </form>
+      <p id="ctMinhaListaStatus" class="dica" role="status"></p>
+      <ul id="ctMinhaListaResultados" class="lista videos"></ul>
+      <div class="acoes">
+        <label>Quem vai cantar? <select id="ctMinhaListaCantor" disabled><option value="">Escolha após entrar numa sala</option></select></label>
+        <button type="button" id="ctMinhaListaEnviar" class="primario" disabled>Adicionar selecionadas à fila</button>
+      </div>
+      <ul id="ctMinhaListaItens" class="lista compacta"></ul>
     </section>
 
     <section id="ctQuem" class="cartao" hidden>
@@ -160,15 +177,15 @@
   </dialog>
   <div id="aviso" aria-live="polite"></div>
 
-  <script src="./core.js?v=1.0.11"></script>
-  <script src="./links.js?v=1.0.11"></script>
-  <script src="./familia.js?v=1.0.11"></script>
-  <script src="./lrc.js?v=1.0.11"></script>
-  <script src="./letras.js?v=1.0.11"></script>
-  <script src="./busca-youtube.js?v=1.0.11"></script>
-  <script src="./verificar-youtube.js?v=1.0.11"></script>
-  <script src="./sala.js?v=1.0.11"></script>
-  <script src="./controle.js?v=1.0.11"></script>
-  <script src="./offline.js?v=1.0.11"></script>
+  <script src="./core.js?v=1.0.12"></script>
+  <script src="./links.js?v=1.0.12"></script>
+  <script src="./familia.js?v=1.0.12"></script>
+  <script src="./lrc.js?v=1.0.12"></script>
+  <script src="./letras.js?v=1.0.12"></script>
+  <script src="./busca-youtube.js?v=1.0.12"></script>
+  <script src="./verificar-youtube.js?v=1.0.12"></script>
+  <script src="./sala.js?v=1.0.12"></script>
+  <script src="./controle.js?v=1.0.12"></script>
+  <script src="./offline.js?v=1.0.12"></script>
 </body>
 </html>
