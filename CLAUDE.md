@@ -769,7 +769,7 @@ Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no
 
 Karaokê para a **família**: playlists de músicas com **playback** (YouTube, YouTube Music, Spotify ou arquivo do aparelho) e a letra grande, sincronizada, enchendo na cor de quem canta. Uma tela central (TV, projetor, computador) é o palco; os celulares viram **controle remoto** pela sala no Supabase. Prioridades: legível de longe, não travar a festa quando uma fonte falha, nada de dado de exemplo.
 
-Uso e guia de continuidade: `karaoke/README.md`. Roteiro de teste: `karaoke/checklist-manual.md`.
+Uso e guia de continuidade: `karaoke/README.md`. **Histórico, decisões, pendências e ideias de melhoria: `karaoke/CONTINUIDADE.md`** (leia antes de mexer). Roteiro de teste: `karaoke/checklist-manual.md`.
 
 ## Arquivos
 

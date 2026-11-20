@@ -1,5 +1,7 @@
 # Karaokê em Casa
 
+> **Quem for continuar o projeto (pessoa ou outra ferramenta): comece por [`CONTINUIDADE.md`](CONTINUIDADE.md)** — histórico das versões, decisões, como testar, o que falta e onde procurar melhorias.
+
 Karaokê para a família, direto no navegador. Monte playlists, escolha o **playback** de cada música (YouTube, YouTube Music, Spotify ou um arquivo do aparelho) e cante com a **letra grande, sincronizada, enchendo na cor de quem está cantando**. Deixe a TV ou o projetor como **tela da festa** e controle tudo pelos celulares.
 
 Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
