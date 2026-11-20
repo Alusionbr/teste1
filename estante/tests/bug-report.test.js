@@ -8,12 +8,12 @@ const read=name=>fs.readFileSync(path.join(root,name),"utf8");
 
 test("formulário anônimo abre, valida o relato e descreve apenas os dados necessários",()=>{
   const html=read("index.html"),client=read("bug-report.js");
-  assert.match(html,/id="reportBugBtn"[^>]*>Informar um bug/);
+  assert.match(html,/id="reportBugBtn"[^>]*>Relatar problema/);
   assert.match(html,/<dialog id="bugReportDialog">/);
   assert.match(html,/id="bugDescription" required minlength="15" maxlength="1500"/);
-  assert.match(html,/Não pedimos nome, e-mail ou login/);
+  assert.match(html,/Não é necessário login; não inclua dados pessoais/);
   assert.match(client,/credentials: "omit"/);
-  assert.match(client,/description: text/);
+  assert.match(client,/description: descriptionText\.slice\(0,1500\)/);
   assert.match(client,/page_path: pagePath/);
   assert.doesNotMatch(client,/navigator\.userAgent|document\.cookie|localStorage\.getItem|auth\.getUser/);
   assert.match(client,/isSending/);

@@ -50,6 +50,7 @@ function renderCredits(song){
 let openSongRequest=0;
 async function openSong(song){
   const requestId=++openSongRequest;
+  if(typeof window.setLyricsSelectionMode==="function"&&document.body.classList.contains("selectingLyrics"))window.setLyricsSelectionMode(false);
   stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
   // Troca o vídeo já aqui, antes da busca de letra que pode esperar até 12s de
   // rede: se ficasse atrás do await, o som da música anterior continuaria saindo
@@ -105,6 +106,7 @@ function renderPaper(){const p=$("paper");p.className="paper"+(state.lrc.length?
 const DOUBLE_TAP_MS=400;
 let pausouNoToque=false,ultimaLinhaTocada=-1,ultimoToqueEm=0,ultimaDicaEm=-Infinity;
 function tapSyncLine(i){
+  if(document.body.classList.contains("selectingLyrics"))return;
   const agora=performance.now();
   const duplo=i===ultimaLinhaTocada&&(agora-ultimoToqueEm)<DOUBLE_TAP_MS;
   ultimaLinhaTocada=i;ultimoToqueEm=agora;
