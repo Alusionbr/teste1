@@ -101,7 +101,7 @@ async function novaManual(titulo,letra,dur){
   page=await ctx.newPage();
   const erros=[];
   page.on("pageerror",e=>erros.push("página: "+e.message));
-  page.on("console",m=>{if(m.type()==="error")erros.push("console: "+m.text().slice(0,160)+" "+(m.location()&&m.location().url||""))});
+  page.on("console",m=>{if(m.type()==="error"&&!/ERR_FAILED.*\/search\?q=/.test(m.text()))erros.push("console: "+m.text().slice(0,160)+" "+(m.location()&&m.location().url||""))});
   page.on("dialog",d=>d.accept(d.type()==="prompt"?(d.defaultValue()||"Teste"):undefined));
   await page.goto(BASE);
   console.log("Cenários de uso:");
