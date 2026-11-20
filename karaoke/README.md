@@ -52,7 +52,7 @@ Na página de controle, cada pessoa pode buscar e guardar músicas no próprio c
 
 ### Mudar a tela principal para o projetor
 
-No projetor, abra **Controle remoto**, digite o código da sala e toque em **Pedir para assumir**. A tela atual mostra o pedido; alguém nela precisa aprovar. A fila inteira, letras, cantores e música atual são transferidos criptografados pelo Supabase. A tela antiga entrega o controle e para o playback; no projetor novo, a música abre no ponto em que estava e aguarda um toque em **Começar**. O conteúdo transferido não inclui a chave do YouTube nem arquivos de áudio guardados no aparelho antigo. Se o playback atual era um arquivo local, será preciso escolhê-lo novamente no projetor.
+No projetor, abra **Controle remoto**, digite o código da sala e toque em **Pedir para assumir**. A tela atual mostra o pedido; alguém nela precisa aprovar. A fila inteira, letras, cantores e música atual são transferidos criptografados pelo Supabase. A tela antiga entrega o controle e para o playback; no projetor novo, a música abre no ponto em que estava e aguarda um toque em **Começar**. O conteúdo transferido não inclui a chave do YouTube nem arquivos de áudio guardados no aparelho antigo. Se alguma música da fila usa um arquivo local, será preciso escolher esse arquivo novamente no projetor.
 
 ### Playback compartilhado entre salas
 

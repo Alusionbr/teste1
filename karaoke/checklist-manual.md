@@ -73,7 +73,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Abrir a sala na tela atual; no projetor, abrir Controle remoto, digitar o código e pedir para assumir. Confirmar que a tela atual mostra quem pediu.
 - [ ] Aprovar na tela atual: fila inteira, ordem, cantores e letras aparecem no projetor. A música atual fica no ponto salvo e aguarda um toque em Começar.
 - [ ] Conferir que a tela antiga parou o playback e perdeu o controle da sala; os celulares continuam conectados ao mesmo código.
-- [ ] Repetir usando um playback de arquivo local: conferir o aviso de que o arquivo precisa ser escolhido novamente no projetor.
+- [ ] Repetir com músicas da fila usando playback de arquivo local: conferir que esses arquivos precisam ser escolhidos novamente no projetor.
 - [ ] Recusar um pedido de transferência: a tela atual continua no ar e o projetor informa que o pedido foi recusado.
 - [ ] Nome no celular vira cantor na Família da tela.
 - [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
