@@ -94,8 +94,24 @@ async function novaManual(titulo,letra,dur){
     {url:"/watch?v=BUSCAAAAAA1",type:"stream",title:"Evidências (Playback Karaokê)",uploaderName:"Canal Karaokê",duration:215,isShort:false},
     {url:"/watch?v=BUSCAAAAAA2",type:"stream",title:"Evidências — Instrumental",uploaderName:"Outro Canal",duration:230,isShort:false},
     {url:"/watch?v=BLOQUEADO01",type:"stream",title:"Clipe oficial (bloqueado)",uploaderName:"Gravadora",duration:250,isShort:false}]};
+  const CORS={"access-control-allow-origin":"*","access-control-allow-headers":"*"};
+  const SO_BLOQUEADO={items:[BUSCA_FALSA.items[2]]};
   ["https://api.piped.private.coffee","https://pipedapi.kavin.rocks","https://pipedapi.leptons.xyz","https://pipedapi.adminforge.de"].forEach((base,i)=>
-    ctx.route(base+"/search**",r=>i===0?r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(BUSCA_FALSA)}):r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"{\"erro\":\"fora do ar\"}"})));
+    ctx.route(base+"/search**",r=>{
+      if(i!==0)return r.fulfill({status:200,contentType:"application/json",headers:CORS,body:"{\"erro\":\"fora do ar\"}"});
+      const q=(new URL(r.request().url()).searchParams.get("q")||"").toLowerCase();
+      // "bloqueada": só o clipe que não toca fora do YouTube; "nada": busca sem resultado
+      const corpo=/bloqueada/.test(q)?SO_BLOQUEADO:/\bnada\b/.test(q)?{items:[]}:BUSCA_FALSA;
+      r.fulfill({status:200,contentType:"application/json",headers:CORS,body:JSON.stringify(corpo)});
+    }));
+  // Letra: LRCLIB falso. Música com "nada" no nome não tem letra.
+  const LETRA_FALSA={trackName:"Evidências",artistName:"Chitãozinho e Xororó",albumName:"Álbum",duration:215,instrumental:false,syncedLyrics:"[00:01.00]primeira linha\n[00:05.00]segunda linha",plainLyrics:"primeira linha\nsegunda linha"};
+  await ctx.route("https://api.lyrics.ovh/**",r=>r.fulfill({status:404,headers:CORS,contentType:"application/json",body:"{}"}));
+  await ctx.route("https://lrclib.net/api/**",r=>{
+    const u=r.request().url(),semLetra=/nada/i.test(decodeURIComponent(u));
+    if(/\/api\/get\?/.test(u))return r.fulfill(semLetra?{status:404,headers:CORS,contentType:"application/json",body:"{}"}:{status:200,headers:CORS,contentType:"application/json",body:JSON.stringify(LETRA_FALSA)});
+    r.fulfill({status:200,headers:CORS,contentType:"application/json",body:JSON.stringify(semLetra?[]:[LETRA_FALSA])});
+  });
   // Miniaturas dos resultados (ids falsos): sem rede de verdade.
   await ctx.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
   page=await ctx.newPage();
@@ -105,6 +121,7 @@ async function novaManual(titulo,letra,dur){
     if(m.type()!=="error")return;
     const url=(m.location()&&m.location().url)||"";
     if(/ERR_FAILED/.test(m.text())&&/\/search\?q=/.test(url))return;   // busca fora do ar simulada de propósito
+    if(/status of 404/.test(m.text())&&/lrclib\.net\/api\/get|api\.lyrics\.ovh/.test(url))return;   // "sem letra" simulado de propósito
     erros.push("console: "+m.text().slice(0,160)+" "+url);
   });
   page.on("dialog",d=>d.accept(d.type()==="prompt"?(d.defaultValue()||"Teste"):undefined));
@@ -336,9 +353,9 @@ async function novaManual(titulo,letra,dur){
 
   await cenario("só o link do YouTube entra na playlist; o modo 'só o vídeo' esconde a letra do app",async()=>{
     await aba("musicas");await page.click("#btnNovaMusica");
-    await page.fill("#novaLinkYT","https://exemplo.com/video");await page.click("#formNovaLink button");
+    await page.fill("#novaLinkYT","https://exemplo.com/video");await page.click("#formNovaLink button[type=submit]");
     await page.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#buscaStatus").textContent));
-    await page.fill("#novaLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ");await page.click("#formNovaLink button");
+    await page.fill("#novaLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ");await page.click("#formNovaLink button[type=submit]");
     await page.waitForSelector("#dlgNovaMusica",{state:"hidden",timeout:12000});
     const li=page.locator("#filaLista li").filter({hasText:"Vídeo de teste"});
     ok(await li.count()===1,"a música do link não entrou na playlist com o título do vídeo");
@@ -381,7 +398,7 @@ async function novaManual(titulo,letra,dur){
 
   await cenario("buscar vídeo no YouTube sem chave: Nova música e editor",async()=>{
     await aba("musicas");await page.click("#btnNovaMusica");
-    await page.fill("#novaLinkYT","evidências");await page.click("#formNovaLink button");
+    await page.fill("#novaLinkYT","evidências");await page.click("#novaVerOpcoes");
     await page.waitForSelector("#novaVideos [data-video]",{timeout:10000});
     ok(await page.locator("#novaVideos [data-video]").count()===3,"deveria listar os 3 vídeos");
     ok(/serviço público/.test(await page.locator("#buscaStatus").innerText()),"não diz de onde vieram os resultados");
@@ -420,6 +437,53 @@ async function novaManual(titulo,letra,dur){
     ok(await page.evaluate(()=>document.querySelector("#mLinkDetalhes").open),"o campo de link deveria abrir quando a busca cai");
     ok(await page.locator("#mProcurarYT").isVisible(),"falta o atalho para o YouTube");
     for(const b of bases)await page.unroute(b+"/search**");
+  });
+
+  await cenario("adicionar pelo nome: o app escolhe o vídeo e a letra, entra na playlist, dá para trocar e tirar",async()=>{
+    await aba("musicas");await page.click("#btnNovaMusica");
+    const antes=await page.evaluate(()=>K.dados.musicas.length);
+    await page.fill("#novaLinkYT","evidências");await page.click("#formNovaLink button[type=submit]");
+    await page.waitForSelector("#novaResultado .autoItem",{timeout:15000});
+    const m=await page.evaluate(()=>{const x=K.dados.musicas[K.dados.musicas.length-1];return{title:x.title,artist:x.artist,pb:x.playback&&x.playback.id,sinc:!!x.synced,naFila:playlistAtiva().itens.some(i=>i.musicaId===x.id)}});
+    ok(m.pb==="BUSCAAAAAA1"&&m.title==="Evidências"&&m.artist==="Chitãozinho e Xororó"&&m.sinc&&m.naFila,"escolha automática errada: "+JSON.stringify(m));
+    ok(await page.locator("#novaResultado .selo.ok").count()===1,"falta o selo de letra sincronizada");
+    // trocar: o clipe bloqueado é recusado, o outro vale
+    await page.click('#novaResultado [data-auto="trocar"]');
+    await page.waitForSelector('#novaResultado [data-video="BLOQUEADO01"]');
+    await page.click('#novaResultado [data-video="BLOQUEADO01"]');
+    await page.waitForFunction(()=>/Escolha outro v/.test(document.querySelector("#aviso").textContent),null,{timeout:12000});
+    ok(await page.evaluate(()=>K.dados.musicas[K.dados.musicas.length-1].playback.id)==="BUSCAAAAAA1","trocou para um vídeo bloqueado");
+    await page.click('#novaResultado [data-video="BUSCAAAAAA2"]');
+    await page.waitForFunction(()=>K.dados.musicas[K.dados.musicas.length-1].playback.id==="BUSCAAAAAA2",null,{timeout:12000});
+    // tirar: sai da playlist e a música criada agora some junto
+    await page.click('#novaResultado [data-auto="tirar"]');
+    await page.waitForFunction(n=>K.dados.musicas.length===n,antes);
+    await page.waitForFunction(()=>!document.querySelector("#novaResultado .autoItem"),null,{timeout:5000}).catch(()=>{});
+    ok(await page.locator("#novaResultado .autoItem").count()===0,"a linha continuou na tela");
+    await page.evaluate(()=>document.querySelector("#dlgNovaMusica").close());
+  });
+
+  await cenario("adicionar várias de uma vez: uma entra completa, uma sem vídeo, uma não acha; pode tirar",async()=>{
+    await aba("musicas");await page.click("#btnNovaMusica");
+    await page.click("#novaLote summary");
+    const antes=await page.evaluate(()=>({m:K.dados.musicas.length,f:playlistAtiva().itens.length}));
+    await page.fill("#loteTexto","1. Evidências - Chitãozinho e Xororó\nBloqueada - Fulano\nNada - Ninguém\nevidências - chitãozinho e xororó");
+    await page.click("#loteIr");
+    await page.waitForFunction(()=>/Pronto/.test(document.querySelector("#loteStatus").textContent),null,{timeout:60000});
+    ok(await page.locator("#loteLista .autoItem[data-musica]").count()===2,"deveriam entrar 2 músicas");
+    ok(await page.locator("#loteLista .autoItem.falhou").count()===1,"deveria falhar 1 linha");
+    const st=await page.locator("#loteStatus").innerText();
+    ok(/2 entraram/.test(st)&&/1 não/.test(st),"resumo errado: "+st);
+    const dep=await page.evaluate(()=>({m:K.dados.musicas.length,f:playlistAtiva().itens.length,sem:K.dados.musicas.filter(x=>!x.playback&&x.title==="Bloqueada").length}));
+    ok(dep.m===antes.m+2&&dep.f===antes.f+2&&dep.sem===1,"estado errado: "+JSON.stringify(dep));
+    ok(await page.locator('#loteLista [data-auto="trocar"]').filter({hasText:"Escolher vídeo"}).count()===1,"a música sem vídeo deveria oferecer Escolher vídeo");
+    // tira as duas
+    for(let n=await page.locator('#loteLista [data-auto="tirar"]').count();n>0;n--){
+      await page.locator('#loteLista [data-auto="tirar"]').first().click();
+      await page.waitForFunction(k=>document.querySelectorAll('#loteLista [data-auto="tirar"]').length===k,n-1,{timeout:5000});
+    }
+    await page.waitForFunction(n=>K.dados.musicas.length===n,antes.m);
+    await page.evaluate(()=>document.querySelector("#dlgNovaMusica").close());
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{

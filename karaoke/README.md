@@ -21,10 +21,18 @@ Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app 
 1. **É o padrão**: o fundo “Só o vídeo do YouTube — a letra vem no próprio vídeo” já vem ligado (Ajustes → Palco → Fundo da letra). O vídeo ocupa a tela inteira; depois de 4 s sem mexer somem as barras e **só o player fica na tela**, com a sala funcionando por trás (celulares, fila, vez e aplausos continuam valendo).
 2. **Ligar e desligar a letra sincronizada sem atrapalhar o vídeo**: botão **🎞 Só vídeo / 🔤 Letra** no palco, tecla **L** e botão no **celular da sala**. É só troca de camada: o player do YouTube não é recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço. Ligada, a letra volta com o vídeo escurecido atrás (ou o último fundo que você usava). O botão 🎬 alterna entre os quatro fundos.
 3. **Nada leva a TV para a página do YouTube**: o player não mostra controles, título nem logo e não aceita cliques (só o primeiro toque que o iPhone/iPad exige). Quem comanda é o app, o teclado e os celulares.
-4. **Achar e adicionar o vídeo sem sair do app**: Músicas → + Nova música → campo “Buscar vídeo de karaokê ou colar o link” (veja “Buscar vídeos no YouTube” abaixo). No celular da sala: **✨ Música nova**, mesmo campo; o resultado tocado entra na fila da tela.
+4. **Achar e adicionar o vídeo sem sair do app**: Músicas → + Nova música → digite o nome e o artista no campo único e toque em **➕ Adicionar**: o app escolhe sozinho o melhor vídeo de karaokê, busca a letra sincronizada e já põe a música na playlist (veja “Adicionar pelo nome e em lote” abaixo). No celular da sala: **✨ Música nova**, mesmo campo; o app mostra o vídeo escolhido e você toca em **Pedir na fila** (ou **Outros vídeos**).
 5. A família escolhe, troca o playback e manda tocar pelo celular (painel da música). A vez, o rodízio e o aplausômetro continuam valendo.
 
 Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra do app mesmo nesse modo. Vídeo que o dono bloqueou fora do YouTube é recusado na hora, antes de entrar na lista.
+
+### Adicionar pelo nome e em lote (acervo da família)
+
+- **Um nome só** (Nova música → campo único → ➕ Adicionar): o app procura vídeos, dá pontos a cada um (palavras karaokê/playback/instrumental, palavras do que você digitou, duração, e tira pontos de “ao vivo”, cover, remix, coletânea) e confere o melhor com o player invisível; se o melhor for bloqueado, tenta o seguinte (até 3). Em paralelo busca a letra (LRCLIB): com “Música - Artista” usa a busca exata; sem artista, usa a primeira da busca livre e preenche título e artista. A música entra no fim da playlist com a linha **▶ vídeo · duração**, o selo da letra, e os botões **Trocar vídeo** e **Tirar**. “🔎 Ver opções” mostra a lista de vídeos para escolher à mão (como antes).
+- **Várias de uma vez** (Nova música → “📋 Adicionar várias de uma vez”): cole uma música por linha (`Evidências - Chitãozinho e Xororó`; numeração e marcadores são ignorados, repetidas também; máximo 30 por vez). O app resolve uma a uma (cerca de 1 a 3 s cada), mostra “3 de 12” e **Parar**. No fim, cada linha mostra o vídeo escolhido; troque só as que erraram. Linha sem vídeo que toque mas com letra entra **sem playback** (botão “Escolher vídeo”); linha sem nada fica marcada em vermelho e nada é criado.
+- A escolha automática pode errar (versão ao vivo, outro idioma). Por isso sempre há **Trocar vídeo**, e vídeo com pontuação baixa vem com “confira se é este mesmo”.
+- **Acervo da família**: cada música guarda a letra e o id do vídeo no aparelho. Para levar a outro aparelho: **Ajustes → Exportar backup** (ou o link compartilhado da playlist) e importe lá. **Não coloque o acervo (letras) dentro do repositório**: o site é público e letra de música é obra protegida.
+- Código: `busca-youtube.js` (`pontuarVideo`, `ordenarCandidatos`, `resolverPlayback`, `lerListaDeMusicas`, puros e testados em `tests/busca.test.js`) e `auto-adicionar.js` (`adicionarPeloNome`, trocar e tirar; a tela liga os botões em `ui.js`).
 
 ### Buscar vídeos no YouTube
 
@@ -122,7 +130,8 @@ biblioteca.js    músicas, áudio do aparelho
 playlists.js     playlists, link de compartilhamento (CompressionStream), backup
 letras.js        LRCLIB → lyrics.ovh; título por oEmbed; busca do YouTube com chave opcional
 fontes.js        interface comum de playback + relógio manual + arquivo (<audio>)
-busca-youtube.js   busca de vídeos: chave oficial → serviços Piped (INSTANCIAS_BUSCA), mapeamento e cooldown
+busca-youtube.js   busca de vídeos: chave oficial → serviços Piped (INSTANCIAS_BUSCA), mapeamento, cooldown e escolha automática
+auto-adicionar.js  "Adicionar pelo nome": vídeo + letra + playlist, trocar e tirar (tela)
 verificar-youtube.js PEÇAS do YouTube usadas pela tela e pelo celular: origens, erros, endereço do player e a conferência “toca fora do YouTube?”
 fonte-youtube.js protocolo postMessage do YouTube falado à mão (sem iframe_api)
 fonte-spotify.js protocolo postMessage do Spotify falado à mão (sem o script deles)
@@ -171,7 +180,7 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 22 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 24 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 

@@ -247,12 +247,21 @@ function salaFalsa(){
   await cel.click("#ctLetra");
   await page.waitForFunction(a=>prefs().fundo===a,fundoAntes,{timeout:8000});
 
-  // Busca de vídeos no celular: resultado tocado vira pedido para a tela
+  // Celular: digita o nome, o app escolhe o vídeo; "Outros vídeos" lista os demais e tocar num vira pedido
   await cel.click('[data-ct-aba="nova"]');
   await cel.fill("#ctLinkRapido","evidências");await cel.click('#ctFormLink button[type="submit"]');
-  await cel.waitForSelector('#ctLinkResultados [data-video="BUSCAAAAAA1"]',{timeout:10000});
-  await cel.click('#ctLinkResultados [data-video="BUSCAAAAAA1"]');
-  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Evidências (Playback Karaokê)"&&m.playback&&m.playback.id==="BUSCAAAAAA1"),null,{timeout:12000});
+  await cel.waitForSelector("#ctLinkResultados [data-outros-auto]",{timeout:10000});
+  assert.ok(/Playback Karaokê/.test(await cel.locator("#ctLinkResultados .autoTexto").innerText()),"o celular não mostrou o vídeo escolhido");
+  await cel.click("#ctLinkResultados [data-outros-auto]");
+  await cel.waitForSelector('#ctLinkResultados [data-video="BUSCAAAAAA2"]',{timeout:10000});
+  assert.equal(await cel.locator('#ctLinkResultados [data-video="BUSCAAAAAA1"]').count(),0,"o vídeo já escolhido não deveria voltar na lista de outros");
+  await cel.click('#ctLinkResultados [data-video="BUSCAAAAAA2"]');
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Evidências — Instrumental"&&m.playback&&m.playback.id==="BUSCAAAAAA2"),null,{timeout:12000});
+  // ...e "Pedir na fila" envia a escolha automática direto
+  await cel.fill("#ctLinkRapido","evidências auto");await cel.click('#ctFormLink button[type="submit"]');
+  await cel.waitForSelector("#ctLinkResultados [data-pedir-auto]",{timeout:10000});
+  await cel.click("#ctLinkResultados [data-pedir-auto]");
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="evidências auto"),null,{timeout:12000});
   await cel.click('[data-ct-aba="pedir"]');
 
   // Celular: escolhe a letra e os playbacks já aparecem; tocar num confere e pede para a fila

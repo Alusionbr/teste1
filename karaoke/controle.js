@@ -210,15 +210,39 @@ $("ctFormLink").addEventListener("submit",async e=>{
   if(id){btn.disabled=true;try{await pedirPorVideo(id,"")}finally{btn.disabled=false}return}
   if(ehPlaylistSemMusica(texto)){st.textContent="Esse link é de uma playlist. Abra o vídeo e copie o link dele (com watch?v=).";return}
   if(/^https?:\/\/|youtu\.?be/i.test(texto)){st.textContent="Não reconheci o link. Use um link do YouTube ou do YouTube Music.";return}
-  btn.disabled=true;st.textContent="Procurando vídeos…";
+  // Um nome: o app escolhe o melhor vídeo sozinho; o celular confirma ou troca antes de pedir.
+  btn.disabled=true;st.textContent="Procurando o melhor vídeo de karaokê…";
+  const linha=lerListaDeMusicas(texto).itens[0]||{titulo:texto,artista:""};
   try{
-    const r=await buscarVideos(texto);
-    $("ctLinkResultados").innerHTML=htmlResultadosVideos(r.lista);
-    st.textContent=r.lista.length?textoDaFonteBusca(r):"Nenhum vídeo encontrado. Tente outras palavras.";
-  }catch(err){st.textContent=err.message}
+    const r=await resolverPlayback(`${linha.titulo} ${linha.artista}`.trim(),{titulo:linha.titulo,artista:linha.artista});
+    CT.escolhaAuto={linha,video:r.video,alternativas:r.alternativas};
+    $("ctLinkResultados").innerHTML=htmlEscolhaAuto(CT.escolhaAuto);
+    st.textContent=r.video.duvida?"Não tenho certeza de que é esse vídeo. Confira antes de pedir.":"";
+  }catch(err){
+    st.textContent=err.message;
+    if(err.alternativas&&err.alternativas.length)$("ctLinkResultados").innerHTML=htmlResultadosVideos(err.alternativas);
+  }
   finally{btn.disabled=false}
 });
-$("ctLinkResultados").addEventListener("click",e=>{
+function htmlEscolhaAuto({linha,video}){
+  return `<li class="autoItem"><div class="autoTexto"><b>${esc(linha.titulo)}${linha.artista?" — "+esc(linha.artista):""}</b><small>▶ ${esc(video.titulo)} · ${fmt(video.duracao)}</small></div>
+    <div class="autoAcoes"><button type="button" class="primario" data-pedir-auto>Pedir na fila</button><button type="button" data-outros-auto>Outros vídeos</button></div></li>`;
+}
+$("ctLinkResultados").addEventListener("click",async e=>{
+  const esc1=CT.escolhaAuto;
+  if(esc1&&e.target.closest("[data-outros-auto]")){
+    $("ctLinkResultados").innerHTML=esc1.alternativas.length?htmlResultadosVideos(esc1.alternativas):`<li class="vazio">Nenhum outro vídeo encontrado.</li>`;
+    return;
+  }
+  if(esc1&&e.target.closest("[data-pedir-auto]")){
+    const btn=e.target.closest("button"),st=$("ctLinkStatus");btn.disabled=true;
+    try{
+      if(await comando("pedir_nova",{title:esc1.linha.titulo,artist:esc1.linha.artista,playback:{tipo:"youtube",id:esc1.video.id,titulo:esc1.video.titulo},cantorId:$("ctCantorNova").value})){
+        st.textContent="";$("ctLinkRapido").value="";$("ctLinkResultados").innerHTML="";CT.escolhaAuto=null;notify("Pedido enviado! O vídeo entra na fila da tela.",true);
+      }else st.textContent="Não consegui enviar. Tente de novo.";
+    }finally{btn.disabled=false}
+    return;
+  }
   const b=e.target.closest("[data-video]");if(!b)return;
   pedirPorVideo(b.dataset.video,b.dataset.titulo);
 });

@@ -116,4 +116,90 @@ function htmlResultadosVideos(lista,{duracaoEsperada=0}={}){
 }
 const textoDaFonteBusca=r=>r.fonte==="oficial"?"Resultados do YouTube (só vídeos que tocam aqui).":"Resultados de um serviço público de busca. O app confere se o vídeo toca aqui ao escolher.";
 
-if(typeof module!=="undefined")module.exports={INSTANCIAS_BUSCA,consultaDeKaraoke,mapearPiped,buscarVideos};
+/* ------------------------------------------------- escolha automática */
+/*
+ * "Adicionar só pelo nome": o app escolhe sozinho o melhor vídeo de karaokê e a
+ * família só troca quando ele errar. A pontuação é puramente heurística (título,
+ * duração, palavras de karaokê) e vive aqui, sem tela, para ser testada no Node.
+ * Dúvida nunca é escondida: video.duvida avisa a tela para pedir conferência.
+ */
+const normalizarTexto=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const PALAVRAS_DE_KARAOKE=/karaok|playback|instrumental|sem voz|backing/;
+const PALAVRAS_RUINS=/\bao vivo\b|\blive\b|\bcover\b|reaction|\breact\b|remix|slowed|sped up|reverb|\b8d\b|nightcore|tutorial|aula|como tocar|videoaula|cifra/;
+const PALAVRAS_DE_COLETANEA=/medley|sequencia|as melhores|\btop ?\d+|\d+ musicas|\d+ sucessos|mix de/;
+const PALAVRAS_SOLTAS=new Set(["de","da","do","das","dos","the","feat","ft","com","e","a","o","em","no","na","um","uma","para","pra","por","and"]);
+const DUVIDA_ABAIXO_DE=4;
+
+// Palavras que a busca espera ver no vídeo: o que a família digitou, sem as palavras de karaokê.
+function palavrasDaMusica(...textos){
+  const ok=new Set();
+  for(const w of normalizarTexto(textos.join(" ")).split(/[^a-z0-9]+/))
+    if(w.length>=3&&!PALAVRAS_SOLTAS.has(w)&&!PALAVRAS_DE_KARAOKE.test(w))ok.add(w);
+  return[...ok];
+}
+
+function pontuarVideo(v,{titulo="",artista="",duracaoEsperada=0}={}){
+  const t=normalizarTexto(v.titulo),canal=normalizarTexto(v.canal);
+  let s=0;
+  if(PALAVRAS_DE_KARAOKE.test(t))s+=6;
+  if(PALAVRAS_DE_KARAOKE.test(canal))s+=2;
+  const esperadas=palavrasDaMusica(titulo,artista);
+  if(esperadas.length){
+    const achadas=esperadas.filter(w=>t.includes(w)).length/esperadas.length;
+    s+=8*achadas;
+    if(achadas<0.5)s-=4;   // quase nada do que foi pedido está no título
+  }
+  if(duracaoEsperada>0&&v.duracao>0){
+    if(!diferencaDuracao(duracaoEsperada,v.duracao))s+=3;
+    else if(Math.abs(v.duracao-duracaoEsperada)>60)s-=4;
+    else s-=1;
+  }
+  if(PALAVRAS_RUINS.test(t))s-=5;
+  if(PALAVRAS_DE_COLETANEA.test(t))s-=4;
+  if(v.duracao>0&&v.duracao<60)s-=5;
+  if(v.duracao>600)s-=3;   // mais de 10 min costuma ser coletânea
+  return Math.round(s*10)/10;
+}
+// Cópia da lista, do melhor para o pior; empate mantém a ordem de relevância da busca.
+function ordenarCandidatos(lista,ctx){
+  return lista.map((v,i)=>({v:{...v,pontos:pontuarVideo(v,ctx)},i})).sort((a,b)=>b.v.pontos-a.v.pontos||a.i-b.i).map(x=>x.v);
+}
+
+/*
+ * Busca, escolhe e confere que o vídeo toca fora do YouTube.
+ * Devolve {video, alternativas, fonte, aviso}. Sem vídeo que toque, o erro leva
+ * `alternativas` para a tela oferecer a lista inteira.
+ * Com a chave oficial o resultado já é embutível, então não confere de novo (poupa 1,5 s).
+ */
+async function resolverPlayback(consulta,{chave="",titulo="",artista="",duracaoEsperada=0,tentativas=3,verificar=id=>YouTubeBase.verificar(id)}={}){
+  const r=await buscarVideos(consulta,{chave});
+  const ordem=ordenarCandidatos(r.lista,{titulo:titulo||consulta,artista,duracaoEsperada});
+  if(!ordem.length){const e=Error("Nenhum vídeo encontrado. Tente outras palavras.");e.alternativas=[];throw e}
+  for(const v of ordem.slice(0,tentativas)){
+    let toca=r.fonte==="oficial",incerto=false;
+    if(!toca){const c=await verificar(v.id);toca=!!c.ok;incerto=!!c.incerto}
+    if(toca)return{video:{...v,incerto,duvida:v.pontos<DUVIDA_ABAIXO_DE},alternativas:ordem.filter(x=>x.id!==v.id),fonte:r.fonte,aviso:r.aviso};
+  }
+  const e=Error("Os melhores vídeos achados não tocam fora do YouTube. Veja a lista e escolha outro.");
+  e.alternativas=ordem;throw e;
+}
+
+// Texto colado → músicas a buscar. Uma por linha: "Música - Artista" ou só o nome.
+// Aceita numeração ("1.", "2)") e marcadores; ignora linha vazia e repetida.
+const MAX_LOTE=30;
+function lerListaDeMusicas(texto){
+  const vistos=new Set(),itens=[];let ignoradas=0;
+  for(const bruta of String(texto||"").split(/\r?\n/)){
+    const linha=bruta.replace(/^\s*(?:\d{1,3}\s*[.)\-–]\s+|[-•*]\s+)/,"").replace(/\s+/g," ").trim();
+    if(linha.length<2)continue;
+    const chave=normalizarTexto(linha);
+    if(vistos.has(chave))continue;
+    vistos.add(chave);
+    if(itens.length>=MAX_LOTE){ignoradas++;continue}
+    const [titulo,...resto]=linha.split(/\s+[-–—]\s+/);
+    itens.push({texto:linha,titulo:titulo.trim(),artista:resto.join(" - ").trim()});
+  }
+  return{itens,ignoradas};
+}
+
+if(typeof module!=="undefined")module.exports={INSTANCIAS_BUSCA,MAX_LOTE,consultaDeKaraoke,mapearPiped,buscarVideos,pontuarVideo,ordenarCandidatos,resolverPlayback,lerListaDeMusicas};

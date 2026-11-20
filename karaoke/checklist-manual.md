@@ -39,6 +39,10 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Editor de música sem playback: os vídeos já aparecem sozinhos (campo preenchido com “título artista playback karaokê”); duração parecida vem primeiro com selo; tocar num troca o playback; “Já tenho o link” fica recolhido.
 - [ ] Celular → Música nova → escolher a letra: os vídeos aparecem sozinhos; tocar num e Pedir esta música.
 - [ ] Buscar “evidências” em Nova música (tela) e em ✨ Música nova (celular): aparecem resultados com miniatura; vídeo bloqueado é recusado; escolher entra na playlist/fila.
+- [ ] Nova música → campo único: digitar “evidências” + ➕ Adicionar: a música entra na playlist com ▶ vídeo, duração e selo da letra; “Trocar vídeo” mostra outros e recusa clipe bloqueado; “Tirar” desfaz.
+- [ ] 📋 Adicionar várias de uma vez: colar 5 músicas (uma com erro de digitação): aparece “n de 5”, o resumo diz quantas entraram; trocar um vídeo; Parar no meio funciona.
+- [ ] Celular: ✨ Música nova → digitar o nome → aparece o vídeo escolhido → Pedir na fila (ou Outros vídeos).
+- [ ] Ajustes → Exportar backup e importar em outro aparelho: as músicas vêm com letra e vídeo.
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
 - [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
 - [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.

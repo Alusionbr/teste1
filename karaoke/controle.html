@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1.0.7b">
+  <meta name="theme-color" content="#1.0.8b">
   <meta name="description" content="Controle do Karaokê em Casa: peça músicas e comande a tela da festa pelo celular.">
   <title>Controle — Karaokê em Casa</title>
-  <script data-version="1.0.7">
+  <script data-version="1.0.8">
   // Mesma trava de versão da página principal (ver index.html).
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -25,7 +25,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.7">
+  <link rel="stylesheet" href="./styles.css?v=1.0.8">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
 </head>
@@ -103,10 +103,10 @@
 
       <section id="ctAbaNova" hidden>
         <div class="cartao">
-          <p class="dica">Busque o vídeo de karaokê no YouTube (ou cole o link): a música entra na fila com o vídeo, e a letra pode ser a do próprio vídeo.</p>
+          <p class="dica">Digite o nome da música e do artista (ou cole o link do YouTube): o app escolhe o vídeo de karaokê e a música entra na fila. A letra pode ser a do próprio vídeo.</p>
           <form id="ctFormLink" class="barraBusca" autocomplete="off">
-            <input id="ctLinkRapido" placeholder="Buscar vídeo de karaokê ou colar o link do YouTube" aria-label="Buscar vídeo no YouTube ou colar o link">
-            <button type="submit" class="primario">🔎 Buscar</button>
+            <input id="ctLinkRapido" placeholder="Nome da música e do artista, ou link do YouTube" aria-label="Nome da música ou link do YouTube">
+            <button type="submit" class="primario">➕ Achar</button>
           </form>
           <p id="ctLinkStatus" class="dica" role="status"></p>
           <ul id="ctLinkResultados" class="lista videos"></ul>
@@ -158,15 +158,15 @@
   </dialog>
   <div id="aviso" aria-live="polite"></div>
 
-  <script src="./core.js?v=1.0.7"></script>
-  <script src="./links.js?v=1.0.7"></script>
-  <script src="./familia.js?v=1.0.7"></script>
-  <script src="./lrc.js?v=1.0.7"></script>
-  <script src="./letras.js?v=1.0.7"></script>
-  <script src="./busca-youtube.js?v=1.0.7"></script>
-  <script src="./verificar-youtube.js?v=1.0.7"></script>
-  <script src="./sala.js?v=1.0.7"></script>
-  <script src="./controle.js?v=1.0.7"></script>
-  <script src="./offline.js?v=1.0.7"></script>
+  <script src="./core.js?v=1.0.8"></script>
+  <script src="./links.js?v=1.0.8"></script>
+  <script src="./familia.js?v=1.0.8"></script>
+  <script src="./lrc.js?v=1.0.8"></script>
+  <script src="./letras.js?v=1.0.8"></script>
+  <script src="./busca-youtube.js?v=1.0.8"></script>
+  <script src="./verificar-youtube.js?v=1.0.8"></script>
+  <script src="./sala.js?v=1.0.8"></script>
+  <script src="./controle.js?v=1.0.8"></script>
+  <script src="./offline.js?v=1.0.8"></script>
 </body>
 </html>
