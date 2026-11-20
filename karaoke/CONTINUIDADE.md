@@ -45,6 +45,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 | 1.0.7 | Editor e celular já abrem listando os vídeos do playback (duração parecida primeiro, `diferencaDuracao`) |
 | 1.0.8 | **Adicionar pelo nome**: o app escolhe o melhor vídeo sozinho, confere se toca, busca a letra; **adicionar várias de uma vez** (lote até 30); celular mostra o vídeo escolhido e pede na fila |
 | 1.0.9 | **Trava do cantor**; "Só as minhas músicas"; **letra por música** (`musica.letraDe`); tela busca a letra de músicas pedidas pelo celular |
+| 1.0.11 | Catálogo entre salas no Supabase (002_catalogo.sql). A tela contribui ao salvar e o celular consulta antes da busca externa. Conferir disponibilidade e qualidade das contribuições durante o uso. |
 | 1.0.10 | O ciclo de fundos parte do fundo visível. A fila envia os identificadores dos cantores para filtrar solos e duetos. As páginas usam a cor do manifesto durante a atualização. |
 
 Os PRs/commits têm o detalhe (`git log -- karaoke/`). O PR #64 reúne 1.0.3 a 1.0.10.
@@ -69,7 +70,7 @@ Servidor local (porta 8765) e, a partir da raiz do repositório:
 ```bash
 python3 -m http.server 8765 -d karaoke &        # em segundo plano
 node --test karaoke/tests/*.test.js              # unidade/contrato (≈70 testes, sem rede)
-node karaoke/tests/browser-uso.js                # 28 cenários de uso real (Playwright, rede simulada)
+node karaoke/tests/browser-uso.js                # 29 cenários de uso real (Playwright, rede simulada)
 node karaoke/tests/browser-smoke.js              # caminho feliz em 3 tamanhos de tela + Supabase real
 node karaoke/tests/sala-real.js                  # sala contra o Supabase real (só se mexer no SQL)
 ```

@@ -114,6 +114,13 @@ async function novaManual(titulo,letra,dur){
   });
   // Miniaturas dos resultados (ids falsos): sem rede de verdade.
   await ctx.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
+  const catalogoTeste=[];
+  await ctx.route("**/rpc/karaoke_catalogo_*",async rota=>{
+    const d=rota.request().postDataJSON()||{};
+    if(d.p_musica)catalogoTeste.push(d);
+    const itens=catalogoTeste.filter(v=>v.p_musica+" "+v.p_artista===d.p_consulta).map(v=>({id:v.p_video,titulo:v.p_titulo}));
+    await rota.fulfill({json:itens,headers:{"access-control-allow-origin":"*"}});
+  });
   page=await ctx.newPage();
   const erros=[];
   page.on("pageerror",e=>erros.push("página: "+e.message));
@@ -554,6 +561,19 @@ async function novaManual(titulo,letra,dur){
     ok(await page.evaluate(()=>window.__v===true&&K.dados.musicas.length>0),"o pedido não entrou na fila");
     await page.waitForFunction(()=>{const m=K.dados.musicas.find(x=>x.title==="Cogulândia");return m&&temSincronia(m)},null,{timeout:10000});
     ok(await page.evaluate(()=>K.dados.musicas.filter(x=>x.title==="Cogulândia").length)===1,"criou a música duas vezes");
+  });
+
+  await cenario("salvar sem tocar disponibiliza o playback na busca de outro aparelho",async()=>{
+    const salvo=page.waitForResponse(r=>r.url().endsWith("/karaoke_catalogo_salvar")&&r.request().postData()?.includes("Consulta compartilhada"));
+    await page.evaluate(()=>criarMusica({title:"Consulta compartilhada",artist:"Artista do teste",playback:{tipo:"youtube",id:"BUSCAAAAAA1",titulo:"Playback escolhido"}}));
+    await salvo;
+    const cel=await ctx.newPage();
+    try{
+      await cel.goto(BASE+"controle.html");
+      const r=await cel.evaluate(()=>resolverPlayback("Consulta compartilhada Artista do teste",{verificar:async()=>({ok:true})}));
+      assert.equal(r.fonte,"catalogo");
+      assert.equal(r.video.id,"BUSCAAAAAA1");
+    }finally{await cel.close()}
   });
 
   await cenario("controle filtra nomes parecidos e inclui o segundo cantor do dueto",async()=>{

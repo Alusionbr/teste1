@@ -46,6 +46,10 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 - **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
 - **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
 
+### Playback compartilhado entre salas
+
+Ao salvar uma música com playback do YouTube, a tela compartilha título, artista, ID e título do vídeo. Na próxima busca pelo nome ou pelo nome e artista, o primeiro link salvo tem preferência. Outros links ficam como alternativas. Se o catálogo falhar, a busca externa continua disponível.
+
 ### Buscar vídeos no YouTube
 
 **No editor da música a busca é o caminho principal**: ao abrir uma música sem playback do YouTube (por exemplo logo depois de escolher a letra em Nova música), o app já busca `título artista playback karaokê` e lista os vídeos com miniatura, canal e duração. Os de duração parecida com a da letra (±8 s) vêm primeiro com o selo “✓ duração parecida”; tocar num confere se toca embutido e troca o playback. O campo de busca é editável. “Já tenho o link do vídeo” fica recolhido (e abre sozinho, com o atalho para o site do YouTube, se a busca cair). No celular, ✨ Música nova faz o mesmo depois de escolher a letra.

@@ -231,9 +231,10 @@ $("ctFormLink").addEventListener("submit",async e=>{
   const linha=lerListaDeMusicas(texto).itens[0]||{titulo:texto,artista:""};
   try{
     const r=await resolverPlayback(`${linha.titulo} ${linha.artista}`.trim(),{titulo:linha.titulo,artista:linha.artista});
+    if(r.video.compartilhado){linha.titulo=r.video.musica||linha.titulo;linha.artista=r.video.artista||linha.artista}
     CT.escolhaAuto={linha,video:r.video,alternativas:r.alternativas};
     $("ctLinkResultados").innerHTML=htmlEscolhaAuto(CT.escolhaAuto);
-    st.textContent=r.video.duvida?"Não tenho certeza de que é esse vídeo. Confira antes de pedir.":"";
+    st.textContent=r.video.compartilhado?"Playback salvo pela comunidade.":r.video.duvida?"Não tenho certeza de que é esse vídeo. Confira antes de pedir.":"";
   }catch(err){
     st.textContent=err.message;
     if(err.alternativas&&err.alternativas.length)$("ctLinkResultados").innerHTML=htmlResultadosVideos(err.alternativas);
@@ -241,12 +242,20 @@ $("ctFormLink").addEventListener("submit",async e=>{
   finally{btn.disabled=false}
 });
 function htmlEscolhaAuto({linha,video}){
-  return `<li class="autoItem"><div class="autoTexto"><b>${esc(linha.titulo)}${linha.artista?" — "+esc(linha.artista):""}</b><small>▶ ${esc(video.titulo)} · ${fmt(video.duracao)}</small></div>
+  return `<li class="autoItem"><div class="autoTexto"><b>${esc(linha.titulo)}${linha.artista?" — "+esc(linha.artista):""}</b><small>▶ ${esc(video.titulo)}${video.duracao?" · "+fmt(video.duracao):""}</small></div>
     <div class="autoAcoes"><button type="button" class="primario" data-pedir-auto>Pedir na fila</button><button type="button" data-outros-auto>Outros vídeos</button></div></li>`;
 }
 $("ctLinkResultados").addEventListener("click",async e=>{
   const esc1=CT.escolhaAuto;
   if(esc1&&e.target.closest("[data-outros-auto]")){
+    if(esc1.video.compartilhado){
+      try{
+        const r=await buscarVideos([esc1.linha.titulo,esc1.linha.artista].join(" ").trim());
+        if(CT.escolhaAuto!==esc1)return;
+        const ids=new Set([esc1.video.id,...esc1.alternativas.map(v=>v.id)]);
+        esc1.alternativas.push(...r.lista.filter(v=>!ids.has(v.id)));
+      }catch{if(!esc1.alternativas.length){notify("Busca indisponível. Você ainda pode pedir o playback salvo.");return}}
+    }
     $("ctLinkResultados").innerHTML=esc1.alternativas.length?htmlResultadosVideos(esc1.alternativas):`<li class="vazio">Nenhum outro vídeo encontrado.</li>`;
     return;
   }

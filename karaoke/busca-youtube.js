@@ -94,7 +94,20 @@ function buscarNoPiped(q){
  * Com chave, a oficial vem primeiro; se ela recusar (chave ruim, cota), cai para o
  * serviço público e o aviso diz por quê.
  */
+async function playbacksCompartilhados(q){
+  if(typeof salaRpc!=="function")return [];
+  try{
+    const itens=await salaRpc("karaoke_catalogo_buscar",{p_consulta:q.replace(/\s+playback karaokê$/i,"").trim()},2200);
+    return (itens||[]).map(v=>({...v,thumb:miniaturaYouTube(v.id),canal:"Salvo pela comunidade",compartilhado:true}));
+  }catch{return []}
+}
 async function buscarVideos(q,{chave=""}={}){
+  const [salvos,externos]=await Promise.all([playbacksCompartilhados(q),buscarVideosExternos(q,chave).catch(erro=>({erro}))]);
+  if(!salvos.length){if(externos.erro)throw externos.erro;return externos}
+  const ids=new Set(salvos.map(v=>v.id));
+  return {lista:[...salvos,...(externos.lista||[]).filter(v=>!ids.has(v.id))],fonte:"catalogo",aviso:externos.aviso||""};
+}
+async function buscarVideosExternos(q,chave){
   const consulta=consultaDeKaraoke(q);
   let aviso="";
   if(chave){
@@ -114,7 +127,7 @@ function htmlResultadosVideos(lista,{duracaoEsperada=0}={}){
   const ordem=duracaoEsperada>0?[...lista.filter(parecido),...lista.filter(v=>!parecido(v))]:lista;
   return ordem.map(v=>`<li><button type="button" data-video="${esc(v.id)}" data-titulo="${esc(v.titulo)}"><img src="${esc(v.thumb)}" alt="" width="96" height="72" loading="lazy" referrerpolicy="no-referrer"><span><b>${esc(v.titulo)}</b><small>${esc(v.canal)}${v.duracao?" · "+fmt(v.duracao):""}${parecido(v)?` <span class="selo ok">✓ duração parecida</span>`:""}</small></span></button></li>`).join("");
 }
-const textoDaFonteBusca=r=>r.fonte==="oficial"?"Resultados do YouTube (só vídeos que tocam aqui).":"Resultados de um serviço público de busca. O app confere se o vídeo toca aqui ao escolher.";
+const textoDaFonteBusca=r=>r.fonte==="catalogo"?"Playbacks da comunidade aparecem primeiro.":r.fonte==="oficial"?"Resultados do YouTube (só vídeos que tocam aqui).":"Resultados de um serviço público de busca. O app confere se o vídeo toca aqui ao escolher.";
 
 /* ------------------------------------------------- escolha automática */
 /*
@@ -172,7 +185,15 @@ function ordenarCandidatos(lista,ctx){
  * Com a chave oficial o resultado já é embutível, então não confere de novo (poupa 1,5 s).
  */
 async function resolverPlayback(consulta,{chave="",titulo="",artista="",duracaoEsperada=0,tentativas=3,verificar=id=>YouTubeBase.verificar(id)}={}){
-  const r=await buscarVideos(consulta,{chave});
+  let salvos=[];
+  try{
+    salvos=await playbacksCompartilhados(consulta);
+    for(const v of salvos){
+      const teste=await verificar(v.id);
+      if(teste.ok)return{video:{...v,compartilhado:true,incerto:!!teste.incerto},alternativas:salvos.filter(outro=>outro.id!==v.id),fonte:"catalogo",aviso:"Playback salvo pela comunidade."};
+    }
+  }catch{}
+  const r=await buscarVideosExternos(consulta,chave);
   const ordem=ordenarCandidatos(r.lista,{titulo:titulo||consulta,artista,duracaoEsperada});
   if(!ordem.length){const e=Error("Nenhum vídeo encontrado. Tente outras palavras.");e.alternativas=[];throw e}
   for(const v of ordem.slice(0,tentativas)){

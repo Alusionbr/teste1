@@ -86,3 +86,5 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Compartilhar com e sem letras; abrir o link em outro navegador cria a playlist.
 - [ ] Exportar backup; importar em navegador limpo com Adicionar e com Substituir.
 - [ ] Atualização: subir a versão e conferir que o aparelho recebe a nova (aviso “Atualizar”).
+
+- [ ] Salvar um playback sem tocar. Em outra sala, procurar pelo mesmo título e artista, pedir o vídeo salvo e repetir a música.
