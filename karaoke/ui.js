@@ -45,6 +45,7 @@ $("btnApagarPlaylist").addEventListener("click",()=>{
   removerPlaylist(p.id);salvarERender("Playlist apagada.");
 });
 $("btnComecar").addEventListener("click",()=>{const p=playlistAtiva();if(p)abrirPalco({playlistId:p.id,indice:0})});
+$("btnSolo").addEventListener("click",()=>{const p=playlistAtiva();if(p)abrirPalco({playlistId:p.id,indice:0,solo:true})});
 $("btnAddFila").addEventListener("click",()=>{
   if(!K.dados.musicas.length){trocarAba("musicas");abrirNovaMusica();return}
   abrirAddFila();
@@ -94,6 +95,7 @@ $("bibliotecaLista").addEventListener("click",e=>{
   if(b.dataset.acao==="editar")abrirEditor(id);
   else if(b.dataset.acao==="paraFila")abrirAddFila(id);
   else if(b.dataset.acao==="ensaiar")abrirPalco({modo:"ensaio",musicaId:id});
+  else if(b.dataset.acao==="solo")abrirPalco({modo:"solo",musicaId:id});
 });
 
 function abrirNovaMusica(){
@@ -321,6 +323,11 @@ function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));
 $("prefKeyYT").addEventListener("change",e=>{K.dados.prefs.keyYT=e.target.value.trim();salvarLogo();notify(K.dados.prefs.keyYT?"Chave do YouTube guardada neste aparelho.":"Chave do YouTube removida.",true)});
+$("btnLimparPlacar").addEventListener("click",async()=>{
+  if(!(K.dados.placar||[]).length)return notify("Você ainda não tem notas guardadas.");
+  if(!confirm("Apagar todas as suas notas e recordes do Cantar sozinho?"))return;
+  limparPlacar(K.dados);await salvarERender("Placar apagado.");
+});
 $("btnExportar").addEventListener("click",()=>{
   baixarArquivo(`karaoke-backup-${new Date().toISOString().slice(0,10)}.json`,backupJSON(),"application/json");
   notify("Backup exportado.",true);
@@ -383,6 +390,7 @@ $("vezComecar").addEventListener("click",comecar);
 $("vezPular").addEventListener("click",proxima);
 $("notaMedir").addEventListener("click",medirAplausos);
 $("notaProxima").addEventListener("click",proxima);
+$("notaDeNovo").addEventListener("click",()=>carregarIndice(P.indice,{comecarJa:true}));
 $("fimSair").addEventListener("click",fecharPalco);
 $("fimRecomecar").addEventListener("click",()=>carregarIndice(0));
 $("liberarTocar").addEventListener("click",()=>{$("palcoLiberar").hidden=true;P.fonte&&P.fonte.tocar()});

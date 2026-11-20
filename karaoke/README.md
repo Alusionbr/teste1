@@ -14,6 +14,16 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
 
+### Cantar sozinho
+
+Para treinar, cantar sem festa ou testar o app sem ninguém por perto — não precisa cadastrar a Família.
+
+- **🎤 Cantar sozinho** (aba Playlist): toca a playlist na ordem, ignorando quem está marcado em cada item.
+- **🎤** em cada música (aba Músicas): canta só aquela. O **▶** ao lado continua sendo o ensaio (só ouvir, sem nota).
+- No palco aparece “🎤 Você”, uma contagem curta de até 3 s (nenhuma com “Sem contagem” nos Ajustes) e, no fim, os aplausos. Se o aplausômetro estiver ligado, a nota entra no **placar pessoal**: a tela diz “🏆 Primeira nota desta música!”, “🏆 Novo recorde!” ou “Seu recorde: N”. **↺ Cantar de novo** repete a música na hora.
+- Músicas com nota ganham o selo **🏆 N** (a maior nota). **Ajustes → Apagar meu placar** zera tudo. O placar vai no backup.
+- O controle remoto pelo celular funciona igual no modo solo (dá para testar a sala sozinho, com o celular na mão).
+
 ### No palco
 
 | Ação | Botão | Teclado |
@@ -86,7 +96,8 @@ letras.js        LRCLIB → lyrics.ovh; título por oEmbed; busca do YouTube com
 fontes.js        interface comum de playback + relógio manual + arquivo (<audio>)
 fonte-youtube.js protocolo postMessage do YouTube falado à mão (sem iframe_api)
 fonte-spotify.js protocolo postMessage do Spotify falado à mão (sem o script deles)
-palco.js         fases (vez → cantando → nota → fim), desenho da letra, um requestAnimationFrame só
+palco.js         fases (vez → cantando → nota → fim), desenho da letra, um requestAnimationFrame só; modo solo (`P.solo`)
+placar.js        PURO: placar pessoal do Cantar sozinho (registrarNota, melhorNota, limite de 300 registros)
 sincronia.js     gravar sincronia tocando
 aplausometro.js  microfone → nota (notaDosAplausos é pura)
 qr.js            gerador de QR code (byte, nível M, versões 1–10)
@@ -130,7 +141,7 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
-`node karaoke/tests/browser-uso.js` roda 15 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé. Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+`node karaoke/tests/browser-uso.js` roda 18 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
 
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 
@@ -158,6 +169,12 @@ psql -q -f karaoke/supabase/teste_sala.sql
 - **`postMessage` antes de o iframe existir**: o navegador recusava e poluía o console. O app só envia depois de receber uma mensagem do player ou do evento `load` (o que vier primeiro; o `ready` do Spotify pode chegar **antes** do `load`, e depender só dele perdia o pedido de tocar).
 - Celular em pé: título e botão em uma linha, seletor de playlist com a largura toda, abas com nome para leitor de tela.
 
+### Cantar sozinho: como funciona por dentro
+
+- **`P.solo`** (`palco.js`) é um sinalizador do palco, não um modo novo de fila. A playlist em solo abre como `modo:"festa"` com `solo:true` (fila, próxima música e controle pela sala seguem iguais); uma música avulsa abre como `modo:"solo"` (um item só, termina em nota → fim, ao contrário do `ensaio`, que termina direto).
+- Com `P.solo`: `cantoresDoItem` devolve ninguém (cores padrão A/B/Todos, sem nomes), `rotuloPalco` mostra “🎤 Você”, `mostrarVez` vira “Prepare-se!” com contagem de no máximo 3 s. O `rotuloCantores` original continua valendo para a fila mostrada no celular.
+- **Placar**: `K.dados.placar = [{musicaId, nota, em}]`. Só `medirAplausos` grava (sem microfone ou com o aplausômetro desligado não há nota, então nada é registrado). `placar.js` é puro e tem teste próprio (`tests/placar.test.js`). Apagar a música apaga as notas dela; importar backup antigo sem `placar` continua válido.
+
 ### Ideias para evoluir
 
 1. Tempo real por websocket (Supabase Realtime) quando a consulta a cada 2 s ficar lenta.
@@ -165,3 +182,4 @@ psql -q -f karaoke/supabase/teste_sala.sql
 3. Tom do playback (pitch shift) para o arquivo do aparelho, com `AudioContext` e sem biblioteca.
 4. Nota de afinação de verdade (detecção de altura pelo microfone) — só se for honesta sobre o que mede.
 5. Modo “só celular” com a letra também no telefone de quem está cantando.
+6. Cantar sozinho: histórico de notas por música (gráfico) e metas (“bater 80 pontos”); hoje só o recorde aparece.

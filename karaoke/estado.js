@@ -9,6 +9,7 @@
  *               playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null,
  *               offset, criadaEm}],
  *     playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
+ *     placar:[{musicaId, nota, em}],   // notas do "Cantar sozinho" (placar.js)
  *     prefs:{audioDelay, tamanho, fundo, contagem, aplausometro, keyYT} }
  *
  * A música mora na biblioteca e a playlist só aponta para ela: a sincronia
@@ -24,7 +25,7 @@ const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
 const K={dados:vazio(),pronto:false};
 
-function vazio(){return{version:1,activePlaylistId:"",cantores:[],musicas:[],playlists:[],prefs:{...PREFS_PADRAO}}}
+function vazio(){return{version:1,activePlaylistId:"",cantores:[],musicas:[],playlists:[],placar:[],prefs:{...PREFS_PADRAO}}}
 
 const txt=(v,max)=>String(v??"").slice(0,max);
 const num=(v,min,max,padrao)=>{const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):padrao};
@@ -62,6 +63,7 @@ function normalizarDados(d){
   const mIds=new Set(out.musicas.map(m=>m.id)),cIds=new Set(out.cantores.map(c=>c.id));
   out.playlists=(Array.isArray(d.playlists)?d.playlists:[]).map(p=>normalizarPlaylist(p,mIds,cIds)).filter(Boolean);
   out.activePlaylistId=out.playlists.some(p=>p.id===d.activePlaylistId)?d.activePlaylistId:(out.playlists[0]?.id||"");
+  out.placar=(typeof normalizarPlacar==="function"?normalizarPlacar:require("./placar.js").normalizarPlacar)(d.placar,mIds);
   const pr=d.prefs||{};
   out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo:FUNDOS.includes(pr.fundo)?pr.fundo:"opaco",
     contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,keyYT:txt(pr.keyYT,80).trim()};

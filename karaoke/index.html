@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#140b2b">
+  <meta name="theme-color" content="#1.0.3b">
   <meta name="description" content="Karaokê em Casa: playlists de karaokê para a família com playback do YouTube, Spotify ou do aparelho, letra sincronizada e controle pelo celular.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.2">
+  <script data-version="1.0.3">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -24,7 +24,7 @@
     document.addEventListener("DOMContentLoaded",()=>{
       if(!active)return;
       cover=document.createElement("div");cover.setAttribute("role","status");cover.textContent="Atualizando o Karaokê em Casa…";
-      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#140b2b;color:white;font:18px system-ui";
+      cover.style.cssText="position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#1.0.3b;color:white;font:18px system-ui";
       document.body.appendChild(cover);
     },{once:true});
     navigator.serviceWorker.addEventListener("controllerchange",changed);
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.2">
+  <link rel="stylesheet" href="./styles.css?v=1.0.3">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -73,6 +73,7 @@
       </div>
       <p id="playlistResumo" class="dica"></p>
       <button type="button" id="btnComecar" class="botaoGrande">▶ Começar karaokê</button>
+      <button type="button" id="btnSolo" class="botaoSolo">🎤 Cantar sozinho <small>(sem vez, com nota)</small></button>
       <ol id="filaLista" class="lista fila"></ol>
       <div id="filaVazia" class="vazio" hidden>
         <p class="vazioTitulo">A playlist está vazia</p>
@@ -80,6 +81,7 @@
           <li>Em <b>Família</b>, cadastre quem vai cantar.</li>
           <li>Em <b>Músicas</b>, busque a letra e escolha o playback (YouTube, Spotify ou arquivo).</li>
           <li>Aqui, adicione as músicas e aperte <b>Começar</b>.</li>
+          <li>Está sozinho? Em <b>Músicas</b>, toque no 🎤 de uma música e cante na hora, sem cadastrar ninguém.</li>
         </ol>
       </div>
       <button type="button" id="btnAddFila" class="botaoLinha">+ Adicionar música à playlist</button>
@@ -143,10 +145,11 @@
       </div>
       <div class="cartao">
         <h2>Backup</h2>
-        <p class="dica">Tudo fica guardado neste aparelho. Exporte de vez em quando. Os áudios escolhidos do aparelho não vão no backup.</p>
+        <p class="dica">Tudo fica guardado neste aparelho (inclusive o placar do Cantar sozinho). Exporte de vez em quando. Os áudios escolhidos do aparelho não vão no backup.</p>
         <div class="acoes">
           <button type="button" id="btnExportar">⬇ Exportar backup</button>
           <label class="botao">⬆ Importar backup<input id="arquivoImportar" type="file" accept="application/json,.json" hidden></label>
+          <button type="button" id="btnLimparPlacar" class="perigo">🗑 Apagar meu placar</button>
         </div>
         <p id="armazenamentoInfo" class="dica"></p>
       </div>
@@ -215,8 +218,10 @@
       <div id="notaTitulo" class="vezRotulo"></div>
       <div id="notaMedidor" class="medidor"><div id="notaBarra"></div></div>
       <div id="notaResultado" class="notaResultado"></div>
+      <div id="notaRecorde" class="notaRecorde" hidden></div>
       <div class="acoes centro">
         <button type="button" id="notaMedir" class="botaoGrande">👏 Medir os aplausos</button>
+        <button type="button" id="notaDeNovo" hidden>↺ Cantar de novo</button>
         <button type="button" id="notaProxima">Próxima ▶</button>
       </div>
       <p id="notaProximoInfo" class="dica"></p>
@@ -224,7 +229,7 @@
 
     <div id="palcoFim" class="sobre" hidden>
       <div class="vezCantor">🎉 Fim da playlist!</div>
-      <p class="dica">Que festa! Adicione mais músicas ou comece de novo.</p>
+      <p id="fimDica" class="dica">Que festa! Adicione mais músicas ou comece de novo.</p>
       <div class="acoes centro"><button type="button" id="fimRecomecar">↺ Recomeçar</button><button type="button" id="fimSair" class="primario">Voltar</button></div>
     </div>
 
@@ -396,26 +401,27 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.2"></script>
-  <script src="./storage.js?v=1.0.2"></script>
-  <script src="./lrc.js?v=1.0.2"></script>
-  <script src="./links.js?v=1.0.2"></script>
-  <script src="./estado.js?v=1.0.2"></script>
-  <script src="./familia.js?v=1.0.2"></script>
-  <script src="./biblioteca.js?v=1.0.2"></script>
-  <script src="./playlists.js?v=1.0.2"></script>
-  <script src="./letras.js?v=1.0.2"></script>
-  <script src="./fontes.js?v=1.0.2"></script>
-  <script src="./fonte-youtube.js?v=1.0.2"></script>
-  <script src="./fonte-spotify.js?v=1.0.2"></script>
-  <script src="./aplausometro.js?v=1.0.2"></script>
-  <script src="./palco.js?v=1.0.2"></script>
-  <script src="./sincronia.js?v=1.0.2"></script>
-  <script src="./qr.js?v=1.0.2"></script>
-  <script src="./sala.js?v=1.0.2"></script>
-  <script src="./sala-host.js?v=1.0.2"></script>
-  <script src="./telas.js?v=1.0.2"></script>
-  <script src="./ui.js?v=1.0.2"></script>
-  <script src="./offline.js?v=1.0.2"></script>
+  <script src="./core.js?v=1.0.3"></script>
+  <script src="./storage.js?v=1.0.3"></script>
+  <script src="./lrc.js?v=1.0.3"></script>
+  <script src="./links.js?v=1.0.3"></script>
+  <script src="./placar.js?v=1.0.3"></script>
+  <script src="./estado.js?v=1.0.3"></script>
+  <script src="./familia.js?v=1.0.3"></script>
+  <script src="./biblioteca.js?v=1.0.3"></script>
+  <script src="./playlists.js?v=1.0.3"></script>
+  <script src="./letras.js?v=1.0.3"></script>
+  <script src="./fontes.js?v=1.0.3"></script>
+  <script src="./fonte-youtube.js?v=1.0.3"></script>
+  <script src="./fonte-spotify.js?v=1.0.3"></script>
+  <script src="./aplausometro.js?v=1.0.3"></script>
+  <script src="./palco.js?v=1.0.3"></script>
+  <script src="./sincronia.js?v=1.0.3"></script>
+  <script src="./qr.js?v=1.0.3"></script>
+  <script src="./sala.js?v=1.0.3"></script>
+  <script src="./sala-host.js?v=1.0.3"></script>
+  <script src="./telas.js?v=1.0.3"></script>
+  <script src="./ui.js?v=1.0.3"></script>
+  <script src="./offline.js?v=1.0.3"></script>
 </body>
 </html>

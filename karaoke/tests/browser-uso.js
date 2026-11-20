@@ -247,6 +247,65 @@ async function novaManual(titulo,letra,dur){
     await page.waitForFunction(()=>P.fonte===FonteRelogio&&P.fonte.tempo()>=29,null,{timeout:5000}).catch(()=>{throw Error("a letra recomeçou do zero em vez de continuar aos 30 s")});
   });
 
+  // As músicas A/B/C já têm playback falso nos cenários acima; o solo usa músicas só com relógio.
+  await cenario("cantar sozinho (uma música): sem cantor, nota, recorde, cantar de novo, selo 🏆",async()=>{
+    await novaManual("Solo Um","um\ndois","0:04");await novaManual("Solo Dois","tres\nquatro","0:04");
+    await aba("musicas");
+    await page.locator("#bibliotecaLista li").filter({hasText:"Solo Um"}).locator('[data-acao="solo"]').click();
+    await page.waitForSelector("#palcoVez:not([hidden])");
+    const vez=await page.locator("#vezCantor").innerText();
+    ok(/Prepare-se/.test(vez)&&!/Ana|Beto/.test(vez),"tela de preparo mostrou cantor: "+vez);
+    ok(/Você/.test(await page.locator("#palcoCantor").innerText()),"selo do palco não diz Você");
+    await page.click("#vezComecar");
+    await page.waitForSelector("#palcoNota:not([hidden])",{timeout:15000});
+    ok(await page.locator("#notaDeNovo").isVisible(),"falta o botão Cantar de novo");
+    await page.click("#notaMedir");
+    await page.waitForFunction(()=>/pontos/.test(document.querySelector("#notaResultado").textContent),null,{timeout:12000});
+    ok(/Primeira nota/.test(await page.locator("#notaRecorde").innerText()),"primeira nota não foi reconhecida");
+    await page.click("#notaDeNovo");
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.indice===0);
+    await page.waitForSelector("#palcoNota:not([hidden])",{timeout:15000});
+    ok(/recorde/i.test(await page.locator("#notaRecorde").innerText()),"recorde antigo não apareceu ao voltar para a nota");
+    await page.click("#notaMedir");
+    await page.waitForFunction(()=>/pontos/.test(document.querySelector("#notaResultado").textContent),null,{timeout:12000});
+    ok(/recorde/i.test(await page.locator("#notaRecorde").innerText()),"segunda nota sem linha de recorde");
+    ok((await page.evaluate(()=>K.dados.placar.length))===2,"as duas notas não foram guardadas");
+    await page.click("#notaProxima");
+    await page.waitForSelector("#palcoFim:not([hidden])");
+    ok(/Fim da música/.test(await page.locator("#palcoFim .vezCantor").innerText()),"fim de música avulsa");
+    await page.click("#palcoSair");await page.waitForSelector("#palco",{state:"hidden"});
+    ok(await page.locator("#bibliotecaLista li").filter({hasText:"Solo Um"}).locator(".selo.recorde").count()===1,"sem selo 🏆 na biblioteca");
+  });
+
+  await cenario("cantar sozinho (playlist): ignora os cantores marcados e segue para a próxima",async()=>{
+    await aba("playlist");await page.click("#btnNovaPlaylist");await page.waitForTimeout(200);
+    for(const nome of ["Solo Um","Solo Dois"]){
+      await aba("musicas");
+      await page.locator("#bibliotecaLista li").filter({hasText:nome}).locator('[data-acao="paraFila"]').click();
+      await page.waitForSelector("#dlgAddFila[open]");await page.click("#addConfirmar");await page.waitForSelector("#dlgAddFila",{state:"hidden"});
+    }
+    await aba("playlist");
+    ok(/Ana|Beto/.test((await page.locator("#filaLista .quem").allInnerTexts()).join(" ")),"a playlist de teste deveria ter cantores marcados");
+    await page.click("#btnSolo");
+    await page.waitForSelector("#palcoVez:not([hidden])");
+    ok(/Prepare-se/.test(await page.locator("#vezCantor").innerText()),"mostrou a vez de alguém");
+    await page.click("#vezComecar");
+    await page.waitForSelector("#palcoNota:not([hidden])",{timeout:15000});
+    ok(!/Ana|Beto/.test(await page.locator("#notaTitulo").innerText()+await page.locator("#notaProximoInfo").innerText()),"nota citou cantor");
+    await page.click("#notaProxima");
+    await page.waitForFunction(()=>P.indice===1&&P.solo);
+    ok(/Você/.test(await page.locator("#palcoCantor").innerText()),"segunda música sem selo Você");
+  });
+
+  await cenario("placar entra no backup e Apagar meu placar zera",async()=>{
+    await limpar();
+    ok((await page.evaluate(()=>JSON.parse(backupJSON()).placar.length))>=2,"placar fora do backup");
+    await aba("ajustes");await page.click("#btnLimparPlacar");
+    await page.waitForFunction(()=>K.dados.placar.length===0);
+    await aba("musicas");
+    ok(await page.locator("#bibliotecaLista .selo.recorde").count()===0,"selo 🏆 continua depois de apagar");
+  });
+
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{
     await limpar();
     const c2=await browser.newContext({viewport:{width:390,height:844}});

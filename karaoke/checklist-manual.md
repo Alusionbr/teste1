@@ -31,6 +31,15 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Controles somem depois de 4 s tocando e voltam ao mexer.
 - [ ] Teclado: espaço, ←, →, [, ], F, Esc.
 
+## Cantar sozinho
+
+- [ ] Sem nenhum cantor cadastrado: 🎤 numa música (aba Músicas) abre o palco com “Prepare-se!” e “🎤 Você”.
+- [ ] 🎤 Cantar sozinho na Playlist ignora os cantores marcados e passa para a próxima música depois dos aplausos.
+- [ ] Fim da música: aplausômetro mede; aparece “🏆 Primeira nota desta música!”; ↺ Cantar de novo repete; a segunda nota mostra “Novo recorde” ou “Seu recorde”.
+- [ ] Música avulsa termina em “Fim da música”; ✕ sai em todas as telas.
+- [ ] Selo 🏆 aparece na lista de Músicas; Ajustes → Apagar meu placar remove; o backup leva o placar.
+- [ ] Controle remoto (celular) liga e comanda o palco em modo solo.
+
 ## Gravar sincronia
 
 - [ ] Marcar todos os versos tocando; Desfazer; Pausa ♪; Salvar toca do começo para conferir.

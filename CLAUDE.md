@@ -791,6 +791,7 @@ karaoke/
 ├── palco.js         fases vez → cantando → nota → fim; um requestAnimationFrame só
 ├── sincronia.js     gravar sincronia tocando
 ├── aplausometro.js  microfone → nota (notaDosAplausos pura)
+├── placar.js        PURO: placar pessoal do Cantar sozinho (registrarNota, melhorNota)
 ├── qr.js            QR code em JS puro (byte, nível M, v1–10)
 ├── sala.js / sala-host.js  cliente RPC do Supabase; tela da festa
 ├── telas.js / ui.js desenho / eventos
@@ -798,7 +799,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (15 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (18 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -821,6 +822,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 14. **O oEmbed do YouTube não detecta vídeo bloqueado** (devolve 200). `FonteYouTube.verificar(id)` abre um player invisível e espera 1,5 s depois do "pronto", porque `onReady` e `onError 150` chegam no mesmo instante. Use-a ao escolher um vídeo; busca com chave já usa `videoEmbeddable=true`.
 15. **Fim da prévia de 30 s do Spotify não é fim da música**: vira aviso (`erro` com `previa:true`), nunca `fim`. "Seguir sem playback" continua de onde estava.
 16. **O ✕ do palco tem de ser alcançável em toda tela**: `#palcoTopo` (z-index 18) fica acima das camadas `.sobre` (15). `browser-uso.js` testa isso.
+17. **Cantar sozinho é um sinalizador do palco (`P.solo`), não outro fluxo**: playlist em solo = `modo:"festa"` + `solo:true`; música avulsa = `modo:"solo"`. Sozinho não existe cantor: `cantoresDoItem` devolve vazio e `rotuloPalco` mostra “🎤 Você”. O placar (`K.dados.placar`, `placar.js`) só recebe nota medida de verdade e é dado do aparelho: vai no backup, nunca na sala nem no link de compartilhar. Nada de nota inventada nem faixa de exemplo.
 
 ## Modelo de dados
 
@@ -831,6 +833,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
   musicas:[{id, title, artist, album, duration, synced, lyrics,
             playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, offset, criadaEm}],
   playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
+  placar:[{musicaId, nota, em}],   // Cantar sozinho: no máximo 300; o melhor de cada música nunca sai
   prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video", contagem, aplausometro, keyYT} }
 // gaveta "audio": Blob do playback, chave "a-<musicaId>"
 // localStorage "karaoke:sala" (tela): {codigo, token, depois}; "karaoke:controle:eu" (celular): {nome, emoji}

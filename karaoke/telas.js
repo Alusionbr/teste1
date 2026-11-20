@@ -12,6 +12,8 @@ function selosMusica(m){
   else if(temLetra(m))s.push(`<span class="selo meio">letra sem tempo</span>`);
   else s.push(`<span class="selo falta">sem letra</span>`);
   if(temDueto(m))s.push(`<span class="selo dueto">👥 dueto</span>`);
+  const melhor=melhorNota(K.dados,m.id);
+  if(melhor!==null)s.push(`<span class="selo recorde" title="Seu melhor resultado no Cantar sozinho">🏆 ${melhor}</span>`);
   return s.join("");
 }
 function seloCantor(id){
@@ -28,7 +30,7 @@ function renderPlaylist(){
   sel.innerHTML=K.dados.playlists.length?K.dados.playlists.map(x=>`<option value="${x.id}"${x===p?" selected":""}>${esc(x.nome)} (${x.itens.length})</option>`).join(""):`<option value="">Nenhuma playlist ainda</option>`;
   ["btnRenomearPlaylist","btnCompartilhar","btnApagarPlaylist"].forEach(id=>{$(id).disabled=!p});
   const itens=p?p.itens:[];
-  $("btnComecar").disabled=!itens.length;
+  $("btnComecar").disabled=!itens.length;$("btnSolo").disabled=!itens.length;
   $("filaVazia").hidden=!!itens.length;
   const dur=duracaoPlaylist(p);
   const cantores=new Set(itens.flatMap(i=>[i.cantorA,i.cantorB]).filter(Boolean));
@@ -62,7 +64,8 @@ function renderBiblioteca(){
       <div class="acoesItem">
         <button type="button" data-acao="editar">✏️ Editar</button>
         <button type="button" data-acao="paraFila">+ Playlist</button>
-        <button type="button" data-acao="ensaiar" aria-label="Ensaiar">▶</button>
+        <button type="button" data-acao="solo" aria-label="Cantar sozinho" title="Cantar sozinho">🎤</button>
+        <button type="button" data-acao="ensaiar" aria-label="Ensaiar" title="Só ouvir e ensaiar">▶</button>
       </div></li>`).join("")||(K.dados.musicas.length?`<li class="vazio">Nada encontrado.</li>`:"");
 }
 

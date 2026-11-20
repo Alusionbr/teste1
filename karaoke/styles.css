@@ -267,3 +267,10 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
   .barraPlaylist{flex-wrap:wrap}
   .barraPlaylist select{flex:1 1 100%}
 }
+
+/* ---------------------------------------------------------- cantar sozinho */
+.botaoSolo{width:100%;margin:0 0 1em;padding:.7em 1em;border-radius:16px;font-weight:700;font-size:1.05em;background:#1b1233;border:2px solid var(--rosa);color:#fff;min-height:52px}
+.botaoSolo small{font-weight:400;color:var(--suave);font-size:.8em}
+.botaoSolo:hover:not(:disabled){background:#2a1a4f}
+.selo.recorde{color:#ffe29a;border-color:#7a5b16}
+.notaRecorde{margin:.4em 0 .8em;font-size:1.25em;font-weight:800;color:#ffd23f;text-align:center}

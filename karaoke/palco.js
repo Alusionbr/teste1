@@ -4,20 +4,22 @@
  *
  * Fases de cada música: "vez" (Agora é a vez de… com contagem) → "cantando"
  * → "nota" (aplausômetro) → próxima. No fim da playlist: "fim".
- * Modos: "festa" (playlist), "ensaio" (uma música só), "gravar" (sincronia).
+ * Modos: "festa" (playlist), "ensaio" (uma música só), "gravar" (sincronia) e
+ * "solo" (uma música só, com nota e placar). P.solo vale também para a playlist
+ * tocada em "Cantar sozinho" (modo "festa"): sem cantor, "Você" no lugar.
  *
  * Um requestAnimationFrame só desenha tudo (letra, barra, sinal). O relógio
  * vem SEMPRE da fonte de playback:
  *   tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay
  */
-const P={aberto:false,modo:"festa",itens:[],playlistId:"",indice:0,item:null,musica:null,
+const P={aberto:false,modo:"festa",solo:false,itens:[],playlistId:"",indice:0,item:null,musica:null,
   letra:{sincronizada:false,linhas:[]},fonte:null,fase:"",raf:0,idx:-2,carregado:false,carregando:null,
   contagemTimer:0,ultimaBarra:-1,arrastando:false,spans:[],notaTimer:0};
 
 const prefs=()=>K.dados.prefs;
 const temPalco=()=>P.aberto;
 
-function abrirPalco({playlistId="",indice=0,modo="festa",musicaId=""}={}){
+function abrirPalco({playlistId="",indice=0,modo="festa",musicaId="",solo=false}={}){
   if(modo==="festa"){
     const p=acharPlaylist(playlistId);
     if(!p||!p.itens.length)return notify("Adicione músicas à playlist antes de começar.");
@@ -26,7 +28,7 @@ function abrirPalco({playlistId="",indice=0,modo="festa",musicaId=""}={}){
     if(!acharMusica(musicaId))return;
     P.itens=[{id:"ensaio",musicaId,cantorA:"",cantorB:""}];P.playlistId="";
   }
-  P.modo=modo;P.aberto=true;
+  P.modo=modo;P.solo=solo||modo==="solo";P.aberto=true;
   $("palco").dataset.modo=modo;
   document.body.classList.add("comPalco");
   $("palco").hidden=false;
@@ -90,12 +92,13 @@ function carregarIndice(i,{comecarJa=false}={}){
   atualizarBotaoTocar();
   avisarSala();
   if(P.modo==="gravar"){P.fase="gravando";Sincronia.iniciar();return}
-  if(P.modo==="festa"&&prefs().contagem>0&&!comecarJa)mostrarVez();
+  if((P.modo==="festa"||P.modo==="solo")&&prefs().contagem>0&&!comecarJa)mostrarVez();
   else comecar();
 }
 
 function proxima(){
   if(!P.aberto)return;
+  if(P.modo==="solo"){mostrarFim("🎤 Fim da música");return}
   if(P.modo!=="festa"){mostrarFim();return}
   carregarIndice(P.indice+1);
 }
@@ -107,6 +110,7 @@ function anterior(){
 
 /* ---------------------------------------------------------------- "a vez de" */
 function cantoresDoItem(item){
+  if(P.solo)return{a:null,b:null};
   const a=acharCantor(item&&item.cantorA),b=acharCantor(item&&item.cantorB);
   return{a,b};
 }
@@ -116,14 +120,16 @@ function rotuloCantores(item){
   if(a)return `${a.emoji} ${a.nome}`;
   return "🎤 Quem quiser!";
 }
+// Rótulo do cantor no palco: sozinho é sempre "Você" (a playlist pode ter cantores marcados).
+function rotuloPalco(item){return P.solo?"🎤 Você":rotuloCantores(item)}
 function mostrarVez(){
   P.fase="vez";
   const{a}=cantoresDoItem(P.item);
-  $("vezCantor").textContent=rotuloCantores(P.item);
+  $("vezCantor").textContent=P.solo?"🎤 Prepare-se!":rotuloCantores(P.item);
   $("vezCantor").style.color=a?a.cor:"";
   $("vezMusica").textContent=`${P.musica.title}${P.musica.artist?" — "+P.musica.artist:""}`;
   $("palcoVez").hidden=false;
-  let resta=prefs().contagem;
+  let resta=P.solo?Math.min(prefs().contagem,3):prefs().contagem;
   const mostrar=()=>{$("vezContagem").textContent=resta>0?String(resta):"🎶"};
   mostrar();
   clearInterval(P.contagemTimer);
@@ -215,15 +221,17 @@ function seguirSemPlayback(){
 function mostrarNota(){
   P.fase="nota";
   const{a}=cantoresDoItem(P.item);
-  $("notaTitulo").textContent=`Aplausos para ${rotuloCantores(P.item)}!`;
+  $("notaTitulo").textContent=P.solo?"👏 Mandou bem!":`Aplausos para ${rotuloCantores(P.item)}!`;
   $("notaTitulo").style.color=a?a.cor:"";
   $("notaResultado").textContent="";
+  $("notaDeNovo").hidden=!P.solo;
+  mostrarRecorde(null);
   $("notaBarra").style.width="0%";
   const comMic=prefs().aplausometro&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
   $("notaMedir").hidden=!comMic;$("notaMedidor").hidden=!comMic;
   if(!comMic)$("notaResultado").textContent="👏👏👏 Muito bem!";
   const prox=P.itens[P.indice+1],pm=prox&&acharMusica(prox.musicaId);
-  $("notaProximoInfo").textContent=pm?`Próximo: ${rotuloCantores(prox)} — ${pm.title}`:"Esta foi a última da playlist.";
+  $("notaProximoInfo").textContent=pm?`Próximo: ${P.solo?"":rotuloCantores(prox)+" — "}${pm.title}`:(P.modo==="solo"?"":"Esta foi a última da playlist.");
   $("palcoNota").hidden=false;
   avisarSala();
 }
@@ -235,15 +243,28 @@ async function medirAplausos(){
     if(P.fase!=="nota")return;
     $("notaBarra").style.width=r.nota+"%";
     $("notaResultado").textContent=`${"⭐".repeat(r.estrelas)} ${r.nota} pontos — ${r.frase}`;
+    if(P.solo){const g=registrarNota(K.dados,P.musica.id,r.nota);salvarEstado();mostrarRecorde(g)}
     avisarSala({nota:r.nota});
   }catch(e){
     $("notaResultado").textContent=e.message||"Não consegui usar o microfone.";
   }finally{btn.disabled=false}
 }
+// Linha do recorde na tela de nota (só no "Cantar sozinho"). g = resultado de
+// registrarNota; null mostra o recorde que já existe (ou nada).
+function mostrarRecorde(g){
+  const el=$("notaRecorde");
+  let txt="";
+  if(P.solo&&P.musica){
+    if(g)txt=g.recorde?(g.anterior===null?"🏆 Primeira nota desta música!":`🏆 Novo recorde! (antes: ${g.anterior})`):`Seu recorde: ${g.melhor}`;
+    else{const m=melhorNota(K.dados,P.musica.id);if(m!==null)txt=`Seu recorde: ${m}`}
+  }
+  el.textContent=txt;el.hidden=!txt;
+}
 function mostrarFim(titulo){
   pararTudo();esconderSobreposicoes();
   P.fase="fim";
   $("palcoFim").querySelector(".vezCantor").textContent=titulo||"🎉 Fim da playlist!";
+  $("fimDica").textContent=P.solo?"Cante de novo ou volte para escolher outra.":"Que festa! Adicione mais músicas ou comece de novo.";
   $("palcoFim").hidden=false;
   atualizarBotaoTocar();
   avisarSala();
@@ -253,7 +274,7 @@ function mostrarFim(titulo){
 function desenharCabecalho(){
   const{a}=cantoresDoItem(P.item);
   const selo=$("palcoCantor");
-  selo.textContent=P.modo==="festa"?rotuloCantores(P.item):(P.modo==="gravar"?"⏺ Gravando":"🎤 Ensaio");
+  selo.textContent=P.solo?"🎤 Você":P.modo==="festa"?rotuloCantores(P.item):(P.modo==="gravar"?"⏺ Gravando":"🎤 Ensaio");
   selo.style.setProperty("--cor",a?a.cor:"#ff3d9a");
   $("palcoTitulo").textContent=`${P.musica.title}${P.musica.artist?" — "+P.musica.artist:""}`+(P.modo==="festa"?`  ·  ${P.indice+1}/${P.itens.length}`:"");
   $("spBox").hidden=!(P.musica.playback&&P.musica.playback.tipo==="spotify");
@@ -268,6 +289,7 @@ function corDaParte(parte){
 }
 function rotuloDaParte(parte){
   const{a,b}=cantoresDoItem(P.item);
+  if(P.solo)return "";
   if(parte==="A")return a?`${a.emoji} ${a.nome}`:"Cantor A";
   if(parte==="B")return b?`${b.emoji} ${b.nome}`:"Cantor B";
   if(parte==="T")return "🎶 Todos juntos";
