@@ -1,7 +1,7 @@
 "use strict";
 // Versão única do app: aparece no cache do service worker, no ?v= do HTML e
 // no cabeçalho enviado ao LRCLIB. Bump obrigatório a cada alteração de arquivo.
-const APP_VERSION="4.3.0";
+const APP_VERSION="4.4.0";
 const LRCLIB_HEADERS={Accept:"application/json","Lrclib-Client":`Estante/${APP_VERSION} (https://alusionbr.github.io/teste1/estante/)`};
 const $=id=>document.getElementById(id);
 /*
@@ -168,6 +168,7 @@ async function fetchLrclibSong(song){
   // procura nelas a mesma música em outra versão ("Ao Vivo", "feat.") sem
   // gastar outra consulta.
   if(!x){const e=Error("Não encontrei uma letra alternativa para esta música.");e.rows=rows;throw e}
+  if(!EstanteDomain.publicTrackId(song)&&x.id)song.lrclibId=x.id;
   Object.assign(song,{album:x.albumName||song.album||"",duration:x.duration||song.duration||0,lyrics:x.plainLyrics||"",synced:x.syncedLyrics||"",instrumental:!!x.instrumental,source:"LRCLIB"});return song;
 }
 // Grava no repertório a versão aberta agora (letra carregada, tom, capo,

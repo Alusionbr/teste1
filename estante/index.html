@@ -25,7 +25,7 @@
     document.documentElement.dataset.theme=p.theme||"hibrido-inteligente";
   } catch(e) { document.documentElement.dataset.theme="hibrido-inteligente"; }
   </script>
-  <script data-version="4.3.0">
+  <script data-version="4.4.0">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -64,12 +64,12 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.3.0">
-  <link rel="stylesheet" href="./themes-v2.css?v=4.3.0">
+  <link rel="stylesheet" href="./styles.css?v=4.4.0">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.4.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./backing.css?v=4.3.0">
+  <link rel="stylesheet" href="./backing.css?v=4.4.0">
 </head>
 <body>
 <div class="app">
@@ -138,6 +138,7 @@
           <button id="importBtn" type="button">Importar</button>
           <button id="trashBtn" type="button">Lixeira</button>
           <button id="helpBtn" type="button">Ajuda</button>
+          <button id="usageSettingsBtn" type="button">Privacidade e uso</button>
           <button id="reportBugBtn" type="button">Informar um bug</button>
         </div>
       </details>
@@ -301,6 +302,17 @@
     <label>Artista<input id="pasteArtist" placeholder="Ex.: Marisa Monte"></label>
     <label>Letra, cifra ou .LRC<textarea id="pasteText" placeholder="Cole a letra aqui. Linhas só com acordes viram cifras; [Refrão] vira seção; marcas [00:12.30] ativam o modo Sincro."></textarea></label>
     <footer><button value="cancel">Cancelar</button><button class="accent" id="pasteOpen" value="default">Abrir</button></footer>
+  </form>
+</dialog>
+
+<dialog id="usageDialog" aria-labelledby="usageTitle">
+  <form method="dialog" class="modal">
+    <header><h2 id="usageTitle">Privacidade e uso</h2><button aria-label="Fechar">×</button></header>
+    <label class="usagePreference"><input id="usageOptIn" type="checkbox"> Ajudar a melhorar o Estante</label>
+    <p>Compartilha contagens diárias de músicas de catálogos públicos ensaiadas, tentativas sem letra e ritmos do catálogo tocados. Letras, notas, repertórios e áudios pessoais ficam no aparelho.</p>
+    <p>Ao desativar, os dados pendentes são apagados. Os totais já recebidos permanecem sem vínculo com este aparelho.</p>
+    <p id="usagePreferenceStatus" role="status"></p>
+    <footer><button class="accent">Fechar</button></footer>
   </form>
 </dialog>
 
@@ -520,26 +532,27 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./beats.js?v=4.3.0" defer></script>
-<script src="./domain.js?v=4.3.0" defer></script>
-<script src="./storage.js?v=4.3.0" defer></script>
-<script src="./core.js?v=4.3.0" defer></script>
-<script src="./search-engine.js?v=4.3.0" defer></script>
-<script src="./library.js?v=4.3.0" defer></script>
-<script src="./acervo.js?v=4.3.0" defer></script>
-<script src="./setlists.js?v=4.3.0" defer></script>
-<script src="./song-prefs.js?v=4.3.0" defer></script>
-<script src="./autoscroll.js?v=4.3.0" defer></script>
-<script src="./player.js?v=4.3.0" defer></script>
-<script src="./karaoke.js?v=4.3.0" defer></script>
-<script src="./song-edit.js?v=4.3.0" defer></script>
-<script src="./print.js?v=4.3.0" defer></script>
-<script src="./backing-audio.js?v=4.3.0" defer></script>
-<script src="./backing-ui.js?v=4.3.0" defer></script>
-<script src="./ui.js?v=4.3.0" defer></script>
-<script src="./search-ui.js?v=4.3.0" defer></script>
-<script src="./offline.js?v=4.3.0" defer></script>
-<script src="./bug-report.js?v=4.3.0" defer></script>
-<script src="./themes-v2.js?v=4.3.0" defer></script>
+<script src="./beats.js?v=4.4.0" defer></script>
+<script src="./domain.js?v=4.4.0" defer></script>
+<script src="./storage.js?v=4.4.0" defer></script>
+<script src="./core.js?v=4.4.0" defer></script>
+<script src="./search-engine.js?v=4.4.0" defer></script>
+<script src="./library.js?v=4.4.0" defer></script>
+<script src="./acervo.js?v=4.4.0" defer></script>
+<script src="./setlists.js?v=4.4.0" defer></script>
+<script src="./song-prefs.js?v=4.4.0" defer></script>
+<script src="./autoscroll.js?v=4.4.0" defer></script>
+<script src="./player.js?v=4.4.0" defer></script>
+<script src="./karaoke.js?v=4.4.0" defer></script>
+<script src="./song-edit.js?v=4.4.0" defer></script>
+<script src="./print.js?v=4.4.0" defer></script>
+<script src="./backing-audio.js?v=4.4.0" defer></script>
+<script src="./backing-ui.js?v=4.4.0" defer></script>
+<script src="./usage.js?v=4.4.0" defer></script>
+<script src="./ui.js?v=4.4.0" defer></script>
+<script src="./search-ui.js?v=4.4.0" defer></script>
+<script src="./offline.js?v=4.4.0" defer></script>
+<script src="./bug-report.js?v=4.4.0" defer></script>
+<script src="./themes-v2.js?v=4.4.0" defer></script>
 </body>
 </html>

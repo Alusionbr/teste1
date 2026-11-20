@@ -61,6 +61,16 @@ Na tela da música, **Acompanhar** abre um catálogo de batidas completas, faixa
 
 As bases do catálogo têm [créditos e licenças próprios](assets/acompanhamento/CREDITOS.md). A aba **Ensaio** mostra se a base pode ser tocada offline.
 
+## Estatísticas de uso
+
+Em **Ferramentas e configurações → Privacidade e uso**, a opção **Ajudar a melhorar o Estante** vem desligada. Quando a pessoa ativa, o app guarda uma fila local por até sete dias. Envia contagens diárias de faixas públicas usadas em ensaio, tentativas sem letra e ritmos do catálogo tocados. A fila usa IndexedDB para funcionar também sem rede. Ao desativar, o app descarta os contadores pendentes.
+
+O relatório dos últimos 30 dias fica em `/estante/estatisticas/`. O acesso exige uma conta Supabase Auth com e-mail e senha cujo identificador conste em `public.estante_admins`, a mesma lista usada para os relatos de bugs. O painel consulta o nome oficial da faixa pelo ID público. Gravações de catálogos diferentes podem aparecer como itens separados.
+
+Para publicar, use a pasta `estante/` como diretório do projeto Supabase. Confira o histórico de migrações no projeto que já recebe os relatos do Estante, revise a migração de estatísticas e publique a função `estante-usage` antes de publicar o front-end. A função aceita contadores sem login e guarda os totais em um esquema privado. Só administradores podem ler o relatório. A limpeza remove recibos de lotes com mais de oito dias e totais com mais de 180 dias quando novos lotes são recebidos.
+
+Além dos testes do app, rode `node estante/tests/usage-browser.js` com o servidor local ativo na porta 8765. Para checar a migração com Postgres local, instale `@electric-sql/pglite` em uma pasta temporária e aponte `ESTANTE_PGLITE` para o módulo ao executar `node estante/tests/usage-db.js`.
+
 ## Karaokê
 
 Modo separado dos outros três (Rolar, Sincro, Palco) — não dá para ligar dois

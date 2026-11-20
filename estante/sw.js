@@ -12,7 +12,7 @@
  * core.js e a constante abaixo. É o que faz o navegador buscar a versão nova.
  */
 "use strict";
-const VERSION = "4.3.0";
+const VERSION = "4.4.0";
 const CACHE = `estante-${VERSION}`;
 const SHELL = [
   "./",
@@ -22,6 +22,7 @@ const SHELL = [
   "./beats.js",
   "./backing-audio.js",
   "./backing-ui.js",
+  "./usage.js",
   "./assets/acompanhamento/bumbo.mp3",
   "./assets/acompanhamento/caixa.mp3",
   "./assets/acompanhamento/chimbal.mp3",
@@ -80,6 +81,8 @@ self.addEventListener("fetch", event => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // fontes de letra vão direto à rede
+  // O painel tem sua própria página e deve abrir pela rede.
+  if (url.pathname.startsWith(new URL("./estatisticas/", self.location.href).pathname)) return;
 
   // Faixas longas usam Range na rede e só ficam offline por download explícito.
   if (/\/acompanhamento\/(?:bossa-bossa|local-forecast|big-rock|griphop)\.mp3$/.test(url.pathname)) return;
