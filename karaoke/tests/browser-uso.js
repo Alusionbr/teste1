@@ -587,6 +587,19 @@ async function novaManual(titulo,letra,dur){
     ok(catalogoTeste.length===1&&catalogoTeste[0].p_video==="BUSCAAAAAA1","o playback não foi copiado para o catálogo ao receber o pedido");
   });
 
+  await cenario("pedido contribui com playback novo sem substituir a fonte já cadastrada na tela",async()=>{
+    catalogoTeste.length=0;
+    const r=await page.evaluate(async()=>{
+      const m=criarMusica({title:"Fonte protegida teste",artist:"Artista teste",lyrics:"letra",playback:{tipo:"arquivo",id:"arquivo-local",titulo:"Arquivo da tela"}},{compartilhar:false});
+      const ok=SalaHost.aplicar({tipo:"pedir_nova",nome:"Teste",dados:{title:m.title,artist:m.artist,playback:{tipo:"youtube",id:"BUSCAAAAAA2",titulo:"Playback sugerido"}}});
+      await new Promise(resolve=>setTimeout(resolve,20));
+      return{ok,id:m.id,playback:acharMusica(m.id).playback};
+    });
+    ok(r.ok,"a tela não aceitou o pedido");
+    ok(r.playback.tipo==="arquivo"&&r.playback.id==="arquivo-local","o pedido substituiu o playback existente na tela");
+    ok(catalogoTeste.length===1&&catalogoTeste[0].p_video==="BUSCAAAAAA2","o playback enviado não foi copiado para o catálogo");
+  });
+
   await cenario("controle filtra nomes parecidos e inclui o segundo cantor do dueto",async()=>{
     const controle=await ctx.newPage();
     try{

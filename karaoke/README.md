@@ -48,7 +48,7 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 
 ### Minha lista no celular
 
-Na página de controle, cada pessoa pode buscar e guardar músicas no próprio celular mesmo sem sala aberta. Ao entrar numa sala, marca uma ou mais músicas e envia para o fim da fila. O envio não interrompe quem está cantando. Quando uma música com playback chega à sala, seu link também é salvo no catálogo compartilhado.
+Na página de controle, cada pessoa pode buscar e guardar músicas no próprio celular mesmo sem sala aberta. Ao entrar numa sala, marca uma ou mais músicas e envia para o fim da fila. O envio não interrompe quem está cantando. Quando uma música com playback chega à sala, seu link também é salvo no catálogo compartilhado. Se a tela já tiver um playback cadastrado para essa música, o pedido contribui com o novo link sem substituir a fonte que a tela já usa.
 
 ### Playback compartilhado entre salas
 

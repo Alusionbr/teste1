@@ -45,7 +45,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 | 1.0.7 | Editor e celular já abrem listando os vídeos do playback (duração parecida primeiro, `diferencaDuracao`) |
 | 1.0.8 | **Adicionar pelo nome**: o app escolhe o melhor vídeo sozinho, confere se toca, busca a letra; **adicionar várias de uma vez** (lote até 30); celular mostra o vídeo escolhido e pede na fila |
 | 1.0.9 | **Trava do cantor**; "Só as minhas músicas"; **letra por música** (`musica.letraDe`); tela busca a letra de músicas pedidas pelo celular |
-| 1.0.12 | Minha lista no celular: preparar, selecionar e enviar músicas para a fila, mesmo antes de entrar numa sala. Pedido com playback também contribui imediatamente para o catálogo compartilhado. |
+| 1.0.12 | Minha lista no celular: preparar, selecionar e enviar músicas para a fila, mesmo antes de entrar numa sala. Pedido com playback também contribui imediatamente para o catálogo compartilhado; se a tela já tinha outra fonte para a música, ela continua preservada. |
 | 1.0.11 | Catálogo entre salas no Supabase (002_catalogo.sql). A tela contribui ao salvar e o celular consulta antes da busca externa. Conferir disponibilidade e qualidade das contribuições durante o uso. |
 | 1.0.10 | O ciclo de fundos parte do fundo visível. A fila envia os identificadores dos cantores para filtrar solos e duetos. As páginas usam a cor do manifesto durante a atualização. |
 
