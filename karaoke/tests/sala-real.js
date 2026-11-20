@@ -86,7 +86,7 @@ const cel="ap-teste-"+crypto.randomBytes(4).toString("hex");
     process.exitCode=1;
   }finally{
     const f=await rpc("karaoke_sala_fechar",{p_codigo:codigo,p_token:token}).catch(()=>null);
-    if(f&&f.status===200){
+    if(f&&(f.status===200||f.status===204)){   // função sem retorno: o PostgREST responde 204
       const v=await rpc("karaoke_sala_ver",{p_codigo:codigo,p_device:cel,p_nome:"x",p_versao:-1});
       if(v.dados&&v.dados.existe===false)console.log("  ✓ sala de teste fechada e apagada");
       else{console.error("A sala de teste não foi apagada:",codigo);process.exitCode=1}

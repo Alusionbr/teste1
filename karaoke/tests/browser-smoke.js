@@ -83,7 +83,10 @@ function salaFalsa(){
   await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
   await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",async r=>{
     const fn=r.request().url().split("/").pop();
+    if(process.env.KARAOKE_SALA_REAL)return r.continue();
     if(r.request().method()==="OPTIONS")return r.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"POST"}});
+    // KARAOKE_SALA_REAL=1: deixa passar para o Supabase de verdade (a sala de teste é fechada no fim).
+    if(process.env.KARAOKE_SALA_REAL)return r.continue();
     // KARAOKE_SALA_URL: em vez da sala em memória, usa um servidor que fala com um
     // Postgres de verdade rodando 001_sala.sql (ver supabase/teste_sala.sql).
     if(process.env.KARAOKE_SALA_URL){
@@ -223,6 +226,13 @@ function salaFalsa(){
   await mob.setViewportSize({width:390,height:844});
   await mob.goto(BASE);
   await mob.screenshot({path:path.join(SAIDA,"celular-tela-principal.png")});
+  // Fecha a sala (testa o botão e não deixa sala de teste para trás no banco).
+  await page.click("#btnSala");
+  // Espera a resposta do servidor: a tela atualiza antes, e fechar o navegador antes disso deixaria a sala no banco.
+  const fechou=process.env.KARAOKE_SALA_REAL?page.waitForResponse(r=>r.url().includes("karaoke_sala_fechar"),{timeout:8000}):null;
+  await page.click("#salaFechar");
+  if(fechou)await fechou;
+  await page.waitForFunction(()=>document.querySelector("#salaFechada")&&!document.querySelector("#salaFechada").hidden,null,{timeout:8000});
   assert.deepEqual(erros,[]);
   await browser.close();
   console.log("OK — teste de navegador passou. Screenshots em",SAIDA);
