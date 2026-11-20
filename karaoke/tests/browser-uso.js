@@ -28,18 +28,20 @@ const SAIDA=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),"karaoke-uso-"
 const BLOQUEADO="BLOQUEADO01";   // id de 11 caracteres que o player falso recusa com erro 150
 
 const YOUTUBE_FALSO=`<!doctype html><body>player falso<script>
-const bloqueado=location.pathname.includes("${BLOQUEADO}");
+let bloqueado=location.pathname.includes("${BLOQUEADO}");
 const send=o=>parent.postMessage(JSON.stringify(o),"*");
 // Player que toca de verdade (relógio de 250 ms, vídeo de 5 min), para testar letra liga/desliga.
 let estado=-1,t=0,timer=null;
 const info=()=>send({event:"infoDelivery",info:{playerState:estado,currentTime:t,duration:300,playbackRate:1}});
 addEventListener("message",e=>{let m;try{m=JSON.parse(e.data)}catch{return}
   if(m.event==="listening"){send({event:"initialDelivery",info:{apiInterface:[]}});send({event:"onReady"});if(bloqueado)send({event:"onError",info:150});else info();return}
-  if(m.event!=="command"||bloqueado)return;
+  if(m.event!=="command")return;
+  // O app reaproveita o mesmo iframe com cue/loadVideoById: o vídeo atual muda sem recarregar a página.
+  if(m.func==="cueVideoById"||m.func==="loadVideoById"){bloqueado=String(m.args[0]).includes("${BLOQUEADO}");clearInterval(timer);t=0;estado=5;if(bloqueado)send({event:"onError",info:150});else info();return}
+  if(bloqueado)return;
   if(m.func==="playVideo"){estado=1;clearInterval(timer);timer=setInterval(()=>{t+=0.25;info()},250);info()}
   if(m.func==="pauseVideo"||m.func==="stopVideo"){estado=2;clearInterval(timer);info()}
   if(m.func==="seekTo"){t=m.args[0];info()}
-  if(m.func==="cueVideoById"||m.func==="loadVideoById"){clearInterval(timer);t=0;estado=5;info()}
 });</script></body>`;
 
 // Spotify falso: toca 30 s de "prévia" em velocidade 5x e para, como o de verdade sem login.
