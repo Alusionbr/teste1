@@ -795,8 +795,10 @@ karaoke/
 ├── sala.js / sala-host.js  cliente RPC do Supabase; tela da festa
 ├── telas.js / ui.js desenho / eventos
 ├── sw.js / offline.js / manifest.webmanifest / ícones
-├── supabase/001_sala.sql
+├── supabase/001_sala.sql    schema e funções da sala
+├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
+                     + sala-real.js (fluxo da sala contra o Supabase real, rodar após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -811,7 +813,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 6. **Extrapolação com teto de 1 s** entre as entregas do player: player mudo congela a letra. Anúncio do YouTube (duração diferente) congela a letra.
 7. **Playback falhou não trava a festa**: erro mostra Trocar playback / Seguir sem playback (relógio manual) / Pular.
 8. **Spotify tem limites que não são nossos** e a tela diz: prévia de 30 s sem login; primeiro play é toque no ▶ do Spotify (por isso `#spBox` fica visível).
-9. **Sala = exceção registrada à regra “sem servidor”**, igual ao Mapa do Parque: projeto `iowuejrpzoibyidiuvpt`, schema `karaoke` (não exposto), RLS ligado sem política, sem GRANT para `anon`; única porta = funções `public.karaoke_*`. O token da sala fica só na tela; o celular só **pede** (`karaoke_comando`, lista fechada de tipos) e a tela **decide**. Dados da sala são passageiros (comandos 1 dia, salas 2 dias). Só chave publicável no navegador.
+9. **Sala = exceção registrada à regra “sem servidor”**, igual ao Mapa do Parque: projeto `iowuejrpzoibyidiuvpt`, schema `karaoke` (não exposto), RLS ligado sem política, sem GRANT para `anon`; única porta = funções `public.karaoke_*`. O token da sala fica só na tela; o celular só **pede** (`karaoke_comando`, lista fechada de tipos) e a tela **decide**. Dados da sala são passageiros (comandos 1 dia, salas 2 dias). Só chave publicável no navegador. A tela limita o que os celulares acrescentam (`MAX_*` em `sala-host.js`). Mexeu no SQL? Rode `supabase/teste_sala.sql` num Postgres local e, depois de aplicar no Supabase, `node karaoke/tests/sala-real.js`.
 10. **Array da playlist é mexido no lugar** (`splice`): `P.itens` do palco aponta para o mesmo array; `filter` com reatribuição desligaria o palco da playlist.
 11. **Microfone** só durante a medição do aplausômetro; nada gravado nem enviado. Ele não mede afinação e a tela não promete isso.
 12. **Importar nunca substitui sem perguntar**; normalização (`normalizarDados`) descarta o que não presta sem lançar erro.
