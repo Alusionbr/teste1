@@ -26,19 +26,19 @@
  * muito diferente da do vídeo = anúncio, e o relógio da letra congela.
  */
 const FonteYouTube=(()=>{
-  const ORIGEM="https://www.youtube-nocookie.com";
-  const ORIGENS=[ORIGEM,"https://www.youtube.com"];
+  // Origens, mensagens de erro, endereço do player e a conferência de vídeo moram em
+  // verificar-youtube.js, que o celular (controle.html) também usa.
+  const{ORIGEM,ORIGENS,ERROS,endereco}=YouTubeBase;
   const TETO_EXTRAPOLA=1,SEM_NOTICIA_MS=2500,TOLERANCIA_DURACAO=2;
   const ENCERRADO=0,TOCANDO=1,PAUSADO=2,CARREGANDO=3;
-  const ERROS={2:"Link de vídeo inválido.",5:"Este vídeo não toca neste navegador.",100:"Vídeo removido ou particular.",
-    101:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou).",150:"Este vídeo não pode tocar fora do YouTube (o dono bloqueou)."};
 
-  let frame=null,pronto=false,handshake=null,videoAtual="";
+  let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
   let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
 
   function enviar(msg){
-    if(!frame||!frame.contentWindow)return false;
+    // Antes de o iframe carregar, a janela ainda é a nossa: o navegador recusa o envio.
+    if(!frame||!vivo||!frame.contentWindow)return false;
     try{frame.contentWindow.postMessage(JSON.stringify({...msg,id:1,channel:"widget"}),ORIGEM);return true}catch{return false}
   }
   const comando=(func,args)=>enviar({event:"command",func,args:args||[]});
@@ -58,6 +58,7 @@ const FonteYouTube=(()=>{
     if(typeof e.data!=="string")return;
     let msg;try{msg=JSON.parse(e.data)}catch{return}
     if(!msg||typeof msg!=="object")return;
+    vivo=true; // mensagem válida do player = iframe vivo, mesmo antes do evento "load"
     if(msg.event==="onError"){
       const cod=Number(msg.info);
       emitir("erro",{msg:ERROS[cod]||"O YouTube não conseguiu tocar este vídeo.",codigo:cod,bloqueadoEmbutir:cod===101||cod===150});
@@ -97,14 +98,9 @@ const FonteYouTube=(()=>{
     f.setAttribute("allow","autoplay; encrypted-media; picture-in-picture");
     f.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
     $("ytBox").appendChild(f);
-    f.addEventListener("load",apertarMao);
+    f.addEventListener("load",()=>{vivo=true;apertarMao()});
     frame=f;
     return f;
-  }
-  function endereco(id){
-    const p=new URLSearchParams({enablejsapi:"1",playsinline:"1",rel:"0",modestbranding:"1",controls:"1",iv_load_policy:"3"});
-    if(location.origin&&location.origin!=="null")p.set("origin",location.origin);
-    return `${ORIGEM}/embed/${encodeURIComponent(id)}?${p}`;
   }
   function zerar(){ancora=0;ancoraEm=performance.now();estado=-1;duracaoVideo=0;emAnuncio=false}
 
@@ -118,12 +114,13 @@ const FonteYouTube=(()=>{
 
   return{
     tipo:"youtube",
+    verificar:YouTubeBase.verificar,
     async carregar(musica){
       const id=musica.playback.id;
       const f=criarFrame();
       zerar();videoAtual=id;tocarQuandoPronto=false;
       if(pronto&&f.src){comando("cueVideoById",[id]);return}
-      pronto=false;f.src=endereco(id);
+      vivo=false;pronto=false;f.src=endereco(id);
     },
     tocar(){if(!pronto)tocarQuandoPronto=true;comando("playVideo");vigiarPlay()},
     pausar(){clearTimeout(vigia);tocarQuandoPronto=false;comando("pauseVideo")},

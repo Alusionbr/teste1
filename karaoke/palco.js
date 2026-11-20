@@ -4,20 +4,22 @@
  *
  * Fases de cada música: "vez" (Agora é a vez de… com contagem) → "cantando"
  * → "nota" (aplausômetro) → próxima. No fim da playlist: "fim".
- * Modos: "festa" (playlist), "ensaio" (uma música só), "gravar" (sincronia).
+ * Modos: "festa" (playlist), "ensaio" (uma música só), "gravar" (sincronia) e
+ * "solo" (uma música só, com nota e placar). P.solo vale também para a playlist
+ * tocada em "Cantar sozinho" (modo "festa"): sem cantor, "Você" no lugar.
  *
  * Um requestAnimationFrame só desenha tudo (letra, barra, sinal). O relógio
  * vem SEMPRE da fonte de playback:
  *   tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay
  */
-const P={aberto:false,modo:"festa",itens:[],playlistId:"",indice:0,item:null,musica:null,
+const P={aberto:false,modo:"festa",solo:false,fundoComLetra:"escuro",itens:[],playlistId:"",indice:0,item:null,musica:null,
   letra:{sincronizada:false,linhas:[]},fonte:null,fase:"",raf:0,idx:-2,carregado:false,carregando:null,
   contagemTimer:0,ultimaBarra:-1,arrastando:false,spans:[],notaTimer:0,duracaoAvisada:""};
 
 const prefs=()=>K.dados.prefs;
 const temPalco=()=>P.aberto;
 
-function abrirPalco({playlistId="",indice=0,modo="festa",musicaId=""}={}){
+function abrirPalco({playlistId="",indice=0,modo="festa",musicaId="",solo=false}={}){
   if(modo==="festa"){
     const p=acharPlaylist(playlistId);
     if(!p||!p.itens.length)return notify("Adicione músicas à playlist antes de começar.");
@@ -26,7 +28,7 @@ function abrirPalco({playlistId="",indice=0,modo="festa",musicaId=""}={}){
     if(!acharMusica(musicaId))return;
     P.itens=[{id:"ensaio",musicaId,cantorA:"",cantorB:""}];P.playlistId="";
   }
-  P.modo=modo;P.aberto=true;
+  P.modo=modo;P.solo=solo||modo==="solo";P.aberto=true;
   $("palco").dataset.modo=modo;
   document.body.classList.add("comPalco");
   $("palco").hidden=false;
@@ -53,11 +55,31 @@ function fecharPalco(){
   if(typeof renderTudo==="function")renderTudo();
 }
 
-function aplicarPrefsPalco(){
-  const pr=prefs(),el=$("palco");
-  el.dataset.fundo=pr.fundo;
-  el.style.setProperty("--escala",String(pr.tamanho/100));
+// Fundo que vale para a música de agora. A preferência do aparelho (Ajustes) é a base;
+// uma música de YouTube com letra pode guardar a própria escolha (letraDe): "video" = só
+// o vídeo (letra do vídeo), "app" = letra sincronizada do app por cima.
+function fundoEfetivo(){
+  const base=prefs().fundo,m=P.musica;
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+    if(m.letraDe==="video")return "tela";
+    if(m.letraDe==="app")return base==="tela"?(P.fundoComLetra||"escuro"):base;
+  }
+  return base;
 }
+function aplicarPrefsPalco(){
+  const pr=prefs(),el=$("palco"),fundo=fundoEfetivo();
+  el.dataset.fundo=fundo;
+  el.style.setProperty("--escala",String(pr.tamanho/100));
+  const soVideo=fundo==="tela";
+  const b=$("palcoLetraBtn");
+  b.textContent=soVideo?"🔤 Letra":"🎞 Só vídeo";
+  b.setAttribute("aria-pressed",String(!soVideo));
+  b.title=soVideo?"Ligar a letra sincronizada do app (L)":"Desligar a letra do app e mostrar só o vídeo (L)";
+  P.idx=-2;   // a letra se redesenha na hora quando volta
+}
+// Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
+// recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
+const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&fundoEfetivo()==="tela");
 
 function pararTudo(){
   clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);
@@ -79,6 +101,7 @@ function carregarIndice(i,{comecarJa=false}={}){
   if(i<0)i=0;
   P.indice=i;P.item=P.itens[i];P.musica=acharMusica(P.item.musicaId);
   if(!P.musica){carregarIndice(i+1,{comecarJa});return}
+  aplicarPrefsPalco();   // cada música pode guardar se usa a letra do vídeo ou a do app
   P.letra=lerLetra(letraDaMusica(P.musica));
   P.idx=-2;P.ultimaBarra=-1;P.duracaoAvisada="";
   P.fonte=fonteDaMusica(P.musica);
@@ -90,12 +113,13 @@ function carregarIndice(i,{comecarJa=false}={}){
   atualizarBotaoTocar();
   avisarSala();
   if(P.modo==="gravar"){P.fase="gravando";Sincronia.iniciar();return}
-  if(P.modo==="festa"&&prefs().contagem>0&&!comecarJa)mostrarVez();
+  if((P.modo==="festa"||P.modo==="solo")&&prefs().contagem>0&&!comecarJa)mostrarVez();
   else comecar();
 }
 
 function proxima(){
   if(!P.aberto)return;
+  if(P.modo==="solo"){mostrarFim("🎤 Fim da música");return}
   if(P.modo!=="festa"){mostrarFim();return}
   carregarIndice(P.indice+1);
 }
@@ -107,6 +131,7 @@ function anterior(){
 
 /* ---------------------------------------------------------------- "a vez de" */
 function cantoresDoItem(item){
+  if(P.solo)return{a:null,b:null};
   const a=acharCantor(item&&item.cantorA),b=acharCantor(item&&item.cantorB);
   return{a,b};
 }
@@ -116,14 +141,16 @@ function rotuloCantores(item){
   if(a)return `${a.emoji} ${a.nome}`;
   return "🎤 Quem quiser!";
 }
+// Rótulo do cantor no palco: sozinho é sempre "Você" (a playlist pode ter cantores marcados).
+function rotuloPalco(item){return P.solo?"🎤 Você":rotuloCantores(item)}
 function mostrarVez(){
   P.fase="vez";
   const{a}=cantoresDoItem(P.item);
-  $("vezCantor").textContent=rotuloCantores(P.item);
+  $("vezCantor").textContent=P.solo?"🎤 Prepare-se!":rotuloCantores(P.item);
   $("vezCantor").style.color=a?a.cor:"";
   $("vezMusica").textContent=`${P.musica.title}${P.musica.artist?" — "+P.musica.artist:""}`;
   $("palcoVez").hidden=false;
-  let resta=prefs().contagem;
+  let resta=P.solo?Math.min(prefs().contagem,3):prefs().contagem;
   const mostrar=()=>{$("vezContagem").textContent=resta>0?String(resta):"🎶"};
   mostrar();
   clearInterval(P.contagemTimer);
@@ -198,12 +225,16 @@ function mostrarErro(msg){
   $("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");
 }
 // Playback falhou: a letra segue pelo relógio do aparelho, sem travar a festa.
+// A letra continua de onde estava (ex.: a prévia do Spotify acabou aos 30 s),
+// em vez de recomeçar do zero.
 function seguirSemPlayback(){
   $("palcoErro").hidden=true;
+  let desde=0;
+  try{desde=P.fonte?P.fonte.tempo():0}catch{}
   try{P.fonte&&P.fonte.parar()}catch{}
   P.fonte=FonteRelogio;P.carregado=false;
   const f=P.fonte;
-  P.carregando=f.carregar(P.musica).then(()=>{P.carregado=true});
+  P.carregando=f.carregar(P.musica).then(()=>{P.carregado=true;if(desde>0)f.buscar(desde)});
   P.carregando.then(()=>{if(P.fonte===f){if(P.fase==="vez")return;P.fase=P.modo==="gravar"?"gravando":"cantando";f.tocar()}});
 }
 
@@ -211,15 +242,17 @@ function seguirSemPlayback(){
 function mostrarNota(){
   P.fase="nota";
   const{a}=cantoresDoItem(P.item);
-  $("notaTitulo").textContent=`Aplausos para ${rotuloCantores(P.item)}!`;
+  $("notaTitulo").textContent=P.solo?"👏 Mandou bem!":`Aplausos para ${rotuloCantores(P.item)}!`;
   $("notaTitulo").style.color=a?a.cor:"";
   $("notaResultado").textContent="";
+  $("notaDeNovo").hidden=!P.solo;
+  mostrarRecorde(null);
   $("notaBarra").style.width="0%";
   const comMic=prefs().aplausometro&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
   $("notaMedir").hidden=!comMic;$("notaMedidor").hidden=!comMic;
   if(!comMic)$("notaResultado").textContent="👏👏👏 Muito bem!";
   const prox=P.itens[P.indice+1],pm=prox&&acharMusica(prox.musicaId);
-  $("notaProximoInfo").textContent=pm?`Próximo: ${rotuloCantores(prox)} — ${pm.title}`:"Esta foi a última da playlist.";
+  $("notaProximoInfo").textContent=pm?`Próximo: ${P.solo?"":rotuloCantores(prox)+" — "}${pm.title}`:(P.modo==="solo"?"":"Esta foi a última da playlist.");
   $("palcoNota").hidden=false;
   avisarSala();
 }
@@ -231,15 +264,28 @@ async function medirAplausos(){
     if(P.fase!=="nota")return;
     $("notaBarra").style.width=r.nota+"%";
     $("notaResultado").textContent=`${"⭐".repeat(r.estrelas)} ${r.nota} pontos — ${r.frase}`;
+    if(P.solo){const g=registrarNota(K.dados,P.musica.id,r.nota);salvarEstado();mostrarRecorde(g)}
     avisarSala({nota:r.nota});
   }catch(e){
     $("notaResultado").textContent=e.message||"Não consegui usar o microfone.";
   }finally{btn.disabled=false}
 }
+// Linha do recorde na tela de nota (só no "Cantar sozinho"). g = resultado de
+// registrarNota; null mostra o recorde que já existe (ou nada).
+function mostrarRecorde(g){
+  const el=$("notaRecorde");
+  let txt="";
+  if(P.solo&&P.musica){
+    if(g)txt=g.recorde?(g.anterior===null?"🏆 Primeira nota desta música!":`🏆 Novo recorde! (antes: ${g.anterior})`):`Seu recorde: ${g.melhor}`;
+    else{const m=melhorNota(K.dados,P.musica.id);if(m!==null)txt=`Seu recorde: ${m}`}
+  }
+  el.textContent=txt;el.hidden=!txt;
+}
 function mostrarFim(titulo){
   pararTudo();esconderSobreposicoes();
   P.fase="fim";
   $("palcoFim").querySelector(".vezCantor").textContent=titulo||"🎉 Fim da playlist!";
+  $("fimDica").textContent=P.solo?"Cante de novo ou volte para escolher outra.":"Que festa! Adicione mais músicas ou comece de novo.";
   $("palcoFim").hidden=false;
   atualizarBotaoTocar();
   avisarSala();
@@ -249,7 +295,7 @@ function mostrarFim(titulo){
 function desenharCabecalho(){
   const{a}=cantoresDoItem(P.item);
   const selo=$("palcoCantor");
-  selo.textContent=P.modo==="festa"?rotuloCantores(P.item):(P.modo==="gravar"?"⏺ Gravando":"🎤 Ensaio");
+  selo.textContent=P.solo?"🎤 Você":P.modo==="festa"?rotuloCantores(P.item):(P.modo==="gravar"?"⏺ Gravando":"🎤 Ensaio");
   selo.style.setProperty("--cor",a?a.cor:"#ff3d9a");
   $("palcoTitulo").textContent=`${P.musica.title}${P.musica.artist?" — "+P.musica.artist:""}`+(P.modo==="festa"?`  ·  ${P.indice+1}/${P.itens.length}`:"");
   $("spBox").hidden=!(P.musica.playback&&P.musica.playback.tipo==="spotify");
@@ -264,6 +310,7 @@ function corDaParte(parte){
 }
 function rotuloDaParte(parte){
   const{a,b}=cantoresDoItem(P.item);
+  if(P.solo)return "";
   if(parte==="A")return a?`${a.emoji} ${a.nome}`:"Cantor A";
   if(parte==="B")return b?`${b.emoji} ${b.nome}`:"Cantor B";
   if(parte==="T")return "🎶 Todos juntos";
@@ -371,7 +418,7 @@ function atualizarOffset(){
 // avisa uma vez por música e diz o que fazer (Letra −/+).
 function avisarDuracao(f){
   const m=P.musica;
-  if(P.duracaoAvisada||!m||!m.playback||m.playback.tipo==="arquivo"||P.fase!=="cantando"||!P.letra.sincronizada)return;
+  if(P.duracaoAvisada||!m||!m.playback||m.playback.tipo==="arquivo"||P.fase!=="cantando"||!P.letra.sincronizada||soVideoAgora())return;
   const dur=f.duracao&&f.duracao();
   if(!(dur>0)||!f.tocando())return;
   P.duracaoAvisada=m.id+"|"+m.playback.id;
@@ -390,6 +437,7 @@ function tick(){
   avisarDuracao(f);
   if(P.fase==="gravando"){Sincronia.tick(t);return}
   if(P.fase!=="cantando"&&P.fase!=="vez")return;
+  if(soVideoAgora())return;   // letra escondida: nem desenha (poupa a TV fraca)
   desenharLetra(t-(Number(P.musica.offset)||0)-prefs().audioDelay/1000);
 }
 
@@ -405,11 +453,36 @@ function ajustarOffset(delta){
   P.idx=-2;
   notify(v===0?"Letra desta música no ponto zero.":`Letra ${v>0?"atrasada":"adiantada"} ${Math.abs(v).toFixed(2).replace(".",",")} s nesta música.`,true);
 }
+// Liga/desliga a letra sincronizada do app por cima do vídeo. Desligada = só o vídeo
+// do YouTube (a letra vem nele); ligada = volta ao último fundo com letra (padrão:
+// vídeo escurecido atrás da letra).
+function alternarLetra(){
+  const pr=prefs(),m=P.musica;
+  // Música de YouTube com letra própria: a escolha fica guardada na música.
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+    const paraApp=fundoEfetivo()==="tela";
+    P.musica=editarMusica(m.id,{letraDe:paraApp?"app":"video"});
+    aplicarPrefsPalco();salvarLogo();avisarSala();
+    notify(paraApp?"Letra sincronizada do app ligada nesta música (fica guardada).":"Só o vídeo: a letra é a do próprio vídeo (fica guardado nesta música).",true);
+    return;
+  }
+  if(pr.fundo==="tela")pr.fundo=P.fundoComLetra||"escuro";
+  else{P.fundoComLetra=pr.fundo;pr.fundo="tela"}
+  aplicarPrefsPalco();salvarLogo();avisarSala();
+  notify(pr.fundo==="tela"?"Só o vídeo do YouTube: a letra é a do próprio vídeo.":"Letra sincronizada ligada junto ao playback.",true);
+}
 function trocarFundo(){
-  const ordem=["opaco","escuro","video"];
-  const pr=prefs();pr.fundo=ordem[(ordem.indexOf(pr.fundo)+1)%ordem.length];
-  aplicarPrefsPalco();salvarLogo();
-  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra."}[pr.fundo],true);
+  const ordem=FUNDOS;
+  const pr=prefs();
+  const atual=fundoEfetivo();
+  if(atual!=="tela")P.fundoComLetra=atual;
+  pr.fundo=ordem[(ordem.indexOf(atual)+1)%ordem.length];
+  const m=P.musica;
+  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)&&m.letraDe){
+    P.musica=editarMusica(m.id,{letraDe:pr.fundo==="tela"?"video":"app"});
+  }
+  aplicarPrefsPalco();salvarLogo();avisarSala();
+  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo do YouTube: a letra é a do próprio vídeo."}[pr.fundo],true);
 }
 function telaCheia(){
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
@@ -440,11 +513,14 @@ document.addEventListener("keydown",e=>{
   if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)&&e.target.type!=="range")return;
   if(P.fase==="gravando"&&Sincronia.tecla(e))return;
   const k=e.key;
+  // Na barra de progresso, as setas movem a barra (padrão do navegador), não trocam de música.
+  if(e.target&&e.target.type==="range"&&(k==="ArrowLeft"||k==="ArrowRight"))return;
   if(k===" "||k==="k"){e.preventDefault();alternar()}
   else if(k==="ArrowRight"||k==="n"){e.preventDefault();proxima()}
   else if(k==="ArrowLeft"){e.preventDefault();anterior()}
   else if(k==="Escape"&&!document.fullscreenElement){fecharPalco()}
   else if(k==="f"){telaCheia()}
+  else if(k==="l"){alternarLetra()}
   else if(k==="["){ajustarOffset(-0.25)}
   else if(k==="]"){ajustarOffset(0.25)}
   else if(k==="Enter"&&(P.fase==="vez"||P.fase==="nota")){e.preventDefault();comandoPalco("comecar")}

@@ -146,7 +146,7 @@ p.aviso.fixo{position:static;animation:none;padding:.7em;background:#3a2a10;bord
 #palco[data-fonte="youtube"][data-fundo="escuro"] #palcoCobertura{background:rgba(10,5,25,.74)}
 #palco[data-fonte="youtube"][data-fundo="video"] #palcoCobertura{background:linear-gradient(transparent 40%,rgba(10,5,25,.55))}
 
-#palcoTopo{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:.8em;padding:max(.7em,env(safe-area-inset-top)) 1em .5em;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+#palcoTopo{position:absolute;top:0;left:0;right:0;z-index:18;display:flex;align-items:center;gap:.8em;padding:max(.7em,env(safe-area-inset-top)) 1em .5em;background:linear-gradient(rgba(0,0,0,.55),transparent)}
 #palcoTopo .cantorSelo{font-size:clamp(14px,1.6vw,24px);background:var(--cor);color:#120a26;border:0;padding:.25em .9em}
 #palcoTitulo{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;opacity:.9;font-size:clamp(13px,1.3vw,20px)}
 #palcoSinal{font-size:.8em;opacity:.85;white-space:nowrap}
@@ -259,3 +259,49 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
   #palcoTopo{padding-right:64px}
   #palcoSair{position:absolute;top:max(.7em,env(safe-area-inset-top));right:.8em;width:40px;height:40px}
 }
+
+/* Telas pequenas: título e botão numa linha só; seletor de playlist com a largura toda. */
+@media (max-width:640px){
+  .marca{white-space:nowrap;font-size:1.1em}
+  #btnSala{white-space:nowrap;font-size:.85em;padding:.35em .7em}
+  .barraPlaylist{flex-wrap:wrap}
+  .barraPlaylist select{flex:1 1 100%}
+}
+
+/* Link do vídeo recolhido: a busca é o caminho principal do editor e do celular. */
+.linkDetalhes{margin-top:.8em;border:1px solid var(--borda);border-radius:12px;padding:.5em .8em}
+.linkDetalhes summary{cursor:pointer;color:var(--suave);font-weight:600}
+.linkDetalhes[open] summary{margin-bottom:.5em}
+.lista.videos .selo{margin-left:.4em}
+.opcaoLinha{display:flex;gap:.5em;align-items:center;margin:.4em 0;color:var(--suave);font-size:.9em}
+#loteTexto{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid var(--borda);background:#120a26;color:inherit;padding:.6em;font:inherit}
+.autoItem{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;justify-content:space-between;padding:.5em .6em;border-bottom:1px solid var(--borda)}
+.autoItem.falhou b{color:#ffb3bd}
+.autoTexto{flex:1 1 14em;min-width:0}.autoTexto small{display:block;color:var(--suave);overflow-wrap:anywhere}
+.autoAcoes{display:flex;gap:.4em}
+.autoVideos{flex:1 1 100%;margin:0}
+
+/* ---------------------------------------------------------- cantar sozinho */
+.botaoSolo{width:100%;margin:0 0 1em;padding:.7em 1em;border-radius:16px;font-weight:700;font-size:1.05em;background:#1b1233;border:2px solid var(--rosa);color:#fff;min-height:52px}
+.botaoSolo small{font-weight:400;color:var(--suave);font-size:.8em}
+.botaoSolo:hover:not(:disabled){background:#2a1a4f}
+.selo.recorde{color:#ffe29a;border-color:#7a5b16}
+.notaRecorde{margin:.4em 0 .8em;font-size:1.25em;font-weight:800;color:#ffd23f;text-align:center}
+
+/* ------------------------------------- "Só o vídeo do YouTube" (a letra vem no vídeo) */
+/* O vídeo ocupa o palco inteiro, sem a letra do app. Parado por 4 s tocando, somem também
+   as barras de cima e de baixo: só o player fica na tela. A sala segue funcionando por trás. */
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoCobertura,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoLetra,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAdiantar,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAtrasar,
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoOffset{display:none}
+#palco[data-fonte="youtube"][data-fundo="tela"] #palcoFundo{background:#000}
+#palco.ocioso[data-fonte="youtube"][data-fundo="tela"] #palcoTopo{opacity:0}
+#palcoTopo{transition:opacity .4s}
+
+/* Nada do player do YouTube é clicável: título, logo e "Assistir no YouTube" levariam a TV
+   para fora da sala. Quem comanda é o app (botões, teclado e celulares). A exceção é o
+   primeiro toque que o iPhone/iPad exige (body.liberandoYT). */
+#palco #ytBox iframe{pointer-events:none}
+body.liberandoYT #palco #ytBox iframe{pointer-events:auto}

@@ -12,6 +12,8 @@ function selosMusica(m){
   else if(temLetra(m))s.push(`<span class="selo meio">letra sem tempo</span>`);
   else s.push(`<span class="selo falta">sem letra</span>`);
   if(temDueto(m))s.push(`<span class="selo dueto">👥 dueto</span>`);
+  const melhor=melhorNota(K.dados,m.id);
+  if(melhor!==null)s.push(`<span class="selo recorde" title="Seu melhor resultado no Cantar sozinho">🏆 ${melhor}</span>`);
   return s.join("");
 }
 function seloCantor(id){
@@ -28,7 +30,7 @@ function renderPlaylist(){
   sel.innerHTML=K.dados.playlists.length?K.dados.playlists.map(x=>`<option value="${x.id}"${x===p?" selected":""}>${esc(x.nome)} (${x.itens.length})</option>`).join(""):`<option value="">Nenhuma playlist ainda</option>`;
   ["btnRenomearPlaylist","btnCompartilhar","btnApagarPlaylist"].forEach(id=>{$(id).disabled=!p});
   const itens=p?p.itens:[];
-  $("btnComecar").disabled=!itens.length;
+  $("btnComecar").disabled=!itens.length;$("btnSolo").disabled=!itens.length;
   $("filaVazia").hidden=!!itens.length;
   const dur=duracaoPlaylist(p);
   const cantores=new Set(itens.flatMap(i=>[i.cantorA,i.cantorB]).filter(Boolean));
@@ -62,7 +64,8 @@ function renderBiblioteca(){
       <div class="acoesItem">
         <button type="button" data-acao="editar">✏️ Editar</button>
         <button type="button" data-acao="paraFila">+ Playlist</button>
-        <button type="button" data-acao="ensaiar" aria-label="Ensaiar">▶</button>
+        <button type="button" data-acao="solo" aria-label="Cantar sozinho" title="Cantar sozinho">🎤</button>
+        <button type="button" data-acao="ensaiar" aria-label="Ensaiar" title="Só ouvir e ensaiar">▶</button>
       </div></li>`).join("")||(K.dados.musicas.length?`<li class="vazio">Nada encontrado.</li>`:"");
 }
 
@@ -90,22 +93,26 @@ function renderAjustes(){
   $("prefTamanho").value=pr.tamanho;$("tamanhoOut").textContent=pr.tamanho+"%";
   $("prefFundo").value=pr.fundo;
   $("prefContagem").value=String(pr.contagem);
-  $("prefAplausometro").checked=pr.aplausometro;
+  $("prefAplausometro").checked=pr.aplausometro;$("prefTrava").checked=pr.trava;
   $("atrasoOut").textContent=pr.audioDelay+" ms";
   if(document.activeElement!==$("prefKeyYT"))$("prefKeyYT").value=pr.keyYT;
   $("versaoApp").textContent="v"+APP_VERSION;
 }
 
 /* ------------------------------------------------------- editor de música */
-const ED={id:"",aba:"youtube"};
+const ED={id:"",aba:"youtube",buscou:false,buscaEditada:false};
+// Termo de busca do playback: o padrão traz vídeo só com a música, não o clipe oficial.
+const termoBuscaPlayback=(titulo,artista)=>`${titulo} ${artista} playback karaokê`.replace(/\s+/g," ").trim();
 function abrirEditor(id,aba){
   const m=acharMusica(id);if(!m)return;
-  ED.id=id;
-  $("mTitulo").value=m.title;$("mArtista").value=m.artist;$("mDuracao").value=m.duration?fmt(m.duration):"";
+  ED.id=id;ED.buscou=false;ED.buscaEditada=false;
+  $("mTitulo").value=m.title;$("mArtista").value=m.artist;$("mDuracao").value=m.duration?fmt(m.duration):"";$("mLetraDe").value=m.letraDe||"";
   $("mLetra").value=letraDaMusica(m);
   $("mLinkYT").value=m.playback&&m.playback.tipo==="youtube"?"https://youtu.be/"+m.playback.id:"";
   $("mLinkSP").value=m.playback&&m.playback.tipo==="spotify"?"https://open.spotify.com/track/"+m.playback.id:"";
   $("mVideos").innerHTML="";
+  $("mBuscaYT").value=termoBuscaPlayback(m.title,m.artist);
+  $("mLinkDetalhes").open=false;
   trocarAbaPlayback(aba||(m.playback?m.playback.tipo:"youtube"));
   atualizarEditor();
   if(!$("dlgMusica").open)$("dlgMusica").showModal();
@@ -117,11 +124,11 @@ function atualizarEditor(){
   $("mSemPlayback").hidden=!pb;
   const q={title:$("mTitulo").value,artist:$("mArtista").value};
   $("mProcurarYT").href=linkBuscaYouTube(q);
-  const termo=`${q.title} ${q.artist} playback karaokê`.replace(/\s+/g," ").trim();
+  const termo=termoBuscaPlayback(q.title,q.artist);
+  if(!ED.buscaEditada)$("mBuscaYT").value=termo;
   $("mSugestaoYT").hidden=!!(pb&&pb.tipo==="youtube")||!q.title.trim();
-  $("mSugestaoYT").innerHTML=`💡 Sugestão: procure por <b>${esc(termo)}</b>, abra um vídeo só com a música${m.duration?` (de uns <b>${fmt(m.duration)}</b>)`:""} e cole o link aqui embaixo.`;
+  $("mSugestaoYT").innerHTML=`Escolha um vídeo só com a música (sem a voz)${m.duration?`; a letra tem <b>${fmt(m.duration)}</b>`:""}. Os de duração parecida vêm primeiro.`;
   $("mProcurarSP").href=linkBuscaSpotify(q);
-  $("mBuscarYTApp").hidden=!K.dados.prefs.keyYT;
   const texto=$("mLetra").value,info=lerLetra(texto);
   $("mLetraInfo").textContent=!info.linhas.length?"Sem letra ainda.":info.sincronizada?`✓ Letra sincronizada (${info.linhas.filter(l=>l.texto).length} versos).`:`Letra sem tempo (${info.linhas.length} versos). Grave a sincronia para o efeito de karaokê.`;
   const off=Number(m.offset)||0;
@@ -131,12 +138,15 @@ function trocarAbaPlayback(aba){
   ED.aba=aba;
   document.querySelectorAll("#dlgMusica [data-pb]").forEach(b=>b.classList.toggle("ativa",b.dataset.pb===aba));
   $("pbYoutube").hidden=aba!=="youtube";$("pbSpotify").hidden=aba!=="spotify";$("pbArquivo").hidden=aba!=="arquivo";
+  // Música sem playback do YouTube: já mostra os vídeos, sem ninguém pedir link nem buscar.
+  const m=acharMusica(ED.id);
+  if(aba==="youtube"&&m&&!ED.buscou&&!(m.playback&&m.playback.tipo==="youtube")&&m.title.trim())buscarPlaybackNoEditor();
 }
 // Grava título, artista, duração e letra do formulário. Devolve a música.
 function salvarEditor(){
   const m=acharMusica(ED.id);if(!m)return null;
   const texto=$("mLetra").value;
-  const campos={title:$("mTitulo").value,artist:$("mArtista").value,duration:parseClock($("mDuracao").value)||m.duration};
+  const campos={title:$("mTitulo").value,artist:$("mArtista").value,duration:parseClock($("mDuracao").value)||m.duration,letraDe:$("mLetraDe").value};
   if(temLRC(texto)){
     campos.synced=texto;
     if(!m.lyrics||temSincronia(m)&&m.synced!==texto)campos.lyrics=versosDaLetra(texto).map(v=>v.texto).join("\n");

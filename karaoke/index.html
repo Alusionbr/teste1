@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.2">
+  <script data-version="1.0.10">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.2">
+  <link rel="stylesheet" href="./styles.css?v=1.0.10">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -50,14 +50,14 @@
 <body>
   <header class="topo">
     <div class="marca"><img src="./icon.svg" alt="" width="34" height="34"><span><b>Karaokê</b> em Casa</span></div>
-    <button type="button" id="btnSala" class="chip">📱 Controle pelo celular</button>
+    <button type="button" id="btnSala" class="chip" title="Controlar esta festa pelos celulares">📱 Controle remoto</button>
   </header>
 
   <nav class="abas" role="tablist" aria-label="Seções">
-    <button type="button" role="tab" data-aba="playlist" class="ativa">🎤<span>Playlist</span></button>
-    <button type="button" role="tab" data-aba="musicas">🎵<span>Músicas</span></button>
-    <button type="button" role="tab" data-aba="familia">👨‍👩‍👧<span>Família</span></button>
-    <button type="button" role="tab" data-aba="ajustes">⚙️<span>Ajustes</span></button>
+    <button type="button" role="tab" aria-label="Playlist" data-aba="playlist" class="ativa">🎤<span>Playlist</span></button>
+    <button type="button" role="tab" aria-label="Músicas" data-aba="musicas">🎵<span>Músicas</span></button>
+    <button type="button" role="tab" aria-label="Família" data-aba="familia">👨‍👩‍👧<span>Família</span></button>
+    <button type="button" role="tab" aria-label="Ajustes" data-aba="ajustes">⚙️<span>Ajustes</span></button>
   </nav>
 
   <main>
@@ -73,6 +73,7 @@
       </div>
       <p id="playlistResumo" class="dica"></p>
       <button type="button" id="btnComecar" class="botaoGrande">▶ Começar karaokê</button>
+      <button type="button" id="btnSolo" class="botaoSolo">🎤 Cantar sozinho <small>(sem vez, com nota)</small></button>
       <ol id="filaLista" class="lista fila"></ol>
       <div id="filaVazia" class="vazio" hidden>
         <p class="vazioTitulo">A playlist está vazia</p>
@@ -80,6 +81,7 @@
           <li>Em <b>Família</b>, cadastre quem vai cantar.</li>
           <li>Em <b>Músicas</b>, busque a letra e escolha o playback (YouTube, Spotify ou arquivo).</li>
           <li>Aqui, adicione as músicas e aperte <b>Começar</b>.</li>
+          <li>Está sozinho? Em <b>Músicas</b>, toque no 🎤 de uma música e cante na hora, sem cadastrar ninguém.</li>
         </ol>
       </div>
       <button type="button" id="btnAddFila" class="botaoLinha">+ Adicionar música à playlist</button>
@@ -128,25 +130,28 @@
             <option value="opaco">Só som — esconde o vídeo</option>
             <option value="escuro">Vídeo escurecido atrás da letra</option>
             <option value="video">Vídeo aparecendo</option>
+            <option value="tela">Só o vídeo do YouTube — a letra vem no próprio vídeo</option>
           </select></label>
         <label>Contagem antes de cada música
           <select id="prefContagem"><option value="0">Sem contagem</option><option value="3">3 segundos</option><option value="5">5 segundos</option><option value="10">10 segundos</option></select></label>
         <label class="check"><input id="prefAplausometro" type="checkbox"> Aplausômetro no fim de cada música (usa o microfone)</label>
+        <label class="check"><input id="prefTrava" type="checkbox"> Trava: durante a música, só quem está cantando pausa, pula ou troca (os outros celulares só mexem na fila)</label>
         <div class="rotulo">Atraso da caixa Bluetooth <output id="atrasoOut"></output></div>
         <div class="acoes"><button type="button" id="atrasoMenos">− 50 ms</button><button type="button" id="atrasoMais">+ 50 ms</button></div>
         <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
       </div>
       <div class="cartao">
-        <h2>Busca de playback no YouTube (opcional)</h2>
-        <p class="dica">Com uma chave gratuita da API do YouTube, a busca acontece dentro do app e mostra só vídeos que podem tocar aqui. Sem chave, o app abre a busca do YouTube e você cola o link. A chave fica só neste aparelho.</p>
+        <h2>Busca de vídeos no YouTube</h2>
+        <p class="dica">A busca funciona sem chave, por serviços públicos de busca (o texto que você digita vai para eles). Com uma chave gratuita da API do YouTube (cerca de 100 buscas por dia) a busca usa o próprio YouTube e mostra só vídeos que podem tocar aqui. A chave fica só neste aparelho. Se a busca não responder, use “Procurar no YouTube” e cole o link.</p>
         <label>Chave da API do YouTube <input id="prefKeyYT" type="password" autocomplete="off" placeholder="AIza…"></label>
       </div>
       <div class="cartao">
         <h2>Backup</h2>
-        <p class="dica">Tudo fica guardado neste aparelho. Exporte de vez em quando. Os áudios escolhidos do aparelho não vão no backup.</p>
+        <p class="dica">Tudo fica guardado neste aparelho (inclusive o placar do Cantar sozinho). Exporte de vez em quando. Os áudios escolhidos do aparelho não vão no backup.</p>
         <div class="acoes">
           <button type="button" id="btnExportar">⬇ Exportar backup</button>
           <label class="botao">⬆ Importar backup<input id="arquivoImportar" type="file" accept="application/json,.json" hidden></label>
+          <button type="button" id="btnLimparPlacar" class="perigo">🗑 Apagar meu placar</button>
         </div>
         <p id="armazenamentoInfo" class="dica"></p>
       </div>
@@ -195,6 +200,7 @@
         <span id="palcoOffset" class="offset"></span>
         <button type="button" id="palcoAtrasar" title="Letra chegando cedo: atrasar">Letra +</button>
         <span class="separador"></span>
+        <button type="button" id="palcoLetraBtn" title="Letra do app (L)">🎞 Só vídeo</button>
         <button type="button" id="palcoFundoBtn" title="Fundo da letra">🎬</button>
         <button type="button" id="palcoTelaCheia" title="Tela cheia">⛶</button>
       </div>
@@ -215,8 +221,10 @@
       <div id="notaTitulo" class="vezRotulo"></div>
       <div id="notaMedidor" class="medidor"><div id="notaBarra"></div></div>
       <div id="notaResultado" class="notaResultado"></div>
+      <div id="notaRecorde" class="notaRecorde" hidden></div>
       <div class="acoes centro">
         <button type="button" id="notaMedir" class="botaoGrande">👏 Medir os aplausos</button>
+        <button type="button" id="notaDeNovo" hidden>↺ Cantar de novo</button>
         <button type="button" id="notaProxima">Próxima ▶</button>
       </div>
       <p id="notaProximoInfo" class="dica"></p>
@@ -224,7 +232,7 @@
 
     <div id="palcoFim" class="sobre" hidden>
       <div class="vezCantor">🎉 Fim da playlist!</div>
-      <p class="dica">Que festa! Adicione mais músicas ou comece de novo.</p>
+      <p id="fimDica" class="dica">Que festa! Adicione mais músicas ou comece de novo.</p>
       <div class="acoes centro"><button type="button" id="fimRecomecar">↺ Recomeçar</button><button type="button" id="fimSair" class="primario">Voltar</button></div>
     </div>
 
@@ -270,6 +278,26 @@
       <input id="buscaLetra" type="search" placeholder="Nome da música e do artista" autocomplete="off" required>
       <button type="submit" class="primario">Buscar</button>
     </form>
+    <form id="formNovaLink" class="barraBusca" autocomplete="off">
+      <label class="sr" for="novaLinkYT">Adicionar pelo nome da música ou colar o link do YouTube</label>
+      <input id="novaLinkYT" placeholder="Nome da música e do artista (o app acha o vídeo) ou link do YouTube" autocomplete="off">
+      <button type="submit" class="primario">➕ Adicionar</button>
+      <button type="button" id="novaVerOpcoes">🔎 Ver opções</button>
+    </form>
+    <label class="opcaoLinha"><input type="checkbox" id="novaComLetra" checked> Buscar também a letra sincronizada</label>
+    <ul id="novaResultado" class="lista autoLista"></ul>
+    <ul id="novaVideos" class="lista videos"></ul>
+    <details id="novaLote" class="linkDetalhes">
+      <summary>📋 Adicionar várias de uma vez</summary>
+      <form id="formLote">
+        <label class="sr" for="loteTexto">Uma música por linha</label>
+        <textarea id="loteTexto" rows="6" placeholder="Uma música por linha, assim:&#10;Evidências - Chitãozinho e Xororó&#10;Cogulândia - Matuê&#10;Tá Escrito"></textarea>
+        <p class="dica">O app acha o vídeo de karaokê e a letra de cada uma (até 30 por vez). Depois você troca só as que ficarem erradas.</p>
+        <div class="barraBusca"><button type="submit" id="loteIr" class="primario">Adicionar todas</button><button type="button" id="loteParar" hidden>Parar</button></div>
+      </form>
+      <p id="loteStatus" class="dica"></p>
+      <ul id="loteLista" class="lista autoLista"></ul>
+    </details>
     <p id="buscaStatus" class="dica"></p>
     <ul id="buscaResultados" class="lista resultados"></ul>
     <button type="button" id="btnMusicaManual" class="botaoLinha">✍️ Cadastrar sem buscar (colar a letra)</button>
@@ -281,6 +309,8 @@
       <label>Título <input id="mTitulo" maxlength="160"></label>
       <label>Artista <input id="mArtista" maxlength="160"></label>
       <label>Duração <input id="mDuracao" placeholder="3:45" inputmode="numeric"></label>
+      <label>Letra no palco (vídeo do YouTube)
+        <select id="mLetraDe"><option value="">Padrão do aparelho (Ajustes)</option><option value="video">A do vídeo (só o vídeo)</option><option value="app">A do app (sincronizada)</option></select></label>
     </div>
 
     <h3>Playback</h3>
@@ -291,16 +321,21 @@
       <button type="button" data-pb="arquivo">Arquivo do aparelho</button>
     </div>
     <div id="pbYoutube" class="pbPainel">
-      <div class="barraBusca">
-        <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
-        <button type="button" id="mUsarYT" class="primario">Usar</button>
-      </div>
-      <p id="mSugestaoYT" class="playbackAtual"></p>
-      <div class="acoes">
-        <a id="mProcurarYT" class="botao primario" target="_blank" rel="noopener">🔎 Procurar o playback no YouTube ↗</a>
-        <button type="button" id="mBuscarYTApp" hidden>🔎 Buscar aqui</button>
-      </div>
+      <form id="mFormBuscaYT" class="barraBusca" autocomplete="off">
+        <label class="sr" for="mBuscaYT">Buscar o playback no YouTube</label>
+        <input id="mBuscaYT" type="search" placeholder="Buscar o playback no YouTube" autocomplete="off">
+        <button type="submit" id="mBuscarYTApp" class="primario">🔎 Buscar</button>
+      </form>
+      <p id="mSugestaoYT" class="dica"></p>
       <ul id="mVideos" class="lista videos"></ul>
+      <details id="mLinkDetalhes" class="linkDetalhes">
+        <summary>Já tenho o link do vídeo</summary>
+        <div class="barraBusca">
+          <input id="mLinkYT" placeholder="Cole o link do YouTube ou do YouTube Music" autocomplete="off">
+          <button type="button" id="mUsarYT" class="primario">Usar</button>
+        </div>
+        <div class="acoes"><a id="mProcurarYT" class="botao" target="_blank" rel="noopener">Abrir a busca do YouTube em outra aba ↗</a></div>
+      </details>
       <p class="dica">Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
     </div>
     <div id="pbSpotify" class="pbPainel" hidden>
@@ -397,26 +432,30 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.2"></script>
-  <script src="./storage.js?v=1.0.2"></script>
-  <script src="./lrc.js?v=1.0.2"></script>
-  <script src="./links.js?v=1.0.2"></script>
-  <script src="./estado.js?v=1.0.2"></script>
-  <script src="./familia.js?v=1.0.2"></script>
-  <script src="./biblioteca.js?v=1.0.2"></script>
-  <script src="./playlists.js?v=1.0.2"></script>
-  <script src="./letras.js?v=1.0.2"></script>
-  <script src="./fontes.js?v=1.0.2"></script>
-  <script src="./fonte-youtube.js?v=1.0.2"></script>
-  <script src="./fonte-spotify.js?v=1.0.2"></script>
-  <script src="./aplausometro.js?v=1.0.2"></script>
-  <script src="./palco.js?v=1.0.2"></script>
-  <script src="./sincronia.js?v=1.0.2"></script>
-  <script src="./qr.js?v=1.0.2"></script>
-  <script src="./sala.js?v=1.0.2"></script>
-  <script src="./sala-host.js?v=1.0.2"></script>
-  <script src="./telas.js?v=1.0.2"></script>
-  <script src="./ui.js?v=1.0.2"></script>
-  <script src="./offline.js?v=1.0.2"></script>
+  <script src="./core.js?v=1.0.10"></script>
+  <script src="./storage.js?v=1.0.10"></script>
+  <script src="./lrc.js?v=1.0.10"></script>
+  <script src="./links.js?v=1.0.10"></script>
+  <script src="./placar.js?v=1.0.10"></script>
+  <script src="./estado.js?v=1.0.10"></script>
+  <script src="./familia.js?v=1.0.10"></script>
+  <script src="./biblioteca.js?v=1.0.10"></script>
+  <script src="./playlists.js?v=1.0.10"></script>
+  <script src="./letras.js?v=1.0.10"></script>
+  <script src="./busca-youtube.js?v=1.0.10"></script>
+  <script src="./fontes.js?v=1.0.10"></script>
+  <script src="./verificar-youtube.js?v=1.0.10"></script>
+  <script src="./auto-adicionar.js?v=1.0.10"></script>
+  <script src="./fonte-youtube.js?v=1.0.10"></script>
+  <script src="./fonte-spotify.js?v=1.0.10"></script>
+  <script src="./aplausometro.js?v=1.0.10"></script>
+  <script src="./palco.js?v=1.0.10"></script>
+  <script src="./sincronia.js?v=1.0.10"></script>
+  <script src="./qr.js?v=1.0.10"></script>
+  <script src="./sala.js?v=1.0.10"></script>
+  <script src="./sala-host.js?v=1.0.10"></script>
+  <script src="./telas.js?v=1.0.10"></script>
+  <script src="./ui.js?v=1.0.10"></script>
+  <script src="./offline.js?v=1.0.10"></script>
 </body>
 </html>

@@ -79,11 +79,22 @@ function salaFalsa(){
   const context=await browser.newContext({viewport:{width:LARG,height:ALT}});
   const sala=salaFalsa();
   await context.route("https://lrclib.net/**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(r.request().url().includes("/api/get")?{...LRCLIB[0]}:LRCLIB)}));
+  // Busca de vídeos: a primeira instância responde, as outras caem (como no mundo real).
+  const BUSCA_FALSA={items:[
+    {url:"/watch?v=BUSCAAAAAA1",type:"stream",title:"Evidências (Playback Karaokê)",uploaderName:"Canal Karaokê",duration:215,isShort:false},
+    {url:"/watch?v=BUSCAAAAAA2",type:"stream",title:"Evidências — Instrumental",uploaderName:"Outro Canal",duration:230,isShort:false},
+    {url:"/watch?v=BLOQUEADO01",type:"stream",title:"Clipe oficial (bloqueado)",uploaderName:"Gravadora",duration:250,isShort:false}]};
+  ["https://api.piped.private.coffee","https://pipedapi.kavin.rocks","https://pipedapi.leptons.xyz","https://pipedapi.adminforge.de"].forEach((base,i)=>
+    context.route(base+"/search**",r=>i===0?r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify(BUSCA_FALSA)}):r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"{\"erro\":\"fora do ar\"}"})));
+  await context.route("https://i.ytimg.com/**",r=>r.fulfill({status:200,contentType:"image/gif",body:Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7","base64")}));
   await context.route("https://www.youtube.com/oembed**",r=>r.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({title:"Canção de Teste (playback)"})}));
   await context.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:PLAYER_FALSO}));
   await context.route("https://iowuejrpzoibyidiuvpt.supabase.co/rest/v1/rpc/*",async r=>{
     const fn=r.request().url().split("/").pop();
+    if(process.env.KARAOKE_SALA_REAL)return r.continue();
     if(r.request().method()==="OPTIONS")return r.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-headers":"*","access-control-allow-methods":"POST"}});
+    // KARAOKE_SALA_REAL=1: deixa passar para o Supabase de verdade (a sala de teste é fechada no fim).
+    if(process.env.KARAOKE_SALA_REAL)return r.continue();
     // KARAOKE_SALA_URL: em vez da sala em memória, usa um servidor que fala com um
     // Postgres de verdade rodando 001_sala.sql (ver supabase/teste_sala.sql).
     if(process.env.KARAOKE_SALA_URL){
@@ -131,6 +142,7 @@ function salaFalsa(){
   await page.click('#formBuscaLetra button[type="submit"]');
   await page.click('[data-resultado="0"]');
   await page.waitForSelector("#dlgMusica[open]");
+  await page.click("#mLinkDetalhes summary");
   await page.fill("#mLinkYT","https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RD");
   await page.click("#mUsarYT");
   await page.waitForFunction(()=>document.querySelector("#mPlaybackAtual").textContent.includes("YouTube"));
@@ -177,6 +189,8 @@ function salaFalsa(){
   await page.screenshot({path:path.join(SAIDA,"palco-nota.png")});
 
   // 6. Celular pula para a próxima (YouTube falso, modo só som)
+  // O padrão é "só o vídeo" (sem letra do app); aqui o teste confere a letra por cima do player.
+  await page.evaluate(()=>{prefs().fundo="opaco";aplicarPrefsPalco()});
   await cel.waitForFunction(()=>!document.querySelector("#ctComecar").hidden,null,{timeout:8000});
   await cel.click("#ctComecar");
   await page.waitForSelector("#palcoVez:not([hidden])",{timeout:8000});
@@ -196,7 +210,98 @@ function salaFalsa(){
   // 8. Celular pede música da lista para a Tia Carla
   await cel.click('[data-ct-aba="pedir"]');
   await cel.click("[data-pedir]");
+  await cel.waitForSelector("#ctMusicaPainel[open]");
+  await cel.click("#ctPnFila");
   await page.waitForFunction(()=>document.querySelector("#palcoTitulo").textContent.includes("/3"),null,{timeout:8000});
+
+  // 8b. Celular: pôr/trocar playback e tocar (painel da música)
+  cel.on("dialog",d=>d.accept());
+  await page.evaluate(()=>{const m=criarMusica({title:"Sem Som",artist:"Teste",lyrics:"uma\nduas",duration:6});salvarEstado();window.__semSom=m.id});
+  const semSom=await page.evaluate(()=>window.__semSom);
+  const abrirNoCelular=async nome=>{
+    await cel.fill("#ctBusca",nome);
+    await cel.waitForFunction(n=>[...document.querySelectorAll("#ctMusicas b")].some(b=>b.textContent===n),nome,{timeout:8000});
+    await cel.locator("#ctMusicas li").filter({hasText:nome}).first().locator("button").click();
+    await cel.waitForSelector("#ctMusicaPainel[open]");
+  };
+  await abrirNoCelular("Sem Som");
+  assert.match(await cel.locator("#ctPnPlayback").innerText(),/Sem playback/);
+  await cel.fill("#ctPnLink","isso não é link");await cel.click("#ctPnUsar");
+  await cel.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#ctPnStatus").textContent),null,{timeout:5000});
+  await cel.fill("#ctPnLink","https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x");await cel.click("#ctPnUsar");
+  await page.waitForFunction(id=>{const m=acharMusica(id);return m&&m.playback&&m.playback.tipo==="youtube"&&m.playback.id==="dQw4w9WgXcQ"},semSom,{timeout:10000});
+  await cel.waitForSelector("#ctMusicaPainel",{state:"hidden"});
+  assert.equal(await page.evaluate(id=>acharMusica(id)&&P.itens.some(i=>i.musicaId===id),semSom),false,"só trocar o playback não pode pôr na fila");
+
+  // Só o link do YouTube: o celular pede e a tela cria a música com o título do vídeo
+  await cel.click('[data-ct-aba="nova"]');
+  await cel.fill("#ctLinkRapido","https://youtu.be/dQw4w9WgXcQ");await cel.click('#ctFormLink button[type="submit"]');
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Canção de Teste (playback)"&&m.playback&&m.playback.id==="dQw4w9WgXcQ"),null,{timeout:12000});
+  await cel.click('[data-ct-aba="pedir"]');
+
+  // Celular liga/desliga a letra do app (mesma sala, mesmo player)
+  const fundoAntes=await page.evaluate(()=>fundoEfetivo());
+  await cel.click("#ctLetra");
+  await page.waitForFunction(a=>fundoEfetivo()!==a,fundoAntes,{timeout:8000});
+  await cel.waitForFunction(a=>document.querySelector("#ctLetra").textContent.includes(a==="tela"?"Só o vídeo":"Ligar"),fundoAntes,{timeout:8000});
+  await cel.click("#ctLetra");
+  await page.waitForFunction(a=>fundoEfetivo()===a,fundoAntes,{timeout:8000});
+
+  // Celular: digita o nome, o app escolhe o vídeo; "Outros vídeos" lista os demais e tocar num vira pedido
+  await cel.click('[data-ct-aba="nova"]');
+  await cel.fill("#ctLinkRapido","evidências");await cel.click('#ctFormLink button[type="submit"]');
+  await cel.waitForSelector("#ctLinkResultados [data-outros-auto]",{timeout:10000});
+  assert.ok(/Playback Karaokê/.test(await cel.locator("#ctLinkResultados .autoTexto").innerText()),"o celular não mostrou o vídeo escolhido");
+  await cel.click("#ctLinkResultados [data-outros-auto]");
+  await cel.waitForSelector('#ctLinkResultados [data-video="BUSCAAAAAA2"]',{timeout:10000});
+  assert.equal(await cel.locator('#ctLinkResultados [data-video="BUSCAAAAAA1"]').count(),0,"o vídeo já escolhido não deveria voltar na lista de outros");
+  await cel.click('#ctLinkResultados [data-video="BUSCAAAAAA2"]');
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="Evidências — Instrumental"&&m.playback&&m.playback.id==="BUSCAAAAAA2"),null,{timeout:12000});
+  // ...e "Pedir na fila" envia a escolha automática direto
+  await cel.fill("#ctLinkRapido","evidências auto");await cel.click('#ctFormLink button[type="submit"]');
+  await cel.waitForSelector("#ctLinkResultados [data-pedir-auto]",{timeout:10000});
+  await cel.click("#ctLinkResultados [data-pedir-auto]");
+  await page.waitForFunction(()=>K.dados.musicas.some(m=>m.title==="evidências auto"),null,{timeout:12000});
+  await cel.click('[data-ct-aba="pedir"]');
+
+  // Celular: escolhe a letra e os playbacks já aparecem; tocar num confere e pede para a fila
+  const itensAntes=await page.evaluate(()=>playlistAtiva().itens.length);
+  await cel.click('[data-ct-aba="nova"]');
+  await cel.fill("#ctBuscaNova","canção de teste");await cel.click('#ctFormNova button[type="submit"]');
+  await cel.click('[data-res="0"]');
+  await cel.waitForSelector('#ctNovaVideos [data-video="BUSCAAAAAA1"]',{timeout:10000});
+  await cel.click('#ctNovaVideos [data-video="BUSCAAAAAA1"]');
+  await cel.waitForFunction(()=>/Playback escolhido/.test(document.querySelector("#ctNovaPb").textContent),null,{timeout:12000});
+  await cel.click("#ctNovaEnviar");
+  await page.waitForFunction(n=>playlistAtiva().itens.length>n,itensAntes,{timeout:12000});
+  await cel.click('[data-ct-aba="pedir"]');
+
+  // Arquivo guardado na tela não é trocado pelo celular (nem forçando o comando)
+  const arquivoId=await page.evaluate(()=>K.dados.musicas.find(m=>m.playback&&m.playback.tipo==="arquivo").id);
+  await abrirNoCelular("Canção de Teste");
+  assert.match(await cel.locator("#ctPnPlayback").innerText(),/arquivo guardado na tela|Playback atual/);
+  await cel.click("#ctPnFechar");
+  await cel.evaluate(id=>comando("pedir",{musicaId:id,modo:"playback",playback:{tipo:"youtube",id:"dQw4w9WgXcQ"}}),arquivoId);
+  await page.waitForTimeout(3500);
+  assert.equal(await page.evaluate(id=>acharMusica(id).playback.tipo,arquivoId),"arquivo","celular trocou o arquivo da tela");
+
+  // Tocar a seguir e Tocar agora
+  await abrirNoCelular("Sem Som");
+  await cel.click("#ctPnSeguir");
+  await page.waitForFunction(id=>P.itens[P.indice+1]&&P.itens[P.indice+1].musicaId===id,semSom,{timeout:8000});
+  await abrirNoCelular("Sem Som");
+  await cel.click("#ctPnAgora");
+  await page.waitForFunction(id=>P.aberto&&P.musica&&P.musica.id===id,semSom,{timeout:8000});
+
+  // Playback que falha: o celular vê o aviso e troca; a tela recarrega sozinha
+  await page.evaluate(()=>mostrarErro("O vídeo falhou no teste."));
+  await cel.waitForSelector("#ctErroPlayback:not([hidden])",{timeout:8000});
+  await cel.click("#ctErroTrocar");
+  await cel.waitForSelector("#ctMusicaPainel[open]");
+  assert.ok(await cel.locator("#ctPnPedido").isHidden(),"ao trocar o playback da música atual não deve oferecer pedir de novo");
+  await cel.fill("#ctPnLink","https://youtu.be/9bZkp7q19f0");await cel.click("#ctPnUsar");
+  await page.waitForFunction(()=>P.musica.playback.id==="9bZkp7q19f0"&&document.querySelector("#palcoErro").hidden,null,{timeout:10000});
+  await cel.screenshot({path:path.join(SAIDA,"celular-painel.png")});
 
   // 9. Gravar sincronia tocando (música do arquivo local)
   await page.click("#palcoSair");
@@ -223,6 +328,13 @@ function salaFalsa(){
   await mob.setViewportSize({width:390,height:844});
   await mob.goto(BASE);
   await mob.screenshot({path:path.join(SAIDA,"celular-tela-principal.png")});
+  // Fecha a sala (testa o botão e não deixa sala de teste para trás no banco).
+  await page.click("#btnSala");
+  // Espera a resposta do servidor: a tela atualiza antes, e fechar o navegador antes disso deixaria a sala no banco.
+  const fechou=process.env.KARAOKE_SALA_REAL?page.waitForResponse(r=>r.url().includes("karaoke_sala_fechar"),{timeout:8000}):null;
+  await page.click("#salaFechar");
+  if(fechou)await fechou;
+  await page.waitForFunction(()=>document.querySelector("#salaFechada")&&!document.querySelector("#salaFechada").hidden,null,{timeout:8000});
   assert.deepEqual(erros,[]);
   await browser.close();
   console.log("OK — teste de navegador passou. Screenshots em",SAIDA);

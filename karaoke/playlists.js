@@ -95,8 +95,8 @@ function importarPacote(d){
 
 /* -------------------------------------------------------- backup em arquivo */
 function backupJSON(){
-  const{cantores,musicas,playlists,activePlaylistId}=K.dados;
-  return JSON.stringify({app:"karaoke-em-casa",version:1,exportadoEm:new Date().toISOString(),activePlaylistId,cantores,musicas,playlists},null,1);
+  const{cantores,musicas,playlists,activePlaylistId,placar}=K.dados;
+  return JSON.stringify({app:"karaoke-em-casa",version:1,exportadoEm:new Date().toISOString(),activePlaylistId,cantores,musicas,playlists,placar},null,1);
 }
 function baixarArquivo(nome,conteudo,tipo){
   const url=URL.createObjectURL(new Blob([conteudo],{type:tipo}));

@@ -22,6 +22,6 @@ test("normalizar descarta lixo e item que aponta para música inexistente",()=>{
   assert.equal(d.cantores.length,1);
   assert.deepEqual(d.playlists[0].itens,[{id:"i1",musicaId:"m1",cantorA:"c1",cantorB:""}]);
   assert.equal(d.activePlaylistId,"p1");
-  assert.equal(d.prefs.fundo,"opaco");assert.equal(d.prefs.tamanho,180);
+  assert.equal(d.prefs.fundo,"tela");assert.equal(d.prefs.tamanho,180);
   assert.deepEqual(normalizarDados(null).musicas,[]);
 });

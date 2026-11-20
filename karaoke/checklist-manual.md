@@ -13,10 +13,11 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 - [ ] Arquivo MP3 do aparelho: escolhe, toca, letra sincroniza; funciona em **modo avião**.
 - [ ] YouTube (link comum, `youtu.be` e `music.youtube.com/watch?v=`): toca escondido atrás da letra (“só som”).
+- [ ] Colar o link de um clipe oficial de gravadora (ex.: Sia, Chandelier) é recusado na hora, com pedido de outro vídeo.
 - [ ] 🎬 alterna: só som → vídeo escurecido → vídeo aparecendo.
 - [ ] iPhone/iPad: na primeira música aparece “toque no ▶ do vídeo”; depois as próximas encadeiam sozinhas.
 - [ ] Vídeo de clipe oficial bloqueado: aviso claro + Trocar playback / Seguir sem playback.
-- [ ] Spotify sem login: aviso de prévia de 30 s. Com login: música inteira, letra acompanha.
+- [ ] Spotify sem login: aviso de prévia de 30 s; ao acabar a prévia NÃO vai para os aplausos (mostra o aviso). Com login: música inteira, letra acompanha.
 - [ ] Anúncio no YouTube: selo “Anúncio — a letra espera” e a letra não corre durante o comercial.
 - [ ] Letra −/+ ajusta e fica salvo na música; atraso Bluetooth em Ajustes vale para todas.
 
@@ -29,6 +30,36 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Fim: aplausômetro pede microfone, mede 5 s e dá a nota; microfone desliga depois.
 - [ ] Controles somem depois de 4 s tocando e voltam ao mexer.
 - [ ] Teclado: espaço, ←, →, [, ], F, Esc.
+
+## Lista compartilhada com vídeo do YouTube
+
+- [ ] Padrão: vídeo do YouTube em tela cheia; parado 4 s, somem as barras e só o player fica; qualquer toque/tecla traz de volta.
+- [ ] Nada do player é clicável (a TV nunca vai para a página do YouTube); a sala (celulares, fila) segue funcionando.
+- [ ] 🎞/🔤 (ou tecla L, ou botão no celular) liga e desliga a letra do app sem o vídeo parar nem recarregar; 🎬 alterna os quatro fundos. Reabra uma música com “só vídeo” salvo e percorra o ciclo completo, conferindo o som e a continuidade do relógio.
+- [ ] Editor de música sem playback: os vídeos já aparecem sozinhos (campo preenchido com “título artista playback karaokê”); duração parecida vem primeiro com selo; tocar num troca o playback; “Já tenho o link” fica recolhido.
+- [ ] Celular → Música nova → escolher a letra: os vídeos aparecem sozinhos; tocar num e Pedir esta música.
+- [ ] Buscar “evidências” em Nova música (tela) e em ✨ Música nova (celular): aparecem resultados com miniatura; vídeo bloqueado é recusado; escolher entra na playlist/fila.
+- [ ] Nova música → campo único: digitar “evidências” + ➕ Adicionar: a música entra na playlist com ▶ vídeo, duração e selo da letra; “Trocar vídeo” mostra outros e recusa clipe bloqueado; “Tirar” desfaz.
+- [ ] 📋 Adicionar várias de uma vez: colar 5 músicas (uma com erro de digitação): aparece “n de 5”, o resumo diz quantas entraram; trocar um vídeo; Parar no meio funciona.
+- [ ] Celular: ✨ Música nova → digitar o nome → aparece o vídeo escolhido → Pedir na fila (ou Outros vídeos).
+- [ ] Ajustes → Exportar backup e importar em outro aparelho: as músicas vêm com letra e vídeo.
+- [ ] Trava: com 2 celulares (Ana e Beto) e uma música marcada para a Ana, durante o canto o celular do Beto mostra 🔒 e os botões ficam desligados; a Ana pausa/pula normalmente; o Beto ainda põe música na fila. Na contagem ("vez") o Beto consegue Começar. Desligar a trava em Ajustes libera todos.
+- [ ] Aba Fila → "Só as minhas músicas" com Ana e Ana Paula, no celular de Ana aparece o dueto das duas e fica de fora o solo de Ana Paula; no celular de quem é a vez aparece "É a sua vez!".
+- [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
+- [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
+- [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
+- [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
+- [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.
+- [ ] Música de Spotify ou arquivo continua com a letra do app nesse modo.
+
+## Cantar sozinho
+
+- [ ] Sem nenhum cantor cadastrado: 🎤 numa música (aba Músicas) abre o palco com “Prepare-se!” e “🎤 Você”.
+- [ ] 🎤 Cantar sozinho na Playlist ignora os cantores marcados e passa para a próxima música depois dos aplausos.
+- [ ] Fim da música: aplausômetro mede; aparece “🏆 Primeira nota desta música!”; ↺ Cantar de novo repete; a segunda nota mostra “Novo recorde” ou “Seu recorde”.
+- [ ] Música avulsa termina em “Fim da música”; ✕ sai em todas as telas.
+- [ ] Selo 🏆 aparece na lista de Músicas; Ajustes → Apagar meu placar remove; o backup leva o placar.
+- [ ] Controle remoto (celular) liga e comanda o palco em modo solo.
 
 ## Gravar sincronia
 
@@ -43,6 +74,9 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Tocar, pausar, pular, Letra −/+, volume e Medir aplausos funcionam pelo celular.
 - [ ] Pedir música da lista entra na fila para o cantor escolhido; ⏫ põe para tocar a seguir.
 - [ ] Música nova pelo celular (com link do YouTube) entra na biblioteca e na fila.
+- [ ] Tocar numa música da lista abre o painel: colar link do YouTube põe/troca o playback; clipe bloqueado é recusado no celular.
+- [ ] ▶ Tocar agora interrompe (com confirmação), ⏫ Tocar a seguir e ＋ Fim da fila funcionam; música com arquivo na tela não tem troca de playback.
+- [ ] Playback que falha na tela: o celular mostra o aviso e 🎧 Trocar playback recarrega a música.
 - [ ] Recarregar a tela da festa: a mesma sala continua.
 - [ ] Desligar a internet da tela: celular mostra “tela não está respondendo”; ao voltar, tudo segue.
 - [ ] Fechar sala: o celular avisa que a sala não existe mais.

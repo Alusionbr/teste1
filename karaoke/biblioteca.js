@@ -18,6 +18,7 @@ function editarMusica(id,campos){
 async function removerMusica(id){
   const m=acharMusica(id);
   K.dados.musicas=K.dados.musicas.filter(x=>x.id!==id);
+  K.dados.placar=(K.dados.placar||[]).filter(r=>r.musicaId!==id);
   K.dados.playlists.forEach(p=>{for(let i=p.itens.length-1;i>=0;i--)if(p.itens[i].musicaId===id)p.itens.splice(i,1)});
   if(m&&m.playback&&m.playback.tipo==="arquivo")try{await KStore.audio.apagar(m.playback.id)}catch{}
 }

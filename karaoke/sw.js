@@ -10,7 +10,7 @@
  * (abaixo) e os ?v= / data-version de index.html e controle.html.
  */
 "use strict";
-const VERSION = "1.0.2";
+const VERSION = "1.0.10";
 const CACHE = `karaoke-${VERSION}`;
 const SHELL = [
   "./",
@@ -21,12 +21,16 @@ const SHELL = [
   "./storage.js",
   "./lrc.js",
   "./links.js",
+  "./placar.js",
   "./estado.js",
   "./familia.js",
   "./biblioteca.js",
   "./playlists.js",
   "./letras.js",
+  "./busca-youtube.js",
   "./fontes.js",
+  "./verificar-youtube.js",
+  "./auto-adicionar.js",
   "./fonte-youtube.js",
   "./fonte-spotify.js",
   "./aplausometro.js",

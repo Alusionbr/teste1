@@ -1,8 +1,12 @@
 # Karaokê em Casa
 
+> **Quem for continuar o projeto (pessoa ou outra ferramenta): comece por [`CONTINUIDADE.md`](CONTINUIDADE.md)** — histórico das versões, decisões, como testar, o que falta e onde procurar melhorias.
+
 Karaokê para a família, direto no navegador. Monte playlists, escolha o **playback** de cada música (YouTube, YouTube Music, Spotify ou um arquivo do aparelho) e cante com a **letra grande, sincronizada, enchendo na cor de quem está cantando**. Deixe a TV ou o projetor como **tela da festa** e controle tudo pelos celulares.
 
 Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
+
+O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela, inclusive quando a música já tem uma escolha de letra salva.
 
 ## Como usar
 
@@ -13,6 +17,55 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
    - **Arquivo**: escolha um MP3/M4A do aparelho. Fica guardado só ali e toca **sem internet**. É a forma mais precisa.
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
+
+### Usar como lista compartilhada de faixas (vídeo do YouTube com a letra)
+
+Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app vira a lista compartilhada de faixas e a fila, e a tela mostra o vídeo.
+
+1. **É o padrão**: o fundo “Só o vídeo do YouTube — a letra vem no próprio vídeo” já vem ligado (Ajustes → Palco → Fundo da letra). O vídeo ocupa a tela inteira; depois de 4 s sem mexer somem as barras e **só o player fica na tela**, com a sala funcionando por trás (celulares, fila, vez e aplausos continuam valendo).
+2. **Ligar e desligar a letra sincronizada sem atrapalhar o vídeo**: botão **🎞 Só vídeo / 🔤 Letra** no palco, tecla **L** e botão no **celular da sala**. É só troca de camada: o player do YouTube não é recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço. Ligada, a letra volta com o vídeo escurecido atrás (ou o último fundo que você usava). O botão 🎬 alterna entre os quatro fundos.
+3. **Nada leva a TV para a página do YouTube**: o player não mostra controles, título nem logo e não aceita cliques (só o primeiro toque que o iPhone/iPad exige). Quem comanda é o app, o teclado e os celulares.
+4. **Achar e adicionar o vídeo sem sair do app**: Músicas → + Nova música → digite o nome e o artista no campo único e toque em **➕ Adicionar**: o app escolhe sozinho o melhor vídeo de karaokê, busca a letra sincronizada e já põe a música na playlist (veja “Adicionar pelo nome e em lote” abaixo). No celular da sala: **✨ Música nova**, mesmo campo; o app mostra o vídeo escolhido e você toca em **Pedir na fila** (ou **Outros vídeos**).
+5. A família escolhe, troca o playback e manda tocar pelo celular (painel da música). A vez, o rodízio e o aplausômetro continuam valendo.
+
+Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra do app mesmo nesse modo. Vídeo que o dono bloqueou fora do YouTube é recusado na hora, antes de entrar na lista.
+
+### Adicionar pelo nome e em lote (acervo da família)
+
+- **Um nome só** (Nova música → campo único → ➕ Adicionar): o app procura vídeos, dá pontos a cada um (palavras karaokê/playback/instrumental, palavras do que você digitou, duração, e tira pontos de “ao vivo”, cover, remix, coletânea) e confere o melhor com o player invisível; se o melhor for bloqueado, tenta o seguinte (até 3). Em paralelo busca a letra (LRCLIB): com “Música - Artista” usa a busca exata; sem artista, usa a primeira da busca livre e preenche título e artista. A música entra no fim da playlist com a linha **▶ vídeo · duração**, o selo da letra, e os botões **Trocar vídeo** e **Tirar**. “🔎 Ver opções” mostra a lista de vídeos para escolher à mão (como antes).
+- **Várias de uma vez** (Nova música → “📋 Adicionar várias de uma vez”): cole uma música por linha (`Evidências - Chitãozinho e Xororó`; numeração e marcadores são ignorados, repetidas também; máximo 30 por vez). O app resolve uma a uma (cerca de 1 a 3 s cada), mostra “3 de 12” e **Parar**. No fim, cada linha mostra o vídeo escolhido; troque só as que erraram. Linha sem vídeo que toque mas com letra entra **sem playback** (botão “Escolher vídeo”); linha sem nada fica marcada em vermelho e nada é criado.
+- A escolha automática pode errar (versão ao vivo, outro idioma). Por isso sempre há **Trocar vídeo**, e vídeo com pontuação baixa vem com “confira se é este mesmo”.
+- **Acervo da família**: cada música guarda a letra e o id do vídeo no aparelho. Para levar a outro aparelho: **Ajustes → Exportar backup** (ou o link compartilhado da playlist) e importe lá. **Não coloque o acervo (letras) dentro do repositório**: o site é público e letra de música é obra protegida.
+- Código: `busca-youtube.js` (`pontuarVideo`, `ordenarCandidatos`, `resolverPlayback`, `lerListaDeMusicas`, puros e testados em `tests/busca.test.js`) e `auto-adicionar.js` (`adicionarPeloNome`, trocar e tirar; a tela liga os botões em `ui.js`).
+
+### Vários celulares: trava, fila e repertório de cada um
+
+- **Trava (Ajustes → "Trava", ligada por padrão).** Enquanto a música toca, só **quem está cantando** pausa, pula, volta, ajusta a letra, mexe no volume, liga/desliga a letra ou manda "tocar agora". Os outros celulares veem "🔒 Ana está cantando e controla esta música" e continuam livres para **mexer na fila** (pedir música, pôr a seguir, tirar, trocar playback). Na **vez** (contagem), nos **aplausos** e no **fim** a trava não vale: qualquer um começa, pula a vez do ausente ou segue. Música sem cantor marcado ("Quem quiser") não tem dono: todos mexem. A tela/teclado nunca é travada.
+- **Limite:** a trava reconhece o celular pelo **nome** que ele escolheu ao entrar; é para festa de família, não segurança (quem usar o nome de outro passa por ela). Para liberar geral, desligue a trava em Ajustes.
+- **Cada um com o seu repertório:** ao pedir música, o seletor "Quem vai cantar?" já vem com o seu nome; na aba Fila, **"Só as minhas músicas"** inclui seus solos e duetos, mesmo quando outro cantor tem nome parecido. No celular de quem é a vez aparece "🎤 É a sua vez! Toque em Começar".
+- **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
+- **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
+
+### Buscar vídeos no YouTube
+
+**No editor da música a busca é o caminho principal**: ao abrir uma música sem playback do YouTube (por exemplo logo depois de escolher a letra em Nova música), o app já busca `título artista playback karaokê` e lista os vídeos com miniatura, canal e duração. Os de duração parecida com a da letra (±8 s) vêm primeiro com o selo “✓ duração parecida”; tocar num confere se toca embutido e troca o playback. O campo de busca é editável. “Já tenho o link do vídeo” fica recolhido (e abre sozinho, com o atalho para o site do YouTube, se a busca cair). No celular, ✨ Música nova faz o mesmo depois de escolher a letra.
+
+A busca funciona dentro do app, na tela e no celular, **sem chave**: o navegador não consegue consultar `youtube.com/results` (sem CORS), então a busca passa por serviços públicos Piped. O app consulta até 4 ao mesmo tempo e usa a primeira resposta válida; instância que falha fica poupada por 20 s. Com uma chave da API do YouTube em Ajustes, a busca usa a oficial (só vídeos que tocam embutidos, cerca de 100 buscas por dia) e, se a chave for recusada ou a cota acabar, cai para os serviços públicos.
+
+- A busca ganha “karaokê playback” quando você não escreve karaokê/playback/instrumental (sem isso vêm os clipes oficiais, quase sempre bloqueados fora do YouTube).
+- Resultado de serviço público **não garante** que o vídeo toca embutido: ao escolher, o app confere (`YouTubeBase.verificar`) e recusa vídeo bloqueado.
+- **Se a busca parar de responder** (instância pública caiu): edite a lista `INSTANCIAS_BUSCA` em `busca-youtube.js` (a instância precisa devolver JSON com `access-control-allow-origin`; confira com `curl -D- "<base>/search?q=teste&filter=videos"`), ou use uma chave. O atalho “Procurar no YouTube” abre o site em outra aba e você cola o link.
+- Privacidade: o texto buscado vai para o serviço público (ou para o Google, com chave). Nada mais é enviado.
+
+### Cantar sozinho
+
+Para treinar, cantar sem festa ou testar o app sem ninguém por perto — não precisa cadastrar a Família.
+
+- **🎤 Cantar sozinho** (aba Playlist): toca a playlist na ordem, ignorando quem está marcado em cada item.
+- **🎤** em cada música (aba Músicas): canta só aquela. O **▶** ao lado continua sendo o ensaio (só ouvir, sem nota).
+- No palco aparece “🎤 Você”, uma contagem curta de até 3 s (nenhuma com “Sem contagem” nos Ajustes) e, no fim, os aplausos. Se o aplausômetro estiver ligado, a nota entra no **placar pessoal**: a tela diz “🏆 Primeira nota desta música!”, “🏆 Novo recorde!” ou “Seu recorde: N”. **↺ Cantar de novo** repete a música na hora.
+- Músicas com nota ganham o selo **🏆 N** (a maior nota). **Ajustes → Apagar meu placar** zera tudo. O placar vai no backup.
+- O controle remoto pelo celular funciona igual no modo solo (dá para testar a sala sozinho, com o celular na mão).
 
 ### No palco
 
@@ -29,6 +82,8 @@ Publicado em: <https://alusionbr.github.io/teste1/karaoke/>
 - **Vídeo bloqueado fora do YouTube** (comum em clipes oficiais): o app avisa e oferece **Trocar playback** ou **Seguir sem playback** (a letra anda pelo relógio).
 - **Atraso da caixa Bluetooth**: em Ajustes. Vale para o aparelho, não para a música.
 
+**Escolher um vídeo do YouTube:** ao colar o link, o app abre por alguns segundos um player invisível para conferir se o vídeo **pode tocar fora do YouTube**. Clipes de gravadora (Sia, Despacito…) costumam ser bloqueados: o app recusa na hora e pede outro, em vez de descobrir isso com a festa começada. (O oEmbed do YouTube não serve para isso: responde "200 OK" até para vídeo bloqueado.) Se a verificação não responder (sem internet), o vídeo é aceito com um aviso.
+
 ### Gravar sincronia tocando
 
 Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas → Editar → ⏺ Gravar sincronia**. O playback toca e você aperta **Marcar** (ou espaço) quando cada verso começa. **♪ Pausa** marca uma parte instrumental. Ao salvar, a música toca do começo para conferir.
@@ -39,9 +94,14 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 
 ### Controle pelo celular (tela da festa)
 
-1. Na TV/projetor/computador: **📱 Controle pelo celular → Abrir sala**. Aparecem um QR code e um código de 6 letras.
+1. Na TV/projetor/computador: **📱 Controle remoto → Abrir sala**. Aparecem um QR code e um código de 6 letras.
 2. Nos celulares: leia o QR code (ou abra `…/karaoke/controle.html` e digite o código). Cada pessoa diz o nome e entra na família.
 3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
+
+4. **Tocar uma música da lista**: tocar nela abre um painel com o playback atual, o campo para **pôr ou trocar o link** (YouTube, YouTube Music ou Spotify; no YouTube o celular já confere se o vídeo toca fora do YouTube) e os botões **▶ Tocar agora** (pede confirmação, interrompe a música atual), **⏫ Tocar a seguir** e **＋ Pôr no fim da fila**.
+5. **Playback que falhou**: quando o vídeo da música tocando não funciona, o celular mostra “⚠️ O playback desta música falhou” com **🎧 Trocar playback**; a tela recarrega a música sozinha com o link novo.
+
+Regras: qualquer celular da sala pode fazer isso e a tela avisa quem fez. Playback do tipo **arquivo** (áudio guardado na tela) não é trocado pelo celular. Tudo viaja como comando `pedir` com campos opcionais (`modo`: fila, seguir, agora, playback; `playback`), então **não existe SQL novo**: `supabase/001_sala.sql` continua igual.
 
 A tela da festa funciona em qualquer navegador moderno, inclusive o de projetores e TVs com Android. Precisa de internet nos dois lados.
 
@@ -82,9 +142,13 @@ biblioteca.js    músicas, áudio do aparelho
 playlists.js     playlists, link de compartilhamento (CompressionStream), backup
 letras.js        LRCLIB → lyrics.ovh; título por oEmbed; busca do YouTube com chave opcional
 fontes.js        interface comum de playback + relógio manual + arquivo (<audio>)
+busca-youtube.js   busca de vídeos: chave oficial → serviços Piped (INSTANCIAS_BUSCA), mapeamento, cooldown e escolha automática
+auto-adicionar.js  "Adicionar pelo nome": vídeo + letra + playlist, trocar e tirar (tela)
+verificar-youtube.js PEÇAS do YouTube usadas pela tela e pelo celular: origens, erros, endereço do player e a conferência “toca fora do YouTube?”
 fonte-youtube.js protocolo postMessage do YouTube falado à mão (sem iframe_api)
 fonte-spotify.js protocolo postMessage do Spotify falado à mão (sem o script deles)
-palco.js         fases (vez → cantando → nota → fim), desenho da letra, um requestAnimationFrame só
+palco.js         fases (vez → cantando → nota → fim), desenho da letra, um requestAnimationFrame só; modo solo (`P.solo`)
+placar.js        PURO: placar pessoal do Cantar sozinho (registrarNota, melhorNota, limite de 300 registros)
 sincronia.js     gravar sincronia tocando
 aplausometro.js  microfone → nota (notaDosAplausos é pura)
 qr.js            gerador de QR code (byte, nível M, versões 1–10)
@@ -128,6 +192,8 @@ python3 -m http.server 8765 -d karaoke       # em outro terminal
 node karaoke/tests/browser-smoke.js [pasta]  # ponta a ponta no Chromium (Playwright)
 ```
 
+`node karaoke/tests/browser-uso.js` roda 27 cenários de **uso real** (o `browser-smoke.js` cobre o caminho feliz): ✕ em todas as telas, teclado, backup, link de compartilhar, offline, XSS, YouTube bloqueado, prévia do Spotify, celular em pé e o Cantar sozinho (nota, recorde, playlist sem cantores, backup e apagar placar). Cada cenário nasceu de um bug achado testando com YouTube e Spotify de verdade.
+
 O teste de navegador simula LRCLIB, o player do YouTube (servido na origem verdadeira) e a sala do Supabase. Variáveis opcionais: `KARAOKE_VIEWPORT=1920x1080` (testa o palco em TV; `390x844` em celular em pé) e `KARAOKE_SALA_URL=http://127.0.0.1:8766` (em vez da sala em memória, usa funções SQL de verdade; veja abaixo). Roteiro manual: `checklist-manual.md`.
 
 **Testes da sala (banco):**
@@ -144,6 +210,22 @@ psql -q -f karaoke/supabase/teste_sala.sql
 
 `sala-real.js` aceita `KARAOKE_SUPABASE_URL` para apontar para outro servidor com a mesma API (por exemplo um PostgREST local).
 
+### Bugs achados testando com serviços reais (20/11/2026) e como ficaram
+
+- **✕ coberto**: nas telas "a vez de…", aplausos, fim e erro a camada de tela cheia tapava o botão de sair (impossível sair no celular). `#palcoTopo` agora fica acima das camadas (`z-index:18` contra `15`).
+- **Seta na barra de progresso trocava de música**: o atalho de teclado ignorava que o foco estava num `range`.
+- **Prévia do Spotify**: sem login ela termina aos 30 s e o app tratava isso como "fim da música" (ia para os aplausos no meio da canção). Agora avisa que foi só a prévia e oferece trocar o playback ou seguir só com a letra.
+- **"Seguir sem playback" recomeçava do zero**: agora continua de onde estava.
+- **Clipe bloqueado descoberto tarde**: o oEmbed devolve 200 para vídeo bloqueado; ver "Escolher um vídeo do YouTube" acima. No player real, `onReady` e `onError 150` chegam no **mesmo milissegundo**, por isso a verificação espera 1,5 s depois do "pronto" antes de aceitar.
+- **`postMessage` antes de o iframe existir**: o navegador recusava e poluía o console. O app só envia depois de receber uma mensagem do player ou do evento `load` (o que vier primeiro; o `ready` do Spotify pode chegar **antes** do `load`, e depender só dele perdia o pedido de tocar).
+- Celular em pé: título e botão em uma linha, seletor de playlist com a largura toda, abas com nome para leitor de tela.
+
+### Cantar sozinho: como funciona por dentro
+
+- **`P.solo`** (`palco.js`) é um sinalizador do palco, não um modo novo de fila. A playlist em solo abre como `modo:"festa"` com `solo:true` (fila, próxima música e controle pela sala seguem iguais); uma música avulsa abre como `modo:"solo"` (um item só, termina em nota → fim, ao contrário do `ensaio`, que termina direto).
+- Com `P.solo`: `cantoresDoItem` devolve ninguém (cores padrão A/B/Todos, sem nomes), `rotuloPalco` mostra “🎤 Você”, `mostrarVez` vira “Prepare-se!” com contagem de no máximo 3 s. O `rotuloCantores` original continua valendo para a fila mostrada no celular.
+- **Placar**: `K.dados.placar = [{musicaId, nota, em}]`. Só `medirAplausos` grava (sem microfone ou com o aplausômetro desligado não há nota, então nada é registrado). `placar.js` é puro e tem teste próprio (`tests/placar.test.js`). Apagar a música apaga as notas dela; importar backup antigo sem `placar` continua válido.
+
 ### Ideias para evoluir
 
 1. Tempo real por websocket (Supabase Realtime) quando a consulta a cada 2 s ficar lenta.
@@ -151,3 +233,4 @@ psql -q -f karaoke/supabase/teste_sala.sql
 3. Tom do playback (pitch shift) para o arquivo do aparelho, com `AudioContext` e sem biblioteca.
 4. Nota de afinação de verdade (detecção de altura pelo microfone) — só se for honesta sobre o que mede.
 5. Modo “só celular” com a letra também no telefone de quem está cantando.
+6. Cantar sozinho: histórico de notas por música (gráfico) e metas (“bater 80 pontos”); hoje só o recorde aparece.
