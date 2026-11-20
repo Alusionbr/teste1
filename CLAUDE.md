@@ -11,8 +11,10 @@ hub/tools.js          lista das ferramentas: array HUB_TOOLS
 estante/              aplicativo de letras e cifras para palco (PWA)
 controle360/          aplicativo de estoque, custos, vendas e consignado
 parque/               mapa do Beto Carrero World com GPS, rotas e grupo (PWA)
+karaoke/              karaokê da família: playlists, playback, letra sincronizada e controle pelo celular (PWA)
 tools/make-icons.js   gera os ícones PNG do Estante com a zlib do Node
 tools/make-park-data.js  converte o recorte do OpenStreetMap em parque/park-data.js
+tools/make-karaoke-icons.js  gera os PNG do Karaokê a partir de karaoke/icon.svg (Playwright)
 .github/workflows/    publica a raiz no GitHub Pages a cada push na main
 ```
 
@@ -23,7 +25,7 @@ Regras gerais:
 - Nada de servidor, login, banco externo ou biblioteca de terceiros: JavaScript puro, offline.
 - Cada ferramenta guarda os dados no armazenamento local do navegador e oferece exportação.
 
-As seções abaixo detalham cada ferramenta: **Controle360 Multi**, **Estante** e **Mapa do Parque**.
+As seções abaixo detalham cada ferramenta: **Controle360 Multi**, **Estante**, **Mapa do Parque** e **Karaokê em Casa**.
 
 ---
 
@@ -758,3 +760,83 @@ Scripts carregados em ordem no `index.html`, sem módulos. Arquivo novo entra no
 - Não editar `park-data.js` à mão; ajuste `tools/make-park-data.js` e gere de novo.
 - Não guardar posição do GPS no `localStorage` nem enviar ao servidor sem estar num grupo.
 - Não usar a chave `service_role` no navegador; só a publishable.
+
+---
+
+# Karaokê em Casa (`karaoke/`)
+
+## Finalidade
+
+Karaokê para a **família**: playlists de músicas com **playback** (YouTube, YouTube Music, Spotify ou arquivo do aparelho) e a letra grande, sincronizada, enchendo na cor de quem canta. Uma tela central (TV, projetor, computador) é o palco; os celulares viram **controle remoto** pela sala no Supabase. Prioridades: legível de longe, não travar a festa quando uma fonte falha, nada de dado de exemplo.
+
+Uso e guia de continuidade: `karaoke/README.md`. Roteiro de teste: `karaoke/checklist-manual.md`.
+
+## Arquivos
+
+```txt
+karaoke/
+├── index.html / styles.css     telas e palco
+├── controle.html / controle.js página do celular
+├── core.js          APP_VERSION, utilidades, rede, saúde das fontes, saveSoon, wake lock
+├── storage.js       IndexedDB "karaoke" (dados + audio) com cópia no localStorage
+├── estado.js        modelo de dados e normalização
+├── lrc.js           PURO: LRC com tempo por palavra e dueto A/B/T; preenchimento da linha
+├── links.js         PURO: links do YouTube/YouTube Music/Spotify
+├── familia.js       cantores e rodízio (proximoCantor puro)
+├── biblioteca.js    músicas e áudio do aparelho
+├── playlists.js     playlists, link compartilhado, backup
+├── letras.js        LRCLIB → lyrics.ovh; oEmbed; busca do YouTube com chave opcional
+├── fontes.js        interface comum de playback, relógio manual e <audio>
+├── fonte-youtube.js / fonte-spotify.js  protocolos postMessage falados à mão
+├── palco.js         fases vez → cantando → nota → fim; um requestAnimationFrame só
+├── sincronia.js     gravar sincronia tocando
+├── aplausometro.js  microfone → nota (notaDosAplausos pura)
+├── qr.js            QR code em JS puro (byte, nível M, v1–10)
+├── sala.js / sala-host.js  cliente RPC do Supabase; tela da festa
+├── telas.js / ui.js desenho / eventos
+├── sw.js / offline.js / manifest.webmanifest / ícones
+├── supabase/001_sala.sql    schema e funções da sala
+├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
+└── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
+                     + sala-real.js (fluxo da sala contra o Supabase real, rodar após aplicar o SQL)
+```
+
+Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
+
+## Princípios
+
+1. **Versão única**: `APP_VERSION` (`core.js`), `VERSION` (`sw.js`), `data-version` e `?v=` de `index.html` **e** `controle.html`. `tests/contracts.test.js` falha se divergirem.
+2. **Fonte de playback tem interface comum** (`fontes.js`): `carregar/tocar/pausar/buscar/tempo/duracao/tocando/sinal/volume` e eventos `estado/fim/erro/bloqueado/previa/anuncio`. O palco não sabe de onde vem o som. Fonte nova = um adaptador novo, nada no palco.
+3. **Relógio da letra**: `tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay/1000`. `offset` é da música; `audioDelay` é do aparelho; um nunca escreve no outro.
+4. **Nenhum script de terceiro**: YouTube e Spotify por `<iframe>` criado por JS depois de um gesto, protocolo `postMessage` falado à mão (conferido no código oficial, documentado no README do app), `targetOrigin` explícito, conferência de `e.origin` **e** `e.source`. Nunca carregar `iframe_api` de nenhum dos dois. O teste de contrato procura isso.
+5. **YouTube “só som”**: o iframe fica vivo atrás da camada da letra (`#palcoCobertura`); `display:none` faria o navegador pausar. Um iframe por sessão (iOS). Se o play não pega, `bloqueado` sobe o player para a frente até o primeiro toque.
+6. **Extrapolação com teto de 1 s** entre as entregas do player: player mudo congela a letra. Anúncio do YouTube (duração diferente) congela a letra.
+7. **Playback falhou não trava a festa**: erro mostra Trocar playback / Seguir sem playback (relógio manual) / Pular.
+8. **Spotify tem limites que não são nossos** e a tela diz: prévia de 30 s sem login; primeiro play é toque no ▶ do Spotify (por isso `#spBox` fica visível).
+9. **Sala = exceção registrada à regra “sem servidor”**, igual ao Mapa do Parque: projeto `iowuejrpzoibyidiuvpt`, schema `karaoke` (não exposto), RLS ligado sem política, sem GRANT para `anon`; única porta = funções `public.karaoke_*`. O token da sala fica só na tela; o celular só **pede** (`karaoke_comando`, lista fechada de tipos) e a tela **decide**. Dados da sala são passageiros (comandos 1 dia, salas 2 dias). Só chave publicável no navegador. A tela limita o que os celulares acrescentam (`MAX_*` em `sala-host.js`). Mexeu no SQL? Rode `supabase/teste_sala.sql` num Postgres local e, depois de aplicar no Supabase, `node karaoke/tests/sala-real.js`.
+10. **Array da playlist é mexido no lugar** (`splice`): `P.itens` do palco aponta para o mesmo array; `filter` com reatribuição desligaria o palco da playlist.
+11. **Microfone** só durante a medição do aplausômetro; nada gravado nem enviado. Ele não mede afinação e a tela não promete isso.
+12. **Importar nunca substitui sem perguntar**; normalização (`normalizarDados`) descarta o que não presta sem lançar erro.
+
+## Modelo de dados
+
+```js
+// IndexedDB "karaoke", gaveta "dados", chave "atual" (cópia em localStorage "karaoke:v1:dados")
+{ version:1, activePlaylistId,
+  cantores:[{id, nome, emoji, cor}],
+  musicas:[{id, title, artist, album, duration, synced, lyrics,
+            playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, offset, criadaEm}],
+  playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
+  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video", contagem, aplausometro, keyYT} }
+// gaveta "audio": Blob do playback, chave "a-<musicaId>"
+// localStorage "karaoke:sala" (tela): {codigo, token, depois}; "karaoke:controle:eu" (celular): {nome, emoji}
+```
+
+## Não fazer
+
+- Não carregar script do YouTube, do Spotify nem biblioteca de QR/áudio: tudo é JS puro.
+- Não aplicar sincronia de outra gravação sem conferir a duração (±3 s), como no Estante.
+- Não criar tabela do karaokê em `public` nem abrir SELECT direto.
+- Não guardar a chave do YouTube fora do aparelho (nem no link, nem no backup).
+- Não encher a biblioteca com músicas de exemplo.
+

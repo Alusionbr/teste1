@@ -4,7 +4,7 @@
 Preserve final-answer and code quality while minimizing total context, tool calls, and GPT-6 Astra usage. Never trade correctness, security, or data integrity for token savings.
 
 ## Scope first
-- This is a monorepo. Identify the target project (`controle360`, `estante`, `hub`, `xadrez3d`, or another explicit directory) before reading implementation files.
+- This is a monorepo. Identify the target project (`controle360`, `estante`, `karaoke`, `hub`, `xadrez3d`, or another explicit directory) before reading implementation files.
 - Do not scan sibling projects unless the task genuinely crosses them.
 - Start with targeted filename/code search and small relevant file ranges. Expand only when evidence requires it.
 - Reuse summaries of unchanged files instead of reopening them.

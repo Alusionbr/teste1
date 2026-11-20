@@ -9,6 +9,7 @@ Publicado pelo GitHub Pages a partir da raiz: <https://alusionbr.github.io/teste
 | Ferramenta | Pasta | Para que serve |
 |---|---|---|
 | **Estante** | [`estante/`](estante/) | Letras e cifras no palco: busca em várias fontes, repertórios offline, rolagem automática, sincronia, transposição e impressão da ordem do show. Instalável no celular. |
+| **Karaokê em Casa** | [`karaoke/`](karaoke/) | Karaokê para a família: playlists com playback do YouTube, YouTube Music, Spotify ou arquivo do aparelho, letra sincronizada no estilo karaokê, vez de cada cantor, dueto, aplausômetro e controle pelo celular (tela da festa na TV ou projetor). |
 | **Controle360 Multi** | [`controle360/`](controle360/) | Estoque, ficha técnica, custo médio, produção, vendas com CMV, pedidos, tarefas e consignado para vários negócios. |
 | **File360** | [`file360/`](file360/) | Imagens em lote, PDFs, vídeo, áudio, ZIP e GZIP processados localmente, sem conta nem upload. |
 
@@ -28,9 +29,11 @@ index.html          página de ferramentas (a primeira página)
 hub/styles.css      visual da página de ferramentas
 hub/tools.js        lista das ferramentas (HUB_TOOLS)
 estante/            aplicativo de letras e cifras
+karaoke/            karaokê da família (tela da festa + controle pelo celular)
 controle360/        aplicativo de estoque e custos
 file360/             ferramenta local de arquivos (Next.js exportado estaticamente)
 tools/make-icons.js gerador dos ícones PNG do Estante (Node puro)
+tools/make-karaoke-icons.js  gera os PNG do Karaokê a partir do icon.svg
 ```
 
 ## Publicar uma ferramenta nova

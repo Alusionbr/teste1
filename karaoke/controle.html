@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#140b2b">
+  <meta name="description" content="Controle do Karaokê em Casa: peça músicas e comande a tela da festa pelo celular.">
+  <title>Controle — Karaokê em Casa</title>
+  <script data-version="1.0.1">
+  // Mesma trava de versão da página principal (ver index.html).
+  (()=>{
+    const version=document.currentScript.dataset.version;
+    const controller=navigator.serviceWorker&&navigator.serviceWorker.controller;
+    if(!controller||!navigator.onLine||new URL(controller.scriptURL).searchParams.get("v")===version)return;
+    const attempt="karaoke:update:"+version;
+    try{if(sessionStorage.getItem(attempt))return}catch{}
+    let active=true;
+    const stop=()=>{active=false;clearTimeout(timer)};
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{if(active){stop();location.reload()}});
+    const timer=setTimeout(stop,20000);
+    navigator.serviceWorker.register("./sw.js?v="+version,{scope:"./",updateViaCache:"none"}).then(reg=>{
+      const go=w=>{if(active&&w&&w.state==="installed"&&new URL(w.scriptURL).searchParams.get("v")===version){try{sessionStorage.setItem(attempt,"1")}catch{}w.postMessage("skipWaiting")}};
+      if(reg.waiting)go(reg.waiting);
+      reg.addEventListener("updatefound",()=>{const w=reg.installing;if(w)w.addEventListener("statechange",()=>go(w))});
+    }).catch(stop);
+  })();
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=1.0.1">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+</head>
+<body class="controle">
+  <header class="topo">
+    <div class="marca"><img src="./icon.svg" alt="" width="30" height="30"><span><b>Karaokê</b> controle</span></div>
+    <span id="ctSalaSelo" class="chip"></span>
+  </header>
+
+  <main>
+    <section id="ctEntrar" class="cartao" hidden>
+      <h2>Entrar na sala</h2>
+      <form id="ctFormSala" class="barraBusca" autocomplete="off">
+        <input id="ctCodigo" placeholder="Código da sala (ex.: ABC234)" maxlength="12" autocapitalize="characters" aria-label="Código da sala">
+        <button type="submit" class="primario">Entrar</button>
+      </form>
+      <p class="dica">O código aparece na tela da festa, em “Controle pelo celular”.</p>
+    </section>
+
+    <section id="ctQuem" class="cartao" hidden>
+      <h2>Quem é você?</h2>
+      <form id="ctFormQuem" autocomplete="off">
+        <label>Seu nome <input id="ctNome" maxlength="24" required placeholder="Ex.: Tia Carla"></label>
+        <div class="rotulo">Seu emoji</div>
+        <div id="ctEmojis" class="grade emojis"></div>
+        <div class="acoes"><button type="submit" class="primario">Entrar na festa 🎤</button></div>
+      </form>
+    </section>
+
+    <section id="ctPainel" hidden>
+      <div id="ctTelaAviso" class="aviso fixo" hidden>A tela da festa não está respondendo. Confira se ela está ligada e com internet.</div>
+      <div class="cartao agora">
+        <div id="ctFase" class="dica"></div>
+        <div id="ctQuemCanta" class="cantorSelo"></div>
+        <div id="ctMusica" class="ctMusica">Nada tocando</div>
+        <div id="ctArtista" class="dica"></div>
+        <div class="medidor fino"><div id="ctProgresso"></div></div>
+        <div class="controlesGrandes">
+          <button type="button" data-cmd="anterior" aria-label="Anterior">⏮</button>
+          <button type="button" data-cmd="alternar" id="ctTocar" class="principal" aria-label="Tocar ou pausar">⏯</button>
+          <button type="button" data-cmd="proxima" aria-label="Próxima">⏭</button>
+        </div>
+        <div class="acoes centro">
+          <button type="button" data-cmd="comecar" id="ctComecar">▶ Começar</button>
+          <button type="button" data-cmd="aplausos" id="ctAplausos" hidden>👏 Medir aplausos</button>
+        </div>
+        <div class="acoes centro">
+          <button type="button" data-cmd="adiantar">Letra −</button>
+          <span id="ctOffset" class="offset"></span>
+          <button type="button" data-cmd="atrasar">Letra +</button>
+        </div>
+        <label>Volume do playback <input id="ctVolume" type="range" min="0" max="100" value="100"></label>
+      </div>
+
+      <div class="abasMini centro" role="tablist">
+        <button type="button" data-ct-aba="fila" class="ativa">📋 Fila</button>
+        <button type="button" data-ct-aba="pedir">🎵 Pedir música</button>
+        <button type="button" data-ct-aba="nova">✨ Música nova</button>
+      </div>
+
+      <section id="ctAbaFila">
+        <ol id="ctFila" class="lista fila"></ol>
+      </section>
+
+      <section id="ctAbaPedir" hidden>
+        <label>Quem vai cantar? <select id="ctCantor"></select></label>
+        <input id="ctBusca" type="search" placeholder="Procurar nas músicas da festa" autocomplete="off" aria-label="Procurar música">
+        <ul id="ctMusicas" class="lista compacta"></ul>
+      </section>
+
+      <section id="ctAbaNova" hidden>
+        <p class="dica">Não achou na lista? Busque a letra e cole o link do playback (YouTube, YouTube Music ou Spotify).</p>
+        <form id="ctFormNova" class="barraBusca" autocomplete="off">
+          <input id="ctBuscaNova" type="search" placeholder="Nome da música e do artista" aria-label="Nome da música">
+          <button type="submit" class="primario">Buscar</button>
+        </form>
+        <p id="ctNovaStatus" class="dica"></p>
+        <ul id="ctNovaResultados" class="lista resultados"></ul>
+        <div id="ctNovaEscolhida" class="cartao" hidden>
+          <p id="ctNovaInfo"></p>
+          <label>Link do playback (opcional) <input id="ctNovaLink" placeholder="youtube.com/… ou open.spotify.com/track/…"></label>
+          <div class="acoes"><a id="ctNovaProcurar" class="botao" target="_blank" rel="noopener">🔎 Procurar playback no YouTube ↗</a></div>
+          <label>Quem vai cantar? <select id="ctCantorNova"></select></label>
+          <div class="acoes"><button type="button" id="ctNovaEnviar" class="primario">Pedir esta música</button></div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <div id="aviso" aria-live="polite"></div>
+
+  <script src="./core.js?v=1.0.1"></script>
+  <script src="./links.js?v=1.0.1"></script>
+  <script src="./familia.js?v=1.0.1"></script>
+  <script src="./letras.js?v=1.0.1"></script>
+  <script src="./sala.js?v=1.0.1"></script>
+  <script src="./controle.js?v=1.0.1"></script>
+  <script src="./offline.js?v=1.0.1"></script>
+</body>
+</html>
