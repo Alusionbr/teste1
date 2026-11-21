@@ -37,6 +37,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 
 | Versão | O que entrou |
 |---|---|
+| 1.0.17 | **Conserto: "não toca nada"**. Na 1.0.16 uma única mensagem do player com `videoData.video_id` diferente (resto do vídeo anterior depois do `cue`, ou outra mídia) ligava `emAnuncio` e **todas as mensagens seguintes sem `videoData` eram descartadas**: o app nunca via o play, o relógio ficava parado e em 12 s aparecia "O YouTube demorou para responder". Agora mensagem de outro id é ignorada **só aquela vez**, sem estado preso. Controles nativos do YouTube só no modo de recuperação (no uso normal `controls=0`, `disablekb=1`). Transferência de tela com música ativa mantém a posição (`seekTo` pendente vai quando o player fica pronto). Testes: player falso manda `videoData` e mensagens atrasadas do vídeo anterior; cenário de transferência com música ativa. |
 | 1.0.16 | Mudança de duração deixa de marcar anúncio. A tela mostra os controles nativos quando o vídeo demora a começar. Depois de um aviso de demora, o player ainda pode recuperar sozinho. |
 | 1.0.15 | Se o player do YouTube não responder, o palco tenta a URL alternativa com os controles nativos. O aviso também dá acesso ao vídeo direto no YouTube. |
 | 1.0.14 | O palco dá até 12 s para o playback do YouTube avançar e oferece nova tentativa. Todos podem usar os controles da música. Sugestões entram no fim e a tela decide se os celulares podem pular ou reordenar. |

@@ -28,16 +28,25 @@ const SAIDA=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),"karaoke-uso-"
 const BLOQUEADO="BLOQUEADO01";   // id de 11 caracteres que o player falso recusa com erro 150
 
 const YOUTUBE_FALSO=`<!doctype html><body>player falso<script>
-let bloqueado=location.pathname.includes("${BLOQUEADO}");
+const idDe=x=>String(x||"").split("/embed/").pop().split("?")[0];
+let idAtual=idDe(location.pathname);
+let bloqueado=idAtual.includes("${BLOQUEADO}");
 const send=o=>parent.postMessage(JSON.stringify(o),"*");
 // Player que toca de verdade (relógio de 250 ms, vídeo de 5 min), para testar letra liga/desliga.
+// Como o YouTube: videoData só vai em algumas mensagens (ao carregar/trocar), a maioria vem sem ele.
 let estado=-1,t=0,timer=null;
-const info=()=>send({event:"infoDelivery",info:{playerState:estado,currentTime:t,duration:300,playbackRate:1}});
+const info=(vd,id,tt)=>send({event:"infoDelivery",info:{playerState:estado,currentTime:tt??t,duration:300,playbackRate:1,...(vd?{videoData:{video_id:id||idAtual}}:{})}});
 addEventListener("message",e=>{let m;try{m=JSON.parse(e.data)}catch{return}
-  if(m.event==="listening"){send({event:"initialDelivery",info:{apiInterface:[]}});send({event:"onReady"});if(bloqueado)send({event:"onError",info:150});else info();return}
+  if(m.event==="listening"){send({event:"initialDelivery",info:{apiInterface:[],videoData:{video_id:idAtual}}});send({event:"onReady"});if(bloqueado)send({event:"onError",info:150});else info(true);return}
   if(m.event!=="command")return;
   // O app reaproveita o mesmo iframe com cue/loadVideoById: o vídeo atual muda sem recarregar a página.
-  if(m.func==="cueVideoById"||m.func==="loadVideoById"){bloqueado=String(m.args[0]).includes("${BLOQUEADO}");clearInterval(timer);t=0;estado=5;if(bloqueado)send({event:"onError",info:150});else info();return}
+  // Como no YouTube de verdade, chegam antes mensagens atrasadas do vídeo anterior (com o id dele).
+  if(m.func==="cueVideoById"||m.func==="loadVideoById"){
+    const velho=idAtual,velhoT=t;
+    bloqueado=String(m.args[0]).includes("${BLOQUEADO}");clearInterval(timer);idAtual=String(m.args[0]);t=0;estado=5;
+    if(bloqueado){send({event:"onError",info:150});return}
+    setTimeout(()=>info(true,velho,velhoT),20);setTimeout(()=>info(true,velho,velhoT),80);
+    setTimeout(()=>info(true),140);return}
   if(bloqueado)return;
   if(m.func==="playVideo"){estado=1;clearInterval(timer);timer=setInterval(()=>{t+=0.25;info()},250);info()}
   if(m.func==="pauseVideo"||m.func==="stopVideo"){estado=2;clearInterval(timer);info()}
@@ -384,7 +393,7 @@ async function novaManual(titulo,letra,dur){
     await page.locator("#bibliotecaLista li").filter({hasText:"Vídeo de teste"}).first().locator('[data-acao="ensaiar"]').click();
     await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando(),null,{timeout:15000});
     const antes=await page.evaluate(()=>{window.__yt=document.querySelector("#ytBox iframe");return{src:window.__yt.src,t:P.fonte.tempo()}});
-    ok(/controls=1/.test(antes.src)&&/disablekb=0/.test(antes.src),"o player precisa oferecer controles nativos durante a recuperação");
+    ok(/controls=0/.test(antes.src)&&/disablekb=1/.test(antes.src),"no uso normal o player não pode mostrar a interface do YouTube (controls=0, disablekb=1)");
     ok((await page.evaluate(()=>getComputedStyle(window.__yt).pointerEvents))==="none","o player do YouTube é clicável (a TV poderia sair da sala)");
     // só o player: depois de 4 s parado somem as barras
     await page.mouse.move(5,5);await page.waitForTimeout(4600);
@@ -682,11 +691,18 @@ async function novaManual(titulo,letra,dur){
         return{ok:true};
       };
       const p=criarPlaylist("Fila da transferência");
-      for(let i=1;i<=3;i++){const m=criarMusica({title:`Faixa da fila ${i}`,artist:"Família",synced:`[00:01.00]Letra protegida ${i}`},{compartilhar:false});adicionarItem(p,m.id)}
+      for(let i=1;i<=3;i++){const m=criarMusica({title:`Faixa da fila ${i}`,artist:"Família",synced:`[00:01.00]Letra protegida ${i}`,playback:{tipo:"youtube",id:`TRANSFERE0${i}`,titulo:"v"}},{compartilhar:false});adicionarItem(p,m.id)}
+      prefs().contagem=0;
       await SalaHost.abrir();
+      // música ativa na tela antiga: faixa 2, aos 40 s
+      abrirPalco({playlistId:p.id,indice:1});
+      await new Promise((ok,no)=>{const t0=Date.now();const v=()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando()?ok():Date.now()-t0>15000?no(Error("a música da tela antiga não começou")):setTimeout(v,100);v()});
+      P.fonte.buscar(40);
+      await new Promise(r=>setTimeout(r,1200));
       return{codigo:SalaHost.sala.codigo,playlist:p.nome,itens:p.itens.length};
     });
     const destino=await browser.newContext({viewport:{width:1280,height:720}}),projetor=await destino.newPage();
+    await destino.route("https://www.youtube-nocookie.com/embed/**",r=>r.fulfill({status:200,contentType:"text/html",body:YOUTUBE_FALSO}));
     try{
       await projetor.goto(BASE);
       await projetor.evaluate(()=>{
@@ -704,7 +720,7 @@ async function novaManual(titulo,letra,dur){
       await projetor.waitForFunction(()=>window.__pedido!==null,null,{timeout:5000});
       const pedido=await projetor.evaluate(()=>window.__pedido.p_dados.transferir);
       await page.evaluate((p)=>window.__roomCommands.push({id:1,device:p.device,nome:"Projetor",tipo:"entrar",dados:{transferir:p}}),pedido);
-      await page.click("#btnSala");
+      await page.locator("#btnSala").evaluate(b=>b.click());   // o palco está aberto por cima: clique direto
       await page.waitForSelector("#salaTransferenciaPendente:not([hidden])",{timeout:5000});
       await page.click("#salaTransferirAceitar");
       await page.waitForFunction(()=>window.__transferState!==null,{timeout:10000});
@@ -718,6 +734,13 @@ async function novaManual(titulo,letra,dur){
       assert.match(recebido.letra,/Letra protegida/);
       assert.equal(recebido.codigo,original.codigo);
       assert.equal(recebido.token,pedido.token);
+      // música ativa na transferência: o vídeo certo, e na posição em que estava (não do zero)
+      await projetor.waitForFunction(()=>P.aberto&&P.musica&&P.musica.title==="Faixa da fila 2",null,{timeout:10000});
+      await projetor.evaluate(()=>{if(P.fase==="vez")comecar()});
+      await projetor.waitForFunction(()=>P.fase==="cantando"&&P.fonte===FonteYouTube&&P.fonte.tocando(),null,{timeout:15000});
+      const pos=await projetor.evaluate(()=>({id:P.musica.playback.id,t:P.fonte.tempo()}));
+      ok(pos.id==="TRANSFERE02","a transferência trocou o vídeo da música ativa: "+pos.id);
+      ok(pos.t>=39&&pos.t<60,"a transferência reiniciou a música em vez de manter a posição: "+pos.t);
       const anterior=await page.evaluate(()=>({semSala:!SalaHost.sala,itens:playlistAtiva().itens.length}));
       ok(anterior.semSala&&anterior.itens===original.itens,"a tela antiga não entregou o controle ou perdeu a lista");
     }finally{await destino.close()}

@@ -35,6 +35,7 @@ const FonteYouTube=(()=>{
   let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
   let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
+  let seekPendente=null;
   let prazoPlay=null,esperandoPlay=false,origem=ORIGEM,alternativaUsada=false,tempoExcedido=false;
 
   function enviar(msg){
@@ -75,6 +76,7 @@ const FonteYouTube=(()=>{
     pronto=true;ultimaNoticia=performance.now();
     aplicar(info||{});
     if(acabouDeFicarPronto&&alternativaUsada&&esperandoPlay&&estado!==TOCANDO)emitir("bloqueado",{tipo:"youtube",controles:true});
+    if(acabouDeFicarPronto&&seekPendente!==null){const alvo=seekPendente;seekPendente=null;comando("seekTo",[alvo,true])}
     // Pedido de tocar feito antes de o player carregar: cumpre agora.
     if(acabouDeFicarPronto&&tocarQuandoPronto){
       tocarQuandoPronto=false;comando("playVideo");vigiarGesto();
@@ -84,14 +86,16 @@ const FonteYouTube=(()=>{
   function aplicar(info){
     const id=info.videoData?.video_id;
     if(id&&id!==videoAtual){
+      // Mensagem de OUTRA mídia (anúncio, ou resto do vídeo anterior depois de um cue no iframe
+      // reaproveitado): descarta só esta mensagem. NÃO fica nenhum estado preso — a maioria das
+      // mensagens não traz videoData, e se a próxima mensagem boa não pudesse limpar o estado,
+      // o app nunca mais veria o play (relógio parado e "demorou para responder").
       if(!emAnuncio){
         emAnuncio=true;
         emitir("anuncio",{ativo:true});
       }
       return;
     }
-    // Sem identificação nova, espera pelo próximo evento do vídeo selecionado.
-    if(emAnuncio&&!id)return;
     const voltou=emAnuncio;
     emAnuncio=false;
     if(typeof info.duration==="number"&&info.duration>0)duracaoVideo=info.duration;
@@ -107,13 +111,14 @@ const FonteYouTube=(()=>{
       if(estado===ENCERRADO){cancelarVigia();comando("stopVideo");emitir("fim")}
     }
     if(voltou)emitir("anuncio",{ativo:false});
-    if(progresso&&estado===TOCANDO){
+    if(estado===TOCANDO){
+      // Qualquer sinal de vida do vídeo certo apaga o aviso "demorou" (mesmo sem 'progresso').
       if(tempoExcedido){
         tempoExcedido=false;
         esperandoPlay=true;
         emitir("retomou");
       }
-      if(esperandoPlay)vigiarProgresso();
+      if(esperandoPlay&&progresso)vigiarProgresso();
     }
   }
 
@@ -145,16 +150,19 @@ const FonteYouTube=(()=>{
       emitir("erro",{msg:"O YouTube demorou para responder. Tente novamente ou abra o vídeo no YouTube.",tentarNovamente:true});
     },limite);
   }
+  // Controles nativos do YouTube (barra, ▶) só no modo de recuperação: no uso normal o palco
+  // mostra só o vídeo, sem a interface do YouTube por cima.
+  let comControlesNativos=false;
   function navegar(inicio=null){
     clearInterval(handshake);
     vivo=false;pronto=false;
-    const url=endereco(videoAtual,{origem,inicio,controles:true});
+    const url=endereco(videoAtual,{origem,inicio,controles:comControlesNativos});
     if(frame)frame.src=url;else criarFrame(url);
   }
   function carregarAlternativa(limite=LIMITE_PLAY_MS){
     const inicio=Math.floor(Math.max(0,ancora));
     cancelarVigia();zerar();ancora=inicio;
-    alternativaUsada=true;
+    alternativaUsada=true;comControlesNativos=true;
     origem=origem===ORIGEM?ORIGEM_PADRAO:ORIGEM;
     navegar(inicio);
     tocar(limite);
@@ -182,16 +190,26 @@ const FonteYouTube=(()=>{
     verificar:YouTubeBase.verificar,
     async carregar(musica){
       const id=musica.playback.id;
-      cancelarVigia();zerar();videoAtual=id;
+      cancelarVigia();zerar();videoAtual=id;seekPendente=null;
       alternativaUsada=false;
       if(pronto&&frame){comando("cueVideoById",[id]);return}
       navegar();
     },
     recarregar(){if(frame&&videoAtual)carregarAlternativa()},
+    // "Usar controles do vídeo": recarrega no mesmo ponto com a barra do YouTube.
+    comControles(){
+      if(!frame||!videoAtual)return;
+      comControlesNativos=true;
+      const inicio=Math.floor(Math.max(0,ancora));
+      cancelarVigia();zerar();ancora=inicio;
+      navegar(inicio);
+    },
     tocar,
     pausar(){cancelarVigia();tempoExcedido=false;comando("pauseVideo")},
     alternar(){estado===TOCANDO?this.pausar():this.tocar()},
-    buscar(seg){const alvo=Math.max(0,seg);ancora=alvo;ancoraEm=performance.now();comando("seekTo",[alvo,true])},
+    // Antes de o player estar pronto (ex.: tela transferida) o seekTo seria descartado: guarda e
+    // manda quando ele ficar pronto.
+    buscar(seg){const alvo=Math.max(0,seg);ancora=alvo;ancoraEm=performance.now();if(!comando("seekTo",[alvo,true]))seekPendente=alvo},
     parar(){this.pausar()},
     tempo(){
       if(emAnuncio||estado!==TOCANDO)return ancora;

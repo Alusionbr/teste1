@@ -833,6 +833,8 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 22. **Trava do cantor** (`sala-host.js`: `donosDaMusica`, `bloqueadoPara`, `mexeNaMusica`; `prefs.trava`, padrão ligada): só na fase `cantando`, os comandos que mexem **na música** (`alternar`, `proxima`, `anterior`, `adiantar`, `atrasar`, `volume`, `tocar_item`, `pedir` com `modo` `letra` ou `agora`) só valem se o nome do celular é o de `cantorA`/`cantorB` do item; comandos da **fila** (pedir, subir, tirar, playback) e as fases vez/nota/fim nunca são travados, e a tela/teclado também não. Item sem cantor não tem dono. **Quem decide é a tela**; o celular só desliga botões e avisa (`CT.travado`). A identidade é só o nome (família, não segurança). Estado publicado: `trava` e `agora.donos`.
 23. **Letra por música** (`musica.letraDe`: `"video"`|`"app"`|`""`, `fundoEfetivo()` em `palco.js`): vale só para YouTube com letra; `prefs.fundo` continua sendo a base do aparelho e **nunca** é alterado por escolha de uma música. `alternarLetra()` grava na música (`P.musica=editarMusica(...)`) e só troca camada de CSS. Música pedida pelo celular recebe a letra da tela em segundo plano (`completarLetra`, uma por vez, sem travar a fila).
 
+24. **`videoData.video_id` só filtra mensagem avulsa, nunca prende estado** (`fonte-youtube.js`, `aplicar`): o campo vem em poucas mensagens, e depois de `cueVideoById` chegam mensagens atrasadas do vídeo anterior. Mensagem de outro id é descartada **só aquela vez**; a próxima mensagem boa (com ou sem `videoData`) segue normal. Nunca `if(emAnuncio&&!id) return`: foi o que deixou o app sem ver o play (relógio parado e "demorou para responder"). O player falso dos testes precisa mandar `videoData` e mensagens atrasadas. Controles nativos do YouTube (`controls=1`) só no modo de recuperação.
+
 ## Modelo de dados
 
 ```js
@@ -855,4 +857,3 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 - Não criar tabela do karaokê em `public` nem abrir SELECT direto.
 - Não guardar a chave do YouTube fora do aparelho (nem no link, nem no backup).
 - Não encher a biblioteca com músicas de exemplo.
-

@@ -151,6 +151,72 @@ test("YouTube: carregamento mudo tem prazo, e nova tentativa conserva o vídeo e
   assert.equal(c.eventos.filter(([tipo])=>tipo==="erro").length,2,"uma pausa cancela a espera");
 });
 
+
+// ---- 1.0.17: o relógio nunca pode ficar preso por causa de "outra mídia" ----
+function playerComId(){
+  const c=contexto();
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const msg=x=>c.receber({origin:new URL(c.frame.src).origin,source:c.frame.contentWindow,data:JSON.stringify(x)});
+  const info=(i,ms=250)=>{c.avancar(ms);msg({event:"infoDelivery",info:i})};
+  return{c,F:c.ctx.F,msg,info};
+}
+test("YouTube: mensagem atrasada do vídeo anterior não prende o relógio da música nova",async()=>{
+  const{c,F,info}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  F.tocar();
+  for(let i=0;i<4;i++)info({playerState:1,currentTime:i,duration:200,videoData:{video_id:"AAAAAAAAAAA"}});
+  // troca de vídeo no mesmo iframe: uma mensagem do vídeo anterior chega depois do cue
+  await F.carregar({playback:{id:"BBBBBBBBBBB"}});
+  F.tocar();
+  info({playerState:1,currentTime:199,duration:200,videoData:{video_id:"AAAAAAAAAAA"}});
+  // o resto vem SEM videoData (é o normal): precisa ser aceito, senão o app nunca vê o play
+  for(let i=0;i<6;i++)info({playerState:1,currentTime:1+i/4,duration:312});
+  assert.equal(F.emAnuncio,false,"uma mensagem atrasada não pode deixar 'outra mídia' ligada");
+  assert.equal(F.tocando(),true);
+  assert.equal(F.duracao(),312);
+  c.avancar(400);
+  assert.ok(F.tempo()>2,"o relógio da letra precisa andar");
+});
+test("YouTube: mensagem isolada de outra mídia é ignorada só naquela vez",async()=>{
+  const{c,F,info}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  F.tocar();
+  info({playerState:1,currentTime:10,duration:200,videoData:{video_id:"AAAAAAAAAAA"}});
+  info({currentTime:3,duration:15,videoData:{video_id:"ANUNCIOAAAA"}});
+  assert.equal(F.tempo(),10,"enquanto chega outra mídia o relógio fica no ponto da música");
+  info({currentTime:11,duration:200});   // sem videoData: já é a música de novo
+  assert.equal(F.emAnuncio,false);assert.equal(F.tocando(),true);
+  c.avancar(500);assert.ok(F.tempo()>11);
+});
+test("YouTube: o aviso 'demorou' sai assim que o vídeo dá sinal de vida, mesmo depois de outra mídia",async()=>{
+  const{c,F,info}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  F.tocar();
+  info({currentTime:0,duration:15,videoData:{video_id:"ANUNCIOAAAA"}});
+  c.avancar(13000);
+  assert.ok(c.eventos.some(([t])=>t==="erro"),"sem sinal da música o aviso aparece");
+  info({playerState:1,currentTime:5,duration:240});   // sem videoData
+  assert.ok(c.eventos.some(([t])=>t==="retomou"),"com a música andando o aviso tem de sumir");
+  assert.equal(F.tocando(),true);
+});
+test("YouTube: controles nativos só no modo de recuperação",async()=>{
+  const{c,F}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  assert.match(c.frame.src,/controls=0/);assert.match(c.frame.src,/disablekb=1/);
+  F.comControles();
+  assert.match(c.frame.src,/controls=1/);
+  await F.carregar({playback:{id:"BBBBBBBBBBB"}});
+  assert.match(c.frame.src,/BBBBBBBBBBB/);
+});
+test("YouTube: buscar() antes de o player estar pronto vale quando ele começa a tocar",async()=>{
+  const{c,F,msg}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  F.buscar(42);   // transferência de tela: a posição chega antes do player
+  c.carregou();c.enviados.length=0;
+  msg({event:"onReady"});
+  assert.ok(c.enviados.some(({m})=>{const x=JSON.parse(m);return x.func==="seekTo"&&x.args[0]===42}),"o seek pendente precisa ir quando o player fica pronto");
+});
+
 test("Spotify: ready → ack, playback_update dá tempo, prévia de 30 s é avisada",async()=>{
   const c=contexto();
   vm.runInContext(fs.readFileSync(path.join(root,"fonte-spotify.js"),"utf8")+";this.F=FonteSpotify;",c.ctx);
