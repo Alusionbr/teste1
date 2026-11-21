@@ -18,6 +18,28 @@
   function normalizeHistoryEntry(entry={}){
     return{revision:Math.max(1,number(entry.revision,1)),savedAt:text(entry.savedAt||new Date().toISOString(),40),reason:text(entry.reason||"Edição",80),snapshot:normalizeSong(entry.snapshot||{},false)};
   }
+  function publicTrackId(song){
+    if(!song || ["colado","local","acervo"].includes(String(song.source||"").toLowerCase()))return "";
+    const uuid="[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}";
+    const known=String(song.publicTrack||"").toLowerCase();
+    if(new RegExp("^(?:mbid:"+uuid+"|(?:lrclib|apple|deezer):[1-9][0-9]{0,14})$").test(known))return known;
+    const mbid=String(song.mbid||"").toLowerCase();
+    if(new RegExp("^"+uuid+"$").test(mbid))return "mbid:"+mbid;
+    for(const [provider,id] of [["lrclib",song.lrclibId],["apple",song.appleId],["deezer",song.deezerId]]){
+      if(/^[1-9][0-9]{0,14}$/.test(String(id||"")))return provider+":"+id;
+    }
+    try{
+      const url=new URL(song.catalogUrl);
+      if(url.protocol!=="https:")return "";
+      const id=url.hostname==="music.apple.com"?url.searchParams.get("i"):null;
+      if(id&&/^[1-9][0-9]{0,14}$/.test(id))return "apple:"+id;
+      if(["deezer.com","www.deezer.com"].includes(url.hostname)){
+        const track=url.pathname.match(/\/track\/([1-9][0-9]{0,14})\/?$/);
+        if(track)return "deezer:"+track[1];
+      }
+    }catch{}
+    return "";
+  }
   function normalizeBacking(value){
     if(!value || !["preset","recording","project","import"].includes(value.kind) || !value.id)return null;
     const volume=value.volume==null?72:number(value.volume,0,100);
@@ -32,6 +54,8 @@
       title:text(source.title??source.titulo??"Sem título",200),artist:text(source.artist??source.artista??"",200),album:text(source.album,300),duration:number(source.duration??source.duracao,0,86400),lyrics:text(source.lyrics??source.letra),synced:text(source.synced??source.sincronizada),instrumental:!!source.instrumental,
       source:text(source.source??source.fonte,80),lyricNote:text(source.lyricNote,300),lyricSources:Array.isArray(source.lyricSources)?source.lyricSources.map(x=>text(x,200)).slice(0,5):[],vagUrl:text(source.vagUrl??source.urlVagalume,1000),vagId:text(source.vagId,100),catalogUrl:text(source.catalogUrl,1000),key:number(source.key,-11,11),capo:number(source.capo,0,12),speed:number(source.speed,0,200),auto:!!source.auto,notes:text(source.notes,10000),sectionNotes:source.sectionNotes&&typeof source.sectionNotes==="object"?clone(source.sectionNotes):{},videoId:text(source.videoId,24),videoOffset:number(source.videoOffset,-120,120),tags:Array.isArray(source.tags)?source.tags.map(x=>text(x,40)).filter(Boolean).slice(0,20):[],status:STATUSES.includes(source.status)?source.status:"learning",revision:Math.max(1,number(source.revision,1)),updatedAt:text(source.updatedAt||new Date().toISOString(),40),detached:!!source.detached
     };
+    const publicTrack=publicTrackId(source);
+    if(publicTrack)song.publicTrack=publicTrack;
     if(source.genre)song.genre=text(source.genre,60);
     if(source.rhythm)song.rhythm=text(source.rhythm,40);
     if(Number(source.bpm)>=40&&Number(source.bpm)<=240)song.bpm=Math.round(Number(source.bpm));
@@ -102,7 +126,7 @@
   }
   function packageSetlist(setlist,includeContent=true){const normalized=normalizeSetlist(setlist);return{kind:"estante-setlist",version:VERSION,createdAt:new Date().toISOString(),setlist:{...normalized,songs:normalized.songs.map(song=>includeContent?publicSong(song):{id:song.id,kind:song.kind,songId:song.songId,arrangementId:song.arrangementId,arrangementName:song.arrangementName,title:song.title,artist:song.artist,duration:song.duration,status:song.status,notes:song.notes,tags:song.tags,revision:song.revision})}}}
 
-  const api={VERSION,STATUSES,STATUS_LABELS,uid,fold,songIdentity,normalizeSong,normalizeSetlist,normalizeSession,migrate,libraryRecord,rebuildLibrary,revise,readiness,progress,newSession,finishSession,packageSetlist,clone};
+  const api={VERSION,STATUSES,STATUS_LABELS,uid,fold,songIdentity,publicTrackId,normalizeSong,normalizeSetlist,normalizeSession,migrate,libraryRecord,rebuildLibrary,revise,readiness,progress,newSession,finishSession,packageSetlist,clone};
   root.EstanteDomain=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 })(typeof globalThis!=="undefined"?globalThis:this);

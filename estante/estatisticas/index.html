@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Estatísticas do Estante</title>
+  <link rel="stylesheet" href="./painel.css">
+  <script src="./painel.js" defer></script>
+</head>
+<body>
+  <main>
+    <a href="../">← Estante</a>
+    <h1>Estatísticas de uso</h1>
+    <p>Últimos 30 dias. Os totais representam usos registrados por quem ativou o compartilhamento.</p>
+    <form id="login">
+      <label>E-mail do administrador<input id="email" type="email" autocomplete="username" required></label>
+      <label>Senha<input id="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Entrar</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="report" aria-label="Resumo de uso" hidden>
+      <button id="logout" type="button">Sair</button>
+      <div class="reports">
+        <section><h2>Mais ensaiadas</h2><ol id="rehearsed"></ol></section>
+        <section><h2>Mais procuradas sem letra</h2><ol id="missing_lyrics"></ol></section>
+        <section><h2>Ritmos mais usados</h2><ol id="rhythm"></ol></section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -10,6 +10,7 @@ const EstanteBacking = (() => {
   let view = "catalog", selected, editing, loadedImport, activeSync, preview = false;
   const downloadPending = new Set();
   let exporting = false, syncing = false, scrubbing = false;
+  let usageCandidate;
 
   function button(label, onClick) {
     const element = document.createElement("button");
@@ -60,10 +61,17 @@ const EstanteBacking = (() => {
     $("beatPreview").textContent = inEditor && (playing || pending) ? "Pausar prévia" : "Ouvir trilha";
     $("backingPlay").textContent = playing && selected && entry?.id === selected.id && entry.kind === selected.kind ? "Pausar" : "Tocar com a letra";
     if (entry) syncLine(position);
+    if (playing && usageCandidate?.entry === entry) {
+      const { song, rehearsal } = usageCandidate;
+      usageCandidate = null;
+      EstanteUsage.backing(entry);
+      if (song) EstanteUsage.song(song, rehearsal);
+    }
   }, report);
 
   function stop(keepSelection = true) {
     activeSync = null;
+    usageCandidate = null;
     preview = false;
     if (syncing) {
       syncing = false;
@@ -105,6 +113,9 @@ const EstanteBacking = (() => {
     if (current.entry === entry && (current.playing || current.pending)) { player.pause(); return; }
     if (current.entry !== entry) stop();
     preview = asPreview;
+    if (!asPreview && (current.entry !== entry || !current.position)) {
+      usageCandidate = { entry, song: state.current, rehearsal: state.activeSession };
+    }
     if (!asPreview) setupFollow(entry);
     if (!asPreview) keepAwake();
     player.setVolume(Number($("backingVolume").value) / 100);
