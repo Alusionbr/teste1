@@ -630,6 +630,31 @@ async function novaManual(titulo,letra,dur){
     }finally{await controle.close()}
   });
 
+  await cenario("diagnóstico: Medir agora mostra serviços, player (com video_id) e estado da sala",async()=>{
+    await aba("ajustes");
+    await page.evaluate(()=>{document.getElementById("diagnostico").open=true});
+    await page.click("#diagMedir");
+    await page.waitForFunction(()=>/Tempo de resposta/.test(document.getElementById("diagTexto").textContent),null,{timeout:20000});
+    const t=await page.locator("#diagTexto").innerText();
+    ok(/Sala \(Supabase\)/.test(t)&&/Player do YouTube/.test(t)&&/Estado enviado aos celulares/.test(t),"faltam seções no relatório: "+t.slice(0,300));
+    ok(/video_id/.test(t),"o relatório não mostra o video_id das mensagens");
+    ok(!/AIza/.test(t),"o relatório não pode levar a chave do YouTube");
+  });
+
+  await cenario("com a letra do app ligada, as legendas do YouTube são descarregadas; só o vídeo não mexe nelas",async()=>{
+    await page.evaluate(()=>{
+      const m=criarMusica({title:"Legendas",lyrics:"a",synced:"[00:01.00]a\n[00:05.00]b",duration:200,playback:{tipo:"youtube",id:"LEGENDAS001",titulo:"v"}},{compartilhar:false});
+      const p=criarPlaylist("Legendas");adicionarItem(p,m.id,"","");
+      prefs().contagem=0;prefs().fundo="tela";abrirPalco({playlistId:p.id,indice:0});
+      window.__cmds=[];const o=FonteYouTube.legendas;FonteYouTube.legendas=l=>{window.__cmds.push(l);return o(l)};
+    });
+    await page.waitForFunction(()=>P.fase==="cantando"&&FonteYouTube.tocando(),null,{timeout:15000});
+    ok(await page.evaluate(()=>window.__cmds.length)===0,"só o vídeo não deveria mexer nas legendas");
+    await page.evaluate(()=>alternarLetra());
+    await page.waitForFunction(()=>window.__cmds.includes(false),null,{timeout:5000});
+    await page.evaluate(()=>{fecharPalco();prefs().contagem=5});
+  });
+
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{
     await limpar();
     const c2=await browser.newContext({viewport:{width:390,height:844}});

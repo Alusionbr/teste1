@@ -32,7 +32,7 @@ const YouTubeBase=(()=>{
    * Resolve {ok:true}, {ok:true,incerto:true} (sem resposta a tempo, ex.: sem
    * internet — não impede a escolha) ou {ok:false,codigo,msg,bloqueado}.
    */
-  function verificar(id,limiteMs=8000){
+  function conferir(id,limiteMs){
     return new Promise(resolve=>{
       const f=document.createElement("iframe");
       f.title="Verificação do vídeo";
@@ -69,5 +69,41 @@ const YouTubeBase=(()=>{
     });
   }
 
-  return{ORIGEM,ORIGEM_PADRAO,ORIGENS,ERROS,GRACA_ERRO_MS,endereco,verificar};
+  /*
+   * Conferência para uso: UMA por vez, com cache e sem competir com a música.
+   * Cada conferência abre um segundo player do YouTube escondido; várias ao mesmo tempo, ou
+   * uma durante a música na TV, engasgam o vídeo que está tocando e atrasam as mensagens
+   * que movem a letra. Por isso:
+   *  - fila: uma conferência de cada vez;
+   *  - cache de 15 min por vídeo (só resposta firme: sem "incerto");
+   *  - `ocupado()` (a tela do palco define): enquanto a música toca nesta tela, espera até
+   *    ESPERA_MAX_MS; se não liberar, devolve {ok:true,incerto:true,adiado:true} sem abrir nada.
+   */
+  const CACHE_MS=15*60*1000,ESPERA_MAX_MS=15000,PRAZO_PADRAO_MS=5000;
+  const cache=new Map();let fila=Promise.resolve(),ocupadoFn=()=>false;
+  const esperar=ms=>new Promise(r=>setTimeout(r,ms));
+  async function aguardarLivre(maxMs=Infinity){
+    const fim=Date.now()+maxMs;
+    while(ocupadoFn()){if(Date.now()>=fim)return false;await esperar(500)}
+    return true;
+  }
+  function verificar(id,limiteMs=PRAZO_PADRAO_MS){
+    const guardado=cache.get(id);
+    if(guardado&&Date.now()-guardado.em<CACHE_MS)return Promise.resolve(guardado.r);
+    const rodar=async()=>{
+      const certo=cache.get(id);
+      if(certo&&Date.now()-certo.em<CACHE_MS)return certo.r;
+      if(!await aguardarLivre(ESPERA_MAX_MS))return{ok:true,incerto:true,adiado:true};
+      const r=await conferir(id,limiteMs);
+      if(!r.incerto)cache.set(id,{r,em:Date.now()});
+      return r;
+    };
+    const p=fila.then(rodar,rodar);
+    fila=p.catch(()=>{});
+    return p;
+  }
+
+  return{ORIGEM,ORIGEM_PADRAO,ORIGENS,ERROS,GRACA_ERRO_MS,endereco,verificar,aguardarLivre,
+    definirOcupado(fn){ocupadoFn=typeof fn==="function"?fn:()=>false},
+    _limparCache(){cache.clear()}};
 })();

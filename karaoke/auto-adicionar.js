@@ -29,28 +29,30 @@ async function adicionarPeloNome({titulo,artista},{comLetra=true}={}){
   ]);
   if(res&&res.erro&&!letra)throw res.erro;
   const video=res&&res.video||null;
-  const playback=video?{tipo:"youtube",id:video.id,titulo:video.titulo}:null;
-  const comTexto=letra?{synced:letra.synced,lyrics:letra.lyrics}:{};
+  const playback=video?{tipo:"youtube",id:video.id,titulo:video.titulo,duracao:video.duracao||0}:null;
+  // Letra sincronizada só se for da mesma gravação do vídeo; senão entra como texto sem tempo.
+  const ajustada=ajustarLetraAoVideo(letra,video?video.duracao:(ja&&ja.playback&&ja.playback.duracao)||0);
+  const comTexto=ajustada?{synced:ajustada.synced,lyrics:ajustada.lyrics}:{};
   let m;
   if(ja)m=editarMusica(ja.id,{...(playback?{playback}:{}),...(letra&&!temLetra(ja)?comTexto:{})});
   else m=criarMusica({
     title:!artista&&letra&&letra.title?letra.title:titulo,
     artist:artista||(letra?letra.artist:""),
     album:letra?letra.album:"",
-    duration:(letra&&letra.duration)||(video?video.duracao:0),
+    duration:ajustada&&ajustada.sincronizada&&letra.duration?letra.duration:(video?video.duracao:0)||(letra&&letra.duration)||0,
     ...comTexto,playback
   });
   const item=adicionarItem(garantirPlaylist(),m.id,"","");
   await salvarEstado();
   const alternativas=res?(res.alternativas||(res.erro&&res.erro.alternativas)||[]):[];
-  const entrada={musica:m,item,video,alternativas,letra,jaExistia:!!ja,semVideo:precisaVideo&&!video,aviso:res&&res.aviso||""};
+  const entrada={musica:m,item,video,alternativas,letra,letraAjustada:ajustada,jaExistia:!!ja,semVideo:precisaVideo&&!video,aviso:res&&res.aviso||""};
   AUTO[m.id]=entrada;
   return entrada;
 }
 
 function htmlEntradaAuto(e){
   const m=e.musica,v=e.video;
-  const letra=temSincronia(m)?`<span class="selo ok">✓ letra sincronizada</span>`:temLetra(m)?`<span class="selo meio">letra sem tempo</span>`:`<span class="selo falta">sem letra</span>`;
+  const letra=temSincronia(m)?`<span class="selo ok">✓ letra sincronizada</span>`:temLetra(m)?`<span class="selo meio">letra sem tempo${e.letraAjustada&&e.letraAjustada.descartouSincronia?" (gravação diferente do vídeo)":""}</span>`:`<span class="selo falta">sem letra</span>`;
   const dif=v&&e.letra&&e.letra.duration?diferencaDuracao(e.letra.duration,v.duracao):0;
   const linhaVideo=v
     ?`▶ ${esc(v.titulo)}${v.compartilhado?" · salvo pela comunidade":v.duracao?" · "+fmt(v.duracao):""}${v.duvida?` · <b>confira se é este mesmo</b>`:""}${dif?` · vídeo ${dif>0?"mais longo":"mais curto"} que a letra (${Math.abs(dif)} s)`:""}`
@@ -66,7 +68,7 @@ function htmlFalhaAuto(texto,mensagem){
 // Troca o playback da música (já conferido que toca) e devolve a entrada atualizada.
 async function trocarVideoDaEntrada(musicaId,video){
   const e=AUTO[musicaId];if(!e)return null;
-  const m=editarMusica(musicaId,{playback:{tipo:"youtube",id:video.id,titulo:video.titulo}});
+  const m=editarMusica(musicaId,{playback:{tipo:"youtube",id:video.id,titulo:video.titulo,duracao:video.duracao||0}});
   await salvarEstado();
   const anterior=e.video;
   e.alternativas=[...(anterior&&anterior.id!==video.id?[anterior]:[]),...(e.alternativas||[]).filter(x=>x.id!==video.id)];
