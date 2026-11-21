@@ -12,6 +12,8 @@
  */
 const SalaHost=(()=>{
   const CHAVE="karaoke:sala",INTERVALO=1500,BATIMENTO=10000;
+  const CONVITE_MS=5*60*1000;
+  let convite=null;   // {segredo, expira}: transferência iniciada por ESTA tela (QR/link)
   let sala=null,timer=0,ocupado=false,ultimoTxt="",ultimoEnvio=0,aparelhos=0,falhas=0,notaRecente=null,transferenciaPendente=null,transferenciaStatus=null,transferindo=false;
 
   const pausa=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -38,14 +40,16 @@ const SalaHost=(()=>{
   function ler(){try{const s=JSON.parse(localStorage.getItem(CHAVE)||"null");return s&&/^[A-Z0-9]{6,12}$/.test(s.codigo)&&/^[a-f0-9]{32,64}$/.test(s.token)?s:null}catch{return null}}
   function gravar(){try{sala?localStorage.setItem(CHAVE,JSON.stringify(sala)):localStorage.removeItem(CHAVE)}catch{}}
 
-  async function solicitarTransferencia(codigo){
-    codigo=String(codigo||"").trim().toUpperCase();
+  async function solicitarTransferencia(entrada){
+    // Aceita o código, o código com convite (ABC123.xxxx) ou o link inteiro.
+    const lido=lerLinkAssumir(entrada)||{codigo:String(entrada||"").trim().toUpperCase(),convite:""};
+    const codigo=lido.codigo,conviteRecebido=lido.convite;
     if(!/^[A-Z0-9]{6,12}$/.test(codigo))throw Error("Digite o código da sala (6 a 12 letras ou números).");
     if(sala&&sala.codigo===codigo)throw Error("Este aparelho já é a tela principal desta sala.");
     const id=novoTokenSala().slice(0,20),token=novoTokenSala(),chave=b64url.codificar(crypto.getRandomValues(new Uint8Array(32)));
     const device=idDoAparelho();
-    await salaRpc("karaoke_comando",{p_codigo:codigo,p_device:device,p_nome:"Projetor",p_tipo:"entrar",p_dados:{transferir:{id,token,chave,device}}});
-    $("salaAssumirStatus").textContent="Pedido enviado. Aprove a troca na tela principal atual.";
+    await salaRpc("karaoke_comando",{p_codigo:codigo,p_device:device,p_nome:"Projetor",p_tipo:"entrar",p_dados:{transferir:{id,token,chave,device,...(conviteRecebido?{convite:conviteRecebido}:{})}}});
+    $("salaAssumirStatus").textContent=conviteRecebido?"Convite enviado. A troca acontece sozinha…":"Pedido enviado. Aprove a troca na tela principal atual.";
     $("salaAssumir").disabled=true;
     const limite=Date.now()+120000;
     try{
@@ -93,9 +97,19 @@ const SalaHost=(()=>{
       if(new TextEncoder().encode(JSON.stringify(estado)).length>195000)throw Error("A fila tem letras demais para transferir de uma vez. Reduza a fila e tente de novo.");
       await salaRpc("karaoke_sala_transferir",{p_codigo:s.codigo,p_token_atual:s.token,p_token_novo:pedido.token,p_estado:estado});
       parar();sala=null;gravar();transferenciaPendente=null;transferenciaStatus=null;transferindo=false;
-      fecharPalco();renderDialogo();if($("dlgSala").open)$("dlgSala").close();notify("A sala agora está no novo projetor.",true);
+      $("salaTransferirAceitar").disabled=false;   // senão o botão fica morto na próxima transferência desta tela
+      const codigoAntigo=s.codigo;
+      fecharPalco();renderDialogo();if($("dlgSala").open)$("dlgSala").close();
+      notify("A sala agora está no novo aparelho.",true,{label:"Abrir como controle",run:()=>{location.href=linkControle(codigoAntigo)}});
     }catch(e){transferindo=false;$("salaTransferirAceitar").disabled=false;$("salaTransferenciaStatus").textContent=e.message;notify(e.message)}
   }
+  // Convite de transferência iniciado por esta tela: QR + link para o aparelho novo abrir.
+  function criarConvite(){
+    if(!sala)throw Error("Abra a sala primeiro.");
+    convite={segredo:novoTokenSala().slice(0,24),expira:Date.now()+CONVITE_MS};
+    return{link:linkAssumir(sala.codigo,convite.segredo),expira:convite.expira};
+  }
+  function cancelarConvite(){convite=null}
   function recusarTransferencia(){
     if(!transferenciaPendente)return;
     transferenciaStatus={id:transferenciaPendente.id,status:"recusada"};transferenciaPendente=null;ultimoTxt="";renderDialogo();notify("Pedido de transferência recusado.",true);
@@ -147,7 +161,8 @@ const SalaHost=(()=>{
       musicas:[...K.dados.musicas].sort((x,y)=>fold(x.title).localeCompare(fold(y.title))).slice(0,500).map(m=>({id:m.id,title:m.title,artist:m.artist,letra:temSincronia(m)?2:temLetra(m)?1:0,pb:m.playback?m.playback.tipo:""})),
       cantores:K.dados.cantores.map(c=>({id:c.id,nome:c.nome,emoji:c.emoji,cor:c.cor})),
       fundo:fundoEfetivo(),
-      pularFila:prefs().pularFila===true,
+      permissoes:prefs().permissoes,
+      pularFila:prefs().permissoes.acoes.fila!=="anfitriao"&&prefs().permissoes.acoes.pular!=="anfitriao",   // celulares antigos
       erro:P.aberto&&!$("palcoErro").hidden?texto($("erroTexto").textContent,160):"",
       nota:notaRecente&&Date.now()-notaRecente.em<60000?notaRecente.nota:null,
       ...(transferenciaStatus?{transferenciaStatus}: {})
@@ -188,7 +203,15 @@ const SalaHost=(()=>{
     return[P.item.cantorA,P.item.cantorB].filter(Boolean).map(acharCantor).filter(Boolean);
   }
 
-  const ALTERA_FILA=new Set(["proxima","anterior","tocar_item","tirar_item","subir_item"]);
+  // Quem está na sala: nomes vistos nos comandos (o painel do anfitrião lista e permite bloquear).
+  const vistos=new Map(),ultimaRecusa=new Map();
+  function registrarNome(nome){if(nome&&nome!=="Alguém"){vistos.set(nome,Date.now());if(vistos.size>60){const velho=[...vistos.entries()].sort((a,b)=>a[1]-b[1])[0];vistos.delete(velho[0])}}}
+  function avisarRecusa(quem,acao){
+    const k=chaveDoNome(quem)+"|"+acao,agora=Date.now();
+    if(agora-(ultimaRecusa.get(k)||0)<60000)return;
+    ultimaRecusa.set(k,agora);
+    notify(`🔒 ${quem} tentou ${TEXTO_ACAO[acao]||"mexer"}, mas não está liberado. ${estaBloqueado(prefs().permissoes,quem)?"(aparelho silenciado)":""}`.trim());
+  }
 
   /* ---------------------------------------------------------- comandos */
   const texto=(v,max)=>String(v??"").slice(0,max);
@@ -198,8 +221,10 @@ const SalaHost=(()=>{
   // Devolve true quando mudou o dado (aí o ciclo salva).
   function aplicar(c){
     const d=c.dados||{},quem=texto(c.nome,24)||"Alguém";
-    const proximaDepoisDosAplausos=c.tipo==="proxima"&&P.fase==="nota";
-    if(!prefs().pularFila&&ALTERA_FILA.has(c.tipo)&&!proximaDepoisDosAplausos)return false;
+    registrarNome(quem);
+    // Permissões do anfitrião: quem decide é esta tela, nunca o celular.
+    const acao=acaoDoComando(c.tipo,d,{fase:P.fase});
+    if(!d.transferir&&!podeFazer(prefs().permissoes,acao,{nome:quem,donos:donosDaMusica().map(x=>x.nome)})){avisarRecusa(quem,acao||"pedir");return false}
     switch(c.tipo){
       case "alternar":case "proxima":case "anterior":case "adiantar":case "atrasar":case "volume":case "aplausos":
         comandoPalco(c.tipo,d);return false;
@@ -214,7 +239,14 @@ const SalaHost=(()=>{
           const t=d.transferir;
           if(transferenciaPendente||!/^[a-f0-9]{20}$/.test(t.id||"")||!/^[a-f0-9]{32,64}$/.test(t.token||"")||!/^[A-Za-z0-9_-]{43}$/.test(t.chave||"")||!sala)return false;
           transferenciaPendente={id:t.id,token:t.token,chave:t.chave,device:t.device,nome:quem,expira:Date.now()+90000};
-          transferenciaStatus={id:t.id,status:"solicitada"};ultimoTxt="";renderDialogo();
+          transferenciaStatus={id:t.id,status:"solicitada"};ultimoTxt="";$("salaTransferirAceitar").disabled=false;renderDialogo();
+          // Convite desta tela (QR/link): é a aprovação, vale uma vez e por 5 min. Errado ou vencido: cai no fluxo manual.
+          if(convite&&typeof t.convite==="string"&&t.convite===convite.segredo&&Date.now()<convite.expira){
+            convite=null;
+            notify(`${quem} abriu o convite: transferindo a sala…`,true);
+            setTimeout(()=>aceitarTransferencia(),0);
+            return false;
+          }
           notify(`${quem} pediu para tornar este aparelho a tela principal. Abra Controle remoto para aprovar.`,true);
           return false;
         }
@@ -226,6 +258,7 @@ const SalaHost=(()=>{
       }
       case "pedir":{
         if(d.modo==="letra"){alternarLetra();return true}
+        if(d.modo==="editar")return false;   // edição pelo celular: ainda não existe (1.0.20)
         const m=acharMusica(d.musicaId);if(!m)return false;
         if(d.modo==="playback")return trocarPlayback(m,d.playback,quem)==="mudou";
         // Pedidos de versões antigas também entram no fim, inclusive os modos "agora" e "seguir".
@@ -335,18 +368,33 @@ const SalaHost=(()=>{
       $("salaLink").textContent=link();
       try{QR.desenhar($("salaQR"),link())}catch(e){console.error(e)}
     }
-    $("salaPularFila").checked=prefs().pularFila;
+    renderPermissoes();
     $("salaTransferenciaPendente").hidden=!transferenciaPendente;
     if(transferenciaPendente){$("salaTransferenciaPedido").textContent=`${transferenciaPendente.nome} quer usar outro aparelho como tela principal.`;$("salaTransferenciaStatus").textContent="A fila e a música atual serão transferidas; a tela nova pedirá um toque para continuar."}
     $("salaAssumirArea").hidden=!!sala;
     if(sala)$("salaAssumirStatus").textContent="";
     atualizarSelo();
   }
+  function renderPermissoes(){
+    const p=prefs().permissoes;
+    $("permNivel").value=p.nivel;
+    const opcoes=[["todos","Todos"],["cantor","Só quem canta"],["anfitriao","Só o anfitrião"]];
+    const html=ACOES_SALA.map(a=>`<label class="permLinha"><span>${esc(ROTULO_ACAO[a])}</span><select data-perm-acao="${a}">${opcoes.map(([v,t])=>`<option value="${v}"${p.acoes[a]===v?" selected":""}>${t}</option>`).join("")}</select></label>`).join("");
+    if($("permAcoes").dataset.html!==html){$("permAcoes").innerHTML=html;$("permAcoes").dataset.html=html}
+    const nomes=new Map();
+    for(const n of vistos.keys())nomes.set(chaveDoNome(n),n);
+    for(const c of K.dados.cantores)if(!nomes.has(chaveDoNome(c.nome)))nomes.set(chaveDoNome(c.nome),c.nome);
+    for(const b of p.bloqueados)if(!nomes.has(chaveDoNome(b)))nomes.set(chaveDoNome(b),b);
+    const lista=[...nomes.values()].map(n=>{const bl=estaBloqueado(p,n);return `<li><span>${bl?"🔇 ":""}${esc(n)}</span><button type="button" data-bloquear="${bl?0:1}" data-nome="${esc(n)}">${bl?"Liberar":"Silenciar"}</button></li>`}).join("");
+    const pessoas=$("permPessoas"),htmlP=lista||`<li class="vazio">Ninguém mexeu ainda. Quem entrar ou pedir música aparece aqui.</li>`;
+    if(pessoas.dataset.html!==htmlP){pessoas.innerHTML=htmlP;pessoas.dataset.html=htmlP}
+  }
   function atualizarSelo(){
     const selo=$("palcoSala");
     selo.hidden=!sala;
     if(sala)selo.textContent=`📱 ${sala.codigo}${aparelhos?` · ${aparelhos} celular${aparelhos>1?"es":""}`:""}${falhas>=3?" · sem internet":""}`;
+    if(sala&&$("dlgSala").open)renderPermissoes();
     if(sala&&$("dlgSala").open)$("salaStatus").textContent=falhas>=3?"⚠️ Sem conexão com a sala.":aparelhos?`✅ ${aparelhos} celular${aparelhos>1?"es":""} conectado${aparelhos>1?"s":""}.`:"Esperando os celulares…";
   }
-  return{abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,solicitarTransferencia,aceitarTransferencia,recusarTransferencia,get sala(){return sala}};
+  return{criarConvite,cancelarConvite,abrir,retomar,fechar,mudou,renderDialogo,link,aplicar,montarEstado,solicitarTransferencia,aceitarTransferencia,recusarTransferencia,get sala(){return sala}};
 })();

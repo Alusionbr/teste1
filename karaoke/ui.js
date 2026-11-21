@@ -471,13 +471,17 @@ $("prefTamanho").addEventListener("input",e=>{K.dados.prefs.tamanho=Number(e.tar
 $("prefFundo").addEventListener("change",e=>{K.dados.prefs.fundo=e.target.value;aplicarPrefsPalco();salvarLogo()});
 $("prefContagem").addEventListener("change",e=>{K.dados.prefs.contagem=Number(e.target.value);salvarLogo()});
 $("prefAplausometro").addEventListener("change",e=>{K.dados.prefs.aplausometro=e.target.checked;salvarLogo()});
-for(const id of ["prefPularFila","salaPularFila"]){
-  $(id).addEventListener("change",e=>{
-    K.dados.prefs.pularFila=e.target.checked;
-    $("prefPularFila").checked=$("salaPularFila").checked=e.target.checked;
-    salvarLogo();SalaHost.mudou();
-  });
-}
+// Permissões dos celulares (painel do anfitrião no diálogo da sala).
+function salvarPermissoes(nova){K.dados.prefs.permissoes=nova;salvarLogo();SalaHost.mudou();SalaHost.renderDialogo()}
+$("permNivel").addEventListener("change",e=>{if(e.target.value!=="personalizado")salvarPermissoes(aplicarNivel(prefs().permissoes,e.target.value))});
+$("permAcoes").addEventListener("change",e=>{
+  const s=e.target.closest("[data-perm-acao]");if(!s)return;
+  salvarPermissoes(definirAcao(prefs().permissoes,s.dataset.permAcao,s.value));
+});
+$("permPessoas").addEventListener("click",e=>{
+  const b=e.target.closest("[data-bloquear]");if(!b)return;
+  salvarPermissoes(bloquearNome(prefs().permissoes,b.dataset.nome,b.dataset.bloquear==="1"));
+});
 function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay+d,0,800);$("atrasoOut").textContent=pr.audioDelay+" ms";salvarLogo()}
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));
@@ -601,3 +605,37 @@ document.addEventListener("visibilitychange",()=>{
   KStore.pedirPersistencia();
   SalaHost.retomar();
 })();
+
+/* ------------------------------------------- convite de transferência da sala */
+let conviteTimer=0;
+function mostrarConvite(){
+  try{
+    const c=SalaHost.criarConvite();
+    $("salaConviteCaixa").hidden=false;$("conviteLink").textContent=c.link;
+    try{QR.desenhar($("conviteQR"),c.link)}catch(e){console.error(e)}
+    clearInterval(conviteTimer);
+    const atualizar=()=>{
+      const s=Math.max(0,Math.round((c.expira-Date.now())/1000));
+      $("conviteRestante").textContent=s>0?`Vale por mais ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}. Uso único.`:"Convite vencido. Gere outro.";
+      if(s<=0){clearInterval(conviteTimer);$("salaConviteCaixa").hidden=true}
+    };
+    atualizar();conviteTimer=setInterval(atualizar,1000);
+  }catch(e){notify(e.message)}
+}
+function fecharConvite(){clearInterval(conviteTimer);SalaHost.cancelarConvite();$("salaConviteCaixa").hidden=true}
+$("salaConvidar").addEventListener("click",mostrarConvite);
+$("conviteCancelar").addEventListener("click",fecharConvite);
+$("conviteCopiar").addEventListener("click",()=>{
+  navigator.clipboard.writeText($("conviteLink").textContent).then(()=>notify("Link do convite copiado.",true),()=>notify("Não consegui copiar; selecione o link e copie."));
+});
+// Abrir o app por um link de convite (#assumir=CODIGO.CONVITE): preenche e pede a troca sozinho.
+function lerHashAssumir(){
+  if(!/#assumir=/.test(location.hash))return;
+  const texto=location.hash;
+  history.replaceState(null,"",location.pathname+location.search);   // o convite não fica na barra de endereço
+  $("btnSala").click();
+  $("salaAssumirCodigo").value=texto.replace(/^#assumir=/,"");
+  $("salaAssumirForm").requestSubmit();
+}
+window.addEventListener("hashchange",lerHashAssumir);
+lerHashAssumir();

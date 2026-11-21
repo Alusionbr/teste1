@@ -311,3 +311,9 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
 body.liberandoYT #palco #ytBox iframe{pointer-events:auto}
 
 .diagTexto{white-space:pre-wrap;overflow-wrap:anywhere;max-height:50vh;overflow:auto;background:#120a26;border:1px solid var(--borda);border-radius:12px;padding:.7em;font-size:.8em}
+
+.permissoesSala{border:1px solid var(--borda);border-radius:12px;padding:.6em .8em;margin:.6em 0}
+.permissoesSala h3,.permissoesSala h4{margin:.3em 0}
+.permLinha{display:flex;gap:.6em;align-items:center;justify-content:space-between;margin:.3em 0}
+.permLinha span{flex:1 1 auto}
+#permPessoas li{display:flex;gap:.6em;align-items:center;justify-content:space-between}

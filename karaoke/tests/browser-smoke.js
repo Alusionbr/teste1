@@ -292,7 +292,7 @@ function salaFalsa(){
   await cel.click('[data-ct-aba="fila"]');
   assert.equal(await cel.locator('[data-fila="tocar_item"]').count(),0);
   await page.click("#palcoSala");
-  await page.check("#salaPularFila");
+  await page.evaluate(()=>{prefs().permissoes=aplicarNivel(prefs().permissoes,"livre");SalaHost.mudou()});
   await page.evaluate(()=>document.querySelector("#dlgSala").close());
   const item=cel.locator("#ctFila li").filter({hasText:"Sem Som"}).last();
   await item.locator('[data-fila="subir_item"]').click();

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.18">
+  <script data-version="1.0.19">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.18">
+  <link rel="stylesheet" href="./styles.css?v=1.0.19">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -135,7 +135,7 @@
         <label>Contagem antes de cada música
           <select id="prefContagem"><option value="0">Sem contagem</option><option value="3">3 segundos</option><option value="5">5 segundos</option><option value="10">10 segundos</option></select></label>
         <label class="check"><input id="prefAplausometro" type="checkbox"> Aplausômetro no fim de cada música (usa o microfone)</label>
-        <label class="check"><input id="prefPularFila" type="checkbox"> Permitir que os celulares pulem ou mudem a ordem da fila</label>
+        <p class="dica">O que os celulares podem fazer (pausar, pular, mexer na fila, editar) o anfitrião define em <b>Controle remoto → Permissões</b>.</p>
         <div class="rotulo">Atraso da caixa Bluetooth <output id="atrasoOut"></output></div>
         <div class="acoes"><button type="button" id="atrasoMenos">− 50 ms</button><button type="button" id="atrasoMais">+ 50 ms</button></div>
         <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
@@ -433,9 +433,9 @@
       <div class="acoes rodapeDlg"><button type="button" id="salaAbrir" class="primario">Abrir sala</button></div>
       <section id="salaAssumirArea" class="transferirSala">
         <h3>Usar este aparelho como projetor</h3>
-        <p class="dica">Digite o código da sala. A tela atual precisa aprovar a transferência.</p>
+        <p class="dica">Digite o código da sala (a tela atual precisa aprovar) ou cole o <b>link do convite</b> (a troca é automática). Se a tela atual mostrou um QR code de convite, basta lê-lo com este aparelho.</p>
         <form id="salaAssumirForm" class="barraBusca">
-          <input id="salaAssumirCodigo" type="text" inputmode="text" autocomplete="off" maxlength="12" placeholder="Código da sala" aria-label="Código da sala">
+          <input id="salaAssumirCodigo" type="text" inputmode="text" autocomplete="off" maxlength="300" placeholder="Código da sala ou link do convite" aria-label="Código da sala ou link do convite">
           <button type="submit" id="salaAssumir" class="primario">Pedir para assumir</button>
         </form>
         <p id="salaAssumirStatus" class="dica" role="status"></p>
@@ -446,7 +446,31 @@
       <p class="centro">Código da sala: <b id="salaCodigo" class="codigo"></b></p>
       <p class="centro dica"><span id="salaLink"></span></p>
       <p id="salaStatus" class="centro"></p>
-      <label class="check"><input id="salaPularFila" type="checkbox"> Permitir que os celulares pulem ou mudem a ordem da fila</label>
+      <section id="salaPermissoes" class="permissoesSala">
+        <h3>Permissões dos celulares</h3>
+        <label>Quem pode o quê
+          <select id="permNivel">
+            <option value="livre">Festa livre — todos mexem em tudo</option>
+            <option value="cantor">Só quem canta — controla a própria música</option>
+            <option value="anfitriao">Só o anfitrião — celulares só pedem música</option>
+            <option value="personalizado" disabled>Personalizado</option>
+          </select></label>
+        <details id="permFino"><summary>Ajuste fino por ação</summary><div id="permAcoes"></div></details>
+        <h4>Quem está na sala</h4>
+        <ul id="permPessoas" class="lista compacta"></ul>
+        <p class="dica">A permissão vale pelo nome que o celular escolheu ao entrar: é para festa de família, não é segurança.</p>
+      </section>
+      <section id="salaConvite" class="transferirSala">
+        <h3>Passar a sala para outro aparelho</h3>
+        <p class="dica">Abra o link no aparelho novo (TV, projetor, tablet) ou leia o QR code. A fila e a música atual vão junto e a troca é automática.</p>
+        <div class="acoes"><button type="button" id="salaConvidar" class="primario">Gerar convite (vale 5 min)</button></div>
+        <div id="salaConviteCaixa" hidden>
+          <div class="salaQR"><canvas id="conviteQR" width="264" height="264" aria-label="QR code do convite"></canvas></div>
+          <p class="centro dica"><span id="conviteLink"></span></p>
+          <p class="centro"><span id="conviteRestante" class="dica"></span></p>
+          <div class="acoes"><button type="button" id="conviteCopiar">Copiar link</button><button type="button" id="conviteCancelar">Cancelar convite</button></div>
+        </div>
+      </section>
       <section id="salaTransferenciaPendente" class="transferirSala" hidden>
         <h3>Pedido para mudar a tela principal</h3>
         <p id="salaTransferenciaPedido"></p>
@@ -457,31 +481,32 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.18"></script>
-  <script src="./storage.js?v=1.0.18"></script>
-  <script src="./lrc.js?v=1.0.18"></script>
-  <script src="./links.js?v=1.0.18"></script>
-  <script src="./placar.js?v=1.0.18"></script>
-  <script src="./estado.js?v=1.0.18"></script>
-  <script src="./familia.js?v=1.0.18"></script>
-  <script src="./biblioteca.js?v=1.0.18"></script>
-  <script src="./playlists.js?v=1.0.18"></script>
-  <script src="./letras.js?v=1.0.18"></script>
-  <script src="./busca-youtube.js?v=1.0.18"></script>
-  <script src="./fontes.js?v=1.0.18"></script>
-  <script src="./verificar-youtube.js?v=1.0.18"></script>
-  <script src="./auto-adicionar.js?v=1.0.18"></script>
-  <script src="./diagnostico.js?v=1.0.18"></script>
-  <script src="./fonte-youtube.js?v=1.0.18"></script>
-  <script src="./fonte-spotify.js?v=1.0.18"></script>
-  <script src="./aplausometro.js?v=1.0.18"></script>
-  <script src="./palco.js?v=1.0.18"></script>
-  <script src="./sincronia.js?v=1.0.18"></script>
-  <script src="./qr.js?v=1.0.18"></script>
-  <script src="./sala.js?v=1.0.18"></script>
-  <script src="./sala-host.js?v=1.0.18"></script>
-  <script src="./telas.js?v=1.0.18"></script>
-  <script src="./ui.js?v=1.0.18"></script>
-  <script src="./offline.js?v=1.0.18"></script>
+  <script src="./core.js?v=1.0.19"></script>
+  <script src="./storage.js?v=1.0.19"></script>
+  <script src="./lrc.js?v=1.0.19"></script>
+  <script src="./links.js?v=1.0.19"></script>
+  <script src="./placar.js?v=1.0.19"></script>
+  <script src="./permissoes.js?v=1.0.19"></script>
+  <script src="./estado.js?v=1.0.19"></script>
+  <script src="./familia.js?v=1.0.19"></script>
+  <script src="./biblioteca.js?v=1.0.19"></script>
+  <script src="./playlists.js?v=1.0.19"></script>
+  <script src="./letras.js?v=1.0.19"></script>
+  <script src="./busca-youtube.js?v=1.0.19"></script>
+  <script src="./fontes.js?v=1.0.19"></script>
+  <script src="./verificar-youtube.js?v=1.0.19"></script>
+  <script src="./auto-adicionar.js?v=1.0.19"></script>
+  <script src="./diagnostico.js?v=1.0.19"></script>
+  <script src="./fonte-youtube.js?v=1.0.19"></script>
+  <script src="./fonte-spotify.js?v=1.0.19"></script>
+  <script src="./aplausometro.js?v=1.0.19"></script>
+  <script src="./palco.js?v=1.0.19"></script>
+  <script src="./sincronia.js?v=1.0.19"></script>
+  <script src="./qr.js?v=1.0.19"></script>
+  <script src="./sala.js?v=1.0.19"></script>
+  <script src="./sala-host.js?v=1.0.19"></script>
+  <script src="./telas.js?v=1.0.19"></script>
+  <script src="./ui.js?v=1.0.19"></script>
+  <script src="./offline.js?v=1.0.19"></script>
 </body>
 </html>

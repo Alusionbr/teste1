@@ -10,7 +10,7 @@
  *               offset, criadaEm}],
  *     playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
  *     placar:[{musicaId, nota, em}],   // notas do "Cantar sozinho" (placar.js)
- *     prefs:{audioDelay, tamanho, fundo, fundoV12, contagem, aplausometro, pularFila, keyYT} }
+ *     prefs:{audioDelay, tamanho, fundo, fundoV12, contagem, aplausometro, permissoes:{nivel,acoes,bloqueados}, keyYT} }
  *
  * A música mora na biblioteca e a playlist só aponta para ela: a sincronia
  * gravada e o ajuste da letra valem em todas as playlists.
@@ -19,13 +19,15 @@
  * da caixa Bluetooth, tamanho da letra, chave do YouTube) fica em prefs.
  * Um nunca escreve no outro.
  */
-const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",fundoV12:true,contagem:5,aplausometro:true,pularFila:false,keyYT:""};
+// permissoes.js (puro) normaliza as permissões da sala; no Node ele vem por require.
+const permissoesDe=typeof normalizarPermissoes==="function"?normalizarPermissoes:require("./permissoes.js").normalizarPermissoes;
+const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",fundoV12:true,contagem:5,aplausometro:true,permissoes:permissoesDe(null),keyYT:""};
 const FUNDOS=["opaco","escuro","video","tela"];   // "tela": só o vídeo do YouTube, com a letra do próprio vídeo
 const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
 const K={dados:vazio(),pronto:false};
 
-function vazio(){return{version:1,activePlaylistId:"",cantores:[],musicas:[],playlists:[],placar:[],prefs:{...PREFS_PADRAO}}}
+function vazio(){return{version:1,activePlaylistId:"",cantores:[],musicas:[],playlists:[],placar:[],prefs:{...PREFS_PADRAO,permissoes:permissoesDe(null)}}}
 
 const txt=(v,max)=>String(v??"").slice(0,max);
 const num=(v,min,max,padrao)=>{const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):padrao};
@@ -70,7 +72,7 @@ function normalizarDados(d){
   // (em dobro). O padrão "só o vídeo" volta uma única vez; depois vale a escolha de cada um.
   const fundo=pr.fundoV12?(FUNDOS.includes(pr.fundo)?pr.fundo:PREFS_PADRAO.fundo):PREFS_PADRAO.fundo;
   out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo,fundoV12:true,
-    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,pularFila:pr.pularFila===true,keyYT:txt(pr.keyYT,80).trim()};
+    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,permissoes:permissoesDe(pr.permissoes,{pularFila:pr.pularFila}),keyYT:txt(pr.keyYT,80).trim()};
   return out;
 }
 

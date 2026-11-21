@@ -47,6 +47,8 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Aba Fila → "Só as minhas músicas" com Ana e Ana Paula, no celular de Ana aparece o dueto das duas e fica de fora o solo de Ana Paula; no celular de quem é a vez aparece "É a sua vez!".
 - [ ] Música de YouTube com letra: botão 🎞/🔤 guarda a escolha na música (fechar e reabrir mantém); editor tem "Letra no palco".
 - [ ] Pedir música nova pelo celular: depois de alguns segundos a música ganha a letra sincronizada na tela (selo ✓).
+- [ ] Permissões: em "Só o anfitrião" o celular só consegue pedir música (pausar, pular e fila ficam desligados); em "Só quem canta" só o cantor da vez pausa e pula; "Silenciar" um nome impede até pedir; um ajuste fino vira "Personalizado".
+- [ ] Transferir a sala: gerar o convite, abrir o link no aparelho novo (outro navegador/TV): a fila e a música atual passam sozinhas, o antigo oferece "Abrir como controle"; convite vencido (5 min) ou reaproveitado pede aprovação manual.
 - [ ] Derrubar a internet ou bloquear os serviços de busca: aparece “A busca não respondeu agora” e o atalho para o YouTube.
 - [ ] Nova música → colar só o link: entra na playlist com o título do vídeo; clipe bloqueado é recusado.
 - [ ] Celular → Música nova → colar só o link: a música aparece na fila da tela.
