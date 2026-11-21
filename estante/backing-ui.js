@@ -108,7 +108,8 @@ const EstanteBacking = (() => {
     if (!asPreview) setupFollow(entry);
     if (!asPreview) keepAwake();
     player.setVolume(Number($("backingVolume").value) / 100);
-    player.play(entry);
+    const intro = asPreview && entry.kind === "preset" ? entry.project.sections[0] : null;
+    player.play(entry, intro ? intro.bars * 240 / entry.bpm : 0);
   }
 
   function projectEntry(project) {
@@ -148,6 +149,12 @@ const EstanteBacking = (() => {
     description.className = "backingMeta";
     description.textContent = meta(entry);
     box.append(title, description);
+    if (entry.description) {
+      const sound = document.createElement("p");
+      sound.className = "backingMeta";
+      sound.textContent = entry.description;
+      box.append(sound);
+    }
     if (reason) {
       const suggested = document.createElement("p");
       suggested.className = "backingMeta";
@@ -353,7 +360,7 @@ const EstanteBacking = (() => {
       const item = document.createElement("li"), row = document.createElement("div");
       row.className = "beatSectionRow";
       const type = document.createElement("select"), count = document.createElement("input");
-      options(type, Object.entries(beats.sectionNames));
+      options(type, Object.entries(beats.sectionNames).filter(([id]) => editing.groove || id !== "break"));
       type.value = part.type;
       type.setAttribute("aria-label", "Tipo do trecho " + (i + 1));
       type.onchange = () => { part.type = type.value; editorChanged(); };
@@ -382,15 +389,24 @@ const EstanteBacking = (() => {
     const track = editing.tracks[$("beatTrack").value];
     $("beatEnabled").checked = track.enabled;
     $("beatVolume").value = track.volume;
+    $("beatPatternControls").hidden = !track.patterns;
+    const part = $("beatPattern").value;
+    const offset = Number($("beatMeasure").value) * 16;
+    const hits = track.patterns?.[part];
+    const active = i => hits ? hits.some(hit => hit[0] === i + offset) : track.steps.includes(i);
     const grid = $("beatGrid");
     grid.replaceChildren(...Array.from({ length: 16 }, (_, i) => {
       const step = button(String(i + 1), () => {
-        if (track.steps.includes(i)) track.steps = track.steps.filter(n => n !== i);
+        if (hits) {
+          const at = hits.findIndex(hit => hit[0] === i + offset);
+          if (at >= 0) hits.splice(at, 1);
+          else hits.push([i + offset, 78]);
+        } else if (active(i)) track.steps = track.steps.filter(n => n !== i);
         else track.steps.push(i);
-        step.setAttribute("aria-pressed", String(track.steps.includes(i)));
+        step.setAttribute("aria-pressed", String(active(i)));
         editorChanged();
       });
-      step.setAttribute("aria-pressed", String(track.steps.includes(i)));
+      step.setAttribute("aria-pressed", String(active(i)));
       step.setAttribute("aria-label", "Batida " + (i + 1));
       return step;
     }));
@@ -408,6 +424,9 @@ const EstanteBacking = (() => {
     $("beatPreview").textContent = "Ouvir trilha";
     $("beatLength").textContent = fmt(Math.round(beats.duration(editing))) + " de trilha";
     $("beatSave").textContent = editing.id ? "Salvar alterações" : "Salvar em Minhas trilhas";
+    if (!editing.tracks[$("beatTrack").value]?.enabled) {
+      $("beatTrack").value = Object.keys(editing.tracks).find(id => editing.tracks[id].enabled) || "kick";
+    }
     renderTrack(); renderSections();
   }
 
@@ -500,6 +519,8 @@ const EstanteBacking = (() => {
   options($("beatGenre"), genreOptions.filter(([id]) => beats.styles.includes(id)));
   options($("beatKey"), beats.keys.map((name, i) => [i, name]));
   options($("beatTrack"), Object.entries(beats.instruments).map(([id, data]) => [id, data[0]]));
+  options($("beatPattern"), Object.entries(beats.sectionNames));
+  $("beatPattern").value = "base";
   $("backingBtn").onclick = () => open();
   $("backingNow").onclick = () => {
     const entry = player.snapshot().entry;
@@ -537,9 +558,7 @@ const EstanteBacking = (() => {
         link(selected.license, "CC BY 4.0"), " · " + selected.changes);
     } else {
       credits.replaceChildren("Batida editável com sons ", link("https://creativecommons.org/publicdomain/zero/1.0/", "CC0"),
-        " de ", link("https://github.com/sfzinstruments/karoryfer.big-rusty-drums", "Karoryfer"), ", ",
-        link("https://github.com/sgossner/VCSL", "Versilian Studios"), " e ",
-        link("https://freesound.org/people/Ilson_Junior/", "Ilson_Junior"), ".");
+        " · ", link("./assets/acompanhamento/CREDITOS.md", "Créditos dos instrumentos"));
     }
   };
   $("backingSongGenre").onchange = event => {
@@ -580,12 +599,12 @@ const EstanteBacking = (() => {
   };
   $("beatMinutes").onchange = event => {
     editing.minutes = Number(event.target.value);
-    editing.sections = beats.arrangement(editing.bpm, editing.minutes);
+    editing.sections = beats.arrangement(editing.bpm, editing.minutes, editing.groove);
     editorChanged(); renderSections();
   };
   $("beatBpm").onchange = event => {
     editing.bpm = Math.max(50, Math.min(180, beats.songBpm(event.target.value) || editing.bpm));
-    if (beats.duration(editing) > 300) editing.sections = beats.arrangement(editing.bpm, editing.minutes);
+    if (beats.duration(editing) > 300) editing.sections = beats.arrangement(editing.bpm, editing.minutes, editing.groove);
     event.target.value = editing.bpm;
     editorChanged(); renderSections();
   };
@@ -593,7 +612,7 @@ const EstanteBacking = (() => {
   $("beatPercussion").onchange = event => { editing.percussion = event.target.checked; editorChanged(); };
   $("beatBass").onchange = event => { editing.tracks.bass.enabled = event.target.checked; editorChanged(); renderTrack(); };
   $("beatKeys").onchange = event => { editing.tracks.keys.enabled = event.target.checked; editorChanged(); renderTrack(); };
-  $("beatTrack").onchange = renderTrack;
+  $("beatTrack").onchange = $("beatPattern").onchange = $("beatMeasure").onchange = renderTrack;
   $("beatVolume").oninput = event => {
     editing.tracks[$("beatTrack").value].volume = Number(event.target.value);
     editorChanged();

@@ -1,12 +1,27 @@
 "use strict";
 
 const EstanteBeats = (() => {
+  const grooves = typeof EstanteGrooves === "undefined" ? require("./beat-grooves.js") : EstanteGrooves;
+  const grooveVersion = 2;
   const instruments = {
     kick: ["Bumbo", "bumbo.mp3", .75],
     snare: ["Caixa", "caixa.mp3", .50],
     hat: ["Chimbal", "chimbal.mp3", .26],
     tambourine: ["Pandeiro", "pandeiro.mp3", .28],
-    triangle: ["Triângulo", "triangulo.mp3", .24],
+    triangle: ["Triângulo aberto", "triangulo.mp3", .24],
+    triangleMute: ["Triângulo abafado", "triangulo.mp3", .23, .085],
+    xoteDrum: ["Grave do xote", "xote-grave.mp3", .68],
+    xoteRim: ["Baqueta seca", "baqueta.mp3", .46],
+    surdo: ["Surdo", "surdo.mp3", .61],
+    tamborim: ["Tamborim", "tamborim.mp3", .35],
+    shaker: ["Ganzá", "ganza.mp3", .27],
+    rim: ["Aro da caixa", "aro.mp3", .43],
+    hatOpen: ["Chimbal aberto", "chimbal-aberto.mp3", .24],
+    crash: ["Prato de ataque", "prato.mp3", .34],
+    tom: ["Tom", "tom.mp3", .57],
+    kick808: ["Bumbo 808", "bumbo-808.mp3", .72],
+    snare808: ["Caixa 808", "caixa-808.mp3", .51],
+    hat808: ["Chimbal 808", "chimbal-808.mp3", .23],
     bass: ["Baixo", null, .48],
     keys: ["Harmonia", null, .24]
   };
@@ -20,7 +35,8 @@ const EstanteBeats = (() => {
     jazz: { name: "Jazz" }
   };
   const styles = Object.keys(genres).filter(id => genres[id].tracks);
-  const sectionNames = { intro: "Introdução", base: "Base", full: "Variação", fill: "Virada", end: "Final" };
+  const sectionNames = { intro: "Introdução", base: "Base", full: "Variação", fill: "Virada", break: "Respiro", end: "Final" };
+  const sectionTypes = Object.keys(sectionNames);
   const keys = ["Dó", "Dó♯", "Ré", "Mi♭", "Mi", "Fá", "Fá♯", "Sol", "Lá♭", "Lá", "Si♭", "Si"];
   const assetRoot = "./assets/acompanhamento/";
   const source = "https://incompetech.com/music/royalty-free/index.html?isrc=";
@@ -53,12 +69,15 @@ const EstanteBeats = (() => {
     const n = Number(value);
     return Number.isInteger(n) && n >= 40 && n <= 240 ? n : null;
   }
-  function arrangement(bpm, minutes) {
+  function arrangement(bpm, minutes, groove = grooveVersion) {
     const bars = Math.round(minutes * bpm / 4);
     const sections = [{ type: "intro", bars: 2 }];
+    const phrase = groove === grooveVersion
+      ? [["base", 8], ["full", 7], ["fill", 1], ["base", 8], ["break", 2], ["full", 5], ["fill", 1]]
+      : [["base", 8], ["full", 7], ["fill", 1]];
     let remaining = bars - 4;
     while (remaining > 0) {
-      for (const [type, count] of [["base", 8], ["full", 7], ["fill", 1]]) {
+      for (const [type, count] of phrase) {
         if (remaining > 0) sections.push({ type, bars: Math.min(remaining, count) });
         remaining -= Math.min(remaining, count);
       }
@@ -66,21 +85,52 @@ const EstanteBeats = (() => {
     sections.push({ type: "end", bars: 2 });
     return sections;
   }
-  function create(genre = "pop", minutes = 3, beatOnly = false) {
+  function harmonySteps(id, type) {
+    if (type === "intro" || type === "break") return [];
+    if (type === "end") return id === "bass" ? [0, 8, 16] : [0, 16];
+    if (id === "bass") return type === "full" ? [0, 6, 8, 14, 16, 22, 24, 27] : [0, 8, 16, 24];
+    return [0, 8, 16, 24];
+  }
+  function initialTrack(style, groove, id, beatOnly) {
+    const harmonic = !instruments[id][1];
+    if (groove !== grooveVersion) {
+      const steps = style.tracks[id] || (id === "bass" ? [0, 6, 8] : id === "keys" ? [0, 8] : []);
+      return { steps: steps.slice(), volume: 80, enabled: Boolean(style.tracks[id] || (!beatOnly && harmonic)) };
+    }
+    const profile = grooves[style.id];
+    const patterns = Object.fromEntries(sectionTypes.map(type => {
+      const hits = harmonic ? harmonySteps(id, type).map(step => [step, step % 16 ? 60 : 78]) : profile.parts[type]?.[id] || [];
+      return [type, hits.map(hit => hit.slice())];
+    }));
+    const enabled = harmonic ? !beatOnly : Object.values(patterns).some(hits => hits.length);
+    return { patterns, volume: 80, enabled };
+  }
+  function create(genre = "pop", minutes = 3, beatOnly = false, groove = grooveVersion) {
     if (!styles.includes(genre)) genre = "pop";
-    const style = genres[genre];
-    const tracks = Object.fromEntries(Object.entries(instruments).map(([id]) => [id, {
-      steps: (style.tracks[id] || (id === "bass" ? [0, 6, 8] : id === "keys" ? [0, 8] : [])).slice(),
-      volume: 80,
-      enabled: Boolean(style.tracks[id] || (!beatOnly && !instruments[id][1]))
-    }]));
-    return { id: "", title: beatOnly ? style.title : "Minha trilha de " + style.name, genre,
-      bpm: style.bpm, key: 0, minutes, percussion: true, tracks, sections: arrangement(style.bpm, minutes) };
+    const style = { ...genres[genre], id: genre };
+    const tracks = Object.fromEntries(Object.keys(instruments).map(id => [id, initialTrack(style, groove, id, beatOnly)]));
+    return { id: "", title: beatOnly ? style.title : "Minha trilha de " + style.name, genre, groove,
+      bpm: style.bpm, key: 0, minutes, percussion: true, tracks, sections: arrangement(style.bpm, minutes, groove) };
+  }
+  function normalizedPhrase(hits) {
+    const byStep = new Map();
+    if (Array.isArray(hits)) {
+      for (const hit of hits.slice(0, 32)) {
+        if (!Array.isArray(hit)) continue;
+        const [step, velocity] = hit;
+        if (Number.isInteger(step) && step >= 0 && step < 32) byStep.set(step, limit(velocity, 1, 100, 78));
+      }
+    }
+    return [...byStep].sort((a, b) => a[0] - b[0]);
+  }
+  function editedPatterns(track) {
+    return Object.fromEntries(sectionTypes.map(type => [type, normalizedPhrase(track.patterns?.[type])]));
   }
   function normalize(raw) {
     if (!raw || typeof raw !== "object" || !raw.id || !styles.includes(raw.genre)) return null;
     const mins = limit(raw.minutes, 2, 4, 3);
-    const project = create(raw.genre, mins);
+    const groove = raw.groove === grooveVersion ? grooveVersion : 0;
+    const project = create(raw.genre, mins, false, groove);
     project.id = String(raw.id).slice(0, 80);
     project.title = String(raw.title || project.title).trim().slice(0, 80) || project.title;
     project.bpm = limit(raw.bpm, 50, 180, project.bpm);
@@ -88,19 +138,18 @@ const EstanteBeats = (() => {
     project.percussion = raw.percussion !== false;
     for (const id of Object.keys(instruments)) {
       const track = raw.tracks?.[id];
-      if (!track || !Array.isArray(track.steps)) continue;
-      project.tracks[id] = {
-        enabled: track.enabled === true,
-        volume: limit(track.volume, 0, 100, 80),
+      if (!track || (groove ? !track.patterns : !Array.isArray(track.steps))) continue;
+      const notes = groove ? { patterns: editedPatterns(track) } : {
         steps: [...new Set(track.steps.filter(n => Number.isInteger(n) && n >= 0 && n < 16))].sort((a, b) => a - b)
       };
+      project.tracks[id] = { ...notes, enabled: track.enabled === true, volume: limit(track.volume, 0, 100, 80) };
     }
     if (Array.isArray(raw.sections)) {
       const sections = raw.sections.slice(0, 48).filter(part => part && Object.hasOwn(sectionNames, part.type))
         .map(part => ({ type: part.type, bars: limit(part.bars, 1, 16, 1) }));
       if (sections.length) project.sections = sections;
     }
-    if (duration(project) > 300) project.sections = arrangement(project.bpm, project.minutes);
+    if (duration(project) > 300) project.sections = arrangement(project.bpm, project.minutes, project.groove);
     return project;
   }
   function duration(project) {
@@ -111,12 +160,13 @@ const EstanteBeats = (() => {
   }
   function hasTrack(project, id) {
     const track = project.tracks[id];
-    return track.enabled && track.volume > 0 && track.steps.length > 0 && (!instruments[id][1] || project.percussion);
+    if (!track?.enabled || !track.volume || (instruments[id][1] && !project.percussion)) return false;
+    return track.patterns ? Object.values(track.patterns).some(hits => hits.length > 0) : track.steps.length > 0;
   }
   function presets() {
     return styles.map(genre => {
       const project = create(genre, 3, true);
-      return { id: genre, title: project.title, genre, bpm: project.bpm, duration: duration(project), kind: "preset", project };
+      return { id: genre, title: project.title, genre, bpm: project.bpm, duration: duration(project), kind: "preset", description: grooves[genre].description, project };
     });
   }
   function match(entry, song) {
@@ -131,7 +181,7 @@ const EstanteBeats = (() => {
     if (song?.duration && Math.abs(song.duration - entry.duration) <= 25) { score++; reasons.push("Duração próxima"); }
     return { score, reason: reasons.join(" · ") };
   }
-  function notes(project) {
+  function legacyNotes(project) {
     const result = [];
     const seconds = 15 / project.bpm;
     const roots = project.genre === "samba" || project.genre === "hiphop" ? [0, 3, 7, 5] : [0, 7, 9, 5];
@@ -160,6 +210,40 @@ const EstanteBeats = (() => {
     });
     return result.sort((a, b) => a.time - b.time);
   }
+  function notes(project) {
+    if (project.groove !== grooveVersion) return legacyNotes(project);
+    const events = [];
+    const { feel } = grooves[project.genre];
+    const seconds = 15 / project.bpm;
+    const minor = project.genre === "samba" || project.genre === "hiphop";
+    const roots = minor ? [0, 3, 7, 5] : [0, 7, 9, 5];
+    const audible = Object.entries(instruments).filter(([id]) => hasTrack(project, id));
+    let bar = 0;
+    project.sections.forEach((section, sectionIndex) => {
+      for (let sub = 0; sub < section.bars; sub++, bar++) {
+        const measure = sub % 2;
+        const root = roots[bar % 4] + project.key;
+        const major = minor ? roots[bar % 4] !== 0 : roots[bar % 4] !== 9;
+        audible.forEach(([id, details], index) => {
+          const track = project.tracks[id];
+          for (const [position, velocity] of track.patterns[section.type]) {
+            if (Math.floor(position / 16) !== measure) continue;
+            const step = position % 16;
+            // Stable offsets keep playback and repeated WAV exports in time.
+            const variation = ((step * 17 + bar * 13 + index * 7) % 11 - 5) / 5;
+            const swing = step % 2 ? seconds * feel.swing : 0;
+            const backbeat = /^(snare|rim)/.test(id) ? feel.laidBack || 0 : 0;
+            const time = (bar * 16 + step) * seconds
+              + Math.max(-step * seconds, swing + feel.human * variation + backbeat);
+            const level = details[2] * track.volume / 100 * velocity / 100 * (1 + variation * .035);
+            const rate = id === "tom" ? 1.18 - (step % 4) * .095 : 1 + variation * .014;
+            events.push({ id, time, level, rate, root, major, sectionIndex, length: (id === "keys" ? 6 : 3) * seconds });
+          }
+        });
+      }
+    });
+    return events.sort((a, b) => a.time - b.time);
+  }
   async function loadKit(ctx, events) {
     const used = new Set(events.map(event => instruments[event.id][1]).filter(Boolean));
     return Object.fromEntries(await Promise.all([...used].map(async file => {
@@ -171,14 +255,20 @@ const EstanteBeats = (() => {
   function schedule(ctx, output, kit, event, time) {
     const gain = ctx.createGain();
     gain.connect(output);
-    const file = instruments[event.id][1];
+    const [, file, , cutoff] = instruments[event.id];
     if (file) {
       const sample = ctx.createBufferSource();
       sample.buffer = kit[file];
-      gain.gain.value = event.level;
+      sample.playbackRate.value = event.rate || 1;
+      gain.gain.setValueAtTime(event.level, time);
+      if (cutoff) {
+        gain.gain.setValueAtTime(event.level, time + cutoff * .70);
+        gain.gain.linearRampToValueAtTime(0, time + cutoff);
+      }
       sample.connect(gain);
       sample.onended = () => { sample.disconnect(); gain.disconnect(); };
       sample.start(time);
+      if (cutoff) sample.stop(time + cutoff);
       return [sample];
     }
     const oscillators = (event.id === "bass" ? [0] : [0, event.major ? 4 : 3, 7]).map(interval => {
@@ -211,6 +301,21 @@ const EstanteBeats = (() => {
     for (let i = 0; i < pcm.length; i++) view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 32767, true);
     return new Blob([file], { type: "audio/wav" });
   }
+  function level(project) {
+    if (project?.groove !== grooveVersion) return .55;
+    const profile = grooves[project.genre].feel.gain;
+    return hasHarmony(project) ? Math.min(profile, .80) : profile;
+  }
+  function connectOutput(ctx, gain) {
+    const guard = ctx.createDynamicsCompressor();
+    guard.threshold.value = -4;
+    guard.knee.value = 0;
+    guard.ratio.value = 12;
+    guard.attack.value = .002;
+    guard.release.value = .10;
+    gain.connect(guard);
+    guard.connect(ctx.destination);
+  }
   async function render(project) {
     const Audio = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
     if (!Audio) throw Error("Este navegador não permite exportar áudio.");
@@ -220,14 +325,15 @@ const EstanteBeats = (() => {
     const ctx = new Audio(1, Math.ceil(length * 44100), 44100);
     const kit = await loadKit(ctx, events);
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(.55, 0);
-    gain.gain.setValueAtTime(.55, Math.max(0, length - .18));
+    const outputLevel = level(project);
+    gain.gain.setValueAtTime(outputLevel, 0);
+    gain.gain.setValueAtTime(outputLevel, Math.max(0, length - .18));
     gain.gain.linearRampToValueAtTime(0, length);
-    gain.connect(ctx.destination);
+    connectOutput(ctx, gain);
     events.forEach(event => schedule(ctx, gain, kit, event, event.time));
     return wav(await ctx.startRendering());
   }
   return { instruments, genres, styles, sectionNames, keys, recordings, fold, genreId, songBpm,
-    create, arrangement, normalize, duration, hasHarmony, presets, match, notes, loadKit, schedule, render };
+    create, arrangement, normalize, duration, hasHarmony, presets, match, notes, loadKit, schedule, level, connectOutput, render };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = EstanteBeats;

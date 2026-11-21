@@ -131,7 +131,7 @@ const EstanteBackingAudio = (() => {
       volume = Math.max(0, Math.min(1, value));
       if (mediaGain) mediaGain.gain.value = volume;
       else if (native) native.volume = volume;
-      if (bus) bus.gain.value = volume * .55;
+      if (bus) bus.gain.value = volume * EstanteBeats.level(entry?.project);
     }
 
     function ends() {
@@ -147,7 +147,7 @@ const EstanteBackingAudio = (() => {
       if (!ctx) {
         ctx = new Audio();
         bus = ctx.createGain();
-        bus.connect(ctx.destination);
+        EstanteBeats.connectOutput(ctx, bus);
         setVolume(volume);
       }
       return ctx;
@@ -155,6 +155,7 @@ const EstanteBackingAudio = (() => {
 
     function playProject(startAt, token) {
       if (!audioContext()) throw Error("Este navegador não consegue tocar trilhas editáveis.");
+      setVolume(volume);
       const resume = ctx.resume();
       let events = EstanteBeats.notes(entry.project);
       if (!events.length) {
@@ -240,9 +241,9 @@ const EstanteBackingAudio = (() => {
       change();
     }
 
-    async function play(next = entry) {
+    async function play(next = entry, startAt = 0) {
       if (!next) return;
-      if (entry !== next) { stop(); entry = next; }
+      if (entry !== next) { stop(); entry = next; position = startAt; }
       if (playing || pending) return;
       const token = ++epoch;
       pending = true;
@@ -272,6 +273,7 @@ const EstanteBackingAudio = (() => {
       if (entry?.project !== project) return;
       entry.duration = EstanteBeats.duration(project);
       refreshSequence?.();
+      setVolume(volume);
       change();
     }
 

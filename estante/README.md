@@ -55,9 +55,9 @@ Dentro do **karaokê** as mesmas teclas mudam de sentido — ver a seção abaix
 
 Na tela da música, **Acompanhar** abre um catálogo de batidas completas, faixas gravadas e trilhas criadas no aparelho. Quando há estilo informado no arranjo, nas etiquetas ou no catálogo da música, as sugestões aparecem acima de todas as bases. Os filtros ficam disponíveis para explorar outros estilos. O BPM vale quando é conhecido. O botão **Dados desta música para sugestões** salva ritmo e BPM escolhidos para o arranjo.
 
-- **Ouvir uma base** permite ouvir uma prévia, tocar com a letra e salvar a base no arranjo. As batidas podem ser editadas em cópia. Faixas gravadas ficam offline depois de **Baixar offline**.
+- **Ouvir uma base** permite ouvir uma prévia, tocar com a letra e salvar a base no arranjo. As batidas têm levadas próprias de xote, samba, pop, rock e hip-hop e podem ser editadas em cópia, por instrumento e trecho. Faixas gravadas ficam offline depois de **Baixar offline**.
 - **Usar meu playback** abre um MP3, WAV ou M4A de até 100 MB. Em uma letra com tempos, ative **Seguir o playback** e informe a posição onde a letra entra. Os áudios importados ficam no navegador. Ao abrir um backup em outro aparelho, selecione o arquivo novamente.
-- **Criar uma trilha** monta introdução, base, variações e final a partir de estilo, duração e instrumentos. Em **Mais ajustes**, é possível mudar BPM, tom, passos e ordem dos trechos. Salve em **Minhas trilhas** para reutilizar em outros arranjos ou baixe o resultado em WAV mono. O backup JSON inclui os projetos editáveis. Os links de repertório com letra só incluem referências às bases públicas.
+- **Criar uma trilha** monta introdução, base, variações, viradas, respiros e final a partir de estilo, duração e instrumentos. Em **Mais ajustes**, é possível mudar BPM, tom, passos e ordem dos trechos. Salve em **Minhas trilhas** para reutilizar em outros arranjos ou baixe o resultado em WAV mono. O backup JSON inclui os projetos editáveis. Os links de repertório com letra só incluem referências às bases públicas.
 
 As bases do catálogo têm [créditos e licenças próprios](assets/acompanhamento/CREDITOS.md). A aba **Ensaio** mostra se a base pode ser tocada offline.
 

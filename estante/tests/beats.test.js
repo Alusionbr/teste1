@@ -41,3 +41,40 @@ test("backup mantém projetos e referências privadas e link compartilhado omite
   assert.equal(shared[1].backing, undefined);
   assert.equal(shared[2].backing, undefined);
 });
+
+test("cada ritmo tem instrumentos próprios e frases distintas para os trechos", () => {
+  const expected = {
+    xote: "triangleMute", samba: "surdo", pop: "shaker", rock: "crash", hiphop: "kick808"
+  };
+  for (const entry of beats.presets()) {
+    const { project } = entry;
+    const phrase = type => project.tracks[expected[entry.genre]].patterns[type];
+    assert.ok(["intro", "base", "full", "fill", "end"].some(type => phrase(type).length));
+    assert.notDeepEqual(phrase("base"), phrase("full"));
+    const events = beats.notes(project);
+    assert.ok(events.some(event => event.id === expected[entry.genre]));
+    assert.ok(project.sections.some(part => part.type === "break"));
+    assert.ok(events.every(event => event.time >= 0 && event.time < entry.duration));
+  }
+});
+
+test("variações editadas sobrevivem ao salvamento e ritmos antigos mantêm seus passos", () => {
+  const project = beats.create("samba", 3, true);
+  project.id = "personal";
+  project.tracks.tamborim.patterns.full = [[27, 95]];
+  const saved = beats.normalize(project);
+  assert.deepEqual(saved.tracks.tamborim.patterns.full, [[27, 95]]);
+  const full = beats.notes(saved).filter(event => project.sections[event.sectionIndex].type === "full" && event.id === "tamborim");
+  assert.ok(full.length > 0);
+  assert.equal(beats.hasHarmony(saved), false);
+
+  const legacy = {
+    id: "old", genre: "samba", minutes: 3, bpm: 104,
+    tracks: { kick: { enabled: true, volume: 80, steps: [0, 7] } },
+    sections: [{ type: "base", bars: 2 }]
+  };
+  const restored = beats.normalize(legacy);
+  assert.deepEqual(restored.tracks.kick.steps, [0, 7]);
+  assert.equal(restored.tracks.surdo.enabled, false);
+  assert.equal(restored.tracks.kick.patterns, undefined);
+});
