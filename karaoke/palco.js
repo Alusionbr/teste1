@@ -58,9 +58,10 @@ function fecharPalco(){
 // Fundo que vale para a música de agora. A preferência do aparelho (Ajustes) é a base;
 // uma música de YouTube com letra pode guardar a própria escolha (letraDe): "video" = só
 // o vídeo (letra do vídeo), "app" = letra sincronizada do app por cima.
+const temVideoNoPalco=m=>!!(m?.playback&&(m.playback.tipo==="youtube"||(m.playback.tipo==="arquivo"&&m.playback.video)));
 function fundoEfetivo(){
   const base=prefs().fundo,m=P.musica;
-  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+  if(temVideoNoPalco(m)&&temLetra(m)){
     if(m.letraDe==="video")return "tela";
     if(m.letraDe==="app")return base==="tela"?(P.fundoComLetra||"escuro"):base;
   }
@@ -84,7 +85,7 @@ function semLegendasDoYouTube(){
 }
 // Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
 // recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
-const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&fundoEfetivo()==="tela");
+const soVideoAgora=()=>!!(temVideoNoPalco(P.musica)&&fundoEfetivo()==="tela");
 
 // A conferência de vídeo (segundo player escondido) não pode competir com a música desta tela.
 YouTubeBase.definirOcupado(()=>P.aberto&&P.fase==="cantando"&&!!P.fonte&&P.fonte!==FonteRelogio&&P.fonte.tocando());
@@ -337,6 +338,7 @@ function desenharCabecalho(){
   $("palcoTitulo").textContent=`${P.musica.title}${P.musica.artist?" — "+P.musica.artist:""}`+(P.modo==="festa"?`  ·  ${P.indice+1}/${P.itens.length}`:"");
   $("spBox").hidden=!(P.musica.playback&&P.musica.playback.tipo==="spotify");
   $("palco").dataset.fonte=P.musica.playback?P.musica.playback.tipo:"relogio";
+  $("palco").dataset.videoLocal=String(!!(P.musica.playback?.tipo==="arquivo"&&P.musica.playback.video));
   atualizarOffset();
 }
 function corDaParte(parte){
@@ -497,7 +499,7 @@ function ajustarOffset(delta){
 function alternarLetra(){
   const pr=prefs(),m=P.musica;
   // Música de YouTube com letra própria: a escolha fica guardada na música.
-  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)){
+  if(temVideoNoPalco(m)&&temLetra(m)){
     const paraApp=fundoEfetivo()==="tela";
     P.musica=editarMusica(m.id,{letraDe:paraApp?"app":"video"});
     aplicarPrefsPalco();salvarLogo();avisarSala();
@@ -507,7 +509,7 @@ function alternarLetra(){
   if(pr.fundo==="tela")pr.fundo=P.fundoComLetra||"escuro";
   else{P.fundoComLetra=pr.fundo;pr.fundo="tela"}
   aplicarPrefsPalco();salvarLogo();avisarSala();
-  notify(pr.fundo==="tela"?"Só o vídeo do YouTube: a letra é a do próprio vídeo.":"Letra sincronizada ligada junto ao playback.",true);
+  notify(pr.fundo==="tela"?"Só o vídeo: a letra é a do próprio vídeo.":"Letra sincronizada ligada junto ao playback.",true);
 }
 function trocarFundo(){
   const ordem=FUNDOS;
@@ -516,11 +518,11 @@ function trocarFundo(){
   if(atual!=="tela")P.fundoComLetra=atual;
   pr.fundo=ordem[(ordem.indexOf(atual)+1)%ordem.length];
   const m=P.musica;
-  if(m&&m.playback&&m.playback.tipo==="youtube"&&temLetra(m)&&m.letraDe){
+  if(temVideoNoPalco(m)&&temLetra(m)&&m.letraDe){
     P.musica=editarMusica(m.id,{letraDe:pr.fundo==="tela"?"video":"app"});
   }
   aplicarPrefsPalco();salvarLogo();avisarSala();
-  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo do YouTube: a letra é a do próprio vídeo."}[pr.fundo],true);
+  notify({opaco:"Só som: vídeo escondido atrás da letra.",escuro:"Vídeo escurecido atrás da letra.",video:"Vídeo aparecendo atrás da letra.",tela:"Só o vídeo: a letra é a do próprio vídeo."}[pr.fundo],true);
 }
 function telaCheia(){
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});

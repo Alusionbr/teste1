@@ -416,3 +416,21 @@ test("YouTube: mensagem do player antes do evento load também libera o envio",a
   c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event:"onReady"})});
   assert.ok(c.enviados.some(e=>JSON.parse(e.m).func==="playVideo"),"tocar guardado é cumprido");
 });
+
+test("YouTube: fim sem identidade depois de anúncio não encerra a música",async()=>{
+  const c=contexto();
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const F=c.ctx.F;
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  const msg=(event,info)=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event,info})});
+  msg("infoDelivery",{playerState:1,currentTime:40,duration:180});
+  msg("infoDelivery",{videoData:{video_id:"COMERCIAL01"},playerState:1,currentTime:14,duration:15});
+  msg("onStateChange",0);
+  assert.equal(c.eventos.some(e=>e[0]==="fim"),false);
+  assert.equal(F.tempo(),40);
+  // Mensagens parciais precisam continuar recuperando o player (regressão 1.0.17).
+  msg("infoDelivery",{playerState:1,currentTime:41,duration:180});
+  assert.equal(F.tocando(),true);
+  msg("infoDelivery",{playerState:0,currentTime:180,videoData:{video_id:"dQw4w9WgXcQ"}});
+  assert.equal(c.eventos.filter(e=>e[0]==="fim").length,1);
+});

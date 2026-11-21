@@ -35,14 +35,14 @@ async function removerMusica(id){
   K.dados.playlists.forEach(p=>{for(let i=p.itens.length-1;i>=0;i--)if(p.itens[i].musicaId===id)p.itens.splice(i,1)});
   if(m&&m.playback&&m.playback.tipo==="arquivo")try{await KStore.audio.apagar(m.playback.id)}catch{}
 }
-// Guarda o arquivo de áudio no aparelho e liga à música.
+// Guarda o arquivo de áudio ou vídeo no aparelho e liga à música.
 async function definirArquivo(musicaId,arquivo){
   if(!arquivo)return null;
-  if(!/^audio\//.test(arquivo.type)&&!/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)$/i.test(arquivo.name))throw Error("Escolha um arquivo de áudio (MP3, M4A, OGG, WAV…).");
+  if(!/^(audio|video)\//.test(arquivo.type)&&!/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm|mp4|m4v|ogv)$/i.test(arquivo.name))throw Error("Escolha um áudio (MP3, M4A…) ou vídeo (MP4, WebM…) compatível com o navegador.");
   if(arquivo.size>80*1024*1024)throw Error("Arquivo grande demais (máximo 80 MB).");
   const chave="a-"+musicaId;
   await KStore.audio.guardar(chave,arquivo);
-  return editarMusica(musicaId,{playback:{tipo:"arquivo",id:chave,titulo:arquivo.name.slice(0,160)}});
+  return editarMusica(musicaId,{playback:{tipo:"arquivo",id:chave,titulo:arquivo.name.slice(0,160),video:/^video\//.test(arquivo.type)||(!/^audio\//.test(arquivo.type)&&/\.(mp4|m4v|webm|ogv)$/i.test(arquivo.name))}});
 }
 
 const temSincronia=m=>!!(m&&m.synced&&temLRC(m.synced));

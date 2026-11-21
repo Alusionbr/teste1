@@ -339,7 +339,7 @@ $("mUsarSP").addEventListener("click",async e=>{
 });
 function duracaoDoArquivo(arquivo){
   return new Promise(res=>{
-    const a=new Audio(),url=URL.createObjectURL(arquivo);
+    const a=document.createElement("video"),url=URL.createObjectURL(arquivo);
     const fim=v=>{URL.revokeObjectURL(url);res(v)};
     a.preload="metadata";a.onloadedmetadata=()=>fim(Number.isFinite(a.duration)?Math.round(a.duration):0);a.onerror=()=>fim(0);
     setTimeout(()=>fim(0),5000);a.src=url;
@@ -354,7 +354,7 @@ $("mArquivo").addEventListener("change",async e=>{
     const m=acharMusica(ED.id);
     if(!m.duration){const d=await duracaoDoArquivo(arquivo);if(d){editarMusica(ED.id,{duration:d});$("mDuracao").value=fmt(d)}}
     await salvarEstado();atualizarEditor();
-    notify("Áudio guardado neste aparelho.",true);
+    notify("Arquivo guardado neste aparelho: playback sem anúncios e sem internet.",true);
   }catch(err){notify(err.message||"Não consegui guardar o arquivo.")}
 });
 $("mSemPlayback").addEventListener("click",async()=>{

@@ -55,8 +55,8 @@ const FonteRelogio=(()=>{
 
 /* -------------------------------------------------------- arquivo do aparelho */
 /*
- * MP3/M4A guardado no IndexedDB. É a fonte mais precisa (o tempo vem do
- * próprio <audio>) e a única que funciona sem internet.
+ * Áudio ou vídeo guardado no IndexedDB. É a fonte mais precisa (o tempo vem do
+ * próprio <video>) e a única que funciona sem internet.
  */
 const FonteArquivo=(()=>{
   let audio=null,url="";
@@ -66,7 +66,7 @@ const FonteArquivo=(()=>{
     audio.addEventListener("play",()=>emitir("estado"));
     audio.addEventListener("pause",()=>emitir("estado"));
     audio.addEventListener("ended",()=>{emitir("estado");emitir("fim")});
-    audio.addEventListener("error",()=>{if(audio.getAttribute("src"))emitir("erro",{msg:"Não consegui tocar este arquivo de áudio. Escolha outro arquivo na música."})});
+    audio.addEventListener("error",()=>{if(audio.getAttribute("src"))emitir("erro",{msg:"Não consegui tocar este arquivo. Use um formato compatível com o navegador ou escolha outro arquivo na música."})});
     return audio;
   }
   return{
@@ -76,7 +76,7 @@ const FonteArquivo=(()=>{
       a.pause();
       const blob=await KStore.audio.ler(musica.playback.id).catch(()=>null);
       if(url)URL.revokeObjectURL(url);url="";
-      if(!blob){a.removeAttribute("src");throw Error("O áudio desta música não está neste aparelho. Escolha o arquivo de novo na música.")}
+      if(!blob){a.removeAttribute("src");throw Error("O arquivo desta música não está neste aparelho. Escolha o arquivo de novo na música.")}
       url=URL.createObjectURL(blob);
       a.src=url;a.load();
     },

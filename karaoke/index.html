@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.18">
+  <script data-version="1.0.19">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.18">
+  <link rel="stylesheet" href="./styles.css?v=1.0.19">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -169,7 +169,7 @@
 
   <!-- ============================== PALCO -->
   <section id="palco" hidden aria-label="Palco do karaokê">
-    <div id="palcoFundo"><div id="ytBox"></div></div>
+    <div id="palcoFundo"><div id="ytBox"></div><video id="audioPlayer" preload="auto" playsinline></video></div>
     <div id="palcoCobertura"></div>
     <div id="palcoTopo">
       <div id="palcoCantor" class="cantorSelo"></div>
@@ -277,7 +277,6 @@
     </div>
   </section>
 
-  <audio id="audioPlayer" preload="auto"></audio>
 
   <!-- ============================== DIÁLOGOS -->
   <dialog id="dlgNovaMusica" class="dialogo">
@@ -327,7 +326,7 @@
     <div class="abasMini" role="tablist">
       <button type="button" data-pb="youtube" class="ativa">YouTube / YT Music</button>
       <button type="button" data-pb="spotify">Spotify</button>
-      <button type="button" data-pb="arquivo">Arquivo do aparelho</button>
+      <button type="button" data-pb="arquivo">Arquivo sem anúncios</button>
     </div>
     <div id="pbYoutube" class="pbPainel">
       <form id="mFormBuscaYT" class="barraBusca" autocomplete="off">
@@ -345,7 +344,7 @@
         </div>
         <div class="acoes"><a id="mProcurarYT" class="botao" target="_blank" rel="noopener">Abrir a busca do YouTube em outra aba ↗</a></div>
       </details>
-      <p class="dica">Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
+      <p class="dica">O YouTube pode exibir anúncios; o app não consegue desativá-los. Para cantar sem publicidade, use “Arquivo sem anúncios”. Dica: procure por “playback” ou “karaokê” — vídeo só com a música, sem a voz. Clipes oficiais costumam ser bloqueados fora do YouTube.</p>
     </div>
     <div id="pbSpotify" class="pbPainel" hidden>
       <div class="barraBusca">
@@ -356,8 +355,8 @@
       <p class="aviso fixo">⚠️ Sem login no Spotify neste navegador, toca só 30 s de prévia. O primeiro play é um toque no ▶ do próprio Spotify, que aparece no canto do palco.</p>
     </div>
     <div id="pbArquivo" class="pbPainel" hidden>
-      <label class="botao">🎵 Escolher arquivo de áudio<input id="mArquivo" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac" hidden></label>
-      <p class="dica">O arquivo fica guardado só neste aparelho e toca sem internet. É a forma mais precisa de sincronizar.</p>
+      <label class="botao">🎵 Escolher áudio ou vídeo<input id="mArquivo" type="file" accept="audio/*,video/*,.mp3,.m4a,.ogg,.wav,.flac,.mp4,.m4v,.webm,.ogv" hidden></label>
+      <p class="dica">Sem anúncios e sem internet: escolha um áudio ou vídeo de karaokê que você já tenha (até 80 MB). O vídeo pode trazer a letra na imagem. O arquivo fica só neste aparelho; não vai no backup nem para os celulares.</p>
     </div>
     <button type="button" id="mSemPlayback" class="botaoLinha">Remover playback (a letra anda pelo relógio)</button>
 
@@ -457,31 +456,31 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.18"></script>
-  <script src="./storage.js?v=1.0.18"></script>
-  <script src="./lrc.js?v=1.0.18"></script>
-  <script src="./links.js?v=1.0.18"></script>
-  <script src="./placar.js?v=1.0.18"></script>
-  <script src="./estado.js?v=1.0.18"></script>
-  <script src="./familia.js?v=1.0.18"></script>
-  <script src="./biblioteca.js?v=1.0.18"></script>
-  <script src="./playlists.js?v=1.0.18"></script>
-  <script src="./letras.js?v=1.0.18"></script>
-  <script src="./busca-youtube.js?v=1.0.18"></script>
-  <script src="./fontes.js?v=1.0.18"></script>
-  <script src="./verificar-youtube.js?v=1.0.18"></script>
-  <script src="./auto-adicionar.js?v=1.0.18"></script>
-  <script src="./diagnostico.js?v=1.0.18"></script>
-  <script src="./fonte-youtube.js?v=1.0.18"></script>
-  <script src="./fonte-spotify.js?v=1.0.18"></script>
-  <script src="./aplausometro.js?v=1.0.18"></script>
-  <script src="./palco.js?v=1.0.18"></script>
-  <script src="./sincronia.js?v=1.0.18"></script>
-  <script src="./qr.js?v=1.0.18"></script>
-  <script src="./sala.js?v=1.0.18"></script>
-  <script src="./sala-host.js?v=1.0.18"></script>
-  <script src="./telas.js?v=1.0.18"></script>
-  <script src="./ui.js?v=1.0.18"></script>
-  <script src="./offline.js?v=1.0.18"></script>
+  <script src="./core.js?v=1.0.19"></script>
+  <script src="./storage.js?v=1.0.19"></script>
+  <script src="./lrc.js?v=1.0.19"></script>
+  <script src="./links.js?v=1.0.19"></script>
+  <script src="./placar.js?v=1.0.19"></script>
+  <script src="./estado.js?v=1.0.19"></script>
+  <script src="./familia.js?v=1.0.19"></script>
+  <script src="./biblioteca.js?v=1.0.19"></script>
+  <script src="./playlists.js?v=1.0.19"></script>
+  <script src="./letras.js?v=1.0.19"></script>
+  <script src="./busca-youtube.js?v=1.0.19"></script>
+  <script src="./fontes.js?v=1.0.19"></script>
+  <script src="./verificar-youtube.js?v=1.0.19"></script>
+  <script src="./auto-adicionar.js?v=1.0.19"></script>
+  <script src="./diagnostico.js?v=1.0.19"></script>
+  <script src="./fonte-youtube.js?v=1.0.19"></script>
+  <script src="./fonte-spotify.js?v=1.0.19"></script>
+  <script src="./aplausometro.js?v=1.0.19"></script>
+  <script src="./palco.js?v=1.0.19"></script>
+  <script src="./sincronia.js?v=1.0.19"></script>
+  <script src="./qr.js?v=1.0.19"></script>
+  <script src="./sala.js?v=1.0.19"></script>
+  <script src="./sala-host.js?v=1.0.19"></script>
+  <script src="./telas.js?v=1.0.19"></script>
+  <script src="./ui.js?v=1.0.19"></script>
+  <script src="./offline.js?v=1.0.19"></script>
 </body>
 </html>
