@@ -105,6 +105,7 @@ const FonteYouTube=(()=>{
       }
       return;
     }
+    if(emAnuncio&&!id&&info.playerState===ENCERRADO)return;
     const voltou=emAnuncio;
     emAnuncio=false;
     if(typeof info.duration==="number"&&info.duration>0)duracaoVideo=info.duration;

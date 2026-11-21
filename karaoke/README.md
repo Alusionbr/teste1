@@ -18,6 +18,12 @@ O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
 
+### Cantar sem anúncios
+
+Em **Músicas → editar a música → Arquivo sem anúncios**, escolha um áudio (MP3/M4A…) ou vídeo de karaokê (MP4/WebM…) compatível com o navegador, até 80 MB. Use arquivos que você já tenha para reprodução. O arquivo fica no aparelho da tela e toca sem internet, mantendo fila, cantores e controles pelo celular. Para vídeo com a letra na imagem, use **Só vídeo**; o botão **Letra** alterna a letra do app sem reiniciar a reprodução.
+
+O app não desativa anúncios do player embutido do YouTube. Para reprodução dentro do app sem publicidade, use arquivos locais. Eles não acompanham backup, compartilhamento nem transferência de tela: no aparelho novo, escolha os arquivos novamente. O navegador pode limitar o armazenamento; guarde uma cópia dos originais.
+
 ### Usar como lista compartilhada de faixas (vídeo do YouTube com a letra)
 
 Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app vira a lista compartilhada de faixas e a fila, e a tela mostra o vídeo.
@@ -182,7 +188,7 @@ tempoDaLetra = fonte.tempo() − musica.offset − prefs.audioDelay/1000
 
 ### Protocolos dos players (conferidos no código oficial)
 
-- **YouTube** (`www-widgetapi.js`): envia `JSON {event:"listening"|"command", func, args, id:1, channel:"widget"}` com `targetOrigin` `https://www.youtube-nocookie.com`; recebe `infoDelivery` (`playerState`, `currentTime`, `duration`), `onReady` e `onError` (101/150 = dono bloqueou tocar fora do YouTube). **Um iframe para a sessão inteira** (iOS só deixa tocar por comando um player que já recebeu toque). Anúncio é detectado pela duração diferente e congela a letra.
+- **YouTube** (`www-widgetapi.js`): envia `JSON {event:"listening"|"command", func, args, id:1, channel:"widget"}` com `targetOrigin` `https://www.youtube-nocookie.com`; recebe `infoDelivery` (`playerState`, `currentTime`, `duration`), `onReady` e `onError` (101/150 = dono bloqueou tocar fora do YouTube). **Um iframe para a sessão inteira** (iOS só deixa tocar por comando um player que já recebeu toque). Mensagens que identificam outro vídeo são ignoradas; um fim sem identidade logo após outra mídia não encerra a música. A API não identifica todos os anúncios.
 - **Spotify** (`iframe_api` do `embed-cdn.spotifycdn.com`, lido em 20/11/2026): mensagens são **objetos**; recebe `{type:"ready"}` (responder `{command:"load_complete_ack"}`) e `{type:"playback_update", payload:{isPaused, isBuffering, position, duration}}` em ms; envia `{command:"play"|"pause"|"resume"|"toggle"}` e `{command:"seek", timestamp:segundos}`.
 - Nunca carregar o script oficial de nenhum dos dois: quebraria o offline e a regra “sem biblioteca”. Bug de sincronia se resolve em `tempo()`/`aplicar()`, não adicionando o script.
 - Toda mensagem recebida confere `e.origin` **e** `e.source === iframe.contentWindow`.
@@ -246,3 +252,5 @@ psql -q -f karaoke/supabase/teste_sala.sql
 4. Nota de afinação de verdade (detecção de altura pelo microfone) — só se for honesta sobre o que mede.
 5. Modo “só celular” com a letra também no telefone de quem está cantando.
 6. Cantar sozinho: histórico de notas por música (gráfico) e metas (“bater 80 pontos”); hoje só o recorde aparece.
+
+Teste de arquivo local (requer Playwright, Chromium e ffmpeg, com servidor local aberto): `node karaoke/tests/browser-arquivo.js`. Gera um vídeo sintético temporário e verifica upload, reprodução offline, letra, pausa, busca e encerramento.

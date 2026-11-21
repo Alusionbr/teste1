@@ -42,3 +42,14 @@ test("playback guarda a duração do vídeo; backup antigo sem ela continua vál
   assert.equal(d.musicas[1].playback.duracao, 0);
   assert.equal(d.musicas[2].playback.duracao, 0);
 });
+
+test("backup preserva vídeo local sem alterar fontes antigas",()=>{
+  const d=normalizarDados({musicas:[
+    {id:"m1",title:"Vídeo local",playback:{tipo:"arquivo",id:"a-m1",video:true}},
+    {id:"m2",title:"Áudio antigo",playback:{tipo:"arquivo",id:"a-m2"}},
+    {id:"m3",title:"YouTube",playback:{tipo:"youtube",id:"dQw4w9WgXcQ",video:true}}
+  ]});
+  assert.equal(d.musicas[0].playback.video,true);
+  assert.equal(d.musicas[1].playback.video,undefined);
+  assert.equal(d.musicas[2].playback.video,undefined);
+});

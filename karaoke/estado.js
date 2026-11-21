@@ -39,7 +39,7 @@ function normalizarCantor(c){
 function normalizarPlayback(p){
   if(!p||!TIPOS_PLAYBACK.includes(p.tipo)||!idOk(p.id))return null;
   // duracao (s): duração do vídeo conhecida na escolha (0 = desconhecida, backups antigos).
-  return{tipo:p.tipo,id:p.id,titulo:txt(p.titulo,160),duracao:num(p.duracao,0,14400,0)};
+  return{tipo:p.tipo,id:p.id,titulo:txt(p.titulo,160),...(p.tipo==="arquivo"&&p.video===true?{video:true}:{}),duracao:num(p.duracao,0,14400,0)};
 }
 function normalizarMusica(m){
   if(!m||!idOk(m.id))return null;

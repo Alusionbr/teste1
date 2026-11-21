@@ -147,8 +147,8 @@ p.aviso.fixo{position:static;animation:none;padding:.7em;background:#3a2a10;bord
 #palcoFundo{position:absolute;inset:0;z-index:1}
 #ytBox,#ytBox iframe{width:100%;height:100%;border:0;display:block}
 #palcoCobertura{position:absolute;inset:0;z-index:2;background:var(--festa);transition:background .3s}
-#palco[data-fonte="youtube"][data-fundo="escuro"] #palcoCobertura{background:rgba(10,5,25,.74)}
-#palco[data-fonte="youtube"][data-fundo="video"] #palcoCobertura{background:linear-gradient(transparent 40%,rgba(10,5,25,.55))}
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="escuro"] #palcoCobertura{background:rgba(10,5,25,.74)}
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="video"] #palcoCobertura{background:linear-gradient(transparent 40%,rgba(10,5,25,.55))}
 
 #palcoTopo{position:absolute;top:0;left:0;right:0;z-index:18;display:flex;align-items:center;gap:.8em;padding:max(.7em,env(safe-area-inset-top)) 1em .5em;background:linear-gradient(rgba(0,0,0,.55),transparent)}
 #palcoTopo .cantorSelo{font-size:clamp(14px,1.6vw,24px);background:var(--cor);color:#120a26;border:0;padding:.25em .9em}
@@ -295,13 +295,13 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
 /* ------------------------------------- "Só o vídeo do YouTube" (a letra vem no vídeo) */
 /* O vídeo ocupa o palco inteiro, sem a letra do app. Parado por 4 s tocando, somem também
    as barras de cima e de baixo: só o player fica na tela. A sala segue funcionando por trás. */
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoCobertura,
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoLetra,
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAdiantar,
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoAtrasar,
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoOffset{display:none}
-#palco[data-fonte="youtube"][data-fundo="tela"] #palcoFundo{background:#000}
-#palco.ocioso[data-fonte="youtube"][data-fundo="tela"] #palcoTopo{opacity:0}
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoCobertura,
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoLetra,
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoAdiantar,
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoAtrasar,
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoOffset{display:none}
+#palco:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoFundo{background:#000}
+#palco.ocioso:is([data-fonte="youtube"],[data-video-local="true"])[data-fundo="tela"] #palcoTopo{opacity:0}
 #palcoTopo{transition:opacity .4s}
 
 /* Nada do player do YouTube é clicável: título, logo e "Assistir no YouTube" levariam a TV
@@ -311,3 +311,8 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
 body.liberandoYT #palco #ytBox iframe{pointer-events:auto}
 
 .diagTexto{white-space:pre-wrap;overflow-wrap:anywhere;max-height:50vh;overflow:auto;background:#120a26;border:1px solid var(--borda);border-radius:12px;padding:.7em;font-size:.8em}
+
+/* Playback do aparelho: um só elemento mantém áudio, vídeo e relógio juntos. */
+#audioPlayer{display:none;width:100%;height:100%;object-fit:contain;background:#000}
+#palco[data-video-local="true"] #audioPlayer{display:block}
+#palco[data-fonte="arquivo"] #ytBox{display:none}
