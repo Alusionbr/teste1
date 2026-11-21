@@ -217,6 +217,28 @@ test("YouTube: buscar() antes de o player estar pronto vale quando ele começa a
   assert.ok(c.enviados.some(({m})=>{const x=JSON.parse(m);return x.func==="seekTo"&&x.args[0]===42}),"o seek pendente precisa ir quando o player fica pronto");
 });
 
+test("YouTube: com a letra do app ligada as legendas do YouTube são descarregadas",async()=>{
+  const{c,F,msg}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  c.carregou();msg({event:"onReady"});
+  c.enviados.length=0;
+  F.legendas(true);
+  assert.equal(c.enviados.length,0,"só o vídeo: as legendas ficam como o vídeo quiser");
+  F.legendas(false);
+  const cmds=c.enviados.map(e=>JSON.parse(e.m));
+  assert.ok(cmds.some(x=>x.func==="unloadModule"&&x.args[0]==="captions"));
+});
+test("YouTube: o gravador guarda as mensagens e o video_id para o Diagnóstico",async()=>{
+  const{F,info}=playerComId();
+  await F.carregar({playback:{id:"AAAAAAAAAAA"}});
+  F.tocar();
+  for(let i=0;i<5;i++)info({playerState:1,currentTime:i,duration:100,...(i===0?{videoData:{video_id:"AAAAAAAAAAA"}}:{})});
+  info({currentTime:9,duration:15,videoData:{video_id:"OUTROVIDEO1"}});
+  const d=F.diagnostico();
+  assert.equal(d.mensagens,6);assert.equal(d.outraMidia,1);
+  assert.equal(d.registro[0].id,"AAAAAAAAAAA");assert.equal(d.registro[5].id,"OUTROVIDEO1");
+});
+
 test("Spotify: ready → ack, playback_update dá tempo, prévia de 30 s é avisada",async()=>{
   const c=contexto();
   vm.runInContext(fs.readFileSync(path.join(root,"fonte-spotify.js"),"utf8")+";this.F=FonteSpotify;",c.ctx);
@@ -269,12 +291,14 @@ test("Spotify: prévia também é detectada quando a duração da música é des
 });
 
 /* ---- verificação "este vídeo pode tocar aqui?" (antes de escolher o playback) ---- */
+// A conferência entra numa fila (uma por vez): o player só abre depois de um instante.
+const proximoTick=()=>new Promise(r=>setImmediate(r));
 function contextoVerificar(){
-  const timers=[],ouvintes=[];
+  const timers=[],ouvintes=[];let criados=0;
   const frame={style:{},contentWindow:{postMessage(){}},setAttribute(){},addEventListener(){},remove(){frame.removido=true}};
   const ctx={
     window:{addEventListener:(t,f)=>{if(t==="message")ouvintes.push(f)},removeEventListener:(t,f)=>{const i=ouvintes.indexOf(f);if(i>=0)ouvintes.splice(i,1)}},
-    document:{createElement:()=>frame,body:{appendChild(){}}},
+    document:{createElement:()=>{criados++;return frame},body:{appendChild(){}}},
     $:()=>({appendChild(){}}),location:{origin:"https://exemplo.github.io"},performance:{now:()=>0},
     setTimeout:(f,ms)=>{timers.push({f,ms,vivo:true});return timers.length},clearTimeout:i=>{if(timers[i-1])timers[i-1].vivo=false},
     setInterval:()=>0,clearInterval(){},clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),emitir(){},URLSearchParams,JSON,Math,Number,String
@@ -283,12 +307,13 @@ function contextoVerificar(){
   vm.runInContext(fonteYT()+";this.F=FonteYouTube;",ctx);
   const msg=(o,origin="https://www.youtube-nocookie.com",source=frame.contentWindow)=>ouvintes.slice().forEach(f=>f({origin,source,data:JSON.stringify(o)}));
   const disparar=ms=>{const t=timers.find(x=>x.vivo&&x.ms===ms);if(t){t.vivo=false;t.f()}};
-  return{F:ctx.F,frame,msg,disparar};
+  return{F:ctx.F,frame,msg,disparar,get criados(){return criados}};
 }
 
 test("verificar: clipe bloqueado manda 'pronto' e erro 150 no mesmo instante e é recusado",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("2vjPBrBU-TM");
+  await proximoTick();
   c.msg({event:"initialDelivery",info:{apiInterface:[]}});
   c.msg({event:"onReady"});
   c.msg({event:"onError",info:150});
@@ -302,6 +327,7 @@ test("verificar: vídeo liberado só é aceito depois da margem esperando um err
   const c=contextoVerificar();
   let resolvido=false;
   const r=c.F.verificar("dQw4w9WgXcQ").then(v=>{resolvido=true;return v});
+  await proximoTick();
   c.msg({event:"initialDelivery",info:{apiInterface:[]}});
   c.msg({event:"onReady"});
   await Promise.resolve();
@@ -315,7 +341,8 @@ test("verificar: vídeo liberado só é aceito depois da margem esperando um err
 test("verificar: sem resposta a tempo (ex.: sem internet) não impede a escolha, mas avisa",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("dQw4w9WgXcQ");
-  c.disparar(8000);
+  await proximoTick();
+  c.disparar(5000);
   const v=await r;
   assert.equal(v.ok,true);assert.equal(v.incerto,true);
 });
@@ -323,16 +350,46 @@ test("verificar: sem resposta a tempo (ex.: sem internet) não impede a escolha,
 test("verificar: ignora mensagem de outra origem ou de outra janela",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("dQw4w9WgXcQ");
+  await proximoTick();
   c.msg({event:"onError",info:150},"https://golpe.com");
   c.msg({event:"onError",info:150},"https://www.youtube-nocookie.com",{});
-  c.disparar(8000);
+  c.disparar(5000);
   const v=await r;
   assert.equal(v.ok,true,"erro falso não pode reprovar o vídeo");
+});
+
+test("verificar: uma conferência por vez, e o resultado firme fica em cache",async()=>{
+  const c=contextoVerificar();
+  const a=c.F.verificar("aaaaaaaaaaa"),b=c.F.verificar("bbbbbbbbbbb");
+  await proximoTick();
+  assert.equal(c.criados,1,"a segunda conferência espera a primeira");
+  c.msg({event:"onError",info:150});
+  assert.equal((await a).ok,false);
+  await proximoTick();
+  assert.equal(c.criados,2);
+  c.msg({event:"onReady"});c.disparar(1500);
+  assert.equal((await b).ok,true);
+  const antes=c.criados;
+  assert.equal((await c.F.verificar("aaaaaaaaaaa")).ok,false,"cache");
+  assert.equal(c.criados,antes,"vídeo já conferido não abre outro player");
+});
+test("verificar: resposta incerta (sem internet) não vai para o cache",async()=>{
+  const c=contextoVerificar();
+  const r=c.F.verificar("ccccccccccc");
+  await proximoTick();
+  c.disparar(5000);
+  assert.equal((await r).incerto,true);
+  const antes=c.criados;
+  const r2=c.F.verificar("ccccccccccc");
+  await proximoTick();
+  assert.equal(c.criados,antes+1,"incerto confere de novo na próxima vez");
+  c.disparar(5000);await r2;
 });
 
 test("verificar: vídeo removido (100) também é recusado, sem dizer 'bloqueado'",async()=>{
   const c=contextoVerificar();
   const r=c.F.verificar("xxxxxxxxxxx");
+  await proximoTick();
   c.msg({event:"onError",info:100});
   const v=await r;
   assert.equal(v.ok,false);assert.equal(v.bloqueado,false);assert.match(v.msg,/removido/i);

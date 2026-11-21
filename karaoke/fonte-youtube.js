@@ -35,6 +35,9 @@ const FonteYouTube=(()=>{
   let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
   let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
+  // Gravador para o Diagnóstico: o que o player mandou e o que o app concluiu.
+  const registro=[];let inicioRegistro=0,maiorIntervalo=0,congelamentos=0,mensagensTotal=0,anunciosVistos=0;
+  const REGISTRO_MAX=600;
   let seekPendente=null;
   let prazoPlay=null,esperandoPlay=false,origem=ORIGEM,alternativaUsada=false,tempoExcedido=false;
 
@@ -73,8 +76,14 @@ const FonteYouTube=(()=>{
       ?{playerState:msg.info}:msg.info;
     if(msg.event!=="onReady"&&(!info||typeof info!=="object"))return;
     const acabouDeFicarPronto=!pronto;
-    pronto=true;ultimaNoticia=performance.now();
+    const agora=performance.now();
+    if(ultimaNoticia&&estado===TOCANDO){
+      const gap=agora-ultimaNoticia;
+      if(gap<30000){if(gap>maiorIntervalo)maiorIntervalo=gap;if(gap>TETO_EXTRAPOLA*1000)congelamentos++}
+    }
+    pronto=true;ultimaNoticia=agora;
     aplicar(info||{});
+    gravar(info||{});
     if(acabouDeFicarPronto&&alternativaUsada&&esperandoPlay&&estado!==TOCANDO)emitir("bloqueado",{tipo:"youtube",controles:true});
     if(acabouDeFicarPronto&&seekPendente!==null){const alvo=seekPendente;seekPendente=null;comando("seekTo",[alvo,true])}
     // Pedido de tocar feito antes de o player carregar: cumpre agora.
@@ -91,7 +100,7 @@ const FonteYouTube=(()=>{
       // mensagens não traz videoData, e se a próxima mensagem boa não pudesse limpar o estado,
       // o app nunca mais veria o play (relógio parado e "demorou para responder").
       if(!emAnuncio){
-        emAnuncio=true;
+        emAnuncio=true;anunciosVistos++;
         emitir("anuncio",{ativo:true});
       }
       return;
@@ -122,6 +131,12 @@ const FonteYouTube=(()=>{
     }
   }
 
+  function gravar(info){
+    mensagensTotal++;
+    if(!inicioRegistro)inicioRegistro=performance.now();
+    if(registro.length>=REGISTRO_MAX)registro.shift();
+    registro.push({t:Math.round(performance.now()-inicioRegistro),v:videoAtual,id:info.videoData?.video_id||"",e:estado,c:typeof info.currentTime==="number"?Math.round(info.currentTime*100)/100:null,d:typeof info.duration==="number"?Math.round(info.duration*10)/10:null,a:emAnuncio});
+  }
   function criarFrame(url){
     if(frame)return frame;
     const f=document.createElement("iframe");
@@ -220,6 +235,11 @@ const FonteYouTube=(()=>{
     sinal:()=>estado!==TOCANDO||performance.now()-ultimaNoticia<SEM_NOTICIA_MS,
     volume(v){comando("setVolume",[clamp(Math.round(v),0,100)])},
     get pronto(){return pronto},
+    // Legendas do YouTube (CC): com a letra do app ligada duplicam a letra e brigam com as barras
+    // do palco, então são descarregadas. Com "só o vídeo" ficam como o vídeo quiser.
+    legendas(ligadas){if(!ligadas){comando("unloadModule",["captions"]);comando("unloadModule",["cc"])}},
+    // Para o Diagnóstico (Ajustes): resumo e as últimas mensagens do player.
+    diagnostico:()=>({mensagens:mensagensTotal,maiorIntervaloMs:Math.round(maiorIntervalo),outraMidia:anunciosVistos,congelamentos,duracaoVideo,emAnuncio,estado,origem,registro:registro.slice(-120)}),
     get carregando(){return esperandoPlay&&estado!==TOCANDO},
     get autoplayComprovado(){return autoplayComprovado},
     get emAnuncio(){return emAnuncio},

@@ -297,7 +297,10 @@ const SalaHost=(()=>{
       const m=acharMusica(id);if(!m||temLetra(m))return;
       const x=await procurarLetraDaLinha(m.title,m.artist);
       const atual=acharMusica(id);if(!x||!atual||temLetra(atual))return;
-      editarMusica(id,{synced:x.synced,lyrics:x.lyrics,duration:atual.duration||x.duration,...(!atual.artist&&x.artist?{artist:x.artist}:{})});
+      // Sincronia de outra gravação sairia fora do tempo: confere com a duração do vídeo.
+      const aj=ajustarLetraAoVideo(x,atual.playback&&atual.playback.duracao||0);
+      if(!aj)return;
+      editarMusica(id,{synced:aj.synced,lyrics:aj.lyrics,duration:atual.duration||x.duration,...(!atual.artist&&x.artist?{artist:x.artist}:{})});
       await salvarEstado();
       if(typeof renderTudo==="function")renderTudo();
     }).catch(()=>{});

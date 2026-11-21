@@ -309,3 +309,5 @@ body.comPalco #aviso{bottom:auto;top:calc(72px + env(safe-area-inset-top))}
    primeiro toque que o iPhone/iPad exige (body.liberandoYT). */
 #palco #ytBox iframe{pointer-events:none}
 body.liberandoYT #palco #ytBox iframe{pointer-events:auto}
+
+.diagTexto{white-space:pre-wrap;overflow-wrap:anywhere;max-height:50vh;overflow:auto;background:#120a26;border:1px solid var(--borda);border-radius:12px;padding:.7em;font-size:.8em}

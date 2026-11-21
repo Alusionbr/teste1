@@ -76,10 +76,18 @@ function aplicarPrefsPalco(){
   b.setAttribute("aria-pressed",String(!soVideo));
   b.title=soVideo?"Ligar a letra sincronizada do app (L)":"Desligar a letra do app e mostrar só o vídeo (L)";
   P.idx=-2;   // a letra se redesenha na hora quando volta
+  semLegendasDoYouTube();
+}
+// Letra do app na tela = sem as legendas do próprio YouTube por baixo (letra em dobro).
+function semLegendasDoYouTube(){
+  if(P.fonte===FonteYouTube&&P.musica&&fundoEfetivo()!=="tela")FonteYouTube.legendas(false);
 }
 // Letra do app e vídeo "puro" só trocam de camada (CSS): o player do YouTube não é
 // recarregado nem muda de tamanho, então o som e o relógio seguem sem soluço.
 const soVideoAgora=()=>!!(P.musica&&P.musica.playback&&P.musica.playback.tipo==="youtube"&&fundoEfetivo()==="tela");
+
+// A conferência de vídeo (segundo player escondido) não pode competir com a música desta tela.
+YouTubeBase.definirOcupado(()=>P.aberto&&P.fase==="cantando"&&!!P.fonte&&P.fonte!==FonteRelogio&&P.fonte.tocando());
 
 function pararTudo(){
   clearInterval(P.contagemTimer);clearTimeout(P.notaTimer);
@@ -183,7 +191,7 @@ function aoEventoFonte(tipo,d){
   if(!P.aberto)return;
   if(tipo==="estado"){
     atualizarBotaoTocar();
-    if(P.fonte&&P.fonte.tocando()){$("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");keepAwake();acordarControles()}
+    if(P.fonte&&P.fonte.tocando()){$("palcoLiberar").hidden=true;document.body.classList.remove("liberandoYT","liberandoSP");keepAwake();acordarControles();semLegendasDoYouTube()}
     avisarSala();
   }else if(tipo==="fim"){
     if(P.fase==="gravando"){Sincronia.aoFim();return}

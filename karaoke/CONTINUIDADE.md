@@ -37,6 +37,7 @@ A versão é única: `APP_VERSION` (`core.js`) = `VERSION` (`sw.js`) = `data-ver
 
 | Versão | O que entrou |
 |---|---|
+| 1.0.18 | Traz por cima da 1.0.17 o que a antiga linha 1.0.12 tinha: **Ajustes → Diagnóstico** (relatório copiável com o gravador de mensagens do player, incluindo `video_id`), conferência de vídeo em **fila, com cache de 15 min** e esperando a música acabar nesta tela (o lote também espera), **letra sincronizada só da mesma gravação** (`ajustarLetraAoVideo`, ±8 s; senão entra como "letra sem tempo") com `playback.duracao`, **legendas do YouTube descarregadas** quando a letra do app está ligada, fundo padrão "só o vídeo" volta uma única vez (`prefs.fundoV12`) e catálogo com limite (2 salvos conferidos, 6 s; um envio por vídeo por sessão; aviso de catálogo fora do ar uma vez). **Não** reintroduz a detecção de anúncio por duração: vale o filtro por mensagem da 1.0.17. |
 | 1.0.17 | **Conserto: "não toca nada"**. Na 1.0.16 uma única mensagem do player com `videoData.video_id` diferente (resto do vídeo anterior depois do `cue`, ou outra mídia) ligava `emAnuncio` e **todas as mensagens seguintes sem `videoData` eram descartadas**: o app nunca via o play, o relógio ficava parado e em 12 s aparecia "O YouTube demorou para responder". Agora mensagem de outro id é ignorada **só aquela vez**, sem estado preso. Controles nativos do YouTube só no modo de recuperação (no uso normal `controls=0`, `disablekb=1`). Transferência de tela com música ativa mantém a posição (`seekTo` pendente vai quando o player fica pronto). Testes: player falso manda `videoData` e mensagens atrasadas do vídeo anterior; cenário de transferência com música ativa. |
 | 1.0.16 | Mudança de duração deixa de marcar anúncio. A tela mostra os controles nativos quando o vídeo demora a começar. Depois de um aviso de demora, o player ainda pode recuperar sozinho. |
 | 1.0.15 | Se o player do YouTube não responder, o palco tenta a URL alternativa com os controles nativos. O aviso também dá acesso ao vídeo direto no YouTube. |
@@ -124,3 +125,7 @@ Ideias sem dono:
 - Em testes, `deepEqual` entre contextos do `vm` falha por referência; compare `length` ou JSON.
 - Clicar num botão que some logo depois (ex.: "Tirar") pode dar timeout; espere a contagem diminuir antes do próximo clique.
 - Esquecer de subir a versão nos quatro lugares deixa o aparelho preso na versão antiga.
+
+## 11. Diagnóstico (1.0.18)
+
+`diagnostico.js` mede sala, LRCLIB, miniaturas do YouTube e busca, mostra o gravador de mensagens do player (`FonteYouTube.diagnostico()`: maior intervalo, mensagens de outro vídeo ignoradas, vezes em que a letra teria parado, últimas 40 mensagens com `video_id`) e os últimos avisos/erros. **Peça o relatório copiado quando algo travar**: ele separa internet (nenhuma mensagem, intervalos longos), bloqueio (`onError` 101/150), buffering (estado 3 com tempo parado) e mídia de outro vídeo (`video_id` diferente). Pendente: votos no catálogo (`karaoke_catalogo_reportar`, mexe no Supabase).

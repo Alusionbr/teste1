@@ -275,7 +275,7 @@ $("ctErroTrocar").addEventListener("click",()=>{
 });
 
 // Só o link do YouTube: o título vem do vídeo; a tela cria a música e põe na fila.
-async function pedirPorVideo(id,tituloOpcional){
+async function pedirPorVideo(id,tituloOpcional,duracao=0){
   const st=$("ctLinkStatus");
   st.textContent="Conferindo o vídeo…";
   try{
@@ -283,7 +283,7 @@ async function pedirPorVideo(id,tituloOpcional){
     if(!titulo)try{titulo=await tituloYouTube(id)}catch(err){if([400,401,404].includes(err.codigo)){st.textContent=err.message;return}}
     const v=await YouTubeBase.verificar(id);
     if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo (procure por “playback” ou “karaokê”).`;return}
-    if(await comando("pedir_nova",{title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo},cantorId:$("ctCantorNova").value})){
+    if(await comando("pedir_nova",{title:titulo||"Vídeo do YouTube",artist:"",playback:{tipo:"youtube",id,titulo,duracao:Number(duracao)||0},cantorId:$("ctCantorNova").value})){
       st.textContent="";$("ctLinkRapido").value="";$("ctLinkResultados").innerHTML="";notify("Pedido enviado! O vídeo entra na fila da tela.",true);
     }else st.textContent="Não consegui enviar. Tente de novo.";
   }catch(err){st.textContent=err.message}
@@ -333,14 +333,14 @@ $("ctLinkResultados").addEventListener("click",async e=>{
   if(esc1&&e.target.closest("[data-pedir-auto]")){
     const btn=e.target.closest("button"),st=$("ctLinkStatus");btn.disabled=true;
     try{
-      if(await comando("pedir_nova",{title:esc1.linha.titulo,artist:esc1.linha.artista,playback:{tipo:"youtube",id:esc1.video.id,titulo:esc1.video.titulo},cantorId:$("ctCantorNova").value})){
+      if(await comando("pedir_nova",{title:esc1.linha.titulo,artist:esc1.linha.artista,playback:{tipo:"youtube",id:esc1.video.id,titulo:esc1.video.titulo,duracao:esc1.video.duracao||0},cantorId:$("ctCantorNova").value})){
         st.textContent="";$("ctLinkRapido").value="";$("ctLinkResultados").innerHTML="";CT.escolhaAuto=null;notify("Pedido enviado! O vídeo entra na fila da tela.",true);
       }else st.textContent="Não consegui enviar. Tente de novo.";
     }finally{btn.disabled=false}
     return;
   }
   const b=e.target.closest("[data-video]");if(!b)return;
-  pedirPorVideo(b.dataset.video,b.dataset.titulo);
+  pedirPorVideo(b.dataset.video,b.dataset.titulo,b.dataset.duracao);
 });
 
 // Música nova: a letra é buscada AQUI no celular (LRCLIB) e vai junto no pedido.

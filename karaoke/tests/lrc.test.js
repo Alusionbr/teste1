@@ -72,3 +72,16 @@ test("diferencaDuracao só avisa quando o playback destoa da letra",()=>{
   assert.equal(L.diferencaDuracao(200,0),0);          // player ainda sem duração
   assert.equal(L.diferencaDuracao(200,210,15),0);     // limite configurável
 });
+
+test("letra sincronizada só vale para vídeo da mesma gravação; senão vira texto sem tempo",()=>{
+  const x={synced:"[00:01.00]primeira\n[00:05.00]segunda",lyrics:"primeira\nsegunda",duration:215};
+  assert.equal(L.ajustarLetraAoVideo(x,220).sincronizada,true,"5 s de diferença ainda é a mesma gravação");
+  assert.equal(L.ajustarLetraAoVideo(x,0).sincronizada,true,"sem duração do vídeo não dá para negar");
+  const outra=L.ajustarLetraAoVideo(x,260);
+  assert.equal(outra.sincronizada,false);assert.equal(outra.synced,"");assert.equal(outra.descartouSincronia,true);
+  assert.equal(outra.lyrics,"primeira\nsegunda");
+  const so=L.ajustarLetraAoVideo({synced:x.synced,lyrics:"",duration:215},300);
+  assert.equal(so.synced,"");assert.equal(so.lyrics,"primeira\nsegunda");
+  assert.equal(L.ajustarLetraAoVideo(null,100),null);
+  assert.equal(L.ajustarLetraAoVideo({synced:"",lyrics:"",duration:100},100),null);
+});

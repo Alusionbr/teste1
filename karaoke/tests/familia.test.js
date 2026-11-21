@@ -25,3 +25,20 @@ test("normalizar descarta lixo e item que aponta para música inexistente",()=>{
   assert.equal(d.prefs.fundo,"tela");assert.equal(d.prefs.tamanho,180);
   assert.deepEqual(normalizarDados(null).musicas,[]);
 });
+
+test("fundo antigo volta para só o vídeo uma única vez; depois vale a escolha", () => {
+  const a = normalizarDados({ prefs: { fundo: "escuro" } });
+  assert.equal(a.prefs.fundo, "tela");
+  assert.equal(a.prefs.fundoV12, true);
+  const b = normalizarDados({ prefs: { fundo: "escuro", fundoV12: true } });
+  assert.equal(b.prefs.fundo, "escuro");
+});
+test("playback guarda a duração do vídeo; backup antigo sem ela continua válido", () => {
+  const d = normalizarDados({ musicas: [
+    { id: "m1", title: "A", playback: { tipo: "youtube", id: "dQw4w9WgXcQ", titulo: "v", duracao: 215 } },
+    { id: "m2", title: "B", playback: { tipo: "youtube", id: "dQw4w9WgXcQ", titulo: "v" } },
+    { id: "m3", title: "C", playback: { tipo: "youtube", id: "dQw4w9WgXcQ", duracao: -5 } }] });
+  assert.equal(d.musicas[0].playback.duracao, 215);
+  assert.equal(d.musicas[1].playback.duracao, 0);
+  assert.equal(d.musicas[2].playback.duracao, 0);
+});

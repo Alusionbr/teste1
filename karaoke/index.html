@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.17">
+  <script data-version="1.0.18">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.17">
+  <link rel="stylesheet" href="./styles.css?v=1.0.18">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -155,6 +155,12 @@
         </div>
         <p id="armazenamentoInfo" class="dica"></p>
       </div>
+      <details class="cartao" id="diagnostico">
+        <summary><b>🩺 Diagnóstico</b> (música travando? descubra se é a internet ou o app)</summary>
+        <p class="dica">Toque em <b>Medir agora</b> e depois em <b>Copiar relatório</b>. O relatório mostra a velocidade das conexões, o que o player do YouTube mandou e os últimos avisos. Não leva letras, nome nem a chave do YouTube.</p>
+        <div class="acoes"><button type="button" id="diagMedir" class="primario">📶 Medir agora</button><button type="button" id="diagCopiar">📋 Copiar relatório</button></div>
+        <pre id="diagTexto" class="diagTexto">Toque em “Medir agora”.</pre>
+      </details>
       <p class="dica rodape">Karaokê em Casa <span id="versaoApp"></span> · funciona sem internet com músicas de arquivo e letras salvas.</p>
     </section>
   </main>
@@ -451,30 +457,31 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.17"></script>
-  <script src="./storage.js?v=1.0.17"></script>
-  <script src="./lrc.js?v=1.0.17"></script>
-  <script src="./links.js?v=1.0.17"></script>
-  <script src="./placar.js?v=1.0.17"></script>
-  <script src="./estado.js?v=1.0.17"></script>
-  <script src="./familia.js?v=1.0.17"></script>
-  <script src="./biblioteca.js?v=1.0.17"></script>
-  <script src="./playlists.js?v=1.0.17"></script>
-  <script src="./letras.js?v=1.0.17"></script>
-  <script src="./busca-youtube.js?v=1.0.17"></script>
-  <script src="./fontes.js?v=1.0.17"></script>
-  <script src="./verificar-youtube.js?v=1.0.17"></script>
-  <script src="./auto-adicionar.js?v=1.0.17"></script>
-  <script src="./fonte-youtube.js?v=1.0.17"></script>
-  <script src="./fonte-spotify.js?v=1.0.17"></script>
-  <script src="./aplausometro.js?v=1.0.17"></script>
-  <script src="./palco.js?v=1.0.17"></script>
-  <script src="./sincronia.js?v=1.0.17"></script>
-  <script src="./qr.js?v=1.0.17"></script>
-  <script src="./sala.js?v=1.0.17"></script>
-  <script src="./sala-host.js?v=1.0.17"></script>
-  <script src="./telas.js?v=1.0.17"></script>
-  <script src="./ui.js?v=1.0.17"></script>
-  <script src="./offline.js?v=1.0.17"></script>
+  <script src="./core.js?v=1.0.18"></script>
+  <script src="./storage.js?v=1.0.18"></script>
+  <script src="./lrc.js?v=1.0.18"></script>
+  <script src="./links.js?v=1.0.18"></script>
+  <script src="./placar.js?v=1.0.18"></script>
+  <script src="./estado.js?v=1.0.18"></script>
+  <script src="./familia.js?v=1.0.18"></script>
+  <script src="./biblioteca.js?v=1.0.18"></script>
+  <script src="./playlists.js?v=1.0.18"></script>
+  <script src="./letras.js?v=1.0.18"></script>
+  <script src="./busca-youtube.js?v=1.0.18"></script>
+  <script src="./fontes.js?v=1.0.18"></script>
+  <script src="./verificar-youtube.js?v=1.0.18"></script>
+  <script src="./auto-adicionar.js?v=1.0.18"></script>
+  <script src="./diagnostico.js?v=1.0.18"></script>
+  <script src="./fonte-youtube.js?v=1.0.18"></script>
+  <script src="./fonte-spotify.js?v=1.0.18"></script>
+  <script src="./aplausometro.js?v=1.0.18"></script>
+  <script src="./palco.js?v=1.0.18"></script>
+  <script src="./sincronia.js?v=1.0.18"></script>
+  <script src="./qr.js?v=1.0.18"></script>
+  <script src="./sala.js?v=1.0.18"></script>
+  <script src="./sala-host.js?v=1.0.18"></script>
+  <script src="./telas.js?v=1.0.18"></script>
+  <script src="./ui.js?v=1.0.18"></script>
+  <script src="./offline.js?v=1.0.18"></script>
 </body>
 </html>

@@ -161,4 +161,15 @@ function diferencaDuracao(musicaSeg,playbackSeg,limite=8){
   return Math.abs(d)>limite?d:0;
 }
 
-if(typeof module!=="undefined")module.exports={lerLetra,paraTexto,versosDaLetra,indiceNoTempo,preenchimento,dividirPalavras,temLRC,fmtLRC,diferencaDuracao};
+// Letra sincronizada só vale para o vídeo se for da MESMA gravação (duração parecida, ±8 s):
+// vídeo de karaokê tem outra introdução, e a sincronia de outra gravação sai fora do tempo.
+// Sem isso a letra entra como texto sem tempo (rola pela música), nunca como "sincronizada".
+function ajustarLetraAoVideo(letra,duracaoVideo,limite=8){
+  if(!letra)return null;
+  const sincOk=!!letra.synced&&(!(duracaoVideo>0)||!(letra.duration>0)||!diferencaDuracao(letra.duration,duracaoVideo,limite));
+  if(sincOk)return{synced:letra.synced,lyrics:letra.lyrics||"",sincronizada:true};
+  const texto=letra.lyrics||(letra.synced?versosDaLetra(letra.synced).map(v=>v.texto).join("\n"):"");
+  return texto?{synced:"",lyrics:texto,sincronizada:false,descartouSincronia:!!letra.synced}:null;
+}
+
+if(typeof module!=="undefined")module.exports={ajustarLetraAoVideo,lerLetra,paraTexto,versosDaLetra,indiceNoTempo,preenchimento,dividirPalavras,temLRC,fmtLRC,diferencaDuracao};

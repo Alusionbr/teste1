@@ -2,10 +2,15 @@
 /*
  * Biblioteca: as músicas do aparelho, cada uma com letra e playback.
  */
+// Um envio por vídeo por sessão; se o catálogo estiver fora do ar, avisa uma vez só.
+const jaCompartilhados=new Set();let avisouCatalogo=false;
 function compartilharPlayback(m){
   if(m.playback?.tipo!=="youtube")return;
+  const chave=m.title+"|"+m.artist+"|"+m.playback.id;
+  if(jaCompartilhados.has(chave))return;
+  jaCompartilhados.add(chave);
   salaRpc("karaoke_catalogo_salvar",{p_musica:m.title,p_artista:m.artist,p_video:m.playback.id,p_titulo:m.playback.titulo||m.title})
-    .catch(()=>notify("Música salva neste aparelho. O catálogo compartilhado está indisponível."));
+    .catch(()=>{jaCompartilhados.delete(chave);if(!avisouCatalogo){avisouCatalogo=true;notify("Música salva neste aparelho. O catálogo compartilhado está indisponível.")}});
 }
 function criarMusica(campos,{compartilhar=true}={}){
   const m=normalizarMusica({id:uid("m"),criadaEm:Date.now(),...campos});

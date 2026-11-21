@@ -789,6 +789,7 @@ karaoke/
 ├── fontes.js        interface comum de playback, relógio manual e <audio>
 ├── busca-youtube.js  busca de vídeos: chave oficial → Piped (INSTANCIAS_BUSCA), mapeamento, cooldown, escolha automática
 ├── auto-adicionar.js "Adicionar pelo nome": vídeo + letra + playlist, trocar e tirar (tela)
+├── diagnostico.js   Ajustes → Diagnóstico: serviços, gravador do player, avisos (relatório copiável)
 ├── verificar-youtube.js  YouTubeBase: origens, erros, endereço e conferência de vídeo (tela e celular)
 ├── fonte-youtube.js / fonte-spotify.js  protocolos postMessage falados à mão
 ├── palco.js         fases vez → cantando → nota → fim; um requestAnimationFrame só
@@ -802,7 +803,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (27 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (35 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -834,6 +835,8 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 23. **Letra por música** (`musica.letraDe`: `"video"`|`"app"`|`""`, `fundoEfetivo()` em `palco.js`): vale só para YouTube com letra; `prefs.fundo` continua sendo a base do aparelho e **nunca** é alterado por escolha de uma música. `alternarLetra()` grava na música (`P.musica=editarMusica(...)`) e só troca camada de CSS. Música pedida pelo celular recebe a letra da tela em segundo plano (`completarLetra`, uma por vez, sem travar a fila).
 
 24. **`videoData.video_id` só filtra mensagem avulsa, nunca prende estado** (`fonte-youtube.js`, `aplicar`): o campo vem em poucas mensagens, e depois de `cueVideoById` chegam mensagens atrasadas do vídeo anterior. Mensagem de outro id é descartada **só aquela vez**; a próxima mensagem boa (com ou sem `videoData`) segue normal. Nunca `if(emAnuncio&&!id) return`: foi o que deixou o app sem ver o play (relógio parado e "demorou para responder"). O player falso dos testes precisa mandar `videoData` e mensagens atrasadas. Controles nativos do YouTube (`controls=1`) só no modo de recuperação.
+25. **Conferência de vídeo não compete com a música** (`YouTubeBase.verificar`): uma por vez, cache de 15 min (só resposta firme, sem "incerto"), prazo de 5 s, espera enquanto a música toca nesta tela (`definirOcupado`, palco.js); o lote espera. `resolverPlayback` confere no máximo 2 salvos do catálogo em 6 s.
+26. **Letra sincronizada só da mesma gravação** (`ajustarLetraAoVideo`, `lrc.js`, ±8 s; `playback.duracao` guarda a duração do vídeo): senão vira texto sem tempo. **Letra em dobro**: com a letra do app ligada, as legendas do YouTube são descarregadas (`FonteYouTube.legendas(false)`); `prefs.fundoV12` devolveu o padrão "só o vídeo" uma única vez.
 
 ## Modelo de dados
 
