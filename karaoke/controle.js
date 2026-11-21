@@ -12,7 +12,21 @@ function gravarEu(e){try{localStorage.setItem(CHAVE_EU,JSON.stringify(e))}catch{
 
 function mostrar(secao){["ctEntrar","ctQuem","ctPainel"].forEach(id=>{$(id).hidden=id!==secao})}
 
+/* ------------------------------------------------------------ permissões */
+// O anfitrião (tela) define o que cada celular pode; a tela confere de novo ao receber.
+// Aqui só desligamos os botões e avisamos antes de mandar um comando que seria recusado.
+function permissoesDaSala(){
+  const e=CT.estado;
+  return e&&e.permissoes?e.permissoes:normalizarPermissoes(null,{pularFila:!!(e&&e.pularFila)});
+}
+function donosAgora(){const a=CT.estado&&CT.estado.agora;return a&&a.donos||[]}
+function pode(acao){
+  if(!CT.estado)return true;   // sem estado ainda: a tela decide
+  return podeFazer(permissoesDaSala(),acao,{nome:CT.eu?CT.eu.nome:"",donos:donosAgora()});
+}
 async function comando(tipo,dados={}){
+  const acao=acaoDoComando(tipo,dados,{fase:CT.estado?CT.estado.fase:""});
+  if(acao&&!pode(acao)){notify("🔒 "+textoDaRecusa(permissoesDaSala(),acao,CT.eu?CT.eu.nome:""));return false}
   try{
     await salaRpc("karaoke_comando",{p_codigo:CT.codigo,p_device:idDoAparelho(),p_nome:CT.eu?CT.eu.nome:"",p_tipo:tipo,p_dados:dados});
     if(navigator.vibrate)navigator.vibrate(20);
@@ -135,11 +149,22 @@ function render(){
   $("ctLetra").textContent=e.fundo==="tela"?"🔤 Ligar a letra do app":"🎞 Só o vídeo (desligar a letra)";
   const eu=CT.eu?fold(CT.eu.nome):"",donos=(a&&a.donos)||[];
   if(donos.some(n=>fold(n)===eu)&&e.fase==="vez")$("ctFase").textContent="🎤 É a sua vez! Toque em Começar.";
-  const podePular=e.pularFila===true;
-  $("ctOrdemFila").hidden=podePular;
-  $("ctOrdemFila").textContent="A tela principal controla a ordem da fila.";
+  // Botões conforme as permissões que o anfitrião deu.
+  const podeTocar=pode("tocar"),podePular=pode("pular"),podeFila=pode("fila");
+  const faltam=[];
+  if(!pode("pedir"))faltam.push("pedir música");
+  if(!podeFila)faltam.push("mexer na fila");
+  if(!podePular)faltam.push("pular a música");
+  if(!podeTocar)faltam.push("pausar ou ajustar");
+  if(!pode("playback"))faltam.push("trocar playback");
+  $("ctOrdemFila").hidden=!faltam.length;
+  $("ctOrdemFila").textContent=faltam.length?`O anfitrião não liberou para você: ${faltam.join(", ")}.`:"";
   document.querySelector('[data-cmd="anterior"]').disabled=!podePular;
   document.querySelector('[data-cmd="proxima"]').disabled=!podePular&&e.fase!=="nota";
+  ["alternar","adiantar","atrasar","comecar","aplausos"].forEach(c=>{const b=document.querySelector(`[data-cmd="${c}"]`);if(b)b.disabled=!podeTocar});
+  $("ctLetra").disabled=!podeTocar;$("ctVolume").disabled=!podeTocar;
+  document.querySelectorAll('[data-ct-aba="pedir"],[data-ct-aba="nova"]').forEach(b=>{b.disabled=!pode("pedir")});
+  if(!pode("pedir")&&CT.aba!=="fila")document.querySelector('[data-ct-aba="fila"]').click();
   const semPlayback=a&&a.fonte==="relogio"&&["vez","cantando"].includes(e.fase);
   $("ctErroPlayback").hidden=!(e.erro||semPlayback);
   $("ctErroTexto").textContent=e.erro?e.erro:"Esta música está sem playback. Adicione o link do vídeo para ouvir.";
@@ -158,7 +183,7 @@ function renderFila(){
     return `<li class="${atual?"atual":""}${passou?" passou":""}" data-item="${esc(i.id)}">
       <span class="num">${atual?"🎤":n+1}</span>
       <div class="info"><span class="cantorSelo" style="--cor:${esc(i.cor||"#b9aee0")}">${esc(i.quem)}</span><b>${esc(i.title)}</b><small>${esc(i.artist)}</small></div>
-      <div class="acoesItem">${atual||e.pularFila!==true?"":`<button type="button" data-fila="tocar_item" aria-label="Tocar agora">▶</button><button type="button" data-fila="subir_item" aria-label="Tocar a seguir">⏫</button><button type="button" data-fila="tirar_item" aria-label="Tirar">✕</button>`}</div></li>`;
+      <div class="acoesItem">${atual||!pode("fila")?"":`<button type="button" data-fila="tocar_item" aria-label="Tocar agora">▶</button><button type="button" data-fila="subir_item" aria-label="Tocar a seguir">⏫</button><button type="button" data-fila="tirar_item" aria-label="Tirar">✕</button>`}</div></li>`;
   }).join("")||`<li class="vazio">${soMinhas?"Você ainda não tem música na fila. Vá em <b>Pedir música</b>.":"Fila vazia. Vá em <b>Pedir música</b>."}</li>`;
 }
 function opcoesCantores(){
@@ -228,7 +253,7 @@ function atualizarPainel(){
   const p=CT.painel;if(!p)return;
   const pb=playbackDaMusica(p.id);
   $("ctPnPlayback").textContent=pb==="arquivo"?"🎧 Playback: arquivo guardado na tela (só dá para trocar lá).":pb?`🎧 Playback atual: ${NOME_PB[pb]||pb}. Cole outro link para trocar.`:"Sem playback: a letra anda pelo relógio. Cole um link do YouTube ou do Spotify.";
-  $("ctPnTroca").hidden=pb==="arquivo";
+  $("ctPnTroca").hidden=pb==="arquivo"||!pode("playback");
 }
 // Lê o link digitado. Devolve {playback}, {erro} ou {} (campo vazio). No YouTube
 // confere se o vídeo toca fora do YouTube, como o app da tela faz ao escolher.
@@ -418,6 +443,7 @@ $("ctFormSala").addEventListener("submit",e=>{
   entrarNaSala(c);
 });
 function abrirPainel(){
+  $("ctSerTela").href=linkAssumir(CT.codigo);
   mostrar("ctPainel");iniciarConsulta();
   // Avisa a tela que este celular chegou (a tela ignora nome repetido).
   if(CT.eu)salaRpc("karaoke_comando",{p_codigo:CT.codigo,p_device:idDoAparelho(),p_nome:CT.eu.nome,p_tipo:"entrar",p_dados:{nome:CT.eu.nome,emoji:CT.eu.emoji}}).catch(()=>{});

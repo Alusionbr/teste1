@@ -46,6 +46,17 @@ function linkControle(codigo){
   const base=location.href.split("#")[0].split("?")[0].replace(/[^/]*$/,"");
   return `${base}controle.html?sala=${codigo}`;
 }
+// Link para outro aparelho assumir a sala como tela principal. O convite (segredo de 5 min,
+// uso único) vai depois do #, então não passa pelo servidor do site.
+function linkAssumir(codigo,convite){
+  const base=location.href.split("#")[0].split("?")[0].replace(/[^/]*$/,"");
+  return `${base}index.html#assumir=${codigo}${convite?"."+convite:""}`;
+}
+// Aceita o link inteiro ou só o código (ABC123 ou ABC123.convite).
+function lerLinkAssumir(texto){
+  const m=String(texto||"").match(/(?:#assumir=|^)\s*([A-Za-z0-9]{6,12})(?:\.([a-f0-9]{16,40}))?\s*$/);
+  return m?{codigo:m[1].toUpperCase(),convite:m[2]||""}:null;
+}
 // Id anônimo do aparelho (não identifica a pessoa; só separa um celular do outro).
 function idDoAparelho(){
   const K_ID="karaoke:aparelho";

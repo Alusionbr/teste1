@@ -783,6 +783,7 @@ karaoke/
 ├── lrc.js           PURO: LRC com tempo por palavra e dueto A/B/T; preenchimento da linha
 ├── links.js         PURO: links do YouTube/YouTube Music/Spotify
 ├── familia.js       cantores e rodízio (proximoCantor puro)
+├── permissoes.js    PURO: permissões da sala (níveis, ações, silenciar nome, comando → ação)
 ├── biblioteca.js    músicas e áudio do aparelho
 ├── playlists.js     playlists, link compartilhado, backup
 ├── letras.js        LRCLIB → lyrics.ovh; oEmbed; busca do YouTube com chave opcional
@@ -803,7 +804,7 @@ karaoke/
 ├── supabase/001_sala.sql    schema e funções da sala
 ├── supabase/teste_sala.sql  testa o SQL num Postgres comum, como anon
 └── tests/           node --test (unidade, contrato, protocolos, QR) + browser-smoke.js (Playwright)
-                     + browser-uso.js (35 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
+                     + browser-uso.js (38 cenários de uso real) + sala-real.js (sala contra o Supabase real, após aplicar o SQL)
 ```
 
 Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `SHELL` do `sw.js`.
@@ -837,6 +838,8 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
 24. **`videoData.video_id` só filtra mensagem avulsa, nunca prende estado** (`fonte-youtube.js`, `aplicar`): o campo vem em poucas mensagens, e depois de `cueVideoById` chegam mensagens atrasadas do vídeo anterior. Mensagem de outro id é descartada **só aquela vez**; a próxima mensagem boa (com ou sem `videoData`) segue normal. Nunca `if(emAnuncio&&!id) return`: foi o que deixou o app sem ver o play (relógio parado e "demorou para responder"). O player falso dos testes precisa mandar `videoData` e mensagens atrasadas. Controles nativos do YouTube (`controls=1`) só no modo de recuperação.
 25. **Conferência de vídeo não compete com a música** (`YouTubeBase.verificar`): uma por vez, cache de 15 min (só resposta firme, sem "incerto"), prazo de 5 s, espera enquanto a música toca nesta tela (`definirOcupado`, palco.js); o lote espera. `resolverPlayback` confere no máximo 2 salvos do catálogo em 6 s.
 26. **Letra sincronizada só da mesma gravação** (`ajustarLetraAoVideo`, `lrc.js`, ±8 s; `playback.duracao` guarda a duração do vídeo): senão vira texto sem tempo. **Letra em dobro**: com a letra do app ligada, as legendas do YouTube são descarregadas (`FonteYouTube.legendas(false)`); `prefs.fundoV12` devolveu o padrão "só o vídeo" uma única vez.
+27. **Permissões da sala** (`permissoes.js`, puro; `prefs.permissoes`): o anfitrião define, por ação (`pedir`, `fila`, `pular`, `tocar`, `playback`, `editar`), `todos`/`cantor`/`anfitriao`, além de silenciar nomes. **A tela decide**: `sala-host.js` consulta `podeFazer` em `aplicar()` para todo comando (exceto `entrar` com `transferir`, que tem aprovação própria); o celular só desliga botões e avisa antes de enviar (`pode`, `comando`). Mapa comando → ação só em `acaoDoComando`; comando novo precisa entrar ali. A identidade é o nome do celular (família, não segurança). `prefs.pularFila` morreu: é migrado em `normalizarPermissoes`.
+28. **Convite de transferência** (`SalaHost.criarConvite`, `sala.js: linkAssumir/lerLinkAssumir`): segredo de 5 min, uso único, vai no `#` do link/QR (não passa pelo servidor do site) e dentro de `dados.transferir.convite`; a tela só aprova sozinha se for igual ao que ela gerou e não venceu, senão cai na aprovação manual. Sem SQL novo.
 
 ## Modelo de dados
 
@@ -848,7 +851,7 @@ Scripts sem módulo, em ordem no HTML. Arquivo novo entra na página **e** no `S
             playback:{tipo:"youtube"|"spotify"|"arquivo", id, titulo}|null, letraDe:"app"|"video"|"", offset, criadaEm}],
   playlists:[{id, nome, itens:[{id, musicaId, cantorA, cantorB}], atualizadaEm}],
   placar:[{musicaId, nota, em}],   // Cantar sozinho: no máximo 300; o melhor de cada música nunca sai
-  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video"|"tela", contagem, aplausometro, trava, keyYT} }
+  prefs:{audioDelay, tamanho, fundo:"opaco"|"escuro"|"video"|"tela", contagem, aplausometro, permissoes:{nivel,acoes:{pedir,fila,pular,tocar,playback,editar},bloqueados:[]}, keyYT} }
 // gaveta "audio": Blob do playback, chave "a-<musicaId>"
 // localStorage "karaoke:sala" (tela): {codigo, token, depois}; "karaoke:controle:eu" (celular): {nome, emoji}
 ```

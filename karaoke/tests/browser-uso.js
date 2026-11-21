@@ -76,7 +76,7 @@ async function cenario(nome,fn,{encadeado=false}={}){
   if(!encadeado)await limpar();
   try{const r=await fn();resultados.push(true);console.log("  ✓",nome,r?"— "+r:"")}
   catch(e){
-    resultados.push(false);console.log("  ✗",nome,"—",String(e.message).split("\n")[0]);
+    resultados.push(false);console.log("  ✗",nome,"—",String(e.message).split("\n").slice(0,8).join(" | ").slice(0,700));
     try{console.log("    estado do palco:",JSON.stringify(await page.evaluate(()=>({aberto:P.aberto,fase:P.fase,modo:P.modo,musica:P.musica&&P.musica.title,pb:P.musica&&P.musica.playback&&P.musica.playback.id,fonte:P.fonte&&P.fonte.constructor===Object?(P.fonte===FonteYouTube?"youtube":P.fonte===FonteRelogio?"relogio":"outra"):"",erro:document.querySelector("#palcoErro").hidden?"":document.querySelector("#erroTexto").textContent}))))}catch{}
   }
 }
@@ -510,7 +510,7 @@ async function novaManual(titulo,letra,dur){
       const outra=criarMusica({title:"Outra música",lyrics:"linha dois",duration:90});
       const p=criarPlaylist("Fila da família");
       adicionarItem(p,m.id,ana.id,"");adicionarItem(p,outra.id,"","");
-      prefs().contagem=30;prefs().pularFila=false;
+      prefs().contagem=30;prefs().permissoes=normalizarPermissoes(null);
       abrirPalco({playlistId:p.id,indice:0});
     });
     await page.evaluate(()=>SalaHost.aplicar({tipo:"comecar",nome:"Beto"}));
@@ -530,11 +530,11 @@ async function novaManual(titulo,letra,dur){
         P.itens.slice(2).every(i=>i.musicaId===P.musica.id)&&!SalaHost.montarEstado().pularFila;
     }),"com ordem protegida, pedidos antigos também entram no fim");
     await page.evaluate(()=>{
-      prefs().pularFila=true;
+      prefs().permissoes=aplicarNivel(prefs().permissoes,"livre");
       SalaHost.aplicar({tipo:"tocar_item",nome:"Beto",dados:{itemId:P.itens[1].id}});
     });
     ok(await page.evaluate(()=>P.indice===1&&SalaHost.montarEstado().pularFila),"a tela deve poder liberar a troca de música");
-    await page.evaluate(()=>{prefs().pularFila=false;prefs().contagem=5;fecharPalco()});
+    await page.evaluate(()=>{prefs().permissoes=normalizarPermissoes(null);prefs().contagem=5;fecharPalco()});
   });
 
   await cenario("letra por música: vídeo é o padrão, alternar grava na música, reabrir mantém e o iframe não recarrega",async()=>{
@@ -653,6 +653,124 @@ async function novaManual(titulo,letra,dur){
     await page.evaluate(()=>alternarLetra());
     await page.waitForFunction(()=>window.__cmds.includes(false),null,{timeout:5000});
     await page.evaluate(()=>{fecharPalco();prefs().contagem=5});
+  });
+
+  await cenario("permissões do anfitrião: níveis, só quem canta, aparelho silenciado e ajuste fino",async()=>{
+    await page.evaluate(()=>{
+      const ana=criarCantor({nome:"Ana Perm",emoji:"🎤"});
+      const m=criarMusica({title:"Música Perm",lyrics:"linha",duration:90}),o=criarMusica({title:"Outra Perm",lyrics:"linha",duration:90});
+      const p=criarPlaylist("Permissões");adicionarItem(p,m.id,ana.id,"");adicionarItem(p,o.id,"","");
+      prefs().contagem=0;window.__p=p.id;abrirPalco({playlistId:p.id,indice:0});
+    });
+    await page.waitForFunction(()=>P.fase==="cantando"&&P.fonte.tocando());
+    const tenta=(tipo,nome,dados)=>page.evaluate(([t,n,d])=>{SalaHost.aplicar({tipo:t,nome:n,dados:d||{}});return{tocando:P.fonte.tocando(),indice:P.indice,itens:P.itens.length}},[tipo,nome,dados]);
+    // Só o anfitrião: celulares só pedem
+    await page.evaluate(()=>{prefs().permissoes=aplicarNivel(prefs().permissoes,"anfitriao")});
+    let r=await tenta("alternar","Ana Perm");
+    ok(r.tocando,"no nível 'só o anfitrião' nem o cantor pausa pelo celular");
+    r=await page.evaluate(()=>{SalaHost.aplicar({tipo:"pedir",nome:"Beto",dados:{musicaId:acharMusica(P.itens[1].musicaId).id,modo:"fila"}});return P.itens.length});
+    ok(r===3,"pedir continua liberado no nível 'só o anfitrião'");
+    // Só quem canta: o dono pausa, o outro não
+    await page.evaluate(()=>{prefs().permissoes=aplicarNivel(prefs().permissoes,"cantor")});
+    r=await tenta("alternar","Beto");
+    ok(r.tocando,"quem não canta não pode pausar no nível 'só quem canta'");
+    r=await tenta("alternar","  ana perm ");
+    ok(!r.tocando,"o cantor da vez (nome sem caixa/espaço) deve poder pausar");
+    await tenta("alternar","Ana Perm");
+    // Silenciado: nem pedir
+    await page.evaluate(()=>{prefs().permissoes=bloquearNome(aplicarNivel(prefs().permissoes,"livre"),"Beto")});
+    r=await page.evaluate(()=>{const antes=P.itens.length;SalaHost.aplicar({tipo:"pedir",nome:"Beto",dados:{musicaId:P.musica.id,modo:"fila"}});return P.itens.length-antes});
+    ok(r===0,"aparelho silenciado conseguiu pedir");
+    // Ajuste fino: livre, mas ninguém pula
+    await page.evaluate(()=>{prefs().permissoes=definirAcao(bloquearNome(prefs().permissoes,"Beto",false),"pular","anfitriao")});
+    ok(await page.evaluate(()=>prefs().permissoes.nivel)==="personalizado","mexer numa ação deveria virar 'personalizado'");
+    r=await tenta("proxima","Ana Perm");
+    ok(r.indice===0,"'pular' só do anfitrião foi ignorado");
+    ok(await page.evaluate(()=>{const e=SalaHost.montarEstado();return e.permissoes.acoes.pular==="anfitriao"&&e.permissoes.acoes.pedir==="todos"}),"o estado da sala não publica as permissões");
+    await page.evaluate(()=>{prefs().permissoes=normalizarPermissoes(null);prefs().contagem=5;fecharPalco()});
+  });
+
+  await cenario("celular desliga o que não foi liberado e nem envia o comando recusado",async()=>{
+    const cel=await ctx.newPage();
+    try{
+      await cel.goto(BASE+"controle.html");
+      const r=await cel.evaluate(async()=>{
+        let chamadas=0;window.salaRpc=async()=>{chamadas++;return{ok:true}};
+        CT.codigo="ABC234";CT.eu={nome:"Beto"};
+        CT.estado={fase:"cantando",indice:0,fila:[],cantores:[],musicas:[],agora:{donos:["Ana"]},
+          permissoes:normalizarPermissoes({acoes:NIVEIS_SALA.cantor})};
+        const bloqueado=await comando("alternar");
+        const livre=await comando("pedir_nova",{title:"X"});
+        CT.eu={nome:"Ana"};
+        const dono=await comando("alternar");
+        return{bloqueado,livre,dono,chamadas,podePedir:pode("pedir"),podeFila:pode("fila")};
+      });
+      ok(r.bloqueado===false&&r.livre===true&&r.dono===true&&r.chamadas===2,"o celular enviou comando recusado ou deixou de enviar o liberado: "+JSON.stringify(r));
+      ok(r.podePedir&&r.podeFila,"no nível 'só quem canta' pedir e mexer na fila são livres");
+    }finally{await cel.close()}
+  });
+
+  await cenario("transferência por convite: o aparelho novo abre o link e a troca é automática; convite errado cai na aprovação manual",async()=>{
+    const original=await page.evaluate(async()=>{
+      window.__roomCommands=[];window.__roomState=null;window.__roomToken="";window.__transferState=null;
+      window.salaRpc=async(fn,d)=>{
+        if(fn==="karaoke_sala_abrir"){if(window.__roomToken&&window.__roomToken!==d.p_token)throw Error("token incorreto");window.__roomToken=d.p_token;return{ok:true}}
+        if(fn==="karaoke_host_sync"){if(d.p_estado)window.__roomState=d.p_estado;return{comandos:window.__roomCommands.filter(c=>c.id>(d.p_depois||0)),aparelhos:1}}
+        if(fn==="karaoke_sala_transferir"){if(d.p_token_atual!==window.__roomToken)throw Error("token incorreto");window.__roomToken=d.p_token_novo;window.__transferState=d.p_estado;return{ok:true}}
+        return{ok:true};
+      };
+      const p=criarPlaylist("Fila do convite");
+      for(let i=1;i<=2;i++){const m=criarMusica({title:`Faixa do convite ${i}`,artist:"Família"},{compartilhar:false});adicionarItem(p,m.id)}
+      await SalaHost.abrir();
+      const c=SalaHost.criarConvite();
+      return{codigo:SalaHost.sala.codigo,link:c.link};
+    });
+    ok(/index\.html#assumir=[A-Z0-9]{6}\.[a-f0-9]{24}$/.test(original.link),"link do convite fora do formato: "+original.link);
+    const destino=await browser.newContext({viewport:{width:1280,height:720}}),novo=await destino.newPage();
+    try{
+      await novo.goto(BASE);
+      await novo.evaluate(()=>{
+        window.__pedidos=[];window.__transferState=null;
+        window.salaRpc=async(fn,d)=>{
+          if(fn==="karaoke_comando"){window.__pedidos.push(d);return{ok:true}}
+          if(fn==="karaoke_sala_ver")return{existe:true,versao:1,estado:window.__transferState};
+          return{ok:true};
+        };
+      });
+      // 1) convite errado: o pedido chega, mas a troca NÃO é automática
+      await novo.evaluate(([codigo])=>{SalaHost.solicitarTransferencia(codigo+".0123456789abcdef0123").catch(()=>{})},[original.codigo]);
+      await novo.waitForFunction(()=>window.__pedidos.length===1,null,{timeout:8000});
+      const errado=await novo.evaluate(()=>window.__pedidos[0].p_dados.transferir);
+      await page.evaluate((p)=>window.__roomCommands.push({id:1,device:p.device,nome:"Projetor",tipo:"entrar",dados:{transferir:p}}),errado);
+      await page.waitForFunction(()=>!document.querySelector("#salaTransferenciaPendente").hidden,null,{timeout:8000}).catch(()=>{});
+      await page.waitForTimeout(1800);
+      ok(await page.evaluate(()=>window.__transferState)===null,"convite errado transferiu a sala sozinho");
+      await page.evaluate(()=>SalaHost.recusarTransferencia());
+      // 2) convite certo: sem nenhum toque de aprovação
+      await novo.reload();
+      await novo.evaluate(()=>{
+        window.__pedidos=[];window.__transferState=null;
+        window.salaRpc=async(fn,d)=>{
+          if(fn==="karaoke_comando"){window.__pedidos.push(d);return{ok:true}}
+          if(fn==="karaoke_sala_ver")return{existe:true,versao:1,estado:window.__transferState};
+          if(fn==="karaoke_sala_abrir")return{ok:true};
+          return{ok:true};
+        };
+      });
+      await novo.evaluate(link=>{SalaHost.solicitarTransferencia(link).catch(()=>{})},original.link);
+      await novo.waitForFunction(()=>window.__pedidos.length===1,null,{timeout:8000});
+      const certo=await novo.evaluate(()=>window.__pedidos[0].p_dados.transferir);
+      ok(!!certo.convite,"o pedido não levou o convite");
+      await page.evaluate((p)=>window.__roomCommands.push({id:2,device:p.device,nome:"Projetor",tipo:"entrar",dados:{transferir:p}}),certo);
+      await page.waitForFunction(()=>window.__transferState!==null,null,{timeout:12000});
+      ok(await page.evaluate(()=>!SalaHost.sala),"a tela antiga deveria ter largado a sala");
+      const pacote=await page.evaluate(()=>window.__transferState);
+      await novo.evaluate(s=>{window.__transferState=s},pacote);
+      await novo.waitForFunction(()=>!!SalaHost.sala,null,{timeout:15000});
+      ok(await novo.evaluate(()=>playlistAtiva().itens.length)===2,"a fila não chegou ao aparelho novo");
+      // o mesmo convite não vale duas vezes
+      ok(await page.evaluate(()=>{try{SalaHost.criarConvite();return false}catch{return true}}),"sem sala aberta não deveria criar convite");
+    }finally{await destino.close()}
   });
 
   await cenario("celular em pé: título e botão numa linha, seletor de playlist com largura toda",async()=>{
