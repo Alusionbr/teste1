@@ -5,6 +5,7 @@ const headers = {
     "authorization, x-client-info, apikey, content-type",
   "Content-Type": "application/json",
 };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const respond = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers });
 Deno.serve(async (req) => {
@@ -26,8 +27,17 @@ Deno.serve(async (req) => {
     } = await admin.auth.getUser(token);
     if (authError || !user)
       return respond({ error: "Entre na sua conta" }, 401);
-    const input = await req.json();
+    const input = await req.json().catch(() => null);
+    if (!input || typeof input !== "object")
+      return respond({ error: "Pedido inválido" }, 400);
     const home_id = input.home_id;
+    if (typeof home_id !== "string" || !UUID.test(home_id))
+      return respond({ error: "Pedido inválido" }, 400);
+    if (
+      input.user_id !== undefined &&
+      (typeof input.user_id !== "string" || !UUID.test(input.user_id))
+    )
+      return respond({ error: "Pedido inválido" }, 400);
     const member = await admin
       .from("fin_members")
       .select("*")
@@ -60,6 +70,8 @@ Deno.serve(async (req) => {
       "shopping",
     ];
     if (input.user_id) {
+      if (input.user_id === user.id)
+        return respond({ error: "Administrador não pode ser modificado aqui" }, 400);
       const target = await admin
         .from("fin_members")
         .select("*")
@@ -133,7 +145,9 @@ Deno.serve(async (req) => {
         password_change_required: true,
       });
     if (insertError) {
-      await admin.auth.admin.deleteUser(data.user.id);
+      const undo = await admin.auth.admin.deleteUser(data.user.id);
+      if (undo.error)
+        console.error("fin-family-admin: usuário órfão no Auth", data.user.id);
       throw insertError;
     }
     await admin
@@ -146,7 +160,8 @@ Deno.serve(async (req) => {
         record_id: data.user.id,
       });
     return respond({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("fin-family-admin: falha", error);
     return respond({ error: "Não foi possível concluir a operação" }, 400);
   }
 });
