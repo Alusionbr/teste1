@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.21">
+  <script data-version="1.0.23">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.21">
+  <link rel="stylesheet" href="./styles.css?v=1.0.23">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -72,6 +72,7 @@
         <button type="button" id="btnApagarPlaylist" class="chip perigo" title="Apagar playlist">🗑️</button>
       </div>
       <p id="playlistResumo" class="dica"></p>
+      <p id="playlistStatus" class="dica" role="status"></p>
       <button type="button" id="btnComecar" class="botaoGrande">▶ Começar karaokê</button>
       <button type="button" id="btnSolo" class="botaoSolo">🎤 Cantar sozinho <small>(sem vez, com nota)</small></button>
       <ol id="filaLista" class="lista fila"></ol>
@@ -293,18 +294,13 @@
   <!-- ============================== DIÁLOGOS -->
   <dialog id="dlgNovaMusica" class="dialogo">
     <form method="dialog" class="dlgCabeca"><h2>Nova música</h2><button class="redondo" aria-label="Fechar">✕</button></form>
-    <form id="formBuscaLetra" class="barraBusca">
-      <label class="sr" for="buscaLetra">Nome da música</label>
-      <input id="buscaLetra" type="search" placeholder="Nome da música e do artista" autocomplete="off" required>
-      <button type="submit" class="primario">Buscar</button>
-    </form>
     <form id="formNovaLink" class="barraBusca" autocomplete="off">
       <label class="sr" for="novaLinkYT">Adicionar pelo nome da música ou colar o link do YouTube</label>
-      <input id="novaLinkYT" placeholder="Nome da música e do artista (o app acha o vídeo) ou link do YouTube" autocomplete="off">
+      <input id="novaLinkYT" placeholder="Música e artista, ou link do YouTube" autocomplete="off">
       <button type="submit" class="primario">➕ Adicionar</button>
-      <button type="button" id="novaVerOpcoes">🔎 Ver opções</button>
+      <details class="opcoesBusca"><summary>Mais opções</summary><button type="button" id="novaVerOpcoes">Escolher outro vídeo</button><label class="opcaoLinha"><input type="checkbox" id="novaComLetra" checked> Buscar também a letra sincronizada</label></details>
     </form>
-    <label class="opcaoLinha"><input type="checkbox" id="novaComLetra" checked> Buscar também a letra sincronizada</label>
+    <p id="buscaStatus" class="dica" role="status"></p>
     <ul id="novaResultado" class="lista autoLista"></ul>
     <ul id="novaVideos" class="lista videos"></ul>
     <details id="novaLote" class="linkDetalhes">
@@ -318,9 +314,15 @@
       <p id="loteStatus" class="dica"></p>
       <ul id="loteLista" class="lista autoLista"></ul>
     </details>
-    <p id="buscaStatus" class="dica"></p>
+    <details id="novaAvancado" class="linkDetalhes"><summary>Mais opções: letra e cadastro manual</summary>
+    <form id="formBuscaLetra" class="barraBusca">
+      <label class="sr" for="buscaLetra">Nome da música</label>
+      <input id="buscaLetra" type="search" placeholder="Nome da música e do artista" autocomplete="off" required>
+      <button type="submit" class="primario">Buscar</button>
+    </form>
     <ul id="buscaResultados" class="lista resultados"></ul>
     <button type="button" id="btnMusicaManual" class="botaoLinha">✍️ Cadastrar sem buscar (colar a letra)</button>
+    </details>
   </dialog>
 
   <dialog id="dlgMusica" class="dialogo largo">
@@ -407,6 +409,8 @@
     <div id="addCantores" class="grade cantores"></div>
     <label class="check"><input id="addDueto" type="checkbox"> Dueto</label>
     <div id="addCantoresB" class="grade cantores" hidden></div>
+    <p id="addStatus" class="dica" role="status"></p>
+    <details id="addAvancado" class="linkDetalhes"><summary>Mais opções</summary><label class="check"><input id="addSemAudio" type="checkbox"> Vou tocar o áudio por fora (não preparar vídeo)</label></details>
     <div class="acoes rodapeDlg"><button type="button" id="addConfirmar" class="primario" disabled>Adicionar</button></div>
   </dialog>
 
@@ -492,32 +496,33 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.21"></script>
-  <script src="./storage.js?v=1.0.21"></script>
-  <script src="./lrc.js?v=1.0.21"></script>
-  <script src="./links.js?v=1.0.21"></script>
-  <script src="./placar.js?v=1.0.21"></script>
-  <script src="./permissoes.js?v=1.0.21"></script>
-  <script src="./estado.js?v=1.0.21"></script>
-  <script src="./familia.js?v=1.0.21"></script>
-  <script src="./biblioteca.js?v=1.0.21"></script>
-  <script src="./playlists.js?v=1.0.21"></script>
-  <script src="./letras.js?v=1.0.21"></script>
-  <script src="./busca-youtube.js?v=1.0.21"></script>
-  <script src="./fontes.js?v=1.0.21"></script>
-  <script src="./verificar-youtube.js?v=1.0.21"></script>
-  <script src="./auto-adicionar.js?v=1.0.21"></script>
-  <script src="./diagnostico.js?v=1.0.21"></script>
-  <script src="./fonte-youtube.js?v=1.0.21"></script>
-  <script src="./fonte-spotify.js?v=1.0.21"></script>
-  <script src="./aplausometro.js?v=1.0.21"></script>
-  <script src="./palco.js?v=1.0.21"></script>
-  <script src="./sincronia.js?v=1.0.21"></script>
-  <script src="./qr.js?v=1.0.21"></script>
-  <script src="./sala.js?v=1.0.21"></script>
-  <script src="./sala-host.js?v=1.0.21"></script>
-  <script src="./telas.js?v=1.0.21"></script>
-  <script src="./ui.js?v=1.0.21"></script>
-  <script src="./offline.js?v=1.0.21"></script>
+  <script src="./core.js?v=1.0.23"></script>
+  <script src="./navegacao.js?v=1.0.23"></script>
+  <script src="./storage.js?v=1.0.23"></script>
+  <script src="./lrc.js?v=1.0.23"></script>
+  <script src="./links.js?v=1.0.23"></script>
+  <script src="./placar.js?v=1.0.23"></script>
+  <script src="./permissoes.js?v=1.0.23"></script>
+  <script src="./estado.js?v=1.0.23"></script>
+  <script src="./familia.js?v=1.0.23"></script>
+  <script src="./biblioteca.js?v=1.0.23"></script>
+  <script src="./playlists.js?v=1.0.23"></script>
+  <script src="./letras.js?v=1.0.23"></script>
+  <script src="./busca-youtube.js?v=1.0.23"></script>
+  <script src="./fontes.js?v=1.0.23"></script>
+  <script src="./verificar-youtube.js?v=1.0.23"></script>
+  <script src="./auto-adicionar.js?v=1.0.23"></script>
+  <script src="./diagnostico.js?v=1.0.23"></script>
+  <script src="./fonte-youtube.js?v=1.0.23"></script>
+  <script src="./fonte-spotify.js?v=1.0.23"></script>
+  <script src="./aplausometro.js?v=1.0.23"></script>
+  <script src="./palco.js?v=1.0.23"></script>
+  <script src="./sincronia.js?v=1.0.23"></script>
+  <script src="./qr.js?v=1.0.23"></script>
+  <script src="./sala.js?v=1.0.23"></script>
+  <script src="./sala-host.js?v=1.0.23"></script>
+  <script src="./telas.js?v=1.0.23"></script>
+  <script src="./ui.js?v=1.0.23"></script>
+  <script src="./offline.js?v=1.0.23"></script>
 </body>
 </html>

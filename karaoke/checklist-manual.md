@@ -112,3 +112,12 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Repetir os casos sem conta e com sessão no navegador real da Smart TV e do projetor; anotar modelo, navegador e resultado.
 
 Os testes automatizados usam players simulados. Nenhum item acima está validado apenas por eles. Esta versão não implementa bloqueio universal de publicidade.
+
+## Caminho rápido e controle remoto
+
+- [ ] Celular: digitar música/artista → Preparar música → Enviar playlist à festa, com vídeo já escolhido e sem marcar checkboxes.
+- [ ] Colar várias músicas, preparar e enviar de uma vez. Linhas sem vídeo não aparecem como prontas.
+- [ ] Música antiga sem playback: preparar automaticamente ao enviar ou começar a playlist. Falha não abre palco sem áudio.
+- [ ] Cortar rede durante envio: tentar novamente só as faixas pendentes daquela tentativa; não interrompe quem canta.
+- [ ] TV real: setas movem foco, Enter confirma, inclusive em diálogos; não mudam de faixa. Setas de edição em texto/volume/progresso continuam nativas.
+- [ ] Mais opções conserva troca manual de vídeo, letra, dueto e modo explícito de áudio externo.

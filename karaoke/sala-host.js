@@ -231,7 +231,7 @@ const SalaHost=(()=>{
       case "comecar":{
         if(P.aberto){comandoPalco("comecar");return false}
         const p=playlistAtiva();
-        if(p&&p.itens.length){abrirPalco({playlistId:p.id,indice:0})}
+        if(p&&p.itens.length){iniciarFestaComAudio({playlistId:p.id,indice:0})}
         return false;
       }
       case "entrar":{

@@ -47,7 +47,7 @@ function normalizarMusica(m){
   if(!m||!idOk(m.id))return null;
   return{id:m.id,title:txt(m.title,160).trim()||"Sem título",artist:txt(m.artist,160).trim(),album:txt(m.album,160),
     duration:num(m.duration,0,3600,0),synced:txt(m.synced,60000),lyrics:txt(m.lyrics,60000),
-    playback:normalizarPlayback(m.playback),letraDe:m.letraDe==="app"||m.letraDe==="video"?m.letraDe:"",offset:num(m.offset,-120,120,0),criadaEm:num(m.criadaEm,0,9e15,Date.now())};
+    playback:normalizarPlayback(m.playback),...(m.audioExterno===true?{audioExterno:true}:{}),letraDe:m.letraDe==="app"||m.letraDe==="video"?m.letraDe:"",offset:num(m.offset,-120,120,0),criadaEm:num(m.criadaEm,0,9e15,Date.now())};
 }
 function normalizarPlaylist(p,musicaIds,cantorIds){
   if(!p||!idOk(p.id))return null;

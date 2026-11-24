@@ -122,6 +122,7 @@ function salaFalsa(){
   // 2. Música com arquivo do aparelho
   await page.click('[data-aba="musicas"]');
   await page.click("#btnNovaMusica");
+  await page.click("#novaAvancado summary");
   await page.fill("#buscaLetra","canção de teste");
   await page.click('#formBuscaLetra button[type="submit"]');
   await page.click('[data-resultado="0"]');
@@ -138,6 +139,7 @@ function salaFalsa(){
   // 3. Segunda música com YouTube (mesma letra, outro playback)
   await page.click('[data-aba="musicas"]');
   await page.click("#btnNovaMusica");
+  await page.click("#novaAvancado summary");
   await page.fill("#buscaLetra","canção de teste");
   await page.click('#formBuscaLetra button[type="submit"]');
   await page.click('[data-resultado="0"]');
@@ -225,7 +227,8 @@ function salaFalsa(){
     await cel.waitForSelector("#ctMusicaPainel[open]");
   };
   await abrirNoCelular("Sem Som");
-  assert.match(await cel.locator("#ctPnPlayback").innerText(),/Sem playback/);
+  await cel.waitForFunction(()=>!!CT.painel.playbackAuto,null,{timeout:20000});
+  await cel.click("#ctPnTroca summary");
   await cel.fill("#ctPnLink","isso não é link");await cel.click("#ctPnUsar");
   await cel.waitForFunction(()=>/Não reconheci/.test(document.querySelector("#ctPnStatus").textContent),null,{timeout:5000});
   await cel.fill("#ctPnLink","https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x");await cel.click("#ctPnUsar");
@@ -241,6 +244,7 @@ function salaFalsa(){
 
   // Celular liga/desliga a letra do app (mesma sala, mesmo player)
   const fundoAntes=await page.evaluate(()=>fundoEfetivo());
+  if(!await cel.locator(".ctMaisControles").evaluate(el=>el.open))await cel.click(".ctMaisControles summary");
   await cel.click("#ctLetra");
   await page.waitForFunction(a=>fundoEfetivo()!==a,fundoAntes,{timeout:8000});
   await cel.waitForFunction(a=>document.querySelector("#ctLetra").textContent.includes(a==="tela"?"Só o vídeo":"Ligar"),fundoAntes,{timeout:8000});
@@ -267,11 +271,10 @@ function salaFalsa(){
   // Celular: escolhe a letra e os playbacks já aparecem; tocar num confere e pede para a fila
   const itensAntes=await page.evaluate(()=>playlistAtiva().itens.length);
   await cel.click('[data-ct-aba="nova"]');
+  await cel.click("#ctNovaAvancado summary");
   await cel.fill("#ctBuscaNova","canção de teste");await cel.click('#ctFormNova button[type="submit"]');
   await cel.click('[data-res="0"]');
-  await cel.waitForSelector('#ctNovaVideos [data-video="BUSCAAAAAA1"]',{timeout:10000});
-  await cel.click('#ctNovaVideos [data-video="BUSCAAAAAA1"]');
-  await cel.waitForFunction(()=>/Playback escolhido/.test(document.querySelector("#ctNovaPb").textContent),null,{timeout:12000});
+  await cel.waitForFunction(()=>!!CT.playbackEscolhido?.id&&/Vídeo pronto/.test(document.querySelector("#ctNovaPb").textContent),null,{timeout:20000});
   await cel.click("#ctNovaEnviar");
   await page.waitForFunction(n=>playlistAtiva().itens.length>n,itensAntes,{timeout:12000});
   await cel.click('[data-ct-aba="pedir"]');
@@ -279,7 +282,7 @@ function salaFalsa(){
   // Arquivo guardado na tela não é trocado pelo celular (nem forçando o comando)
   const arquivoId=await page.evaluate(()=>K.dados.musicas.find(m=>m.playback&&m.playback.tipo==="arquivo").id);
   await abrirNoCelular("Canção de Teste");
-  assert.match(await cel.locator("#ctPnPlayback").innerText(),/arquivo guardado na tela|Playback atual/);
+  assert.match(await cel.locator("#ctPnPlayback").innerText(),/Áudio salvo na tela/);
   await cel.click("#ctPnFechar");
   await cel.evaluate(id=>comando("pedir",{musicaId:id,modo:"playback",playback:{tipo:"youtube",id:"dQw4w9WgXcQ"}}),arquivoId);
   await page.waitForTimeout(3500);

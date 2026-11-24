@@ -30,7 +30,8 @@ function renderPlaylist(){
   sel.innerHTML=K.dados.playlists.length?K.dados.playlists.map(x=>`<option value="${x.id}"${x===p?" selected":""}>${esc(x.nome)} (${x.itens.length})</option>`).join(""):`<option value="">Nenhuma playlist ainda</option>`;
   ["btnRenomearPlaylist","btnCompartilhar","btnApagarPlaylist"].forEach(id=>{$(id).disabled=!p});
   const itens=p?p.itens:[];
-  $("btnComecar").disabled=!itens.length;$("btnSolo").disabled=!itens.length;
+  const preparando=typeof preparandoFesta!=="undefined"&&preparandoFesta;
+  $("btnComecar").disabled=!itens.length||preparando;$("btnSolo").disabled=!itens.length||preparando;
   $("filaVazia").hidden=!!itens.length;
   const dur=duracaoPlaylist(p);
   const cantores=new Set(itens.flatMap(i=>[i.cantorA,i.cantorB]).filter(Boolean));
@@ -156,10 +157,11 @@ function salvarEditor(){
 }
 
 /* ------------------------------------------------- adicionar à playlist */
-const AF={musicaId:"",a:"",b:"",fixa:false};
+const AF={musicaId:"",a:"",b:"",fixa:false,preparando:false,versao:0};
 function abrirAddFila(musicaId){
   const p=playlistAtiva();
-  AF.musicaId=musicaId||"";AF.fixa=!!musicaId;
+  AF.musicaId=musicaId||"";AF.fixa=!!musicaId;AF.preparando=false;AF.versao++;
+  $("addSemAudio").checked=false;$("addAvancado").open=false;$("addStatus").textContent="";
   AF.a=proximoCantor(K.dados.cantores,p?p.itens:[]);
   AF.b="";
   $("addDueto").checked=false;$("addCantoresB").hidden=true;
@@ -181,7 +183,7 @@ function renderAddFila(){
   $("addCantores").innerHTML=chips(AF.a,"a")+`<button type="button" data-lado="a" data-cantor="" aria-pressed="${!AF.a}">🎤 livre</button>`;
   $("addCantoresB").innerHTML=chips(AF.b,"b");
   if(!K.dados.cantores.length)$("addCantores").insertAdjacentHTML("beforeend",`<p class="dica">Dica: cadastre a família em <b>Família</b> para ter a vez de cada um.</p>`);
-  $("addConfirmar").disabled=!m;
+  $("addConfirmar").disabled=!m||AF.preparando;
 }
 
 /* ------------------------------------------------------------- dueto */

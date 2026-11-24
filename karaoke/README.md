@@ -11,7 +11,7 @@ O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela
 ## Como usar
 
 1. **Família** — cadastre quem vai cantar: nome, emoji e cor. A cor pinta a letra da pessoa no palco.
-2. **Músicas → + Nova música** — busque pelo nome. Os resultados com **✓ sincronizada** já vêm com o tempo de cada verso. Depois escolha o playback:
+2. **Músicas → + Nova música** — digite música e artista e toque em **Adicionar**. O vídeo é escolhido automaticamente e já entra na playlist. Fontes manuais e busca de letra ficam em **Mais opções**:
    - **YouTube / YouTube Music**: cole o link (`youtube.com/watch?v=…`, `youtu.be/…` ou `music.youtube.com/watch?v=…`). Procure por “playback” ou “karaokê”, ou seja, vídeo só com a música, sem a voz. Com uma chave da API do YouTube em Ajustes, a busca acontece dentro do app e só mostra vídeos que podem tocar aqui.
    - **Spotify**: cole o link de uma faixa (`open.spotify.com/track/…`). Sem login no Spotify naquele navegador, toca só a prévia de 30 s, e o primeiro play é um toque no ▶ do próprio Spotify.
    - **Arquivo**: escolha um MP3/M4A do aparelho. Fica guardado só ali e toca **sem internet**. É a forma mais precisa.
@@ -41,7 +41,7 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 ### Adicionar pelo nome e em lote (acervo da família)
 
 - **Um nome só** (Nova música → campo único → ➕ Adicionar): o app procura vídeos, dá pontos a cada um (palavras karaokê/playback/instrumental, palavras do que você digitou, duração, e tira pontos de “ao vivo”, cover, remix, coletânea) e confere o melhor com o player invisível; se o melhor for bloqueado, tenta o seguinte (até 3). Em paralelo busca a letra (LRCLIB): com “Música - Artista” usa a busca exata; sem artista, usa a primeira da busca livre e preenche título e artista. A música entra no fim da playlist com a linha **▶ vídeo · duração**, o selo da letra, e os botões **Trocar vídeo** e **Tirar**. “🔎 Ver opções” mostra a lista de vídeos para escolher à mão (como antes).
-- **Várias de uma vez** (Nova música → “📋 Adicionar várias de uma vez”): cole uma música por linha (`Evidências - Chitãozinho e Xororó`; numeração e marcadores são ignorados, repetidas também; máximo 30 por vez). O app resolve uma a uma (cerca de 1 a 3 s cada), mostra “3 de 12” e **Parar**. No fim, cada linha mostra o vídeo escolhido; troque só as que erraram. Linha sem vídeo que toque mas com letra entra **sem playback** (botão “Escolher vídeo”); linha sem nada fica marcada em vermelho e nada é criado.
+- **Várias de uma vez** (Nova música → “📋 Adicionar várias de uma vez”): cole uma música por linha (`Evidências - Chitãozinho e Xororó`; numeração e marcadores são ignorados, repetidas também; máximo 30 por vez). O app resolve uma a uma (cerca de 1 a 3 s cada), mostra “3 de 12” e **Parar**. No fim, cada linha mostra o vídeo escolhido; troque só as que erraram. Linha sem vídeo que toque fica marcada como falha e não entra na playlist, mesmo que tenha letra. Assim não aparece como música pronta sem áudio.
 - A escolha automática pode errar (versão ao vivo, outro idioma). Por isso sempre há **Trocar vídeo**, e vídeo com pontuação baixa vem com “confira se é este mesmo”.
 - **Acervo da família**: cada música guarda a letra e o id do vídeo no aparelho. Para levar a outro aparelho: **Ajustes → Exportar backup** (ou o link compartilhado da playlist) e importe lá. **Não coloque o acervo (letras) dentro do repositório**: o site é público e letra de música é obra protegida.
 - Código: `busca-youtube.js` (`pontuarVideo`, `ordenarCandidatos`, `resolverPlayback`, `lerListaDeMusicas`, puros e testados em `tests/busca.test.js`) e `auto-adicionar.js` (`adicionarPeloNome`, trocar e tirar; a tela liga os botões em `ui.js`).
@@ -54,9 +54,16 @@ Músicas que não são do YouTube (Spotify, arquivo) continuam mostrando a letra
 - **Letra por música:** em música de YouTube que tem letra, o botão 🎞/🔤 (ou a tecla L, ou o botão do celular) guarda a escolha **na música**: "a do vídeo" (padrão, só o vídeo) ou "a do app" (sincronizada). No editor, "Letra no palco (vídeo do YouTube)" faz o mesmo. A preferência de Ajustes é só a base.
 - **Letra das músicas pedidas pelo celular:** a tela procura a letra do app sozinha, em segundo plano (uma música por vez), depois de pôr a música na fila; se não achar, a música segue só com o vídeo.
 
-### Minha lista no celular
+### Minha playlist no celular
 
-Na página de controle, cada pessoa pode buscar e guardar músicas no próprio celular mesmo sem sala aberta. Ao entrar numa sala, marca uma ou mais músicas e envia para o fim da fila. O envio não interrompe quem está cantando. Quando uma música com playback chega à sala, seu link também é salvo no catálogo compartilhado. Se a tela já tiver um playback cadastrado para essa música, o pedido contribui com o novo link sem substituir a fonte que a tela já usa.
+1. Digite a música e o artista e toque em **Preparar música**. O melhor vídeo disponível é escolhido e salvo automaticamente.
+2. Toque em **Enviar playlist à festa** para enviar todas as músicas à sala aberta, sem interromper quem está cantando.
+
+Para várias músicas, abra **Preparar várias músicas de uma vez**, cole uma por linha e prepare a playlist; depois envie com um toque. **Mais opções** permite selecionar apenas algumas faixas ou mudar o cantor. Links de vídeo e busca pela letra ficam recolhidos; ao escolher uma letra, o vídeo também é preparado automaticamente. Um envio parcial pode ser repetido sem reenviar o que já foi aceito naquela tentativa.
+
+Músicas antigas da biblioteca sem fonte recebem vídeo ao adicionar à fila ou ao enviar pelo celular. Ao começar uma playlist antiga, a tela prepara as fontes ausentes; se falhar, avisa antes de abrir o palco. Para usar som externo deliberadamente: **Adicionar à playlist → Mais opções → Vou tocar o áudio por fora**.
+
+No controle remoto de TV, as **setas navegam entre controles**; **Enter** executa o botão em foco. Setas não pulam faixas. Nos campos de texto e controles de volume/progresso, o comportamento de edição é preservado. `N` continua sendo atalho para próxima música.
 
 ### Mudar a tela principal para o projetor
 
@@ -116,7 +123,7 @@ Para música com letra sem tempo (ou com tempo de outra gravação): **Músicas 
 
 1. Na TV/projetor/computador: **📱 Controle remoto → Abrir sala**. Aparecem um QR code e um código de 6 letras.
 2. Nos celulares: leia o QR code (ou abra `…/karaoke/controle.html` e digite o código). Cada pessoa diz o nome e entra na família.
-3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** (a letra é buscada no celular e vai junto; o link do playback é opcional).
+3. Pelo celular dá para: tocar, pausar, pular, ajustar a letra, mudar o volume, começar a próxima, medir os aplausos, ver a fila, **pedir música** da lista salva e pedir **música nova** com o vídeo escolhido automaticamente; a busca por letra e links manuais fica em Mais opções.
 
 4. **Pedir uma música da lista**: o painel permite pôr ou trocar o playback e pedir a música no fim da fila.
 5. **Playback que falhou**: se o player não responder em seis segundos, o palco tenta a outra URL de incorporação e libera os controles do YouTube. Quando o player responde, mas demora a tocar, a tela mostra os controles do YouTube. Se aparecer o aviso de demora, o vídeo pode voltar sozinho. O aviso também oferece tentar novamente, abrir no YouTube, trocar o playback ou seguir sem áudio. Quem está no celular também pode usar **Trocar playback**.
