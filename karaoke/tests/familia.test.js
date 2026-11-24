@@ -42,3 +42,10 @@ test("playback guarda a duração do vídeo; backup antigo sem ela continua vál
   assert.equal(d.musicas[1].playback.duracao, 0);
   assert.equal(d.musicas[2].playback.duracao, 0);
 });
+
+test("sessão do YouTube é opt-in: sem conta por padrão e só booleano true habilita",()=>{
+  for(const youtubeSessao of [undefined,false,"true",1]){
+    assert.equal(normalizarDados({prefs:{youtubeSessao}}).prefs.youtubeSessao,false);
+  }
+  assert.equal(normalizarDados({prefs:{youtubeSessao:true}}).prefs.youtubeSessao,true);
+});

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.19">
+  <script data-version="1.0.20">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.19">
+  <link rel="stylesheet" href="./styles.css?v=1.0.20">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -139,6 +139,17 @@
         <div class="rotulo">Atraso da caixa Bluetooth <output id="atrasoOut"></output></div>
         <div class="acoes"><button type="button" id="atrasoMenos">− 50 ms</button><button type="button" id="atrasoMais">+ 50 ms</button></div>
         <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
+      </div>
+      <div class="cartao">
+        <h2>Conta do YouTube (opcional)</h2>
+        <label class="check"><input id="prefYoutubeSessao" type="checkbox"> Usar minha sessão do YouTube neste navegador</label>
+        <p class="dica">Você pode usar todo o karaokê sem conta. Esta opção é desligada por padrão e vale a partir da próxima música. Faça login no YouTube neste mesmo navegador e aparelho da tela. Com YouTube Premium ativo, o player pode reconhecer o benefício sem anúncios se os cookies forem permitidos. Conta gratuita continua com anúncios. Estar conectado no app da TV ou no celular não conecta este navegador.</p>
+        <div class="acoes"><a class="botao" href="https://www.youtube.com/" target="_blank" rel="noopener">Abrir YouTube para entrar na conta ↗</a></div>
+        <p class="dica">A senha fica no YouTube. O karaokê não recebe sua senha nem consegue confirmar login ou assinatura. Habilitar esta opção permite que o player use os cookies do YouTube; desligar volta a priorizar o modo de privacidade na próxima música, sem sair da conta no YouTube.</p>
+        <details><summary>Continuam aparecendo anúncios ou o vídeo travou?</summary>
+          <p class="dica">Confira a conta e a assinatura no YouTube. Se o navegador da TV/projetor bloquear cookies, a sessão pode não ser reconhecida. Sem Premium, use os controles do próprio vídeo quando o palco os mostrar; “Pular anúncio” só aparece quando o YouTube permite. Se travar, tente novamente ou troque o playback. O app não consegue remover anúncios automaticamente.</p>
+          <a href="https://support.google.com/youtube/answer/7437519?hl=pt-BR" target="_blank" rel="noopener">Ajuda do YouTube sobre anúncios e cookies ↗</a>
+        </details>
       </div>
       <div class="cartao">
         <h2>Busca de vídeos no YouTube</h2>
@@ -481,32 +492,32 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.19"></script>
-  <script src="./storage.js?v=1.0.19"></script>
-  <script src="./lrc.js?v=1.0.19"></script>
-  <script src="./links.js?v=1.0.19"></script>
-  <script src="./placar.js?v=1.0.19"></script>
-  <script src="./permissoes.js?v=1.0.19"></script>
-  <script src="./estado.js?v=1.0.19"></script>
-  <script src="./familia.js?v=1.0.19"></script>
-  <script src="./biblioteca.js?v=1.0.19"></script>
-  <script src="./playlists.js?v=1.0.19"></script>
-  <script src="./letras.js?v=1.0.19"></script>
-  <script src="./busca-youtube.js?v=1.0.19"></script>
-  <script src="./fontes.js?v=1.0.19"></script>
-  <script src="./verificar-youtube.js?v=1.0.19"></script>
-  <script src="./auto-adicionar.js?v=1.0.19"></script>
-  <script src="./diagnostico.js?v=1.0.19"></script>
-  <script src="./fonte-youtube.js?v=1.0.19"></script>
-  <script src="./fonte-spotify.js?v=1.0.19"></script>
-  <script src="./aplausometro.js?v=1.0.19"></script>
-  <script src="./palco.js?v=1.0.19"></script>
-  <script src="./sincronia.js?v=1.0.19"></script>
-  <script src="./qr.js?v=1.0.19"></script>
-  <script src="./sala.js?v=1.0.19"></script>
-  <script src="./sala-host.js?v=1.0.19"></script>
-  <script src="./telas.js?v=1.0.19"></script>
-  <script src="./ui.js?v=1.0.19"></script>
-  <script src="./offline.js?v=1.0.19"></script>
+  <script src="./core.js?v=1.0.20"></script>
+  <script src="./storage.js?v=1.0.20"></script>
+  <script src="./lrc.js?v=1.0.20"></script>
+  <script src="./links.js?v=1.0.20"></script>
+  <script src="./placar.js?v=1.0.20"></script>
+  <script src="./permissoes.js?v=1.0.20"></script>
+  <script src="./estado.js?v=1.0.20"></script>
+  <script src="./familia.js?v=1.0.20"></script>
+  <script src="./biblioteca.js?v=1.0.20"></script>
+  <script src="./playlists.js?v=1.0.20"></script>
+  <script src="./letras.js?v=1.0.20"></script>
+  <script src="./busca-youtube.js?v=1.0.20"></script>
+  <script src="./fontes.js?v=1.0.20"></script>
+  <script src="./verificar-youtube.js?v=1.0.20"></script>
+  <script src="./auto-adicionar.js?v=1.0.20"></script>
+  <script src="./diagnostico.js?v=1.0.20"></script>
+  <script src="./fonte-youtube.js?v=1.0.20"></script>
+  <script src="./fonte-spotify.js?v=1.0.20"></script>
+  <script src="./aplausometro.js?v=1.0.20"></script>
+  <script src="./palco.js?v=1.0.20"></script>
+  <script src="./sincronia.js?v=1.0.20"></script>
+  <script src="./qr.js?v=1.0.20"></script>
+  <script src="./sala.js?v=1.0.20"></script>
+  <script src="./sala-host.js?v=1.0.20"></script>
+  <script src="./telas.js?v=1.0.20"></script>
+  <script src="./ui.js?v=1.0.20"></script>
+  <script src="./offline.js?v=1.0.20"></script>
 </body>
 </html>

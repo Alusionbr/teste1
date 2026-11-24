@@ -485,6 +485,10 @@ $("permPessoas").addEventListener("click",e=>{
 function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay+d,0,800);$("atrasoOut").textContent=pr.audioDelay+" ms";salvarLogo()}
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));
+$("prefYoutubeSessao").addEventListener("change",e=>{
+  K.dados.prefs.youtubeSessao=e.target.checked;salvarLogo();
+  notify(e.target.checked?"Sessão do YouTube habilitada para a próxima música. Entre no YouTube neste mesmo navegador.":"O player volta a priorizar o modo de privacidade na próxima música.",true);
+});
 $("prefKeyYT").addEventListener("change",e=>{K.dados.prefs.keyYT=e.target.value.trim();salvarLogo();notify(K.dados.prefs.keyYT?"Chave do YouTube guardada neste aparelho.":"Chave do YouTube removida.",true)});
 $("btnLimparPlacar").addEventListener("click",async()=>{
   if(!(K.dados.placar||[]).length)return notify("Você ainda não tem notas guardadas.");

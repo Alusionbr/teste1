@@ -32,6 +32,7 @@ const FonteYouTube=(()=>{
   const TETO_EXTRAPOLA=1,SEM_NOTICIA_MS=2500,LIMITE_PLAY_MS=12000,TENTATIVA_MS=6000;
   const ENCERRADO=0,TOCANDO=1,PAUSADO=2;
 
+  let sessaoNoPlayer=false; // preferência capturada ao carregar, nunca muda no meio da música
   let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
   let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
@@ -105,6 +106,8 @@ const FonteYouTube=(()=>{
       }
       return;
     }
+    // O término de outra mídia não deve encerrar a música da fila.
+    if(emAnuncio&&!id&&info.playerState===ENCERRADO)return;
     const voltou=emAnuncio;
     emAnuncio=false;
     if(typeof info.duration==="number"&&info.duration>0)duracaoVideo=info.duration;
@@ -178,7 +181,8 @@ const FonteYouTube=(()=>{
     const inicio=Math.floor(Math.max(0,ancora));
     cancelarVigia();zerar();ancora=inicio;
     alternativaUsada=true;comControlesNativos=true;
-    origem=origem===ORIGEM?ORIGEM_PADRAO:ORIGEM;
+    // Recuperação conserva a sessão solicitada; não muda silenciosamente para nocookie.
+    origem=sessaoNoPlayer?ORIGEM_PADRAO:(origem===ORIGEM?ORIGEM_PADRAO:ORIGEM);
     navegar(inicio);
     tocar(limite);
   }
@@ -205,6 +209,11 @@ const FonteYouTube=(()=>{
     verificar:YouTubeBase.verificar,
     async carregar(musica){
       const id=musica.playback.id;
+      const sessao=typeof K!=="undefined"&&K.dados?.prefs?.youtubeSessao===true;
+      if(sessao!==sessaoNoPlayer){
+        sessaoNoPlayer=sessao;origem=sessao?ORIGEM_PADRAO:ORIGEM;
+        pronto=false;vivo=false; // aplica só na próxima carga, com nova origem e handshake
+      }
       cancelarVigia();zerar();videoAtual=id;seekPendente=null;
       alternativaUsada=false;
       if(pronto&&frame){comando("cueVideoById",[id]);return}
@@ -239,7 +248,7 @@ const FonteYouTube=(()=>{
     // do palco, então são descarregadas. Com "só o vídeo" ficam como o vídeo quiser.
     legendas(ligadas){if(!ligadas){comando("unloadModule",["captions"]);comando("unloadModule",["cc"])}},
     // Para o Diagnóstico (Ajustes): resumo e as últimas mensagens do player.
-    diagnostico:()=>({mensagens:mensagensTotal,maiorIntervaloMs:Math.round(maiorIntervalo),outraMidia:anunciosVistos,congelamentos,duracaoVideo,emAnuncio,estado,origem,registro:registro.slice(-120)}),
+    diagnostico:()=>({mensagens:mensagensTotal,maiorIntervaloMs:Math.round(maiorIntervalo),outraMidia:anunciosVistos,congelamentos,duracaoVideo,emAnuncio,estado,origem,sessaoSolicitada:sessaoNoPlayer,registro:registro.slice(-120)}),
     get carregando(){return esperandoPlay&&estado!==TOCANDO},
     get autoplayComprovado(){return autoplayComprovado},
     get emAnuncio(){return emAnuncio},

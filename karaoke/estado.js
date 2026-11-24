@@ -21,7 +21,7 @@
  */
 // permissoes.js (puro) normaliza as permissões da sala; no Node ele vem por require.
 const permissoesDe=typeof normalizarPermissoes==="function"?normalizarPermissoes:require("./permissoes.js").normalizarPermissoes;
-const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",fundoV12:true,contagem:5,aplausometro:true,permissoes:permissoesDe(null),keyYT:""};
+const PREFS_PADRAO={audioDelay:0,tamanho:100,fundo:"tela",fundoV12:true,contagem:5,aplausometro:true,permissoes:permissoesDe(null),youtubeSessao:false,keyYT:""};
 const FUNDOS=["opaco","escuro","video","tela"];   // "tela": só o vídeo do YouTube, com a letra do próprio vídeo
 const TIPOS_PLAYBACK=["youtube","spotify","arquivo"];
 
@@ -72,7 +72,7 @@ function normalizarDados(d){
   // (em dobro). O padrão "só o vídeo" volta uma única vez; depois vale a escolha de cada um.
   const fundo=pr.fundoV12?(FUNDOS.includes(pr.fundo)?pr.fundo:PREFS_PADRAO.fundo):PREFS_PADRAO.fundo;
   out.prefs={audioDelay:num(pr.audioDelay,0,800,0),tamanho:num(pr.tamanho,60,180,100),fundo,fundoV12:true,
-    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,permissoes:permissoesDe(pr.permissoes,{pularFila:pr.pularFila}),keyYT:txt(pr.keyYT,80).trim()};
+    contagem:num(pr.contagem,0,15,5),aplausometro:pr.aplausometro!==false,permissoes:permissoesDe(pr.permissoes,{pularFila:pr.pularFila}),youtubeSessao:pr.youtubeSessao===true,keyYT:txt(pr.keyYT,80).trim()};
   return out;
 }
 
