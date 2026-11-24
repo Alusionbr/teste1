@@ -25,7 +25,7 @@
     document.documentElement.dataset.theme=p.theme||"hibrido-inteligente";
   } catch(e) { document.documentElement.dataset.theme="hibrido-inteligente"; }
   </script>
-  <script data-version="4.3.0">
+  <script data-version="4.3.1">
   // Executa no HTML novo, mesmo se o worker antigo ainda servir scripts antigos.
   (()=>{
     const version=document.currentScript.dataset.version;
@@ -64,12 +64,12 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=4.3.0">
-  <link rel="stylesheet" href="./themes-v2.css?v=4.3.0">
+  <link rel="stylesheet" href="./styles.css?v=4.3.1">
+  <link rel="stylesheet" href="./themes-v2.css?v=4.3.1">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./backing.css?v=4.3.0">
+  <link rel="stylesheet" href="./backing.css?v=4.3.1">
 </head>
 <body>
 <div class="app">
@@ -283,6 +283,10 @@
         <div class="backingFilters">
           <label class="backingCheck"><input id="beatEnabled" type="checkbox"> Ligar instrumento</label>
           <label>Volume do instrumento <input id="beatVolume" type="range" min="0" max="100"></label>
+        </div>
+        <div class="backingFilters" id="beatPatternControls" hidden>
+          <label>Trecho<select id="beatPattern"></select></label>
+          <label>Compasso<select id="beatMeasure"><option value="0">Primeiro</option><option value="1">Segundo</option></select></label>
         </div>
         <div class="beatGrid" id="beatGrid" role="group" aria-label="Passos do instrumento"></div>
         <h3>Trechos da trilha</h3>
@@ -535,26 +539,27 @@
 
 <div id="printArea" aria-hidden="true"></div>
 <input id="importFile" type="file" accept="application/json,.json" hidden>
-<script src="./beats.js?v=4.3.0" defer></script>
-<script src="./domain.js?v=4.3.0" defer></script>
-<script src="./storage.js?v=4.3.0" defer></script>
-<script src="./core.js?v=4.3.0" defer></script>
-<script src="./search-engine.js?v=4.3.0" defer></script>
-<script src="./library.js?v=4.3.0" defer></script>
-<script src="./acervo.js?v=4.3.0" defer></script>
-<script src="./setlists.js?v=4.3.0" defer></script>
-<script src="./song-prefs.js?v=4.3.0" defer></script>
-<script src="./autoscroll.js?v=4.3.0" defer></script>
-<script src="./player.js?v=4.3.0" defer></script>
-<script src="./karaoke.js?v=4.3.0" defer></script>
-<script src="./song-edit.js?v=4.3.0" defer></script>
-<script src="./print.js?v=4.3.0" defer></script>
-<script src="./backing-audio.js?v=4.3.0" defer></script>
-<script src="./backing-ui.js?v=4.3.0" defer></script>
-<script src="./ui.js?v=4.3.0" defer></script>
-<script src="./search-ui.js?v=4.3.0" defer></script>
-<script src="./offline.js?v=4.3.0" defer></script>
-<script src="./bug-report.js?v=4.3.0" defer></script>
-<script src="./themes-v2.js?v=4.3.0" defer></script>
+<script src="./beat-grooves.js?v=4.3.1" defer></script>
+<script src="./beats.js?v=4.3.1" defer></script>
+<script src="./domain.js?v=4.3.1" defer></script>
+<script src="./storage.js?v=4.3.1" defer></script>
+<script src="./core.js?v=4.3.1" defer></script>
+<script src="./search-engine.js?v=4.3.1" defer></script>
+<script src="./library.js?v=4.3.1" defer></script>
+<script src="./acervo.js?v=4.3.1" defer></script>
+<script src="./setlists.js?v=4.3.1" defer></script>
+<script src="./song-prefs.js?v=4.3.1" defer></script>
+<script src="./autoscroll.js?v=4.3.1" defer></script>
+<script src="./player.js?v=4.3.1" defer></script>
+<script src="./karaoke.js?v=4.3.1" defer></script>
+<script src="./song-edit.js?v=4.3.1" defer></script>
+<script src="./print.js?v=4.3.1" defer></script>
+<script src="./backing-audio.js?v=4.3.1" defer></script>
+<script src="./backing-ui.js?v=4.3.1" defer></script>
+<script src="./ui.js?v=4.3.1" defer></script>
+<script src="./search-ui.js?v=4.3.1" defer></script>
+<script src="./offline.js?v=4.3.1" defer></script>
+<script src="./bug-report.js?v=4.3.1" defer></script>
+<script src="./themes-v2.js?v=4.3.1" defer></script>
 </body>
 </html>
