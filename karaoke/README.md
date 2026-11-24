@@ -255,4 +255,4 @@ psql -q -f karaoke/supabase/teste_sala.sql
 5. Modo “só celular” com a letra também no telefone de quem está cantando.
 6. Cantar sozinho: histórico de notas por música (gráfico) e metas (“bater 80 pontos”); hoje só o recorde aparece.
 
-Teste da opção de sessão: `node karaoke/tests/browser-sessao.js` (Playwright/Chromium; servidor local na porta 8767 ou `KARAOKE_URL`). Verifica uso sem conta e origens com player simulado; não valida login/cookies/Premium reais.
+Teste da opção de sessão: `node karaoke/tests/browser-sessao.js` (Playwright/Chromium; servidor local na porta 8767 ou `KARAOKE_URL`). Verifica uso sem conta, origens e outra mídia em progresso por mais de 12 segundos com player simulado; não valida login/cookies/Premium reais.

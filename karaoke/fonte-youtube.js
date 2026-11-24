@@ -34,7 +34,7 @@ const FonteYouTube=(()=>{
 
   let sessaoNoPlayer=false; // preferência capturada ao carregar, nunca muda no meio da música
   let frame=null,vivo=false,pronto=false,handshake=null,videoAtual="";
-  let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false;
+  let ancora=0,ancoraEm=0,estado=-1,taxa=1,duracaoVideo=0,emAnuncio=false,outraAncora=null;
   let autoplayComprovado=false,vigia=null,ultimaNoticia=0,tocarQuandoPronto=false;
   // Gravador para o Diagnóstico: o que o player mandou e o que o app concluiu.
   const registro=[];let inicioRegistro=0,maiorIntervalo=0,congelamentos=0,mensagensTotal=0,anunciosVistos=0;
@@ -100,16 +100,24 @@ const FonteYouTube=(()=>{
       // reaproveitado): descarta só esta mensagem. NÃO fica nenhum estado preso — a maioria das
       // mensagens não traz videoData, e se a próxima mensagem boa não pudesse limpar o estado,
       // o app nunca mais veria o play (relógio parado e "demorou para responder").
+      // O relógio da outra mídia não anda a letra, mas comprova atividade do player.
+      // Renova o prazo só quando esse relógio avança; mídia travada ainda tem limite.
+      if(typeof info.currentTime==="number"){
+        if(esperandoPlay&&info.playerState!==ENCERRADO&&info.currentTime!==outraAncora)vigiarProgresso();
+        outraAncora=info.currentTime;
+      }
       if(!emAnuncio){
         emAnuncio=true;anunciosVistos++;
         emitir("anuncio",{ativo:true});
       }
       return;
     }
-    // O término de outra mídia não deve encerrar a música da fila.
-    if(emAnuncio&&!id&&info.playerState===ENCERRADO)return;
+    // Volume/metadados não identificam a volta da música. Preserva a proteção
+    // até vir identidade ou uma mensagem parcial de reprodução (regressão 1.0.17).
+    if(emAnuncio&&!id&&(info.playerState===ENCERRADO||
+      (typeof info.currentTime!=="number"&&typeof info.playerState!=="number")))return;
     const voltou=emAnuncio;
-    emAnuncio=false;
+    emAnuncio=false;outraAncora=null;
     if(typeof info.duration==="number"&&info.duration>0)duracaoVideo=info.duration;
     if(typeof info.playbackRate==="number")taxa=info.playbackRate||1;
     const progresso=typeof info.currentTime==="number"&&info.currentTime!==ancora;
@@ -153,7 +161,7 @@ const FonteYouTube=(()=>{
     $("ytBox").appendChild(f);
     return f;
   }
-  function zerar(){ancora=0;ancoraEm=performance.now();estado=-1;duracaoVideo=0;emAnuncio=false;tempoExcedido=false;taxa=1}
+  function zerar(){ancora=0;ancoraEm=performance.now();estado=-1;duracaoVideo=0;emAnuncio=false;outraAncora=null;tempoExcedido=false;taxa=1}
 
   // Se o play não pegou em 1,6 s, quase sempre é política de autoplay.
   function vigiarGesto(){

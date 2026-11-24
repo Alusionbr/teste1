@@ -5,7 +5,8 @@ const assert=require("node:assert/strict");
 const PLAYER=`<!doctype html><script>
 const id=location.pathname.split('/').pop();
 const send=(event,info)=>parent.postMessage(JSON.stringify({event,info}),'*');
-let t=0,state=2;
+let t=0,state=2,outra=false;
+window.simularOutra=ativa=>{outra=ativa;t=ativa?0:40};
 addEventListener('message',e=>{let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.event==='listening'){send('initialDelivery',{videoData:{video_id:id},playerState:state});send('onReady');return}
  if(m.func==='playVideo')state=1;
@@ -13,7 +14,7 @@ addEventListener('message',e=>{let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.func==='seekTo')t=m.args[0];
  send('infoDelivery',{playerState:state,currentTime:t,duration:300});
 });
-setInterval(()=>{if(state===1)t+=.25;send('infoDelivery',{playerState:state,currentTime:t,duration:300})},250);
+setInterval(()=>{if(state===1)t+=.25;send('infoDelivery',{playerState:state,currentTime:t,duration:300,...(outra?{videoData:{video_id:'COMERCIAL01'}}:{})})},250);
 </script>`;
 (async()=>{
  const browser=await chromium.launch({args:['--autoplay-policy=no-user-gesture-required']});
@@ -38,6 +39,15 @@ setInterval(()=>{if(state===1)t+=.25;send('infoDelivery',{playerState:state,curr
   });
   await page.waitForFunction(()=>FonteYouTube.tocando()&&FonteYouTube.tempo()>.25);
   assert.match(await page.locator('#ytBox iframe').getAttribute('src'),/youtube-nocookie\.com/);
+  // Outra mídia continua mandando relógio por mais que o prazo normal (12 s).
+  const frame=page.frames().find(f=>f.url().includes('/embed/'));
+  await frame.evaluate(()=>window.simularOutra(true));
+  await page.waitForFunction(()=>FonteYouTube.emAnuncio);
+  await page.waitForTimeout(13000);
+  assert.equal(await page.locator('#palcoErro').isVisible(),false,'mídia com progresso não abre erro de demora');
+  assert.equal(await page.evaluate(()=>P.fase),'cantando');
+  await frame.evaluate(()=>window.simularOutra(false));
+  await page.waitForFunction(()=>FonteYouTube.tocando()&&!FonteYouTube.emAnuncio);
   await page.evaluate(()=>fecharPalco());
   await page.check('#prefYoutubeSessao');
   await page.evaluate(()=>salvarEstado());
@@ -58,6 +68,6 @@ setInterval(()=>{if(state===1)t+=.25;send('infoDelivery',{playerState:state,curr
   await page.waitForFunction(()=>FonteYouTube.tocando());
   assert.match(await page.locator('#ytBox iframe').getAttribute('src'),/youtube-nocookie\.com/);
   assert.deepEqual(erros,[]);
-  console.log('OK: uso sem conta, preferência persistida, origens, recuperação e troca sem interromper a música. Login/Premium real não testado.');
+  console.log('OK: uso sem conta, preferência persistida, origens, outra mídia acima de 12 s, recuperação e troca sem interromper a música. Login/Premium real não testado.');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
