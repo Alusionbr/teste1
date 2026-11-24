@@ -6,11 +6,13 @@ document.addEventListener("keydown",e=>{
   if(tag==="TEXTAREA"||tag==="SELECT"||tipo==="range")return;
   if(tag==="INPUT"&&!["checkbox","radio","button","submit"].includes(tipo)&&["ArrowLeft","ArrowRight"].includes(e.key))return;
   const dialogos=[...document.querySelectorAll("dialog[open]")],palco=document.getElementById("palco");
-  const raiz=dialogos[dialogos.length-1]||(palco&&!palco.hidden?palco:document);
+  const sobre=palco&&!palco.hidden?palco.querySelector(".sobre:not([hidden])"):null;
+  const raiz=dialogos[dialogos.length-1]||sobre||(palco&&!palco.hidden?palco:document);
   const alvos=[...raiz.querySelectorAll('button,a[href],input,select,textarea,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.tabIndex>=0&&el.getClientRects().length&&getComputedStyle(el).visibility!=="hidden");
+  if(sobre&&!dialogos.length){const sair=document.getElementById("palcoSair");if(sair&&!sair.hidden)alvos.push(sair)}
   if(!alvos.length)return;
   let proximo;
-  if(!alvos.includes(atual))proximo=alvos[0];
+  if(!alvos.includes(atual))proximo=(raiz===palco?alvos.find(el=>el.id==="palcoTocar"):null)||alvos[0];
   else{
     const a=atual.getBoundingClientRect(),x=a.x+a.width/2,y=a.y+a.height/2;
     const horizontal=e.key==="ArrowLeft"||e.key==="ArrowRight",sinal=e.key==="ArrowLeft"||e.key==="ArrowUp"?-1:1;

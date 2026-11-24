@@ -37,14 +37,14 @@ async function comando(tipo,dados={}){
 /* ------------------------------------------------------ lista pessoal do celular */
 const CHAVE_MINHA_LISTA="karaoke:controle:minha-lista:v1";
 const CHAVE_MINHA_SELECIONADAS="karaoke:controle:minha-lista-selecionadas:v1";
-let MINHA_LISTA=[],BUSCA_MINHA=null;
+let MINHA_LISTA=[],BUSCA_MINHA=null,preparandoMinhaLista=0;
 let SELECIONADAS=new Set((()=>{try{return JSON.parse(localStorage.getItem(CHAVE_MINHA_SELECIONADAS)||"[]")}catch{return[]}})());
 function lerMinhaLista(){try{const x=JSON.parse(localStorage.getItem(CHAVE_MINHA_LISTA)||"[]");return Array.isArray(x)?x.filter(m=>m&&typeof m.title==="string"&&m.playback&&m.playback.tipo==="youtube").slice(0,100):[]}catch{return[]}}
 function guardarMinhaLista(){try{localStorage.setItem(CHAVE_MINHA_LISTA,JSON.stringify(MINHA_LISTA))}catch{$("ctMinhaListaStatus").textContent="Não consegui salvar. Confira o espaço disponível no celular."}}
 function renderMinhaLista(){
   const salaPronta=!!(CT.codigo&&CT.estado);
   $("ctMinhaListaEnviar").disabled=!salaPronta||!SELECIONADAS.size||enviandoMinhaLista;
-  $("ctMinhaListaEnviarTudo").disabled=!salaPronta||!MINHA_LISTA.length||enviandoMinhaLista;
+  $("ctMinhaListaEnviarTudo").disabled=!salaPronta||!MINHA_LISTA.length||enviandoMinhaLista||preparandoMinhaLista>0;
   $("ctMinhaListaCantor").disabled=!salaPronta;
   if(salaPronta){
     const select=$("ctMinhaListaCantor"),atual=select.value;
@@ -69,7 +69,7 @@ $("ctFormMinhaLista").addEventListener("submit",async e=>{
   e.preventDefault();const q=$("ctBuscaMinhaLista").value.trim();if(!q)return;
   const st=$("ctMinhaListaStatus"),btn=e.submitter;
   const busca={linha:lerListaDeMusicas(q).itens[0]||{titulo:q,artista:""}};BUSCA_MINHA=busca;
-  st.textContent="Escolhendo o vídeo de karaokê…";$("ctMinhaListaResultados").innerHTML="";btn.disabled=true;
+  st.textContent="Escolhendo o vídeo de karaokê…";$("ctMinhaListaResultados").innerHTML="";btn.disabled=true;preparandoMinhaLista++;renderMinhaLista();
   try{
     const r=await resolverPlayback([busca.linha.titulo,busca.linha.artista].filter(Boolean).join(" "),{titulo:busca.linha.titulo,artista:busca.linha.artista});
     if(BUSCA_MINHA!==busca)return;
@@ -78,7 +78,7 @@ $("ctFormMinhaLista").addEventListener("submit",async e=>{
     $("ctMinhaListaResultados").innerHTML=`<li class="autoItem"><details><summary>Trocar o vídeo de ${esc(busca.linha.titulo)}</summary><ul class="lista videos">${htmlResultadosVideos([r.video,...busca.alternativas])}</ul></details></li>`;
     st.textContent=r.video.duvida?"Vídeo escolhido: confira se é a versão desejada em Trocar vídeo.":"Pronta! Você já pode enviar a playlist à festa.";
   }catch(err){if(BUSCA_MINHA===busca)st.textContent=err.message}
-  finally{btn.disabled=false}
+  finally{btn.disabled=false;preparandoMinhaLista--;renderMinhaLista()}
 });
 $("ctMinhaListaResultados").addEventListener("click",async e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
@@ -93,7 +93,7 @@ $("ctMinhaListaResultados").addEventListener("click",async e=>{
 $("ctFormMinhaListaLote").addEventListener("submit",async e=>{
   e.preventDefault();const linhas=lerListaDeMusicas($("ctMinhaListaLoteTexto").value).itens;
   if(!linhas.length)return;
-  const btn=e.submitter,st=$("ctMinhaListaStatus");btn.disabled=true;let prontas=0;const falhas=[];
+  const btn=e.submitter,st=$("ctMinhaListaStatus");btn.disabled=true;preparandoMinhaLista++;renderMinhaLista();let prontas=0;const falhas=[];
   try{
     for(let i=0;i<linhas.length;i++){
       const linha=linhas[i];st.textContent=`Preparando ${i+1} de ${linhas.length}…`;
@@ -101,7 +101,7 @@ $("ctFormMinhaListaLote").addEventListener("submit",async e=>{
       catch{falhas.push(linha.titulo)}
     }
     st.textContent=`${prontas} música(s) prontas com vídeo.${falhas.length?" Não preparadas: "+falhas.join(", "):" Envie a playlist à festa."}`;
-  }finally{btn.disabled=false}
+  }finally{btn.disabled=false;preparandoMinhaLista--;renderMinhaLista()}
 });
 $("ctMinhaListaItens").addEventListener("change",e=>{
   const c=e.target.closest("[data-minha-musica]");if(!c)return;
@@ -117,7 +117,7 @@ $("ctMinhaListaItens").addEventListener("click",e=>{
 });
 let enviandoMinhaLista=false,envioMinhaPendente=null;
 async function enviarMinhaLista(todas){
-  if(!CT.codigo||!CT.estado||enviandoMinhaLista)return;
+  if(!CT.codigo||!CT.estado||enviandoMinhaLista||(todas&&preparandoMinhaLista>0))return;
   const cantorId=$("ctMinhaListaCantor").value,selecionadas=MINHA_LISTA.filter(m=>todas||SELECIONADAS.has(m.id));
   const chave=CT.codigo+":"+todas+":"+selecionadas.map(m=>m.id).join(",");
   if(!envioMinhaPendente||envioMinhaPendente.chave!==chave)envioMinhaPendente={chave,restantes:selecionadas.slice()};

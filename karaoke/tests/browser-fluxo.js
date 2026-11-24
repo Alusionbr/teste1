@@ -37,7 +37,15 @@ addEventListener('message',e=>{let m;try{m=JSON.parse(e.data)}catch{return}
   await page.screenshot({path:'/tmp/karaoke-playlist-rapida-celular.png',fullPage:true});
   // Playlist de várias músicas: abrir lote, preparar e enviar (3 cliques).
   await page.click('#ctMinhaListaLote summary');await page.fill('#ctMinhaListaLoteTexto','Segunda - Artista\nFalhou - Artista');
-  await page.click('#ctFormMinhaListaLote button');await page.waitForFunction(()=>document.querySelector('#ctMinhaListaStatus').textContent.includes('Não preparadas'));
+  await page.evaluate(()=>{
+   const resolver=window.resolverPlayback;
+   window.resolverPlayback=async q=>q.includes('Segunda')?new Promise(resolve=>{window.__soltar=()=>resolver(q).then(resolve)}):resolver(q);
+  });
+  await page.click('#ctFormMinhaListaLote button');
+  await page.waitForFunction(()=>typeof window.__soltar==='function');
+  assert.equal(await page.locator('#ctMinhaListaEnviarTudo').isDisabled(),true,'aguarda preparar a playlist inteira antes de enviar');
+  await page.evaluate(()=>window.__soltar());
+  await page.waitForFunction(()=>document.querySelector('#ctMinhaListaStatus').textContent.includes('Não preparadas'));
   assert.equal(await page.evaluate(()=>MINHA_LISTA.length),2);
   await page.click('#ctMinhaListaEnviarTudo');await page.waitForFunction(()=>window.__enviados.length===3);
   const pedidos=await page.evaluate(()=>window.__enviados.slice(-2));
@@ -72,6 +80,9 @@ addEventListener('message',e=>{let m;try{m=JSON.parse(e.data)}catch{return}
   await host.keyboard.press('Enter');await host.waitForFunction(i=>P.indice===i+1,indice);
   assert.equal(await host.evaluate(()=>P.fonte===FonteYouTube),true);
   await host.screenshot({path:'/tmp/karaoke-navegacao-tv.png'});
+  await host.evaluate(()=>{P.fonte.parar();mostrarNota()});
+  await host.locator('#notaProxima').focus();await host.keyboard.press('ArrowLeft');
+  assert.equal(await host.evaluate(()=>!!document.activeElement.closest('.sobre')||document.activeElement.id==='palcoSair'),true,'foco não passa para controles cobertos pela tela de aplausos');
   // Lista antiga sem playback também é preparada ao apertar Começar.
   await host.evaluate(()=>{
    fecharPalco();const p=criarPlaylist('Lista antiga');const m=criarMusica({title:'Antiga',lyrics:'Teste'});
