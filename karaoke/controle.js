@@ -37,51 +37,71 @@ async function comando(tipo,dados={}){
 /* ------------------------------------------------------ lista pessoal do celular */
 const CHAVE_MINHA_LISTA="karaoke:controle:minha-lista:v1";
 const CHAVE_MINHA_SELECIONADAS="karaoke:controle:minha-lista-selecionadas:v1";
-let MINHA_LISTA=[],BUSCA_MINHA=null;
+let MINHA_LISTA=[],BUSCA_MINHA=null,preparandoMinhaLista=0;
 let SELECIONADAS=new Set((()=>{try{return JSON.parse(localStorage.getItem(CHAVE_MINHA_SELECIONADAS)||"[]")}catch{return[]}})());
 function lerMinhaLista(){try{const x=JSON.parse(localStorage.getItem(CHAVE_MINHA_LISTA)||"[]");return Array.isArray(x)?x.filter(m=>m&&typeof m.title==="string"&&m.playback&&m.playback.tipo==="youtube").slice(0,100):[]}catch{return[]}}
 function guardarMinhaLista(){try{localStorage.setItem(CHAVE_MINHA_LISTA,JSON.stringify(MINHA_LISTA))}catch{$("ctMinhaListaStatus").textContent="Não consegui salvar. Confira o espaço disponível no celular."}}
 function renderMinhaLista(){
   const salaPronta=!!(CT.codigo&&CT.estado);
-  $("ctMinhaListaEnviar").disabled=!salaPronta||!SELECIONADAS.size;
+  $("ctMinhaListaEnviar").disabled=!salaPronta||!SELECIONADAS.size||enviandoMinhaLista;
+  $("ctMinhaListaEnviarTudo").disabled=!salaPronta||!MINHA_LISTA.length||enviandoMinhaLista||preparandoMinhaLista>0;
   $("ctMinhaListaCantor").disabled=!salaPronta;
   if(salaPronta){
     const select=$("ctMinhaListaCantor"),atual=select.value;
     select.innerHTML=opcoesCantores();
     if([...select.options].some(o=>o.value===atual))select.value=atual;
   }
-  $("ctMinhaListaItens").innerHTML=MINHA_LISTA.map(m=>`<li class="cartao itemMinhaLista">
+  $("ctMinhaListaItens").innerHTML=MINHA_LISTA.map(m=>`<li class="itemMinhaLista">
     <label class="check"><input type="checkbox" data-minha-musica="${esc(m.id)}"${SELECIONADAS.has(m.id)?" checked":""}><span><b>${esc(m.title)}</b><small>${esc(m.artist)} · ▶ ${esc(m.playback.titulo||"YouTube")}</small></span></label>
     <button type="button" data-remover-minha="${esc(m.id)}" aria-label="Remover ${esc(m.title)} da minha lista">✕</button>
   </li>`).join("")||`<li class="vazio">Sua lista está vazia. Busque uma música para guardar neste celular.</li>`;
 }
+function selecionarMinha(id){SELECIONADAS.add(id);try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}}
+function guardarVideoMinhaLista(video,linha){
+  const m={id:video.id,title:linha.titulo,artist:linha.artista,playback:{tipo:"youtube",id:video.id,titulo:video.titulo||"",duracao:video.duracao||0}};
+  const pos=MINHA_LISTA.findIndex(x=>fold(x.title+" "+x.artist)===fold(m.title+" "+m.artist));
+  if(pos>=0){SELECIONADAS.delete(MINHA_LISTA[pos].id);MINHA_LISTA[pos]=m}
+  else if(MINHA_LISTA.length<100)MINHA_LISTA.unshift(m);
+  else throw Error("Sua playlist chegou ao limite de 100 músicas.");
+  selecionarMinha(m.id);guardarMinhaLista();renderMinhaLista();return m;
+}
 $("ctFormMinhaLista").addEventListener("submit",async e=>{
-  e.preventDefault();
-  const q=$("ctBuscaMinhaLista").value.trim();if(!q)return;
+  e.preventDefault();const q=$("ctBuscaMinhaLista").value.trim();if(!q)return;
   const st=$("ctMinhaListaStatus"),btn=e.submitter;
-  st.textContent="Buscando playback…";$("ctMinhaListaResultados").innerHTML="";btn.disabled=true;
+  const busca={linha:lerListaDeMusicas(q).itens[0]||{titulo:q,artista:""}};BUSCA_MINHA=busca;
+  st.textContent="Escolhendo o vídeo de karaokê…";$("ctMinhaListaResultados").innerHTML="";btn.disabled=true;preparandoMinhaLista++;renderMinhaLista();
   try{
-    const linha=lerListaDeMusicas(q).itens[0]||{titulo:q,artista:""};
-    const r=await resolverPlayback([linha.titulo,linha.artista].filter(Boolean).join(" "),{titulo:linha.titulo,artista:linha.artista});
-    BUSCA_MINHA={linha,video:r.video,alternativas:r.alternativas||[]};
-    $("ctMinhaListaResultados").innerHTML=htmlResultadosVideos([r.video,...BUSCA_MINHA.alternativas]);
-    st.textContent="Toque no vídeo que quer guardar. Ele fica salvo neste celular.";
-  }catch(err){st.textContent=err.message;if(err.alternativas?.length)$("ctMinhaListaResultados").innerHTML=htmlResultadosVideos(err.alternativas)}
-  finally{btn.disabled=false}
+    const r=await resolverPlayback([busca.linha.titulo,busca.linha.artista].filter(Boolean).join(" "),{titulo:busca.linha.titulo,artista:busca.linha.artista});
+    if(BUSCA_MINHA!==busca)return;
+    busca.video=r.video;busca.alternativas=r.alternativas||[];
+    guardarVideoMinhaLista(r.video,busca.linha);
+    $("ctMinhaListaResultados").innerHTML=`<li class="autoItem"><details><summary>Trocar o vídeo de ${esc(busca.linha.titulo)}</summary><ul class="lista videos">${htmlResultadosVideos([r.video,...busca.alternativas])}</ul></details></li>`;
+    st.textContent=r.video.duvida?"Vídeo escolhido: confira se é a versão desejada em Trocar vídeo.":"Pronta! Você já pode enviar a playlist à festa.";
+  }catch(err){if(BUSCA_MINHA===busca)st.textContent=err.message}
+  finally{btn.disabled=false;preparandoMinhaLista--;renderMinhaLista()}
 });
 $("ctMinhaListaResultados").addEventListener("click",async e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
-  const st=$("ctMinhaListaStatus");b.disabled=true;st.textContent="Conferindo o vídeo…";
+  const busca=BUSCA_MINHA,st=$("ctMinhaListaStatus");b.disabled=true;st.textContent="Conferindo o vídeo…";
   try{
-    const v=await YouTubeBase.verificar(b.dataset.video);
+    const v=await YouTubeBase.verificar(b.dataset.video);if(BUSCA_MINHA!==busca)return;
     if(!v.ok){st.textContent=`${v.msg} Escolha outro vídeo.`;return}
-    const linha=BUSCA_MINHA?.linha||{titulo:$("ctBuscaMinhaLista").value.trim(),artista:""};
-    const m={id:b.dataset.video,title:linha.titulo,artist:linha.artista,playback:{tipo:"youtube",id:b.dataset.video,titulo:b.dataset.titulo||""}};
-    const key=fold(m.title+" "+m.artist),pos=MINHA_LISTA.findIndex(x=>fold(x.title+" "+x.artist)===key);
-    if(pos>=0)MINHA_LISTA[pos]=m;else if(MINHA_LISTA.length<100)MINHA_LISTA.unshift(m);else{st.textContent="Sua lista chegou ao limite de 100 músicas.";return}
-    guardarMinhaLista();renderMinhaLista();st.textContent="Salva neste celular. Você poderá adicionar à fila quando entrar numa sala.";
-  }catch(err){st.textContent=err.message}
-  finally{b.disabled=false}
+    guardarVideoMinhaLista({id:b.dataset.video,titulo:b.dataset.titulo,duracao:Number(b.dataset.duracao)||0},busca.linha);
+    st.textContent="Vídeo atualizado. A música está pronta para enviar.";
+  }catch(err){st.textContent=err.message}finally{b.disabled=false}
+});
+$("ctFormMinhaListaLote").addEventListener("submit",async e=>{
+  e.preventDefault();const linhas=lerListaDeMusicas($("ctMinhaListaLoteTexto").value).itens;
+  if(!linhas.length)return;
+  const btn=e.submitter,st=$("ctMinhaListaStatus");btn.disabled=true;preparandoMinhaLista++;renderMinhaLista();let prontas=0;const falhas=[];
+  try{
+    for(let i=0;i<linhas.length;i++){
+      const linha=linhas[i];st.textContent=`Preparando ${i+1} de ${linhas.length}…`;
+      try{const r=await resolverPlayback(`${linha.titulo} ${linha.artista}`.trim(),{titulo:linha.titulo,artista:linha.artista});guardarVideoMinhaLista(r.video,linha);prontas++}
+      catch{falhas.push(linha.titulo)}
+    }
+    st.textContent=`${prontas} música(s) prontas com vídeo.${falhas.length?" Não preparadas: "+falhas.join(", "):" Envie a playlist à festa."}`;
+  }finally{btn.disabled=false;preparandoMinhaLista--;renderMinhaLista()}
 });
 $("ctMinhaListaItens").addEventListener("change",e=>{
   const c=e.target.closest("[data-minha-musica]");if(!c)return;
@@ -95,20 +115,28 @@ $("ctMinhaListaItens").addEventListener("click",e=>{
   try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
   guardarMinhaLista();renderMinhaLista();
 });
-$("ctMinhaListaEnviar").addEventListener("click",async()=>{
-  if(!CT.codigo||!CT.estado)return;
-  const cantorId=$("ctMinhaListaCantor").value,selecionadas=MINHA_LISTA.filter(m=>SELECIONADAS.has(m.id));
-  const btn=$("ctMinhaListaEnviar");btn.disabled=true;
-  let enviadas=0;
-  for(const m of selecionadas){
-    const ok=await comando("pedir_nova",{title:m.title,artist:m.artist,playback:m.playback,cantorId});
-    if(!ok)break;
-    enviadas++;SELECIONADAS.delete(m.id);
-  }
-  try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
-  $("ctMinhaListaStatus").textContent=enviadas?`${enviadas} música(s) adicionada(s) à fila. Quem está cantando continua normalmente.`:"Não consegui enviar as músicas. Tente novamente.";
-  renderMinhaLista();
-});
+let enviandoMinhaLista=false,envioMinhaPendente=null;
+async function enviarMinhaLista(todas){
+  if(!CT.codigo||!CT.estado||enviandoMinhaLista||(todas&&preparandoMinhaLista>0))return;
+  const cantorId=$("ctMinhaListaCantor").value,selecionadas=MINHA_LISTA.filter(m=>todas||SELECIONADAS.has(m.id));
+  const chave=CT.codigo+":"+todas+":"+selecionadas.map(m=>m.id).join(",");
+  if(!envioMinhaPendente||envioMinhaPendente.chave!==chave)envioMinhaPendente={chave,restantes:selecionadas.slice()};
+  enviandoMinhaLista=true;renderMinhaLista();let enviadas=0;
+  try{
+    for(const m of envioMinhaPendente.restantes.slice()){
+      if(!m.playback?.id){envioMinhaPendente.restantes.shift();continue}
+      const ok=await comando("pedir_nova",{title:m.title,artist:m.artist,playback:m.playback,cantorId});
+      if(!ok)break;enviadas++;envioMinhaPendente.restantes.shift();SELECIONADAS.delete(m.id);
+    }
+    try{localStorage.setItem(CHAVE_MINHA_SELECIONADAS,JSON.stringify([...SELECIONADAS]))}catch{}
+    const faltam=envioMinhaPendente.restantes.length;
+    $("ctMinhaListaStatus").textContent=faltam?`${enviadas} pedido(s) enviados. Faltam ${faltam}; toque em ${todas?"Enviar playlist":"Enviar só as músicas marcadas"} para tentar só as que faltaram.`:`${enviadas} pedido(s) enviados à festa. Quem está cantando continua normalmente.`;
+    if(!faltam)envioMinhaPendente=null;
+  }finally{enviandoMinhaLista=false;renderMinhaLista()}
+}
+$("ctMinhaListaEnviar").addEventListener("click",()=>enviarMinhaLista(false));
+$("ctMinhaListaEnviarTudo").addEventListener("click",()=>enviarMinhaLista(true));
+$("ctMinhaListaMais").addEventListener("toggle",()=>$("ctMinhaListaItens").classList.toggle("selecionando",$("ctMinhaListaMais").open));
 MINHA_LISTA=lerMinhaLista();
 
 /* ------------------------------------------------------------ consultar */
@@ -233,7 +261,7 @@ $("ctSoMinhas").addEventListener("change",()=>{if(CT.estado)renderFila()});
 // Tudo vai como comando "pedir" (campos opcionais modo e playback): a tela decide.
 const NOME_PB={youtube:"YouTube",spotify:"Spotify",arquivo:"Arquivo"};
 function abrirPainelMusica(m,soPlayback){
-  CT.painel={id:m.id,title:m.title,artist:m.artist,soPlayback:!!soPlayback};
+  CT.painel={id:m.id,title:m.title,artist:m.artist,soPlayback:!!soPlayback,preparando:false,playbackAuto:null};
   $("ctPnTitulo").textContent=m.title;
   $("ctPnArtista").textContent=m.artist||"";
   $("ctPnCantor").dataset.html="";renderCantores();
@@ -241,7 +269,9 @@ function abrirPainelMusica(m,soPlayback){
   $("ctPnProcurar").href=linkBuscaYouTube(m);
   $("ctPnPedido").hidden=CT.painel.soPlayback;
   atualizarPainel();
+  $("ctPnTroca").open=!!soPlayback;
   if(!$("ctMusicaPainel").open)$("ctMusicaPainel").showModal();
+  if(!soPlayback&&!playbackDaMusica(m.id))prepararPainel(m,CT.painel);
 }
 function playbackDaMusica(id){
   const e=CT.estado;if(!e)return"";
@@ -252,8 +282,19 @@ function playbackDaMusica(id){
 function atualizarPainel(){
   const p=CT.painel;if(!p)return;
   const pb=playbackDaMusica(p.id);
-  $("ctPnPlayback").textContent=pb==="arquivo"?"🎧 Playback: arquivo guardado na tela (só dá para trocar lá).":pb?`🎧 Playback atual: ${NOME_PB[pb]||pb}. Cole outro link para trocar.`:"Sem playback: a letra anda pelo relógio. Cole um link do YouTube ou do Spotify.";
+  $("ctPnPlayback").textContent=p.preparando?"Escolhendo o vídeo para esta música…":p.playbackAuto?`✓ Vídeo pronto: ${p.playbackAuto.titulo}`:pb==="arquivo"?"✓ Áudio salvo na tela da festa.":pb?"✓ Música pronta para enviar.":"Não há vídeo escolhido. Tente preparar novamente ou use Mais opções.";
   $("ctPnTroca").hidden=pb==="arquivo"||!pode("playback");
+  $("ctPnFila").disabled=p.preparando;
+
+}
+async function prepararPainel(m,p){
+  p.preparando=true;atualizarPainel();
+  try{
+    const r=await resolverPlayback(`${m.title} ${m.artist||""}`.trim(),{titulo:m.title,artista:m.artist||""});
+    if(CT.painel!==p)return;
+    p.playbackAuto={tipo:"youtube",id:r.video.id,titulo:r.video.titulo,duracao:r.video.duracao||0};
+  }catch(err){if(CT.painel===p){$("ctPnStatus").textContent=err.message;$("ctPnTroca").open=true}}
+  finally{if(CT.painel===p){p.preparando=false;atualizarPainel()}}
 }
 // Lê o link digitado. Devolve {playback}, {erro} ou {} (campo vazio). No YouTube
 // confere se o vídeo toca fora do YouTube, como o app da tela faz ao escolher.
@@ -279,7 +320,9 @@ async function enviarPainel(modo){
     if(r.erro){$("ctPnStatus").textContent=r.erro;return}
     if(modo==="playback"&&!r.playback){$("ctPnStatus").textContent="Cole o link do playback primeiro.";return}
     const dados={musicaId:p.id,modo,cantorId:$("ctPnCantor").value};
-    if(r.playback)dados.playback=r.playback;
+    const playback=r.playback||(modo==="fila"?p.playbackAuto:null);
+    if(modo==="fila"&&!playback&&!playbackDaMusica(p.id)){$("ctPnStatus").textContent="Escolha um vídeo antes de enviar esta música à festa.";return}
+    if(playback)dados.playback=playback;
     $("ctPnStatus").textContent="Enviando…";
     if(!await comando("pedir",dados)){$("ctPnStatus").textContent="Não consegui enviar. Tente de novo.";return}
     $("ctMusicaPainel").close();
@@ -385,21 +428,23 @@ $("ctNovaResultados").addEventListener("click",e=>{
   $("ctNovaInfo").innerHTML=`🎵 <b>${esc(CT.escolhida.title)}</b> — ${esc(CT.escolhida.artist)}`;
   $("ctNovaProcurar").href=linkBuscaYouTube(CT.escolhida);
   $("ctNovaEscolhida").hidden=false;
-  CT.playbackEscolhido=null;$("ctNovaLinkDet").open=false;$("ctNovaLink").value="";
-  $("ctNovaPb").textContent="Escolha o playback abaixo (ou peça sem playback).";
+  CT.playbackEscolhido=null;$("ctNovaEnviar").disabled=true;$("ctNovaLinkDet").open=false;$("ctNovaLink").value="";
+  $("ctNovaPb").textContent="Preparando o vídeo desta música…";
   buscarPlaybackDaMusica(CT.escolhida);
   $("ctNovaEscolhida").scrollIntoView({behavior:"smooth",block:"start"});
 });
 // Depois de escolher a letra, já lista os vídeos de playback daquela música.
 async function buscarPlaybackDaMusica(r){
-  const st=$("ctNovaVideosStatus"),ul=$("ctNovaVideos");
-  ul.innerHTML="";st.textContent="Procurando playbacks…";
+  const st=$("ctNovaVideosStatus"),ul=$("ctNovaVideos");ul.innerHTML="";st.textContent="Escolhendo o vídeo de karaokê…";
   try{
-    const res=await buscarVideos(`${r.title} ${r.artist} playback karaokê`);
+    const res=await resolverPlayback(`${r.title} ${r.artist}`.trim(),{titulo:r.title,artista:r.artist,duracaoEsperada:r.duration});
     if(CT.escolhida!==r)return;
-    ul.innerHTML=htmlResultadosVideos(res.lista,{duracaoEsperada:r.duration});
-    st.textContent=res.lista.length?`${textoDaFonteBusca(res)} Toque num vídeo para usar como playback.`:"Nenhum vídeo encontrado. Cole um link abaixo ou peça sem playback.";
+    CT.playbackEscolhido={tipo:"youtube",id:res.video.id,titulo:res.video.titulo,duracao:res.video.duracao||0};
+    $("ctNovaPb").textContent=`✓ Vídeo pronto: ${res.video.titulo}`;
+    ul.innerHTML=htmlResultadosVideos(res.alternativas||[],{duracaoEsperada:r.duration});
+    st.textContent="Vídeo escolhido automaticamente. Envie para a festa.";
   }catch(err){if(CT.escolhida===r){st.textContent=err.message;$("ctNovaLinkDet").open=true}}
+  finally{if(CT.escolhida===r)$("ctNovaEnviar").disabled=false}
 }
 $("ctNovaVideos").addEventListener("click",async e=>{
   const b=e.target.closest("[data-video]");if(!b)return;
@@ -421,6 +466,7 @@ $("ctNovaEnviar").addEventListener("click",async()=>{
     else if(sp)playback={tipo:"spotify",id:sp,titulo:""};
     else return notify("Não reconheci o link. Use um link do YouTube, YouTube Music ou de uma faixa do Spotify.");
   }
+  if(!playback)return notify("Não consegui escolher um vídeo. Use outro resultado ou cole um link antes de enviar.");
   const ok=await comando("pedir_nova",{title:r.title,artist:r.artist,duration:r.duration,synced:(r.synced||"").slice(0,30000),lyrics:r.synced?"":(r.lyrics||"").slice(0,30000),playback,cantorId:$("ctCantorNova").value});
   if(ok){notify("Pedido enviado! A música entra na fila da tela.",true);$("ctNovaEscolhida").hidden=true;$("ctNovaLink").value="";$("ctNovaResultados").innerHTML="";$("ctNovaVideos").innerHTML="";$("ctNovaStatus").textContent="";CT.playbackEscolhido=null}
 });

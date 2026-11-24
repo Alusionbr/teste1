@@ -83,6 +83,7 @@ async function cenario(nome,fn,{encadeado=false}={}){
 const aba=a=>page.click(`[data-aba="${a}"]`);
 async function novaManual(titulo,letra,dur){
   await aba("musicas");await page.click("#btnNovaMusica");
+  await page.click("#novaAvancado summary");
   await page.fill("#buscaLetra",titulo);await page.click("#btnMusicaManual");
   await page.waitForSelector("#dlgMusica[open]");
   if(letra)await page.fill("#mLetra",letra);
@@ -179,7 +180,7 @@ async function novaManual(titulo,letra,dur){
     for(const nome of ["Música A","Música B","Música C"]){
       await aba("musicas");
       await page.locator("#bibliotecaLista li").filter({hasText:nome}).locator('[data-acao="paraFila"]').click();
-      await page.waitForSelector("#dlgAddFila[open]");await page.click("#addConfirmar");await page.waitForSelector("#dlgAddFila",{state:"hidden"});
+      await page.waitForSelector("#dlgAddFila[open]");await page.click("#addAvancado summary");await page.check("#addSemAudio");await page.click("#addConfirmar");await page.waitForSelector("#dlgAddFila",{state:"hidden"});
     }
     await aba("playlist");
     const quem=(await page.locator("#filaLista .quem").allInnerTexts()).map(s=>s.replace(/\s+/g," ").trim());
@@ -344,7 +345,7 @@ async function novaManual(titulo,letra,dur){
     for(const nome of ["Solo Um","Solo Dois"]){
       await aba("musicas");
       await page.locator("#bibliotecaLista li").filter({hasText:nome}).locator('[data-acao="paraFila"]').click();
-      await page.waitForSelector("#dlgAddFila[open]");await page.click("#addConfirmar");await page.waitForSelector("#dlgAddFila",{state:"hidden"});
+      await page.waitForSelector("#dlgAddFila[open]");await page.click("#addAvancado summary");await page.check("#addSemAudio");await page.click("#addConfirmar");await page.waitForSelector("#dlgAddFila",{state:"hidden"});
     }
     await aba("playlist");
     ok(/Ana|Beto/.test((await page.locator("#filaLista .quem").allInnerTexts()).join(" ")),"a playlist de teste deveria ter cantores marcados");
@@ -415,7 +416,7 @@ async function novaManual(titulo,letra,dur){
 
   await cenario("buscar vídeo no YouTube sem chave: Nova música e editor",async()=>{
     await aba("musicas");await page.click("#btnNovaMusica");
-    await page.fill("#novaLinkYT","evidências");await page.click("#novaVerOpcoes");
+    await page.fill("#novaLinkYT","evidências");await page.click("#formNovaLink .opcoesBusca summary");await page.click("#novaVerOpcoes");
     await page.waitForSelector("#novaVideos [data-video]",{timeout:10000});
     ok(await page.locator("#novaVideos [data-video]").count()===3,"deveria listar os 3 vídeos");
     ok(/serviço público/.test(await page.locator("#buscaStatus").innerText()),"não diz de onde vieram os resultados");
@@ -480,20 +481,20 @@ async function novaManual(titulo,letra,dur){
     await page.evaluate(()=>document.querySelector("#dlgNovaMusica").close());
   });
 
-  await cenario("adicionar várias de uma vez: uma entra completa, uma sem vídeo, uma não acha; pode tirar",async()=>{
+  await cenario("adicionar várias: só entram músicas com vídeo pronto; falhas ficam fora da fila",async()=>{
     await aba("musicas");await page.click("#btnNovaMusica");
     await page.click("#novaLote summary");
     const antes=await page.evaluate(()=>({m:K.dados.musicas.length,f:playlistAtiva().itens.length}));
     await page.fill("#loteTexto","1. Evidências - Chitãozinho e Xororó\nBloqueada - Fulano\nNada - Ninguém\nevidências - chitãozinho e xororó");
     await page.click("#loteIr");
     await page.waitForFunction(()=>/Pronto/.test(document.querySelector("#loteStatus").textContent),null,{timeout:60000});
-    ok(await page.locator("#loteLista .autoItem[data-musica]").count()===2,"deveriam entrar 2 músicas");
-    ok(await page.locator("#loteLista .autoItem.falhou").count()===1,"deveria falhar 1 linha");
+    ok(await page.locator("#loteLista .autoItem[data-musica]").count()===1,"só deveria entrar a música com vídeo");
+    ok(await page.locator("#loteLista .autoItem.falhou").count()===2,"deveriam falhar as duas linhas sem vídeo");
     const st=await page.locator("#loteStatus").innerText();
-    ok(/2 entraram/.test(st)&&/1 não/.test(st),"resumo errado: "+st);
+    ok(/1 entraram/.test(st)&&/2 não/.test(st),"resumo errado: "+st);
     const dep=await page.evaluate(()=>({m:K.dados.musicas.length,f:playlistAtiva().itens.length,sem:K.dados.musicas.filter(x=>!x.playback&&x.title==="Bloqueada").length}));
-    ok(dep.m===antes.m+2&&dep.f===antes.f+2&&dep.sem===1,"estado errado: "+JSON.stringify(dep));
-    ok(await page.locator('#loteLista [data-auto="trocar"]').filter({hasText:"Escolher vídeo"}).count()===1,"a música sem vídeo deveria oferecer Escolher vídeo");
+    ok(dep.m===antes.m+1&&dep.f===antes.f+1&&dep.sem===0,"estado errado: "+JSON.stringify(dep));
+    ok(await page.locator('#loteLista [data-auto="trocar"]').filter({hasText:"Escolher vídeo"}).count()===0,"música sem vídeo não deve entrar na fila");
     // tira as duas
     for(let n=await page.locator('#loteLista [data-auto="tirar"]').count();n>0;n--){
       await page.locator('#loteLista [data-auto="tirar"]').first().click();
@@ -799,9 +800,9 @@ async function novaManual(titulo,letra,dur){
       });
       await celular.fill("#ctBuscaMinhaLista","Música para depois - Artista teste");
       await celular.click('#ctFormMinhaLista button[type="submit"]');
-      await celular.waitForSelector('#ctMinhaListaResultados [data-video="BUSCAAAAAA1"]');
-      await celular.click('#ctMinhaListaResultados [data-video="BUSCAAAAAA1"]');
+
       await celular.waitForFunction(()=>JSON.parse(localStorage.getItem("karaoke:controle:minha-lista:v1")||"[]").length===1);
+      await celular.click("#ctMinhaListaMais summary");
       await celular.check('#ctMinhaListaItens [data-minha-musica="BUSCAAAAAA1"]');
       await celular.reload();
       ok(await celular.locator('#ctMinhaListaItens [data-minha-musica="BUSCAAAAAA1"]').isChecked(),"a seleção não sobreviveu ao recarregamento");
@@ -810,6 +811,7 @@ async function novaManual(titulo,letra,dur){
         window.__pedidos=[];window.salaRpc=async(fn,d)=>{window.__pedidos.push({fn,d});return{ok:true}};
         renderMinhaLista();
       });
+      await celular.click("#ctMinhaListaMais summary");
       await celular.click("#ctMinhaListaEnviar");
       await celular.waitForFunction(()=>window.__pedidos.length===1);
       const pedido=await celular.evaluate(()=>window.__pedidos[0]);

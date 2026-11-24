@@ -317,3 +317,20 @@ body.liberandoYT #palco #ytBox iframe{pointer-events:auto}
 .permLinha{display:flex;gap:.6em;align-items:center;justify-content:space-between;margin:.3em 0}
 .permLinha span{flex:1 1 auto}
 #permPessoas li{display:flex;gap:.6em;align-items:center;justify-content:space-between}
+/* Caminho principal: preparar vídeo e enviar; ajustes ficam recolhidos. */
+.enviarPlaylist{width:100%;margin:12px 0;font-weight:700;min-height:48px}
+#ctMinhaListaItens input[type="checkbox"]{display:none}
+#ctMinhaListaItens.selecionando input[type="checkbox"]{display:block}
+#ctMinhaListaResultados .autoItem{display:block}
+#ctMinhaListaResultados small{display:block;color:var(--suave);margin-top:6px}
+.ctMaisControles{text-align:center;margin-top:12px;color:var(--suave)}
+.ctMaisControles summary,.linkDetalhes summary,.opcoesBusca summary{cursor:pointer;padding:8px 0}
+.opcoesBusca{width:100%;color:var(--suave);font-size:.9em}
+#formNovaLink{flex-wrap:wrap}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--ciano);outline-offset:3px}
+
+#ctMinhaListaItens:not(.selecionando) label{pointer-events:none}
+#ctMinhaListaItens .itemMinhaLista{display:flex;margin:0;padding:.6em .7em}
+#ctMinhaListaItens label{flex:1;min-width:0;margin:0}
+#ctMinhaListaItens small{font-size:.8em}
+#ctMinhaListaItens button{align-self:center;min-height:32px;padding:.3em .6em}

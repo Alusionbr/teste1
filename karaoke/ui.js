@@ -44,8 +44,32 @@ $("btnApagarPlaylist").addEventListener("click",()=>{
   if(!confirm(`Apagar a playlist "${p.nome}"? As músicas continuam salvas em Músicas.`))return;
   removerPlaylist(p.id);salvarERender("Playlist apagada.");
 });
-$("btnComecar").addEventListener("click",()=>{const p=playlistAtiva();if(p)abrirPalco({playlistId:p.id,indice:0})});
-$("btnSolo").addEventListener("click",()=>{const p=playlistAtiva();if(p)abrirPalco({playlistId:p.id,indice:0,solo:true})});
+let preparandoFesta=false;
+async function iniciarFestaComAudio(opcoes){
+  if(preparandoFesta)return;
+  const p=acharPlaylist(opcoes.playlistId);if(!p)return;
+  const ids=[...new Set(p.itens.slice(opcoes.indice||0).map(i=>i.musicaId))];
+  const faltam=ids.map(acharMusica).filter(m=>m&&!m.playback&&!m.audioExterno);
+  preparandoFesta=true;renderPlaylist();let atual=null;
+  try{
+    for(let i=0;i<faltam.length;i++){
+      atual=faltam[i];$("playlistStatus").textContent=`Preparando vídeo ${i+1} de ${faltam.length}: ${atual.title}…`;
+      const r=await resolverPlayback(`${atual.title} ${atual.artist}`.trim(),{chave:K.dados.prefs.keyYT,titulo:atual.title,artista:atual.artist,duracaoEsperada:atual.duration});
+      if(playlistAtiva()?.id!==p.id)return;
+      const salva=acharMusica(atual.id);
+      if(salva&&!salva.playback&&!salva.audioExterno)editarMusica(atual.id,{playback:{tipo:"youtube",id:r.video.id,titulo:r.video.titulo,duracao:r.video.duracao||0}});
+    }
+    if(faltam.length){await salvarEstado();notify("Vídeos preparados. Vamos cantar!",true)}
+    if(playlistAtiva()?.id===p.id){
+      const incompleta=p.itens.slice(opcoes.indice||0).some(i=>{const m=acharMusica(i.musicaId);return m&&!m.playback&&!m.audioExterno});
+      if(incompleta){$("playlistStatus").textContent="A fila mudou durante a preparação. Toque em Começar para preparar as músicas novas.";return}
+      abrirPalco(opcoes);
+    }
+  }catch(err){$("playlistStatus").textContent="Não consegui preparar todos os vídeos. Escolha outra versão para a música indicada.";notify(`A festa ainda não começou: não consegui preparar o vídeo de ${atual?.title||"uma música"}. ${err.message}`,false,atual?{label:"Escolher vídeo",run:()=>abrirEditor(atual.id)}:null)}
+  finally{preparandoFesta=false;if(P.aberto||playlistAtiva()?.id!==p.id)$("playlistStatus").textContent="";renderPlaylist()}
+}
+$("btnComecar").addEventListener("click",()=>{const p=playlistAtiva();if(p)iniciarFestaComAudio({playlistId:p.id,indice:0})});
+$("btnSolo").addEventListener("click",()=>{const p=playlistAtiva();if(p)iniciarFestaComAudio({playlistId:p.id,indice:0,solo:true})});
 $("btnAddFila").addEventListener("click",()=>{
   if(!K.dados.musicas.length){trocarAba("musicas");abrirNovaMusica();return}
   abrirAddFila();
@@ -54,7 +78,7 @@ $("filaLista").addEventListener("click",e=>{
   const b=e.target.closest("button[data-acao]");if(!b)return;
   const li=b.closest("li"),p=playlistAtiva();if(!p)return;
   const i=Number(li.dataset.indice);
-  if(b.dataset.acao==="tocarItem")abrirPalco({playlistId:p.id,indice:i});
+  if(b.dataset.acao==="tocarItem")iniciarFestaComAudio({playlistId:p.id,indice:i});
   else if(b.dataset.acao==="subir"){moverItem(p,i,-1);salvarERender()}
   else if(b.dataset.acao==="descer"){moverItem(p,i,1);salvarERender()}
   else if(b.dataset.acao==="tirar"){removerItem(p,li.dataset.item);salvarERender()}
@@ -101,7 +125,8 @@ $("bibliotecaLista").addEventListener("click",e=>{
 function abrirNovaMusica(){
   $("buscaResultados").innerHTML="";$("buscaStatus").textContent="";$("novaResultado").innerHTML="";$("novaVideos").innerHTML="";
   $("dlgNovaMusica").showModal();
-  setTimeout(()=>$("buscaLetra").focus(),50);
+  $("novaAvancado").open=false;
+  setTimeout(()=>$("novaLinkYT").focus(),50);
 }
 $("btnNovaMusica").addEventListener("click",abrirNovaMusica);
 let ultimosResultados=[];
@@ -280,7 +305,7 @@ document.querySelectorAll("#dlgMusica [data-pb]").forEach(b=>b.addEventListener(
 ["mTitulo","mArtista","mLetra"].forEach(id=>$(id).addEventListener("input",atualizarEditor));
 async function definirPlaybackEditor(playback,msg){
   salvarEditor();
-  editarMusica(ED.id,{playback});
+  editarMusica(ED.id,{playback,audioExterno:!playback});
   await salvarEstado();
   atualizarEditor();
   if(msg)notify(msg,true);
@@ -417,7 +442,7 @@ $("duetoSalvar").addEventListener("click",()=>{
 
 /* -------------------------------------------------- adicionar à playlist */
 $("addBusca").addEventListener("input",renderAddFila);
-$("addMusicas").addEventListener("click",e=>{const b=e.target.closest("[data-escolher]");if(!b)return;AF.musicaId=b.dataset.escolher;renderAddFila()});
+$("addMusicas").addEventListener("click",e=>{const b=e.target.closest("[data-escolher]");if(!b)return;AF.musicaId=b.dataset.escolher;AF.versao++;AF.preparando=false;$("addStatus").textContent="";renderAddFila()});
 $("dlgAddFila").addEventListener("click",e=>{
   const b=e.target.closest("[data-lado]");if(!b)return;
   if(b.dataset.lado==="a"){AF.a=b.dataset.cantor;if(AF.b===AF.a)AF.b=""}
@@ -431,13 +456,24 @@ $("addDueto").addEventListener("change",e=>{
   renderAddFila();
 });
 $("addConfirmar").addEventListener("click",async()=>{
-  const p=garantirPlaylist();
-  const m=acharMusica(AF.musicaId);if(!m)return;
-  adicionarItem(p,m.id,AF.a,$("addDueto").checked?AF.b:"");
-  await salvarEstado();
-  $("dlgAddFila").close();
-  trocarAba("playlist");
-  notify(`"${m.title}" entrou na playlist ${p.nome}.`,true);
+  if(AF.preparando)return;
+  let m=acharMusica(AF.musicaId);if(!m)return;
+  const versao=AF.versao;AF.preparando=true;renderAddFila();
+  try{
+    if(!m.playback&&!$("addSemAudio").checked){
+      $("addStatus").textContent="Preparando o vídeo desta música…";
+      const r=await resolverPlayback(`${m.title} ${m.artist}`.trim(),{chave:K.dados.prefs.keyYT,titulo:m.title,artista:m.artist,duracaoEsperada:m.duration});
+      if(AF.versao!==versao||!$("dlgAddFila").open)return;
+      const atual=acharMusica(m.id);if(!atual)return;
+      m=atual.playback?atual:editarMusica(m.id,{playback:{tipo:"youtube",id:r.video.id,titulo:r.video.titulo,duracao:r.video.duracao||0}});
+    }
+    if(AF.versao!==versao||!$("dlgAddFila").open)return;
+    if(!m.playback&&$("addSemAudio").checked)m=editarMusica(m.id,{audioExterno:true});
+    const p=garantirPlaylist();adicionarItem(p,m.id,AF.a,$("addDueto").checked?AF.b:"");
+    await salvarEstado();$("dlgAddFila").close();trocarAba("playlist");
+    notify(`"${m.title}" entrou na playlist ${p.nome}${m.playback?" com áudio pronto":" para tocar o áudio por fora"}.`,true);
+  }catch(err){if(AF.versao===versao)$("addStatus").textContent=`Não foi adicionada: ${err.message}`}
+  finally{if(AF.versao===versao){AF.preparando=false;renderAddFila()}}
 });
 
 /* ------------------------------------------------------------- família */

@@ -548,14 +548,15 @@ function avisarSala(extra){if(typeof SalaHost!=="undefined")SalaHost.mudou(extra
 
 document.addEventListener("keydown",e=>{
   if(!P.aberto||$("dlgSala").open)return;
+  if(e.defaultPrevented)return;
+  if(e.target?.closest("button,a[href],summary")&&["Enter"," "].includes(e.key))return;
   if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)&&e.target.type!=="range")return;
   if(P.fase==="gravando"&&Sincronia.tecla(e))return;
   const k=e.key;
   // Na barra de progresso, as setas movem a barra (padrão do navegador), não trocam de música.
   if(e.target&&e.target.type==="range"&&(k==="ArrowLeft"||k==="ArrowRight"))return;
   if(k===" "||k==="k"){e.preventDefault();alternar()}
-  else if(k==="ArrowRight"||k==="n"){e.preventDefault();proxima()}
-  else if(k==="ArrowLeft"){e.preventDefault();anterior()}
+  else if(k==="n"){e.preventDefault();proxima()}
   else if(k==="Escape"&&!document.fullscreenElement){fecharPalco()}
   else if(k==="f"){telaCheia()}
   else if(k==="l"){alternarLetra()}

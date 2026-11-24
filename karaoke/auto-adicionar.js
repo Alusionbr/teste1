@@ -5,8 +5,8 @@
  * e o "Adicionar várias de uma vez" usam (ui.js liga os botões).
  *
  * A escolha pode errar: toda música adicionada aqui volta com "Trocar vídeo" e
- * "Tirar". Se nenhum vídeo toca fora do YouTube e há letra, a música entra sem
- * playback (a família escolhe depois); sem vídeo e sem letra, nada é criado.
+ * "Tirar". Se nenhum vídeo toca fora do YouTube, nada entra na fila: letra sozinha
+ * não pode ser apresentada como música pronta para tocar.
  */
 const AUTO={};   // musicaId → {musica, item, video, alternativas, letra, jaExistia} da última adição
 
@@ -27,8 +27,9 @@ async function adicionarPeloNome({titulo,artista},{comLetra=true}={}){
     precisaLetra?procurarLetraDaLinha(titulo,artista):null,
     precisaVideo?resolverPlayback(`${titulo} ${artista}`.trim(),{chave:K.dados.prefs.keyYT,titulo,artista}).catch(erro=>({erro})):null
   ]);
-  if(res&&res.erro&&!letra)throw res.erro;
+  if(res&&res.erro)throw res.erro;
   const video=res&&res.video||null;
+  if(precisaVideo&&!video)throw Error("Não achei um vídeo para tocar esta música. Escolha outra versão antes de adicionar à festa.");
   const playback=video?{tipo:"youtube",id:video.id,titulo:video.titulo,duracao:video.duracao||0}:null;
   // Letra sincronizada só se for da mesma gravação do vídeo; senão entra como texto sem tempo.
   const ajustada=ajustarLetraAoVideo(letra,video?video.duracao:(ja&&ja.playback&&ja.playback.duracao)||0);
