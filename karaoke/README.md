@@ -18,6 +18,14 @@ O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
 
+### Usar a conta do YouTube no navegador da tela
+
+Em **Ajustes → Conta do YouTube**, habilite **Usar minha sessão do YouTube neste navegador** e abra o YouTube para entrar na conta. Faça isso no mesmo navegador e aparelho que exibe o palco. A mudança vale na próxima música, sem interromper a atual.
+
+O player passa a usar `youtube.com`, com cookies, em vez do modo de privacidade `youtube-nocookie.com`. A recuperação de falhas preserva essa escolha. Com YouTube Premium ativo e cookies permitidos, o YouTube pode reconhecer o benefício sem anúncios ([ajuda oficial](https://support.google.com/youtube/answer/7437519?hl=pt-BR)). Conta gratuita continua com anúncios; login no app da TV ou no celular não conecta o navegador da tela. O karaokê não recebe credenciais nem confirma login ou assinatura. Desligar a opção volta a priorizar o modo de privacidade na próxima música, mas não desloga do YouTube. Sem a opção, a recuperação continua podendo tentar o domínio padrão, como nas versões anteriores.
+
+Esta opção não é um bloqueador. Navegadores de TVs/projetores podem não reconhecer a sessão. Se o YouTube não reconhecer o Premium, confira conta/cookies ou use um arquivo local de áudio. O site não consegue instalar um bloqueador automaticamente nesses aparelhos.
+
 ### Usar como lista compartilhada de faixas (vídeo do YouTube com a letra)
 
 Para a festa em que **a letra já vem no vídeo de karaokê do YouTube**: o app vira a lista compartilhada de faixas e a fila, e a tela mostra o vídeo.
@@ -246,3 +254,5 @@ psql -q -f karaoke/supabase/teste_sala.sql
 4. Nota de afinação de verdade (detecção de altura pelo microfone) — só se for honesta sobre o que mede.
 5. Modo “só celular” com a letra também no telefone de quem está cantando.
 6. Cantar sozinho: histórico de notas por música (gráfico) e metas (“bater 80 pontos”); hoje só o recorde aparece.
+
+Teste da opção de sessão: `node karaoke/tests/browser-sessao.js` (Playwright/Chromium; servidor local na porta 8767 ou `KARAOKE_URL`). Verifica uso sem conta, origens e outra mídia em progresso por mais de 12 segundos com player simulado; não valida login/cookies/Premium reais.

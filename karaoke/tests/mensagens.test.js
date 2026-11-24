@@ -416,3 +416,89 @@ test("YouTube: mensagem do player antes do evento load também libera o envio",a
   c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event:"onReady"})});
   assert.ok(c.enviados.some(e=>JSON.parse(e.m).func==="playVideo"),"tocar guardado é cumprido");
 });
+
+test("YouTube: sessão é opcional, muda só na próxima carga e recuperação não perde a origem",async()=>{
+  const c=contexto();c.ctx.K={dados:{prefs:{youtubeSessao:false}}};
+  vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const F=c.ctx.F,load=id=>F.carregar({playback:{id}});
+  const msg=(origin,info)=>c.receber({origin,source:c.frame.contentWindow,data:JSON.stringify({event:"infoDelivery",info})});
+  await load("dQw4w9WgXcQ");
+  assert.match(c.frame.src,/youtube-nocookie\.com/);
+  c.carregou();msg("https://www.youtube-nocookie.com",{playerState:1,currentTime:20});
+  const antes=c.frame.src;
+  c.ctx.K.dados.prefs.youtubeSessao=true;
+  assert.equal(c.frame.src,antes,"alterar preferência não interrompe a música");
+  assert.equal(F.tocando(),true);
+  await load("BUSCAAAAAA1");
+  assert.match(c.frame.src,/www\.youtube\.com\/embed\/BUSCAAAAAA1/);
+  // A origem antiga não pode controlar o player após a troca.
+  msg("https://www.youtube-nocookie.com",{playerState:1,currentTime:99});
+  assert.equal(F.tocando(),false);
+  c.carregou();msg("https://www.youtube.com",{playerState:1,currentTime:12});
+  F.recarregar();
+  assert.match(c.frame.src,/www\.youtube\.com\/embed/);
+  assert.equal(new URL(c.frame.src).searchParams.get("start"),"12");
+  c.ctx.K.dados.prefs.youtubeSessao=false;
+  await load("BUSCAAAAAA2");
+  assert.match(c.frame.src,/youtube-nocookie\.com/);
+});
+
+test("YouTube: fim sem identidade após outra mídia não encerra a música",async()=>{
+  const c=contexto();vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  await c.ctx.F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  const msg=(event,info)=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event,info})});
+  msg("infoDelivery",{playerState:1,currentTime:40});
+  msg("infoDelivery",{videoData:{video_id:"COMERCIAL01"},playerState:1,currentTime:10});
+  msg("onStateChange",0);
+  assert.equal(c.eventos.some(e=>e[0]==="fim"),false);
+  assert.equal(c.ctx.F.tempo(),40);
+  msg("infoDelivery",{playerState:1,currentTime:41});
+  assert.equal(c.ctx.F.tocando(),true,"mensagem parcial recupera sem prender em anúncio");
+  msg("infoDelivery",{playerState:0,videoData:{video_id:"dQw4w9WgXcQ"}});
+  assert.equal(c.eventos.filter(e=>e[0]==="fim").length,1);
+});
+
+test("YouTube: progresso de outra mídia mantém recuperação viva, mas silêncio ainda vence o prazo",async()=>{
+  const c=contexto();vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  const F=c.ctx.F;
+  await F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  c.carregou();F.tocar();
+  const msg=info=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event:"infoDelivery",info})});
+  for(let t=1;t<=20;t++){
+    msg({videoData:{video_id:"COMERCIAL01"},playerState:1,currentTime:t,duration:30});
+    c.avancar(1000);
+  }
+  assert.equal(c.eventos.some(e=>e[0]==="erro"),false,"player ativo não é falha de resposta");
+  assert.equal(F.emAnuncio,true);
+  c.avancar(12001);
+  assert.equal(c.eventos.filter(e=>e[0]==="erro").length,1,"player mudo continua tendo limite");
+  msg({videoData:{video_id:"dQw4w9WgXcQ"},playerState:1,currentTime:1,duration:200});
+  assert.ok(F.tocando());
+  assert.ok(c.eventos.some(e=>e[0]==="retomou"));
+});
+
+test("YouTube: metadados sem relógio não limpam a proteção de término de outra mídia",async()=>{
+  const c=contexto();vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  await c.ctx.F.carregar({playback:{id:"dQw4w9WgXcQ"}});
+  const msg=(event,info)=>c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event,info})});
+  msg("infoDelivery",{playerState:1,currentTime:40});
+  msg("infoDelivery",{videoData:{video_id:"COMERCIAL01"},currentTime:10});
+  msg("infoDelivery",{volume:75});
+  msg("onReady",undefined);
+  msg("onStateChange",0);
+  assert.equal(c.eventos.some(e=>e[0]==="fim"),false);
+  msg("infoDelivery",{playerState:1,currentTime:41});
+  assert.equal(c.ctx.F.tocando(),true);
+  msg("onStateChange",0);
+  assert.equal(c.eventos.filter(e=>e[0]==="fim").length,1);
+});
+
+test("YouTube: relógio congelado de outra mídia não renova o prazo indefinidamente",async()=>{
+  const c=contexto();vm.runInContext(fonteYT()+";this.F=FonteYouTube;",c.ctx);
+  await c.ctx.F.carregar({playback:{id:"dQw4w9WgXcQ"}});c.carregou();c.ctx.F.tocar();
+  for(let i=0;i<14;i++){
+    c.receber({origin:"https://www.youtube-nocookie.com",source:c.frame.contentWindow,data:JSON.stringify({event:"infoDelivery",info:{videoData:{video_id:"COMERCIAL01"},playerState:1,currentTime:1}})});
+    c.avancar(1000);
+  }
+  assert.equal(c.eventos.filter(e=>e[0]==="erro").length,1);
+});

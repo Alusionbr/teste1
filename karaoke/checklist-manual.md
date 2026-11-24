@@ -18,7 +18,7 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] iPhone/iPad: na primeira música aparece “toque no ▶ do vídeo”; depois as próximas encadeiam sozinhas.
 - [ ] Vídeo de clipe oficial bloqueado: aviso claro + Trocar playback / Seguir sem playback.
 - [ ] Spotify sem login: aviso de prévia de 30 s; ao acabar a prévia NÃO vai para os aplausos (mostra o aviso). Com login: música inteira, letra acompanha.
-- [ ] Anúncio no YouTube: selo “Anúncio — a letra espera” e a letra não corre durante o comercial.
+- [ ] Vídeo com anúncio real: conferir se o player identifica outra mídia, se a letra espera e se os controles permitem interagir. A detecção é limitada; não presumir que todo anúncio seja identificado.
 - [ ] Letra −/+ ajusta e fica salvo na música; atraso Bluetooth em Ajustes vale para todas.
 
 ## Palco
@@ -100,3 +100,15 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 
 - [ ] Sem sala aberta, buscar e salvar músicas no controle do celular. Selecionar algumas, entrar numa sala e enviar. Confirmar que entram no fim da fila sem interromper a música atual.
 - [ ] Enviar música nova com playback e confirmar que o ID do vídeo é salvo no catálogo compartilhado.
+
+## Sessão opcional e revisão antes de publicar
+
+- [ ] Chrome, sem login: abrir, buscar, montar fila e cantar sem exigência de conta. Preferência de sessão começa desligada.
+- [ ] Conta gratuita no mesmo navegador: sessão opcional funciona sem prometer remover anúncios.
+- [ ] Conta YouTube Premium real, cookies permitidos: verificar se o player reconhece o benefício. Login no app da TV ou no celular não serve como prova.
+- [ ] Cookies bloqueados: nada declara assinatura reconhecida; permanecem trocar playback e abrir no YouTube.
+- [ ] Alterar a opção: música atual continua; próxima carga aplica a origem escolhida. Recuperar com a sessão habilitada mantém youtube.com.
+- [ ] Anúncio real com mais de 12 segundos: verificar que a tela não cobre o player com erro enquanto ele progride e não avança a fila ao fim do anúncio.
+- [ ] Repetir os casos sem conta e com sessão no navegador real da Smart TV e do projetor; anotar modelo, navegador e resultado.
+
+Os testes automatizados usam players simulados. Nenhum item acima está validado apenas por eles. Esta versão não implementa bloqueio universal de publicidade.
