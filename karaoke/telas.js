@@ -95,6 +95,7 @@ function renderAjustes(){
   $("prefContagem").value=String(pr.contagem);
   $("prefAplausometro").checked=pr.aplausometro;
   $("prefYoutubeSessao").checked=pr.youtubeSessao;
+  $("prefConviteProjeto").checked=pr.conviteProjeto;
   $("atrasoOut").textContent=pr.audioDelay+" ms";
   if(document.activeElement!==$("prefKeyYT"))$("prefKeyYT").value=pr.keyYT;
   $("versaoApp").textContent="v"+APP_VERSION;

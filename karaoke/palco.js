@@ -43,6 +43,7 @@ function abrirPalco({playlistId="",indice=0,modo="festa",musicaId="",solo=false}
 function fecharPalco(){
   if(!P.aberto)return;
   P.aberto=false;
+  ConviteProjeto.ocultar();
   pararTudo();
   cancelAnimationFrame(P.raf);
   if(typeof Sincronia!=="undefined")Sincronia.encerrar();
@@ -104,6 +105,7 @@ function esconderSobreposicoes(){
 
 /* ------------------------------------------------------------ trocar música */
 function carregarIndice(i,{comecarJa=false}={}){
+  ConviteProjeto.ocultar();
   pararTudo();esconderSobreposicoes();
   if(i>=P.itens.length){mostrarFim();return}
   if(i<0)i=0;
@@ -166,6 +168,7 @@ function mostrarVez(){
   avisarSala();
 }
 function comecar(){
+  ConviteProjeto.ocultar();
   clearInterval(P.contagemTimer);
   $("palcoVez").hidden=true;
   P.fase="cantando";
@@ -468,6 +471,7 @@ function avisarDuracao(f){
 function tick(){
   if(!P.aberto)return;
   P.raf=requestAnimationFrame(tick);
+  ConviteProjeto.atualizar({aberto:P.aberto,modo:P.modo,fase:P.fase,ligado:prefs().conviteProjeto,erro:!$("palcoErro").hidden||$("dlgSala").open});
   const f=P.fonte;if(!f||!P.musica)return;
   const t=f.tempo();
   atualizarBarra(t);

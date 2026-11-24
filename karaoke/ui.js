@@ -485,6 +485,11 @@ $("permPessoas").addEventListener("click",e=>{
 function moverAtraso(d){const pr=K.dados.prefs;pr.audioDelay=clamp(pr.audioDelay+d,0,800);$("atrasoOut").textContent=pr.audioDelay+" ms";salvarLogo()}
 $("atrasoMenos").addEventListener("click",()=>moverAtraso(-50));
 $("atrasoMais").addEventListener("click",()=>moverAtraso(50));
+$("prefConviteProjeto").addEventListener("change",e=>{
+  K.dados.prefs.conviteProjeto=e.target.checked;
+  if(e.target.checked)ConviteProjeto.permitirNovamente();else ConviteProjeto.ocultar();
+  salvarLogo();
+});
 $("prefYoutubeSessao").addEventListener("change",e=>{
   K.dados.prefs.youtubeSessao=e.target.checked;salvarLogo();
   notify(e.target.checked?"Sessão do YouTube habilitada para a próxima música. Entre no YouTube neste mesmo navegador.":"O player volta a priorizar o modo de privacidade na próxima música.",true);

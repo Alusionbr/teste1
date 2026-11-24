@@ -112,3 +112,11 @@ Rodar antes de publicar. Servir por HTTP (`python3 -m http.server 8765 -d karaok
 - [ ] Repetir os casos sem conta e com sessão no navegador real da Smart TV e do projetor; anotar modelo, navegador e resultado.
 
 Os testes automatizados usam players simulados. Nenhum item acima está validado apenas por eles. Esta versão não implementa bloqueio universal de publicidade.
+
+## Convite público do projeto
+
+- [ ] Em TV/projetor real, escanear o QR nos aplausos e verificar a página pública do projeto. É um QR diferente do QR de entrar na sala.
+- [ ] Confirmar que o cartão não cobre os botões da pausa e some ao começar a próxima música; não aparece durante canto/ensaio/gravação nem ao configurar a sala.
+- [ ] Fechar pelo controle remoto: não pula a música e permanece dispensado após recarregar a mesma aba. Desligar em Ajustes remove o convite.
+- [ ] Intervalo mínimo de 15 min e duração máxima de 25 s. Testar leitura à distância com a imagem do projetor.
+- [ ] No celular, abrir a página, experimentar, compartilhar e copiar link; negar permissão de área de transferência deve oferecer seleção manual do link.

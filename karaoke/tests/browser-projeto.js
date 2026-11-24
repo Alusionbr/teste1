@@ -1,0 +1,66 @@
+"use strict";
+const {chromium}=require('playwright'),assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({args:['--autoplay-policy=no-user-gesture-required']});
+ try{
+  const ctx=await browser.newContext({viewport:{width:1280,height:720},serviceWorkers:'block'});
+  await ctx.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+  const page=await ctx.newPage(),erros=[];page.on('pageerror',e=>erros.push(e.message));
+  const base=process.env.KARAOKE_URL||'http://127.0.0.1:8769/';
+  await page.goto(base);await page.waitForFunction(()=>typeof K!=='undefined'&&K.pronto);
+  await page.evaluate(()=>{
+   prefs().contagem=0;prefs().aplausometro=false;
+   const p=criarPlaylist('Festa teste');
+   for(const title of ['Primeira','Segunda']){const m=criarMusica({title,lyrics:'Teste',duration:60});adicionarItem(p,m.id,'','')}
+   abrirPalco({playlistId:p.id});
+  });
+  await page.waitForFunction(()=>P.fonte.tocando());
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false,'não exibe enquanto canta');
+  await page.evaluate(()=>{P.fonte.parar();mostrarNota()});
+  await page.waitForSelector('#conviteProjeto:not([hidden])');
+  const card=await page.locator('#conviteProjeto').boundingBox(),action=await page.locator('#notaProxima').boundingBox();
+  assert.ok(card.x>=action.x+action.width||card.y>=action.y+action.height||card.x+card.width<=action.x||card.y+card.height<=action.y,'convite não cobre Próxima');
+  const qr=await page.locator('#conviteProjetoQR').evaluate(c=>({w:c.width,h:c.height,p:[...c.getContext('2d').getImageData(0,0,c.width,c.height).data].some(x=>x===0)}));
+  assert.ok(qr.w>100&&qr.h>100&&qr.p,'QR desenhado');
+  await page.screenshot({path:'/tmp/karaoke-convite-tv.png'});
+  await page.click('#notaProxima');
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false);
+  await page.evaluate(()=>{P.fonte.parar();mostrarNota()});
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false,'não repete a cada música');
+  await page.evaluate(()=>ConviteProjeto.permitirNovamente());
+  await page.waitForSelector('#conviteProjeto:not([hidden])');
+  const indice=await page.evaluate(()=>P.indice);
+  await page.locator('#conviteProjetoFechar').press('Enter');
+  assert.equal(await page.evaluate(()=>P.indice),indice,'Enter no fechar não pula a música');
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false);
+  await page.evaluate(()=>{ConviteProjeto.atualizar({aberto:true,modo:'festa',fase:'nota',ligado:true},Date.now()+20*60000)});
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false,'fechar dispensa nesta sessão');
+  await page.evaluate(()=>{fecharPalco();return salvarEstado()});
+  await page.reload();await page.waitForFunction(()=>K.pronto);
+  await page.evaluate(()=>abrirPalco({playlistId:K.dados.activePlaylistId}));
+  await page.waitForFunction(()=>P.fonte.tocando());
+  await page.evaluate(()=>{P.fonte.parar();mostrarNota()});
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false,'dispensa persiste ao recarregar a aba');
+  await page.evaluate(()=>fecharPalco());
+  await page.click('[data-aba="ajustes"]');
+  await page.uncheck('#prefConviteProjeto');await page.evaluate(()=>salvarEstado());await page.reload();
+  await page.waitForFunction(()=>K.pronto);assert.equal(await page.evaluate(()=>prefs().conviteProjeto),false);
+  await page.goto(base+'projeto.html');
+  assert.equal(await page.title(),'Conheça o projeto — Karaokê em Casa');
+  assert.equal(await page.locator('a.primario').getAttribute('href'),'./index.html');
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async t=>window.linkCopiado=t}}));
+  await page.click('#projetoCopiar');
+  assert.equal(await page.evaluate(()=>window.linkCopiado),'https://alusionbr.github.io/teste1/karaoke/projeto.html');
+  await page.evaluate(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('bloqueado')}}})});
+  await page.click('#projetoCompartilhar');
+  assert.match(await page.locator('#projetoStatus').innerText(),/copie o link/);
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.screenshot({path:'/tmp/karaoke-projeto-celular.png',fullPage:true});
+  await page.goto(base);await page.waitForFunction(()=>K.pronto);
+  await page.evaluate(()=>{prefs().conviteProjeto=true;abrirPalco({playlistId:K.dados.activePlaylistId});P.fonte.parar();mostrarNota();ConviteProjeto.permitirNovamente()});
+  assert.equal(await page.locator('#conviteProjeto').isVisible(),false,'QR não ocupa a tela do celular');
+  assert.deepEqual(erros,[]);
+  console.log('OK: convite apenas na pausa, sem cobrir Próxima, QR, próxima música, intervalo, fechar por teclado, preferência salva, página mobile e compartilhar/copiar.');
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Karaokê em Casa</title>
-  <script data-version="1.0.21">
+  <script data-version="1.0.22">
   // Roda no HTML novo mesmo se o service worker antigo ainda servir scripts
   // antigos: troca de versão antes de o app começar.
   (()=>{
@@ -42,7 +42,7 @@
     }).catch(stop);
   })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=1.0.21">
+  <link rel="stylesheet" href="./styles.css?v=1.0.22">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -139,6 +139,12 @@
         <div class="rotulo">Atraso da caixa Bluetooth <output id="atrasoOut"></output></div>
         <div class="acoes"><button type="button" id="atrasoMenos">− 50 ms</button><button type="button" id="atrasoMais">+ 50 ms</button></div>
         <p class="dica">Se a letra chega sempre <b>antes</b> do som em todas as músicas, aumente. Vale só para este aparelho.</p>
+      </div>
+      <div class="cartao">
+        <h2>Conheça o projeto</h2>
+        <label class="check"><input id="prefConviteProjeto" type="checkbox"> Mostrar um convite para conhecer e compartilhar o projeto na tela da festa</label>
+        <p class="dica">Só em telas grandes, entre músicas ou no fim da playlist. Aparece por até 25 segundos, no máximo uma vez a cada 15 minutos. Fechar oculta nesta sessão. Nunca aparece enquanto alguém canta.</p>
+        <a class="botao" href="./projeto.html" target="_blank" rel="noopener">Conhecer e compartilhar ↗</a>
       </div>
       <div class="cartao">
         <h2>Conta do YouTube (opcional)</h2>
@@ -246,6 +252,12 @@
       </div>
       <p id="notaProximoInfo" class="dica"></p>
     </div>
+
+    <aside id="conviteProjeto" class="conviteProjeto" aria-label="Conheça o projeto" hidden>
+      <button id="conviteProjetoFechar" type="button" aria-label="Ocultar convite nesta sessão">✕</button>
+      <a href="./projeto.html" target="_blank" rel="noopener" aria-label="Conhecer e compartilhar o Karaokê em Casa"><canvas id="conviteProjetoQR" width="240" height="240" aria-label="QR code da página pública do projeto"></canvas></a>
+      <b>Gostou da festa?</b><span>Conheça, teste e compartilhe.</span><small>Aponte a câmera do celular</small>
+    </aside>
 
     <div id="palcoFim" class="sobre" hidden>
       <div class="vezCantor">🎉 Fim da playlist!</div>
@@ -492,32 +504,33 @@
     </div>
   </dialog>
 
-  <script src="./core.js?v=1.0.21"></script>
-  <script src="./storage.js?v=1.0.21"></script>
-  <script src="./lrc.js?v=1.0.21"></script>
-  <script src="./links.js?v=1.0.21"></script>
-  <script src="./placar.js?v=1.0.21"></script>
-  <script src="./permissoes.js?v=1.0.21"></script>
-  <script src="./estado.js?v=1.0.21"></script>
-  <script src="./familia.js?v=1.0.21"></script>
-  <script src="./biblioteca.js?v=1.0.21"></script>
-  <script src="./playlists.js?v=1.0.21"></script>
-  <script src="./letras.js?v=1.0.21"></script>
-  <script src="./busca-youtube.js?v=1.0.21"></script>
-  <script src="./fontes.js?v=1.0.21"></script>
-  <script src="./verificar-youtube.js?v=1.0.21"></script>
-  <script src="./auto-adicionar.js?v=1.0.21"></script>
-  <script src="./diagnostico.js?v=1.0.21"></script>
-  <script src="./fonte-youtube.js?v=1.0.21"></script>
-  <script src="./fonte-spotify.js?v=1.0.21"></script>
-  <script src="./aplausometro.js?v=1.0.21"></script>
-  <script src="./palco.js?v=1.0.21"></script>
-  <script src="./sincronia.js?v=1.0.21"></script>
-  <script src="./qr.js?v=1.0.21"></script>
-  <script src="./sala.js?v=1.0.21"></script>
-  <script src="./sala-host.js?v=1.0.21"></script>
-  <script src="./telas.js?v=1.0.21"></script>
-  <script src="./ui.js?v=1.0.21"></script>
-  <script src="./offline.js?v=1.0.21"></script>
+  <script src="./core.js?v=1.0.22"></script>
+  <script src="./storage.js?v=1.0.22"></script>
+  <script src="./lrc.js?v=1.0.22"></script>
+  <script src="./links.js?v=1.0.22"></script>
+  <script src="./placar.js?v=1.0.22"></script>
+  <script src="./permissoes.js?v=1.0.22"></script>
+  <script src="./estado.js?v=1.0.22"></script>
+  <script src="./familia.js?v=1.0.22"></script>
+  <script src="./biblioteca.js?v=1.0.22"></script>
+  <script src="./playlists.js?v=1.0.22"></script>
+  <script src="./letras.js?v=1.0.22"></script>
+  <script src="./busca-youtube.js?v=1.0.22"></script>
+  <script src="./fontes.js?v=1.0.22"></script>
+  <script src="./verificar-youtube.js?v=1.0.22"></script>
+  <script src="./auto-adicionar.js?v=1.0.22"></script>
+  <script src="./diagnostico.js?v=1.0.22"></script>
+  <script src="./fonte-youtube.js?v=1.0.22"></script>
+  <script src="./fonte-spotify.js?v=1.0.22"></script>
+  <script src="./aplausometro.js?v=1.0.22"></script>
+  <script src="./convite-projeto.js?v=1.0.22"></script>
+  <script src="./palco.js?v=1.0.22"></script>
+  <script src="./sincronia.js?v=1.0.22"></script>
+  <script src="./qr.js?v=1.0.22"></script>
+  <script src="./sala.js?v=1.0.22"></script>
+  <script src="./sala-host.js?v=1.0.22"></script>
+  <script src="./telas.js?v=1.0.22"></script>
+  <script src="./ui.js?v=1.0.22"></script>
+  <script src="./offline.js?v=1.0.22"></script>
 </body>
 </html>
