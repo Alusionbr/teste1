@@ -113,6 +113,7 @@ $("setlistForm").addEventListener("submit",e=>{
 $("libraryAddSelected").onclick=addSelectedLibrary;
 $("setlistNote").onclick=()=>{$("setlistNoteTitle").value="Pausa";$("setlistNoteDuration").value="";$("setlistNoteText").value="";$("setlistNoteDialog").showModal()};
 $("setlistNoteForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();addSetlistNote($("setlistNoteTitle").value.trim()||"Pausa",parseClock($("setlistNoteDuration").value),$("setlistNoteText").value.trim());$("setlistNoteDialog").close()});
+$("usageSettingsBtn").onclick=()=> $("usageDialog").showModal();
 $("rehearsalStart").onclick=()=>{beginRehearsal();notify("Ensaio iniciado. Atualize o estado de cada música.",true)};
 $("rehearsalFinish").onclick=()=>{$("rehearsalNotes").value="";$("rehearsalDialog").showModal()};
 $("rehearsalForm").addEventListener("submit",e=>{if(e.submitter?.value==="cancel")return;e.preventDefault();endRehearsal($("rehearsalNotes").value.trim());$("rehearsalDialog").close();notify("Sessão de ensaio salva no histórico.",true)});
@@ -353,6 +354,7 @@ $("paperViewport").addEventListener("pointerdown",()=>{
   const oldP=load("estante:preferencias",{}),p=load(KEYS.prefs,null)||{source:oldP.fonte,speed:oldP.velocidade,font:oldP.corpo,stage:oldP.palco,keyVag:oldP.chaveVagalume};
   await loadSetlists();
   EstanteBacking.init();
+  EstanteUsage.init();
   state.source=(p.source==="trecho"?"excerpt":p.source)||"smart";state.speed=state.speedGlobal=p.speed||18;state.font=p.font||26;state.stage=!!p.stage;state.theme=p.theme||"hibrido-inteligente";state.keyVag=p.keyVag||"";state.keyYT=p.keyYT||"";state.audioDelay=Number(p.audioDelay)||0;
   window.dispatchEvent(new Event("estante:prefs-loaded"));document.querySelectorAll(".sources .chip").forEach(b=>b.classList.toggle("active",b.dataset.source===state.source));applyTheme(state.theme);$("searchInput").placeholder=state.source==="excerpt"?"Um trecho da letra":state.source==="lrclib"?"Música, artista ou álbum":"Artista e música";updateControls();updateNetwork();renderList();updateSaveButton();
   const incoming=await readSharedLink();if(incoming)showIncomingSetlist(incoming);else $("searchInput").focus();

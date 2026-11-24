@@ -1,0 +1,4 @@
+project_id = "estante"
+
+[functions.estante-usage]
+verify_jwt = false

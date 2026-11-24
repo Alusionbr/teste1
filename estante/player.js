@@ -50,6 +50,11 @@ function renderCredits(song){
 let openSongRequest=0;
 async function openSong(song){
   const requestId=++openSongRequest;
+  const rehearsal=state.activeSession;
+  const missing=message=>{
+    EstanteUsage.missing(song);
+    renderMissingLyrics(song,message);
+  };
   if(typeof window.setLyricsSelectionMode==="function"&&document.body.classList.contains("selectingLyrics"))window.setLyricsSelectionMode(false);
   stopAll();state.current=song;state.lines=[];state.lrc=[];lastActive=-1;$("songTitle").textContent=song.title||"Sem título";$("songArtist").textContent=(song.artist||"SEM ARTISTA").toUpperCase();$("paperViewport").scrollTop=0;$("credits").textContent="";$("syncBtn").disabled=true;$("keyControl").hidden=true;$("capoControl").hidden=true;$("sectionBar").hidden=true;applySongPrefs(song);updateControls();updateSaveButton();
   // Troca o vídeo já aqui, antes da busca de letra que pode esperar até 12s de
@@ -62,13 +67,14 @@ async function openSong(song){
     const tryVagalume=song.vagId&&state.keyVag&&!sourceCoolingDown("vagalume");
     try{if(tryVagalume)await fetchVagalume(song);else await fetchLrclibSong(song)}catch(first){
       if(requestId!==openSongRequest)return;
-      if(tryVagalume){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify(`O Vagalume não respondeu; carreguei uma versão de ${song.source||"outra fonte"}.`,true)}catch{if(requestId===openSongRequest)renderMissingLyrics(song,first.message);return}}else{renderMissingLyrics(song,first.message);return}
+      if(tryVagalume){try{await fetchLrclibSong(song);if(requestId!==openSongRequest)return;notify(`O Vagalume não respondeu; carreguei uma versão de ${song.source||"outra fonte"}.`,true)}catch{if(requestId===openSongRequest)missing(first.message);return}}else{missing(first.message);return}
     }
     if(requestId!==openSongRequest)return;
     persistCurrent();
   }
   if(requestId!==openSongRequest)return;
   renderCurrentLyrics();updateSaveButton();renderCredits(song);
+  if(rehearsal&&state.activeSession?.id===rehearsal.id)EstanteUsage.song(song,rehearsal);
 }
 // Redesenha a letra da música aberta a partir do que está em state.current.
 // Serve para abrir a música e também depois de editar a letra, sem consultar a

@@ -1,0 +1,19 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: Canvas; color: CanvasText; }
+main { max-width: 74rem; margin: auto; padding: 2rem 1rem; }
+a { color: LinkText; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.65rem); margin: 1rem 0 .5rem; }
+h2 { font-size: 1.05rem; margin-top: 0; }
+form, .reports > section {
+  border: 1px solid ButtonBorder;
+  border-radius: .75rem;
+  padding: 1rem;
+}
+form { max-width: 25rem; margin-top: 1.5rem; }
+label { display: grid; gap: .25rem; margin-bottom: .75rem; }
+input, button { min-height: 2.65rem; padding: 0 .6rem; font: inherit; }
+button { cursor: pointer; }
+.reports { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); gap: .75rem; margin-top: 1rem; }
+li { padding: .45rem 0; overflow-wrap: anywhere; }
+li span { margin-inline: .5rem; font-variant-numeric: tabular-nums; }
+li button { font-size: .8rem; min-height: 2.2rem; }
