@@ -14,6 +14,7 @@
 const FILAS = (() => {
   const POLL_MS = 60000;
   const LOCAL_MAX_AGE = 3 * 3600e3;
+  const SHARED_MAX_AGE = 3600e3;
   let crowd = {};          // place_id -> {minutes, reports, lastAt}
   let timer = 0;
   const listeners = [];
@@ -49,7 +50,7 @@ const FILAS = (() => {
   // senão, a anotação do próprio aparelho se for recente.
   function info(id) {
     const c = crowd[id];
-    if (c) return { min: c.minutes, reports: c.reports, at: c.lastAt, shared: true };
+    if (c && Number.isFinite(c.lastAt) && Date.now() - c.lastAt <= SHARED_MAX_AGE) return { min: c.minutes, reports: c.reports, at: c.lastAt, shared: true };
     const w = STORE.data.waits[id];
     if (w && Date.now() - w.at < LOCAL_MAX_AGE) return { min: w.min, reports: 1, at: w.at, shared: false };
     return null;

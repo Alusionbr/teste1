@@ -1,6 +1,6 @@
 # Mapa do Parque — Beto Carrero World
 
-Mapa interativo do parque com **GPS em tempo real**, **rota a pé**, **fila anotada**, **roteiro do dia** e **grupo sincronizado** (ver onde cada pessoa está). Roda no navegador do celular, instala como app e funciona **sem internet** depois de aberto uma vez (só o grupo precisa de conexão).
+Mapa interativo do parque com **GPS em tempo real**, **rota a pé**, **fila anotada**, **roteiro do dia** e **grupo sincronizado** (ver onde cada pessoa está). Roda no navegador do celular, instala como app e mantém mapa, GPS e dados já baixados **sem internet** depois de aberto uma vez. Grupo e atualizações colaborativas precisam de conexão.
 
 Endereço publicado: `https://alusionbr.github.io/teste1/parque/`
 
@@ -16,9 +16,9 @@ Endereço publicado: `https://alusionbr.github.io/teste1/parque/`
 8. **Atrações sem posição** (Rebuliço, Spin Blast, Super Soaker, Turbo Drive, Hot Wheels Epic Show…): estão na lista com área, altura e horário. Na frente delas, toque no nome → **Estou aqui agora**.
 9. **⏰ Hora do Show** (atalho no topo ou aba *Shows*): horários oficiais do dia e, quando um show grande vai começar (Hot Wheels Epic Show, Excalibur, Madagascar Circus), aviso com vibração e o **plano dos brinquedos disputados** em ordem de caminhada. *Seguir o plano* traça a rota de um por um.
 10. **Altura**: em Ajustes, coloque a altura da pessoa mais baixa; o app marca ⛔ o que ela não pode ir (altura mínima oficial) e tira do plano.
-11. **Caminhos aprendidos**: enquanto vocês andam, o trajeto (sem nome, só com GPS bom) ensina o mapa por onde dá para passar. As rotas deixam de ser linha reta e passam a seguir os caminhos reais, e ficam melhores ao longo do dia. Dá para desligar em Ajustes.
+11. **Caminhos aprendidos**: a contribuição começa desligada. Se você a ativar em Ajustes, o app envia trechos do trajeto com GPS bom e um identificador estável do aparelho, sem nome nem grupo. Desligar interrompe coleta e envio; você escolhe se descarta o que ficou pendente.
 12. **Almoço**: em Ajustes defina o horário (padrão 11:30). O app avisa 15 min antes e a aba *Dia* lista os restaurantes oficiais, os mais perto primeiro, com a fila ao vivo. Botões: *Estou comendo aqui* (o grupo vê) e *Chamar grupo p/ almoçar* (manda o restaurante como ponto de encontro). Sobre o pico (12:00–13:30): é uma dica comum de visitantes, não dado do parque.
-13. **Meu dia**: a aba *Dia* monta uma linha do tempo a partir de agora: disputados antes do almoço, almoço, disputados de novo durante o Hot Wheels Epic Show, o resto à tarde e os shows do fim da tarde. *Seguir o plano do dia* traça a rota de uma parada para a outra.
+13. **Meu dia**: a aba *Dia* monta uma linha do tempo a partir de agora: disputados antes do almoço, almoço, disputados de novo durante o Hot Wheels Epic Show, o resto à tarde e os shows escolhidos. Em *Shows*, marque **Quero assistir** para conservar uma sessão como compromisso. O roteiro fica salvo e permite pausar, pular e desfazer.
 14. **Rota com curvas**: a faixa de navegação diz "Em 40 m vire à esquerda" e recalcula sozinha se você sair da rota.
 15. **Fila ao vivo**: quando alguém informa a fila de uma atração, todo mundo que usa o app vê "~X min" no mapa e no detalhe (mediana da última hora; só vai o número, sem posição nem nome). Quanto mais gente informar, melhor fica.
 16. **Roteiro** (☰ → Roteiro): progresso do dia, próximo favorito mais perto e linha do tempo do que você já foi.
@@ -37,13 +37,14 @@ Privacidade: a posição só é enviada com o app aberto e só quem tem o códig
 ## Limitações conhecidas
 
 - O desenho vem do **OpenStreetMap** (outubro de 2026). Atrações e horários vêm da **lista oficial do parque** (conferida em 16/10/2026, em `oficial.js`). Atração sem posição no OSM depende de alguém marcar "Estou aqui agora".
-- Ruas e caminhos: o mapa público tem só ~100 trechos dentro do parque. A rota é calculada numa grade que desvia de prédios e lagos e prefere caminhos conhecidos; quando não há caminho conhecido ela aparece em roxo ("rota estimada"). Cada pessoa com o app aberto ensina os caminhos (linha verde no mapa). Dá para ligar/desligar cada camada em Ajustes.
+- Ruas e caminhos: o mapa público tem poucos trechos dentro do parque. A rota calculada nunca abre prédios ou água; quando não encontra ligação segura, mostra apenas uma direção aproximada e pede para seguir a sinalização. A contribuição opcional de visitantes melhora os caminhos conhecidos sem desbloquear obstáculos.
 - **Posições aproximadas (≈)**: atração que o mapa público não tem aparece pela pista do texto oficial ou pelo centro da área onde o parque diz que ela fica (marcador tracejado). Na frente dela, *Estou aqui agora* marca o ponto exato para todo mundo.
 - Ainda sem nenhuma posição: Vila da Galinha Pintadinha (Papo de Galinheiro, Dodói), fotos com personagens, Esculturas Romero Britto, Trem Zaragoza e Fini — o texto oficial não dá pista.
 - Hot Wheels Extreme Kids (jipes elétricos, 4 a 10 anos, pago à parte) não está na lista oficial de atrações; veio de guias de visitantes. Confirme no parque.
 - Lugares do OSM que saíram da lista oficial (Star Mountain, cinemas, zoológico…) aparecem apagados com aviso de "pode estar fechado".
 - O GPS do celular tem erro de 5 a 30 m, maior perto de prédios altos e embaixo de árvores. O número ao lado de "GPS ±" mostra o erro atual.
 - A duração dos shows é estimada em 40 min (o parque não publica). Confira sempre a placa de altura na entrada do brinquedo.
+- A programação varia por data e pode mudar sem aviso. Os horários salvos no app refletem a consulta indicada em `oficial.js`; confirme a programação do dia nos canais e placas do parque.
 
 ## Arquivos
 
@@ -63,11 +64,11 @@ parque/
 ├── lugares.js           junta oficial + OSM + marcações da comunidade
 ├── show.js              Hora do Show: sessões e plano dos disputados
 ├── dia.js               almoço e plano do dia
-├── trilhas.js           caminhos aprendidos (trajeto anônimo → rotas reais)
+├── trilhas.js           contribuição opcional de caminhos para melhorar rotas
 ├── ui.js                telas e eventos
 ├── sw.js                cache offline
 ├── manifest.webmanifest / icon.svg
-└── supabase/            001, 002 e 003 (aplicar em ordem)
+└── supabase/            migrações 001–004 (aplicar em ordem)
 ```
 
 ## Para continuar o desenvolvimento (com outra pessoa ou outra IA)

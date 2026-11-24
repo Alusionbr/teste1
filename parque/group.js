@@ -28,17 +28,29 @@ const GROUP = (() => {
   let lastOkAt = 0;
   let status = "";
   let seenPins = null;
+  let session = 0;
+  let activeSyncCtl = null;
+  let activeSyncDone = null;
   const listeners = [];
 
   const d = () => STORE.data;
   const active = () => !!d().group.code;
 
-  async function rpc(fn, body) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+  async function rpc(fn, body, options) {
+    const ctl = new AbortController();
+    const external = options && options.signal;
+    const abort = () => ctl.abort();
+    if (external) {
+      if (external.aborted) ctl.abort();
+      else external.addEventListener("abort", abort, { once: true });
+    }
+    const timeout = setTimeout(() => ctl.abort(), 12000);
+    let res;
+    try { res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+      body: JSON.stringify(body), signal: ctl.signal
+    }); } finally { clearTimeout(timeout); if (external) external.removeEventListener("abort", abort); }
     if (!res.ok) {
       let msg = res.status + "";
       try { msg = (await res.json()).message || msg; } catch (e) { /* resposta sem JSON */ }
@@ -64,6 +76,8 @@ const GROUP = (() => {
     code = (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (code.length < 6) throw new Error("O código do grupo tem 6 letras/números.");
     d().group.code = code;
+    session++;
+    busy = false;
     if (!d().group.memberId) d().group.memberId = STORE.uid("m");
     if (name) d().profile.name = name.trim().slice(0, 24);
     myColor();
@@ -79,12 +93,17 @@ const GROUP = (() => {
 
   async function leave() {
     const { code, memberId } = d().group;
+    const pending = activeSyncDone;
+    if (activeSyncCtl) activeSyncCtl.abort();
+    session++;
+    busy = false;
     stop();
     d().group.code = "";
     STORE.save();
     members = [];
     pins = [];
     emit();
+    if (pending) await pending;
     if (code && memberId) {
       try { await rpc("parque_sair", { p_group: code, p_member: memberId }); } catch (e) { /* sem rede: some sozinho em 3 h */ }
     }
@@ -94,24 +113,33 @@ const GROUP = (() => {
     if (!active() || busy) return;
     if (document.visibilityState === "hidden") return;
     busy = true;
+    const syncCtl = new AbortController();
+    let settle;
+    activeSyncCtl = syncCtl;
+    activeSyncDone = new Promise(resolve => { settle = resolve; });
+    const requestSession = session;
+    const requestCode = d().group.code;
+    const requestMember = d().group.memberId;
     const me = GPS.current();
+    const fresh = me && !me.manual && Date.now() - me.at < 30000;
     try {
       const out = await rpc("parque_sync", {
-        p_group: d().group.code,
-        p_member: d().group.memberId,
+        p_group: requestCode,
+        p_member: requestMember,
         p_name: d().profile.name || "Sem nome",
         p_color: myColor(),
-        p_lat: me ? me.lat : null,
-        p_lon: me ? me.lon : null,
-        p_acc: me ? Math.round(me.acc) : null,
-        p_heading: me && me.heading != null ? Math.round(me.heading) : null,
+        p_lat: fresh ? me.lat : null,
+        p_lon: fresh ? me.lon : null,
+        p_acc: fresh ? Math.round(me.acc) : null,
+        p_heading: fresh && me.heading != null ? Math.round(me.heading) : null,
         p_status: status
-      });
-      lastSent = me ? { x: me.x, y: me.y } : lastSent;
+      }, { signal: syncCtl.signal });
+      if (requestSession !== session || requestCode !== d().group.code || requestMember !== d().group.memberId) return;
+      if (fresh) lastSent = { x: me.x, y: me.y };
       const serverNow = new Date(out.now).getTime();
       members = (out.members || [])
-        .filter(m => m.member_id !== d().group.memberId && m.lat != null)
-        .map(m => Object.assign(m, { ageSec: Math.max(0, Math.round((serverNow - new Date(m.updated_at).getTime()) / 1000)) }));
+        .filter(m => m.member_id !== requestMember && m.lat != null)
+        .map(m => Object.assign(m, { ageSec: m.position_at ? Math.max(0, Math.round((serverNow - new Date(m.position_at).getTime()) / 1000)) : null }));
       announceNewPins(out.pins || []);
       pins = out.pins || [];
       online = true;
@@ -120,8 +148,9 @@ const GROUP = (() => {
       online = false;
       if (/invalido/.test(e.message)) UI.toast("Código de grupo inválido");
     } finally {
-      busy = false;
-      emit();
+      settle();
+      if (activeSyncCtl === syncCtl) { activeSyncCtl = null; activeSyncDone = null; }
+      if (requestSession === session) { busy = false; emit(); }
     }
   }
 

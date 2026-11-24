@@ -19,8 +19,7 @@
  *
  * A* acha o caminho de menor custo; assim a rota gruda nos caminhos conhecidos
  * quando compensa e atravessa praça aberta quando é o jeito. Origem e destino
- * ficam livres num raio de LIVRE_M (o destino costuma ser um prédio de
- * atração; a origem pode estar dentro dele por erro de GPS).
+ * são ligados à célula caminhável mais próxima sem alterar prédios ou água.
  *
  * Resultado:
  *   kind "caminho"  ≥ 60% do trajeto sobre caminho conhecido
@@ -31,7 +30,6 @@
 
 const ROUTE = (() => {
   const CELL = 3;
-  const LIVRE_M = 15;
   const JANELA_M = 160;           // A* primeiro numa janela em volta da origem e do destino
   const PESO_H = 0.8;             // heurística um pouco "gulosa": rápida e boa o bastante
   const MAX_DESVIO = 3;           // trajeto > 3× a reta = provável erro do mapa
@@ -124,7 +122,7 @@ const ROUTE = (() => {
   let aprendidoCelulas = 0;
   function setTrilhas(trilhas) {
     cost = base.slice();
-    aprendidoCelulas = paint(cost, trilhas || [], COST.aprendido, "min", true);
+    aprendidoCelulas = paint(cost, trilhas || [], COST.aprendido, "min", false);
   }
 
   // ---- A* -----------------------------------------------------------------
@@ -191,39 +189,23 @@ const ROUTE = (() => {
     return null;
   }
 
-  // Libera o ponto de origem/destino para o roteador poder entrar e sair.
-  // 1) abre um raio de LIVRE_M em volta (guarda os valores para restaurar);
-  // 2) se o ponto está dentro de um prédio maior que isso (teatro, cinema), abre um
-  //    corredor reto até o chão livre mais próximo, senão a rota nunca sairia de lá.
-  function liberar(p, undo) {
-    const c = col(p.x), r = row(p.y), rad = Math.ceil(LIVRE_M / CELL);
-    const aberto = new Set();
-    const abrir = i => { if (cost[i] === 0) { undo.push([i, 0]); cost[i] = COST.dentro; } aberto.add(i); };
-    for (let dc = -rad; dc <= rad; dc++) {
-      for (let dr = -rad; dr <= rad; dr++) {
-        if (dc * dc + dr * dr <= rad * rad && inGrid(c + dc, r + dr)) abrir(idx(c + dc, r + dr));
-      }
-    }
-    let melhor = null, melhorD = Infinity;
-    for (let k = rad + 1; k <= rad + 25 && !melhor; k++) {
+  // Liga o ponto ao chão caminhável mais próximo sem abrir obstáculos.
+  function acesso(p) {
+    const c = col(p.x), r = row(p.y);
+    if (inGrid(c, r) && cost[idx(c, r)] > 0) return { c, r };
+    for (let k = 1; k <= 25; k++) {
+      let melhor = null, melhorD = Infinity;
       for (let dc = -k; dc <= k; dc++) {
         for (let dr = -k; dr <= k; dr++) {
           if (Math.max(Math.abs(dc), Math.abs(dr)) !== k || !inGrid(c + dc, r + dr)) continue;
           const i = idx(c + dc, r + dr);
           const d = dc * dc + dr * dr;
-          if (cost[i] > 0 && !aberto.has(i) && d < melhorD) { melhorD = d; melhor = [c + dc, r + dr]; }
+          if (cost[i] > 0 && d < melhorD) { melhorD = d; melhor = { c: c + dc, r: r + dr }; }
         }
       }
+      if (melhor) return melhor;
     }
-    if (melhor) {
-      // Corredor de ~3 células de largura: com 1 célula na diagonal a regra de "não cortar quina" travava a saída.
-      stepLine([[p.x, p.y], [cx(melhor[0]), cy(melhor[1])]], i => {
-        const ci = i % W, ri = (i / W) | 0;
-        for (const [dc, dr] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (inGrid(ci + dc, ri + dr)) abrir(idx(ci + dc, ri + dr));
-        }
-      });
-    }
+    return null;
   }
 
   // Douglas-Peucker: tira pontos que quase não mudam a direção.
@@ -257,16 +239,23 @@ const ROUTE = (() => {
     return l;
   }
 
+  function segmentoLivre(a, b) {
+    const steps = Math.max(1, Math.ceil(GEO.dist(a, b) / 1.5));
+    for (let s = 0; s <= steps; s++) {
+      const c = col(a.x + (b.x - a.x) * s / steps), r = row(a.y + (b.y - a.y) * s / steps);
+      if (!inGrid(c, r) || cost[idx(c, r)] === 0) return false;
+    }
+    return true;
+  }
+
+  const rotaLivre = pts => pts.every((p, i) => !i || segmentoLivre(pts[i - 1], p));
+
   function plan(from, to) {
     const reta = GEO.dist(from, to);
     const direto = { points: [from, to], length: reta, straight: true, kind: "reta", confirmed: 0 };
-    if (reta < 25) return direto;
-    const sc = col(from.x), sr = row(from.y), gc = col(to.x), gr = row(to.y);
-    if (!inGrid(sc, sr) || !inGrid(gc, gr)) return direto;
-
-    const undo = [];
-    liberar(from, undo);
-    liberar(to, undo);
+    const sa = acesso(from), ga = acesso(to);
+    if (!sa || !ga) return direto;
+    const sc = sa.c, sr = sa.r, gc = ga.c, gr = ga.r;
     const s = idx(sc, sr), g = idx(gc, gr);
     const pad = Math.ceil(JANELA_M / CELL);
     const janela = { c0: Math.min(sc, gc) - pad, c1: Math.max(sc, gc) + pad, r0: Math.min(sr, gr) - pad, r1: Math.max(sr, gr) + pad };
@@ -283,22 +272,32 @@ const ROUTE = (() => {
         if (c > 0 && c <= CONHECIDO_MAX) conhecido += d;
       }
     }
-    for (const [i, v] of undo) cost[i] = v;
     if (!cells) return direto;
 
-    let pts = cells.map(i => ({ x: cx(i % W), y: cy((i / W) | 0) }));
-    pts[0] = { x: from.x, y: from.y };
-    pts[pts.length - 1] = { x: to.x, y: to.y };
-    pts = simplificar(pts, 3.5);
+    let grade = cells.map(i => ({ x: cx(i % W), y: cy((i / W) | 0) }));
+    if (grade.length === 1) {
+      if (segmentoLivre(from, to)) return direto;
+      grade = [grade[0], { x: grade[0].x, y: grade[0].y }];
+    }
+    let pts = simplificar(grade, 3.5);
+    if (!rotaLivre(pts)) pts = grade;
     const length = comprimento(pts);
     if (length > reta * MAX_DESVIO) return direto;
     const confirmed = total ? conhecido / total : 0;
-    return { points: pts, length, straight: false, kind: confirmed >= MIN_CONFIRMADO ? "caminho" : "estimada", confirmed };
+    const startOffset = GEO.dist(from, pts[0]);
+    const destinationOffset = GEO.dist(pts[pts.length - 1], to);
+    return {
+      points: pts, length, straight: false,
+      kind: confirmed >= MIN_CONFIRMADO ? "caminho" : "estimada", confirmed,
+      startOffset, destinationOffset, accessTarget: destinationOffset > 6
+    };
   }
 
   // Posição do usuário projetada na rota: índice do trecho e distância até o fim.
   function progresso(route, me) {
     const pts = route.points;
+    if (!pts || !pts.length) return { seg: 0, foraDaRota: Infinity, resta: 0 };
+    if (pts.length === 1) return { seg: 0, foraDaRota: GEO.dist(me, pts[0]), resta: GEO.dist(me, pts[0]) };
     let best = { seg: 0, d: Infinity, t: 0 };
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
