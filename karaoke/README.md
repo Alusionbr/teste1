@@ -18,6 +18,12 @@ O botão 🎬 no palco percorre os quatro fundos a partir do que aparece na tela
 3. **Playlist** — adicione as músicas. O app sugere o próximo cantor (rodízio: quem cantou menos vai primeiro). Marque **Dueto** para dois cantores.
 4. **▶ Começar karaokê** — tela cheia com “Agora é a vez de…”, contagem, letra no estilo karaokê e, no fim, o **aplausômetro** (mede o barulho da plateia pelo microfone; não mede afinação e não grava nada).
 
+### Conhecer, testar e compartilhar o projeto
+
+O QR **“Gostou da festa?”** aparece só em telas grandes (a partir de 900×600), nas pausas de uma playlist: aplausos e fim. Fica por até 25 segundos e só volta depois de 15 minutos. Nunca aparece durante canto, contagem, ensaio, gravação ou erro. O QR da sala tem prioridade. Fechar o convite o dispensa até encerrar a sessão do navegador; em **Ajustes → Conheça o projeto**, é possível desligar ou reativar.
+
+O destino é a página pública `projeto.html`, com apresentação, botão para experimentar, compartilhamento/cópia do link e sugestões via GitHub. O QR não carrega código de sala nem dados da família. Não há pedido de dinheiro ou funcionalidade de pagamento nesta etapa. A página e os scripts entram no cache offline do app.
+
 ### Usar a conta do YouTube no navegador da tela
 
 Em **Ajustes → Conta do YouTube**, habilite **Usar minha sessão do YouTube neste navegador** e abra o YouTube para entrar na conta. Faça isso no mesmo navegador e aparelho que exibe o palco. A mudança vale na próxima música, sem interromper a atual.

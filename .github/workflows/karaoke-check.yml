@@ -36,3 +36,5 @@ jobs:
           curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8765/ -o /dev/null
           node karaoke/tests/browser-uso.js
           node karaoke/tests/browser-smoke.js
+          KARAOKE_URL=http://127.0.0.1:8765/ node karaoke/tests/browser-sessao.js
+          KARAOKE_URL=http://127.0.0.1:8765/ node karaoke/tests/browser-projeto.js

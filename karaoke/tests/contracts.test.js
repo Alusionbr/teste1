@@ -5,10 +5,10 @@ const fs=require("node:fs");
 const path=require("node:path");
 const root=path.resolve(__dirname,"..");
 const read=name=>fs.readFileSync(path.join(root,name),"utf8");
-const PAGINAS=["index.html","controle.html"];
+const PAGINAS=["index.html","controle.html","projeto.html"];
 const scriptsDa=html=>[...html.matchAll(/<script src="\.\/([^"?]+)\?v=/g)].map(x=>x[1]);
 
-test("versão única: núcleo, service worker e as duas páginas",()=>{
+test("versão única: núcleo, service worker e as páginas",()=>{
   const version=read("core.js").match(/APP_VERSION="([^"]+)"/)?.[1];
   assert.ok(version);
   assert.match(read("sw.js"),new RegExp(`VERSION = "${version.replaceAll(".","\\.")}"`));
@@ -16,7 +16,7 @@ test("versão única: núcleo, service worker e as duas páginas",()=>{
     const html=read(p);
     assert.equal(html.match(/data-version="([^"]+)"/)?.[1],version,p);
     const refs=[...html.matchAll(/[?&]v=([0-9.]+)/g)].map(x=>x[1]);
-    assert.ok(refs.length>3,p);
+    assert.ok(refs.length>=(p==="projeto.html"?2:4),p);
     assert.deepEqual([...new Set(refs)],[version],p);
   }
 });

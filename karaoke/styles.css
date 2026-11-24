@@ -317,3 +317,29 @@ body.liberandoYT #palco #ytBox iframe{pointer-events:auto}
 .permLinha{display:flex;gap:.6em;align-items:center;justify-content:space-between;margin:.3em 0}
 .permLinha span{flex:1 1 auto}
 #permPessoas li{display:flex;gap:.6em;align-items:center;justify-content:space-between}
+
+/* Convite público: só em pausas, fora do centro do palco e sem animar. */
+.conviteProjeto{position:absolute;right:20px;bottom:20px;z-index:16;width:212px;padding:14px;border:1px solid #655780;border-radius:16px;background:#1d1240;box-shadow:0 4px 24px #0005;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;font-size:14px}
+.conviteProjeto>button{align-self:flex-end;padding:0;min-height:28px;width:28px;font-size:14px;margin:-6px -6px 0 0}
+.conviteProjeto canvas{display:block;width:152px;height:152px;background:#fff;border-radius:4px}
+.conviteProjeto a:focus-visible{outline:3px solid var(--ciano);outline-offset:3px}
+.conviteProjeto small{color:var(--suave);font-size:11px}
+@media(max-width:899px),(max-height:599px){.conviteProjeto{display:none}}
+.paginaProjeto{background:var(--festa)}
+.projetoTopo{max-width:1040px;margin:auto;padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.projetoTopo a{text-decoration:none}
+.projetoTopo .chip{border:1px solid var(--borda);color:var(--suave);font-size:12px}
+.projetoConteudo{max-width:880px;padding:0 24px 40px}
+.projetoAbertura{padding:48px 0 32px}
+.projetoSelo{color:var(--ciano);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.12em}
+.projetoAbertura h1{font-size:clamp(36px,6vw,64px);line-height:1.08;letter-spacing:-.04em;margin:16px 0 24px}
+.projetoLead{color:var(--suave);font-size:20px;max-width:650px;line-height:1.6}
+.projetoAbertura>.botao{margin:12px 0;font-size:18px;padding:14px 22px}
+.projetoComo li{margin:12px 0}
+.projetoParticipar{padding:32px 0}
+.projetoParticipar h2{font-size:28px;line-height:1.2}
+.projetoParticipar>p{color:var(--suave);max-width:640px}
+.projetoParticipar label{margin-top:24px}
+.projetoRodape{color:var(--suave);font-size:14px;text-align:center;padding:36px 0 10px}
+.projetoRodape a{color:var(--ciano)}
+@media(max-width:480px){.projetoTopo{align-items:flex-start;flex-direction:column}.projetoAbertura{padding-top:18px}.projetoLead{font-size:18px}}
